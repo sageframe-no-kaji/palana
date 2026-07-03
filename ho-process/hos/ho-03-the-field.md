@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 03
@@ -85,14 +85,15 @@ Order of work:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+**Did the probe hold on both userlands?** It held, after one execution-time redesign the Think phase had reserved room for. The positional four-line `&&` chain died on paper before it ever ran: an absent `zfs` yields an empty command substitution, the line count shifts, and a positional parse misreads every line after it. The hardened form prefixes every fact with a `palana:` marker—order-independent, noise-immune, empty-value-means-absent. Three userlands verified live: the container answers GNU/no-zfs/no-rsync, the pool VM answers GNU/zfs-2.4.1/rsync-3.4.1, Darwin answers BSD with openrsync—whose "protocol version 29" the version parse correctly refuses to read as a version (dotted-form required). One surprise worth recording: the Alpine-based container reports **GNU**, not BSD—the linuxserver image ships coreutils. BusyBox-classified-as-BSD remains the designed conservative fallback, but no fixture currently exercises it; CI's Darwin runner is the live BSD path.
 
-- **Did the probe hold on both userlands?** What did the real outputs do to the parser?
-- **Boundary resolution against real mountpoints.** Edge cases the pool surfaced.
-- **Cache shape review.** Did the fact groups match how the field view will read them?
-- **Followups for ho-04.**
+**Boundary resolution against real mountpoints.** The pool surfaced one gap in the committed read: `zfs list -H -p -o name,mountpoint` cannot honor "unmounted datasets never match," because an unmounted dataset still reports its would-be mountpoint—an intention, not a location. The `mounted` column now rides along, and `palana/detached` (created, unmounted) correctly resolves its path to the parent. The out-of-tree mountpoint (`palana/svc` at `/opt/services`) proved longest-prefix against nesting, and component-boundary binding keeps `/tank/database` out of `/tank/data`.
+
+**Cache shape review.** As designed: per host, three fact groups, each under its own `discoveredAt`—the field view reads "remembered as of when" straight off the shape. Corrupt-reads-as-empty and the unwritable-disk downgrade (memory-only, discovery unharmed) are both under test. One addition beyond the Think phase: reachable-but-garbled is not a fact—`ProbeParseError` throws rather than recording a lie, while door failures record as unreachable facts with the prior visit's memory retained.
+
+**Followups for ho-04.** The rsync version fact is recorded (`rsyncVersion`, dotted-parse). The flavor fact selects the listing command path—note the container fixture is GNU, so ho-04's BSD listing battery leans on CI's Darwin sshd and recorded transcripts, not the container. Tooling findings for the execution record: SwiftLint's `pattern_matching_keywords` conflicts with swift-format's `UseLetInEveryBoundCaseVariable` (resolved in `.swiftlint.yml`, swift-format canonical), and `limactl show-ssh` is deprecated—the fixture script copies `~/.lima/<vm>/ssh.config` instead.
 
 ---
 
-_Authored: 2026-07-03 (Think phase)._
-_Execution and Reflect: pending—next session opens here._
+_Authored: 2026-07-03 (Think phase). Executed and closed: 2026-07-03._
+_83 tests, 15 suites. PalanaCore 97.48% line coverage against the 90% floor._
