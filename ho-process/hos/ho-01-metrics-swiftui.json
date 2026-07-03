@@ -1,0 +1,64 @@
+{
+  "counters" : {
+    "entryCount" : 5080,
+    "finalSelectionIndex" : 2156,
+    "footprintMBAtAppear" : 25,
+    "footprintMBAtEnd" : 56,
+    "tableFocused" : 1
+  },
+  "phases" : [
+    {
+      "frames" : 127,
+      "hitchesOver33ms" : 0,
+      "hitchesOver100ms" : 0,
+      "maxIntervalMs" : 14.31,
+      "medianIntervalMs" : 8.3300000000000001,
+      "p95IntervalMs" : 8.3300000000000001,
+      "phase" : "settle"
+    },
+    {
+      "frames" : 1194,
+      "hitchesOver33ms" : 0,
+      "hitchesOver100ms" : 0,
+      "maxIntervalMs" : 19.579999999999998,
+      "medianIntervalMs" : 8.3300000000000001,
+      "p95IntervalMs" : 16.670000000000002,
+      "phase" : "arrows-down"
+    },
+    {
+      "frames" : 729,
+      "hitchesOver33ms" : 5,
+      "hitchesOver100ms" : 0,
+      "maxIntervalMs" : 40.130000000000003,
+      "medianIntervalMs" : 8.3300000000000001,
+      "p95IntervalMs" : 25.16,
+      "phase" : "page-down"
+    },
+    {
+      "frames" : 112,
+      "hitchesOver33ms" : 2,
+      "hitchesOver100ms" : 0,
+      "maxIntervalMs" : 34.990000000000002,
+      "medianIntervalMs" : 8.3300000000000001,
+      "p95IntervalMs" : 8.3300000000000001,
+      "phase" : "jump-end-home-end"
+    },
+    {
+      "frames" : 751,
+      "hitchesOver33ms" : 0,
+      "hitchesOver100ms" : 0,
+      "maxIntervalMs" : 18.890000000000001,
+      "medianIntervalMs" : 8.3300000000000001,
+      "p95IntervalMs" : 17.149999999999999,
+      "phase" : "arrows-up"
+    }
+  ],
+  "selectionChanges" : 501,
+  "timings" : {
+    "entriesSetAt" : 612088.47999999998,
+    "fetchMs" : 197.55000000000001,
+    "firstFrameAfterAppearMs" : 164.28,
+    "parseMs" : 53.149999999999999,
+    "tableAppearAt" : 612088.52000000002
+  }
+}
