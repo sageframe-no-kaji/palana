@@ -6,3 +6,57 @@
 # demonstration (Sharibako precedent).
 # Add `ho-process/` below if the project wants the build record private.
 prompts/
+
+# ─── SwiftPM ────────────────────────────────────────────────────────────
+.build/
+.swiftpm/
+Packages/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+# Note: Package.resolved is generally COMMITTED for executables, optional
+# for libraries. Leave it tracked unless you have a deliberate reason.
+
+# ─── Xcode ──────────────────────────────────────────────────────────────
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# ─── Coverage ───────────────────────────────────────────────────────────
+*.profraw
+*.profdata
+coverage/
+*.xctestresult
+
+# ─── Build / distribution artifacts ─────────────────────────────────────
+*.dmg
+*.pkg
+build/
+dist/
+
+# ─── IDEs and editors ───────────────────────────────────────────────────
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# ─── Secrets and local config ───────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+!.env.template
+
+# ─── Project-specific (add below) ───────────────────────────────────────

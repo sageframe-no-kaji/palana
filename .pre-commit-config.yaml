@@ -1,0 +1,67 @@
+# .pre-commit-config.yaml
+#
+# Ho System pre-commit baseline for Swift projects.
+# Conventions match ~/.claude/modules/languages-swift.md.
+#
+# Install hooks: ~/.local/bin/pre-commit install
+# Run manually:  ~/.local/bin/pre-commit run --all-files
+#
+# Requires `swift-format` (ships with the Swift toolchain on macOS; install
+# via `brew install swift-format` on Linux) and `swiftlint` (install via
+# `brew install swiftlint` or `mint install realm/SwiftLint`).
+
+repos:
+  # General hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Swift: format, lint, type-check (compile)
+  - repo: local
+    hooks:
+      - id: swift-format
+        name: swift-format lint
+        entry: swift-format lint --recursive --strict Sources Tests
+        language: system
+        pass_filenames: false
+        files: \.swift$
+
+      - id: swiftlint
+        name: swiftlint --strict
+        entry: swiftlint lint --strict --quiet
+        language: system
+        pass_filenames: false
+        files: \.swift$
+
+      # Target build, not `swift build`: the hook exists to TYPE-CHECK, and
+      # target builds compile without linking the executable product. Full
+      # builds hit a swift-driver incremental bug (Swift 6.2.4 / macOS 26 SDK):
+      # after pre-commit's stash cycle flips source content, the executable's
+      # @main alias object goes stale and linking fails with
+      # `Undefined symbols: _<Target>_main` (Sharibako precedent). The Palana
+      # target pulls in PalanaCore, so all of Sources/ still type-checks.
+      # CI's cold full build remains the link gate.
+      - id: swift-build
+        name: swift build (type-check)
+        entry: swift build --target Palana
+        language: system
+        pass_filenames: false
+        files: \.(swift|json)$
+
+      # `swift test` belongs in CI by default — too slow for the commit gate
+      # on most projects. Uncomment if the project's test suite stays under
+      # ~3 seconds on cold build.
+      # - id: swift-test
+      #   name: swift test
+      #   entry: swift test
+      #   language: system
+      #   pass_filenames: false
+      #   files: \.swift$
