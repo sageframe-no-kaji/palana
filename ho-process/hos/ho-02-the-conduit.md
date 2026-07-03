@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 02
@@ -90,15 +90,34 @@ Order of work:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+### The protocol shape held
 
-- **Did the protocol shape survive contact?** What did the streams' consumers-to-be reveal?
-- **The stderr corpus.** Which failure classes did the fixture actually produce, and did any resist classification?
-- **The timing numbers.** Cold vs multiplexed round-trip. ZFS fixture stand-up, cold and cached.
-- **Coverage.** Where the floor landed and what stayed uncovered, named.
-- **Followups for ho-03.**
+Streaming primitive, collected convenience—no revision needed. One property earned explicit documentation: `RunningCommand` is single-consumer (its streams and exit awaiter are consumed once), which is the honest shape of a process's pipes and costs downstream callers nothing since `collect()` is the common path.
+
+### The stderr corpus
+
+Three classes captured from the fixture into `Tests/PalanaCoreTests/Fixtures/failure-corpus.json`—authentication denied, connection refused, host key verification—and all classify with no `sshFailure` fallthrough. A fourth class arrived unplanned: the first integration run executed tests in parallel against one sshd, tripped its startup throttling, and the drop surfaced as `connectionLost`—the taxonomy typing a failure nobody staged. Integration suites against a single fixture are `.serialized` now, and the lesson is recorded for every downstream ho that tests over the wire.
+
+### The timing numbers
+
+- Session reuse, local container fixture: cold 66.6ms, multiplexed **9.9ms**—6.7×. On the CI runner's sshd: cold 173ms, multiplexed 57ms. The one-command-per-refresh budget ho-04 stands on has its number.
+- ZFS fixture: first-ever run 3m24s, dominated by the one-time image download that belongs to the network. Re-create from nothing with the image cached: **1m05s**—deferred decision 2's two-minute criterion met, with the pool `palana` ONLINE on a file-backed vdev. Steady-state, the VM just starts.
+
+### Coverage
+
+PalanaCore 99.40% lines locally, 98.22% on CI (toolchain variance in region counting). Floor enforced at 90% in CI by `scripts/coverage-floor.sh`. Uncovered: three guard-else regions on the spawn and close paths whose triggers (`Process.run` throwing with a valid binary, `-O exit` failing to spawn) have no honest fixture. Named, accepted.
+
+### What the strict stack taught
+
+swift-format strict demands DocC on every public declaration and one-line summaries with blank continuation—discovered as sixty lint errors after the fact. Public surface gets documented at writing time from ho-03 on. CI's default Xcode ships an older swift-format that cannot read the local config; the workflow selects the newest runner Xcode explicitly.
+
+### Followups for ho-03
+
+- The Field rides `Conduit.run` as-is—no door changes anticipated.
+- The capability probe (deferred decision 3) should also record the remote rsync version—ho-06's `--info=progress2` needs ≥3.1 on the sending side (ho-00 primer).
+- The ZFS fixture VM is left stopped between sessions; `make zfs-fixture` restarts it. ho-03's dataset-boundary tests want datasets created on the pool—transcripts recorded there via `RecordingConduit` become the unit fixtures.
 
 ---
 
 _Authored: 2026-07-03 (Think phase)._
-_Execution and Reflect: pending._
+_Executed and reflected: 2026-07-03. CI green, floor enforced, fixtures standing._
