@@ -1,0 +1,25 @@
+{
+  "entries" : [
+    {
+      "command" : "true",
+      "exit" : 255,
+      "host" : "palana@localhost",
+      "stderr" : "palana@localhost: Permission denied (publickey,keyboard-interactive).\r\n",
+      "stdout" : ""
+    },
+    {
+      "command" : "true",
+      "exit" : 255,
+      "host" : "palana@localhost",
+      "stderr" : "ssh: connect to host localhost port 2: Connection refused\r\n",
+      "stdout" : ""
+    },
+    {
+      "command" : "true",
+      "exit" : 255,
+      "host" : "palana@localhost",
+      "stderr" : "No ED25519 host key is known for [localhost]:2223 and you have requested strict checking.\r\nHost key verification failed.\r\n",
+      "stdout" : ""
+    }
+  ]
+}

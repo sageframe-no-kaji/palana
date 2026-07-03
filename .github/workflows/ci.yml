@@ -1,0 +1,41 @@
+# pālana CI — the verification stack, cold, plus the coverage floor.
+# Pre-commit carries format/lint/type-check per commit; CI is the link
+# gate, the test gate, and the floor's enforcement point (ho-00 handoff).
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: swift-format lint
+        run: xcrun swift-format lint --recursive --strict Sources Tests
+
+      - name: SwiftLint
+        run: |
+          brew install swiftlint
+          swiftlint lint --strict --quiet
+
+      - name: Build (cold, full link)
+        run: swift build
+
+      - name: sshd fixture (runner sshd)
+        run: scripts/ci-sshd-fixture.sh
+
+      - name: Tests with coverage
+        run: swift test --enable-code-coverage
+
+      - name: Coverage floor (PalanaCore ≥90%)
+        run: scripts/coverage-floor.sh 90

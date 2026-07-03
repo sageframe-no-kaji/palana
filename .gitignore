@@ -60,3 +60,4 @@ dist/
 !.env.template
 
 # ─── Project-specific (add below) ───────────────────────────────────────
+.fixtures/
