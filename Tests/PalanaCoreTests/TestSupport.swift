@@ -30,10 +30,13 @@ enum SSHFixture {
         return facts
     }
 
-    /// A per-process control directory so tests never reuse a master
-    /// opened by an earlier run.
-    static var controlDirectory: String {
-        "/tmp/palana-test-cm-\(ProcessInfo.processInfo.processIdentifier)"
+    /// A unique control directory per configuration, so one test's
+    /// deferred closeAll can never tear down another test's master
+    /// mid-command — observed as a 255-with-empty-stderr flake on CI
+    /// when the directory was merely per-process.
+    static func freshControlDirectory() -> String {
+        let suffix = UUID().uuidString.prefix(8)
+        return "/tmp/palana-test-cm-\(ProcessInfo.processInfo.processIdentifier)-\(suffix)"
     }
 
     static func configuration(
@@ -55,7 +58,7 @@ enum SSHFixture {
         }
         let port = portOverride ?? facts["PALANA_FIXTURE_PORT"] ?? "22"
         let configuration = SSHConfiguration(
-            controlDirectory: controlDirectory,
+            controlDirectory: freshControlDirectory(),
             extraOptions: [
                 "-i", identity,
                 "-p", port,
