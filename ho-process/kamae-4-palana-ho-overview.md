@@ -425,4 +425,4 @@ The overview is the map. Each ho is the destination for a Kamae 5 session, which
 
 Update this overview as the build proceeds. A ho that splits gets its successors named here, a checkpoint that fires gets its outcome recorded, a UI/UX session that produces findings gets its resulting hos added in the current build slot. Small frequent updates beat large rare ones. In the autonomous shape this document is also the practitioner's window into a build he is mostly not watching — checkpoint outcomes, halt-and-surface records, and UI/UX findings all land here, so a two-week absence ends with one read: where the build is, what was decided, what comes next.
 
-The next session is **ho-00 — Orientation**, opened via the Kamae 5 collaborator once the scaffold stands.
+**Build record.** ho-00 closed 2026-07-03 — scaffold verified green end to end, four primers written, ho shape conventions committed (`ho-process/hos/ho-00-orientation.md`). CI assigned to ho-02. The next session is **ho-01 — The Spike**, opened via the Kamae 5 collaborator.
