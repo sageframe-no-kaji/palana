@@ -71,3 +71,25 @@ Asked where the topology view lives relative to the panes:
 One paragraph, for the seed to inherit:
 
 pālana looks and feels like Typora reads — calm, spare, two or three colors, nothing on screen that isn't working. It moves like yazi — keyboard-first, fluid, never a stutter. Its one monospace zone is the plan panel, where the operation's truth is displayed before Enter enacts it. The field view is summoned, consulted, dismissed. It is a consumer app in its manners and an operator's tool in its engine — the calm is the point, because the calm is what tending feels like when the tool isn't fighting you.
+
+---
+
+## Addendum, July 3, 2026 — second round of design signal
+
+Given mid-run, while the System Design was drafting. His words, then the commitments.
+
+> "QSpace Pro. Smooth and simple. Feels too MAC but the smoothness is good."
+
+> "We should have a terminal built in, in fact, the pane that shows what is going to happen COULD echo in a real terminal."
+
+> "I LOVE the keyboard shortcuts in yazi — cc to copy path, etc. All of that good stuff to copy and paste!"
+
+> "Marta is nice as well. But Typora is much better. Basically, it should match my vision for Sutra (sorry the design isn't done yet!)"
+
+**The Sutra register governs.** Sutra's System Design states the vision pālana now inherits: "The app should feel like a good notebook. Calm. Almost no chrome. Buttons that appear and recede. The writing is the foreground. Everything else is background until called." Warm ground, near-black ink, one interactive accent color, mono only where the record lives. pālana matches that register — the notebook calm, the single accent, the receding chrome — with its own palette values. Substitute "the files" for "the writing" and the sentence is pālana's.
+
+**Too-Mac is a named failure mode.** QSpace Pro has the smoothness and overshoots the platform: it reads as Apple furniture. pālana takes the smoothness and keeps the notebook voice. Reference ladder, descending: Typora, Marta, QSpace Pro (smoothness only), yazi (keyboard only).
+
+**The plan panel is a real terminal surface.** Not monospace styling — a terminal-grade view. The plan shows the exact commands before enactment, and when Enter fires, the enactment echoes there live: the real commands, the real output, streaming. The interface's claim that "these are the commands" becomes checkable by watching them run. An interactive terminal (type into it, per host) is a Workbench tool for later — the v1 commitment is the echo, not the shell.
+
+**yazi's clipboard verbs come along.** cc-style copy-path, copy-name, copy-directory — the small keyboard vocabulary that makes a file manager useful between other tools. The keyboard-grammar ho inherits yazi's verb set as its starting point, pruned by the practitioner's hands in the first UI/UX session.

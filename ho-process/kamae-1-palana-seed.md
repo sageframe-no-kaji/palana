@@ -214,3 +214,11 @@ And this time, one more: whether the methodology itself can be handed to the age
 **Soul:** A place to sit down and tend your infrastructure — where the work of care becomes a practice with tools, presence, and memory.
 
 **Body:** A native macOS application in Swift — a calm, keyboard-first, dual-pane file manager that plans every operation before enacting it, runs moves and copies server-side over SSH, speaks ZFS natively, and holds a plugin workbench that grows with the practice.
+
+---
+
+## Seed notes
+
+_The seed is a living parti. Revisions arrive as dated notes, not rewrites._
+
+**July 3, 2026.** Second round of design signal (pre-seed-2 addendum): the visual register is Sutra's — the good notebook, almost no chrome, one interactive accent, everything background until called. And the plan panel graduates from monospace styling to a real terminal surface: the plan's commands echo there live when enacted, output streaming. The claim "these are the commands" becomes checkable by watching them run. An interactive terminal is a Workbench tool for later. yazi's clipboard verbs (copy path, copy name) join the keyboard grammar's starting vocabulary.
