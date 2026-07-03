@@ -1,0 +1,18 @@
+{
+  "entries" : [
+    {
+      "command" : "echo \"palana:kernel:$(uname -s)\"; if stat --version >\/dev\/null 2>&1; then echo \"palana:flavor:GNU\"; else echo \"palana:flavor:BSD\"; fi; echo \"palana:zfs:$(zfs version 2>\/dev\/null | head -n 1)\"; echo \"palana:rsync:$(rsync --version 2>\/dev\/null | head -n 1)\"",
+      "exit" : 0,
+      "host" : "lima-palana-zfs",
+      "stderr" : "",
+      "stdout" : "palana:kernel:Linux\npalana:flavor:GNU\npalana:zfs:zfs-2.4.1-1ubuntu5\npalana:rsync:rsync  version 3.4.1  protocol version 32\n"
+    },
+    {
+      "command" : "zfs list -H -p -o name,mountpoint,mounted -t filesystem",
+      "exit" : 0,
+      "host" : "lima-palana-zfs",
+      "stderr" : "",
+      "stdout" : "palana\t\/palana\tyes\npalana\/detached\t\/palana\/detached\tno\npalana\/legacy\tlegacy\tno\npalana\/svc\t\/opt\/services\tyes\npalana\/svc\/baserow\t\/opt\/services\/baserow\tyes\npalana\/tank\t\/palana\/tank\tyes\npalana\/tank\/media\t\/palana\/tank\/media\tyes\npalana\/tank\/media\/photos\t\/palana\/tank\/media\/photos\tyes\n"
+    }
+  ]
+}

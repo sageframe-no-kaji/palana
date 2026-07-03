@@ -46,6 +46,10 @@ opt_in_rules:
   - fatal_error_message
   - file_header
   - first_where
+  # pattern_matching_keywords stays OUT of this list: it conflicts with
+  # swift-format's UseLetInEveryBoundCaseVariable (SwiftLint wants
+  # `case let .foo(a, b)`; swift-format wants `case .foo(let a, let b)`).
+  # swift-format is the canonical formatter, so its shape wins.
   - flatmap_over_map_reduce
   - force_unwrapping
   - identical_operands
@@ -67,7 +71,6 @@ opt_in_rules:
   - operator_usage_whitespace
   - overridden_super_call
   - override_in_extension
-  - pattern_matching_keywords
   - prefer_self_in_static_references
   - prefer_self_type_over_type_of_self
   - prefer_zero_over_explicit_init

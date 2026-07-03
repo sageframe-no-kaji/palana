@@ -20,7 +20,11 @@ enum SSHFixture {
     }
 
     static func facts() throws -> [String: String] {
-        let text = try String(contentsOf: envFile, encoding: .utf8)
+        try parseEnv(envFile)
+    }
+
+    static func parseEnv(_ url: URL) throws -> [String: String] {
+        let text = try String(contentsOf: url, encoding: .utf8)
         var facts: [String: String] = [:]
         for line in text.split(separator: "\n") {
             let pair = line.split(separator: "=", maxSplits: 1)
@@ -74,5 +78,30 @@ enum SSHFixture {
     enum KnownHostsMode {
         case fixture
         case emptyStrict
+    }
+}
+
+/// The ZFS fixture — the Lima VM's throwaway pool.
+///
+/// Reached through lima's own ssh config via `-F`. Facts in
+/// .fixtures/zfs.env, written by scripts/zfs-fixture.sh. Absent file:
+/// the tests skip, visibly.
+enum ZFSFixture {
+    static let envFile = SSHFixture.repoRoot.appendingPathComponent(".fixtures/zfs.env")
+
+    static var available: Bool {
+        FileManager.default.fileExists(atPath: envFile.path)
+    }
+
+    static func configuration() throws -> (configuration: SSHConfiguration, host: String) {
+        let facts = try SSHFixture.parseEnv(envFile)
+        let configuration = SSHConfiguration(
+            controlDirectory: SSHFixture.freshControlDirectory(),
+            extraOptions: [
+                "-F", facts["PALANA_ZFS_SSH_CONFIG"] ?? "",
+                "-o", "ConnectTimeout=10",
+            ]
+        )
+        return (configuration, facts["PALANA_ZFS_HOST"] ?? "lima-palana-zfs")
     }
 }

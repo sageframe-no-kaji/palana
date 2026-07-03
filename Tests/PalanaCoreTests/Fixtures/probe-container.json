@@ -1,0 +1,11 @@
+{
+  "entries" : [
+    {
+      "command" : "echo \"palana:kernel:$(uname -s)\"; if stat --version >\/dev\/null 2>&1; then echo \"palana:flavor:GNU\"; else echo \"palana:flavor:BSD\"; fi; echo \"palana:zfs:$(zfs version 2>\/dev\/null | head -n 1)\"; echo \"palana:rsync:$(rsync --version 2>\/dev\/null | head -n 1)\"",
+      "exit" : 0,
+      "host" : "palana@localhost",
+      "stderr" : "",
+      "stdout" : "palana:kernel:Linux\npalana:flavor:GNU\npalana:zfs:\npalana:rsync:\n"
+    }
+  ]
+}
