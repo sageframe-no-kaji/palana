@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# ─── Ho System build record and private prompts ─────────────────────────
+# Note: ho-process/ is NOT ignored. The build record is part of the
+# demonstration (Sharibako precedent).
+# Add `ho-process/` below if the project wants the build record private.
+prompts/

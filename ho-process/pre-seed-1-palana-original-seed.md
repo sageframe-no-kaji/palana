@@ -1,7 +1,9 @@
-# Project Seed: pālana
+# Pre-Seed 1: pālana (original seed)
 
 _Kṣetra-Ops Suite — Operational Workbench_
 _Seed created: March 22, 2026_
+
+> **Demoted to pre-seed, July 3, 2026.** The practitioner redirected the project: native macOS, Swift end to end, Forteller removed as a dependency, and the build run fully autonomously under the Ho System. This document is no longer the Kamae 1 seed — it is input to one. It stands unedited below as the record of what the project believed in March. The current seed is `kamae-1-palana-seed.md`. The design-language capture that joins this document as seed input is `pre-seed-2-palana-design-language.md`.
 
 ---
 
