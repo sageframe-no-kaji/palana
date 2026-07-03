@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 01
@@ -81,14 +81,36 @@ The arc:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+### The verdict: SwiftUI `Table`. `NSTableView` not needed.
 
-- **The verdict and its numbers.** Frame stats, first render, memory—SwiftUI `Table` or `NSTableView`?
-- **Did the ho-00 primers hold?** Where did `Process` orchestration or SSH behavior surprise?
-- **What did first contact with the stack surface** that Phase 2 should know—friction, latency, concurrency behavior?
-- **Checkpoint 1 recommendation.**
+Deferred decision 1 resolves for SwiftUI. The numbers, from `ho-01-metrics-swiftui.json` (raw evidence, committed alongside this document), on the practitioner's hardware—Apple Silicon, 120Hz display, 8.33ms frame budget:
+
+| Measure | Threshold | Measured |
+|---|---|---|
+| Sustained arrows (300 down + 200 up, 30Hz) | median ≤16.7ms, no hitch >100ms | median 8.33ms, max 19.6ms, zero hitches >33ms |
+| Page-down sweep (60 pages, 10Hz, full table) | no hitch >100ms | median 8.33ms, 5 hitches >33ms (worst 40.1ms), zero >100ms |
+| End → Home → End jumps | no hitch >100ms | 2 hitches >33ms (worst 35.0ms), zero >100ms |
+| First render, 5,080 rows | <1s | 164ms |
+| Memory across full traversal | no unbounded growth | 25MB → 56MB, bounded row materialization |
+
+Run validity: the table held key focus (`tableFocused: 1`), selection moved 501 times through the real event dispatch path, fetch was 198ms and parse 53ms for 5,080 entries over real SSH. The table never dropped below the display's own refresh cadence during sustained navigation. The go/no-go answers go.
+
+### Where the ho-00 primer was wrong, and the correction
+
+The primer offered `FileHandle.bytes` as one of two acceptable drain patterns. It is not acceptable. Its iterator issues a blocking `read()` on a cooperative-pool thread, and with two pipes to drain, the second reader starved while ssh blocked writing into the full 64KB stdout pipe—a deadlock observed and sampled, not theorized: the remote `find` had finished, the ssh client sat alive mid-write, and one cooperative thread held a bare `read` syscall. The correction: `readabilityHandler` feeding an `AsyncStream`, which drains on its own dispatch queue and delivers EOF as empty `availableData`. **ho-02's Conduit builds on the readabilityHandler pattern.** The rest of the primer held—termination race handled by setting the handler before `run()`, concurrent drain before awaiting exit.
+
+### What first contact surfaced for Phase 2
+
+- Container-local listing round-trip: ~200ms for 5,080 entries, 353KB, cold ControlMaster-less connection each time. Session reuse (ho-02) attacks exactly this.
+- macOS key semantics at the table: arrows move selection, page/home/end scroll without moving it. The measured final selection index (2156) reflects mixed semantics worth pinning down when the keyboard grammar is designed—ho-07 territory, noted here so it isn't rediscovered.
+- Two spike conveniences worth keeping as patterns, not code: the headless probe target (UI and wire isolated from each other when something hangs) and the watchdog (a hung GUI run self-reports and exits nonzero instead of eating minutes).
+- The sshd fixture stood up in one `docker run` with a spike-only keypair—ho-02's fixture story is confirmed cheap. The spike container is removed with the spike; ho-02 builds its own with a committed script.
+
+### Checkpoint 1 — first contact with the stack: continue as planned
+
+The one genuine go/no-go answered go with an order-of-magnitude margin. SSH orchestration from Swift concurrency surfaced one real trap, now named and corrected into ho-02's design input. No process-handling friction beyond it, no listing-latency surprise, no concurrency behavior that reshapes the plan. **Recommendation: open Phase 2 as planned. No insertions, no replan.** Spike code deleted at close; Phase 2 starts clean.
 
 ---
 
 _Authored: 2026-07-03 (Think phase)._
-_Execution and Reflect: pending._
+_Executed and reflected: 2026-07-03. Spike committed, then deleted—findings graduate, code does not._

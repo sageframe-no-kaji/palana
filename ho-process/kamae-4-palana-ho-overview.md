@@ -425,4 +425,8 @@ The overview is the map. Each ho is the destination for a Kamae 5 session, which
 
 Update this overview as the build proceeds. A ho that splits gets its successors named here, a checkpoint that fires gets its outcome recorded, a UI/UX session that produces findings gets its resulting hos added in the current build slot. Small frequent updates beat large rare ones. In the autonomous shape this document is also the practitioner's window into a build he is mostly not watching — checkpoint outcomes, halt-and-surface records, and UI/UX findings all land here, so a two-week absence ends with one read: where the build is, what was decided, what comes next.
 
-**Build record.** ho-00 closed 2026-07-03 — scaffold verified green end to end, four primers written, ho shape conventions committed (`ho-process/hos/ho-00-orientation.md`). CI assigned to ho-02. The next session is **ho-01 — The Spike**, opened via the Kamae 5 collaborator.
+**Build record.**
+
+- ho-00 closed 2026-07-03 — scaffold verified green end to end, four primers written, ho shape conventions committed (`ho-process/hos/ho-00-orientation.md`). CI assigned to ho-02.
+- ho-01 closed 2026-07-03 — **the go/no-go answers go.** SwiftUI `Table` holds 5,080 real rows at the display's own 120Hz cadence under sustained keyboard navigation, zero hitches over 100ms, first render 164ms. Deferred decision 1 resolved: SwiftUI, no `NSTableView` fallback. One primer correction graduates to ho-02: drain `Process` pipes with `readabilityHandler` streams, never `FileHandle.bytes` (observed deadlock, recorded in the ho). Spike code deleted; evidence in `ho-process/hos/ho-01-metrics-swiftui.json`.
+- **Checkpoint 1 fired 2026-07-03: continue as planned.** No insertions, no replan. Phase 1 complete — tagged v0.1. Next: **ho-02 — The Conduit**.
