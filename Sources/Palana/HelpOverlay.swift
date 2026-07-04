@@ -16,7 +16,8 @@ private struct HelpRow: Identifiable {
 struct HelpOverlay: View {
     private static let navigation = [
         HelpRow(keys: "j / k  ↓ / ↑", what: "cursor down / up"),
-        HelpRow(keys: "h / l  ← / →", what: "parent / enter directory"),
+        HelpRow(keys: "h / l  ← / →", what: "parent / enter dir · open file"),
+        HelpRow(keys: "return", what: "enter directory · open file"),
         HelpRow(keys: "gg / G", what: "top / bottom"),
         HelpRow(keys: "⌃d / ⌃u", what: "half page down / up"),
         HelpRow(keys: "⇞ / ⇟", what: "page up / down"),

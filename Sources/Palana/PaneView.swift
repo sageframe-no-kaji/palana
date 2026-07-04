@@ -45,7 +45,7 @@ struct PaneView: View {
                 .fill(isFocused ? Theme.accent : Theme.inkFaint.opacity(0.25))
                 .frame(width: 7, height: 7)
             if let host = model.state.host {
-                Text(host)
+                Text("\(host):")
                     .fontWeight(.semibold)
                     .foregroundStyle(Theme.ink)
                 pathReadout

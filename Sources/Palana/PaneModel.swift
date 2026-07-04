@@ -139,8 +139,45 @@ final class PaneModel {
     }
 
     private func descend() {
-        guard let host = state.host, let entry = cursorEntry, entry.kind == .directory else { return }
-        point(host: host, path: Self.childPath(of: state.path, name: entry.name))
+        guard let host = state.host, let entry = cursorEntry else { return }
+        switch entry.kind {
+        case .directory:
+            point(host: host, path: Self.childPath(of: state.path, name: entry.name))
+        case .file:
+            openFile(entry, on: host)
+        case .symlink, .other:
+            break  // following symlinks is queued work, not a guess
+        }
+    }
+
+    /// Enter on a file: fetch a temp copy, hand it to the system.
+    ///
+    /// Guarded by size — a pane is not a transfer tool, and the real
+    /// moves belong to the plan panel.
+    private func openFile(_ entry: FileEntry, on host: String) {
+        let ceiling: Int64 = 50_000_000
+        guard entry.size <= ceiling else {
+            lastError = "too large to open here: \(entry.size.formatted(.byteCount(style: .file)))"
+            return
+        }
+        let remotePath = Self.childPath(of: state.path, name: entry.name)
+        isReading = true
+        Task {
+            do {
+                let data = try await self.engine.listing.readFile(on: host, path: remotePath)
+                let directory = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("palana-open", isDirectory: true)
+                try FileManager.default.createDirectory(
+                    at: directory, withIntermediateDirectories: true)
+                let local = directory.appendingPathComponent(entry.name)
+                try data.write(to: local, options: .atomic)
+                self.isReading = false
+                NSWorkspace.shared.open(local)
+            } catch {
+                self.isReading = false
+                self.lastError = Self.describe(error)
+            }
+        }
     }
 
     private func refresh() {

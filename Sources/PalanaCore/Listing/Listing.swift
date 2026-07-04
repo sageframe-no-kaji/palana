@@ -78,4 +78,23 @@ public struct Listing: Sendable {
         case .bsd: try BSDListingParser.parse(result.stdout)
         }
     }
+
+    /// The exact command a file read runs — exposed so tests pin it.
+    public static func readFileCommand(for path: String) -> String {
+        "cat \(ShellQuote.quote(path))"
+    }
+
+    /// Reads one file's bytes in one round trip.
+    ///
+    /// The Surface's open verb — the pane fetches, writes a temp copy,
+    /// and hands it to the system. Composition stays here because the
+    /// Surface never composes shell commands.
+    public func readFile(on host: String, path: String) async throws -> Data {
+        let result = try await conduit.run(on: host, Self.readFileCommand(for: path)).collect()
+        guard result.exitStatus == 0 else {
+            throw ListingError.classify(
+                path: path, exitStatus: result.exitStatus, stderr: result.stderrText)
+        }
+        return result.stdout
+    }
 }
