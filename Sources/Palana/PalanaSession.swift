@@ -62,8 +62,11 @@ final class PalanaSession {
     }
 
     /// Loads the host list and restores the remembered workbench.
+    ///
+    /// This Mac leads the list — always present, always reachable, and
+    /// the go-to bar's safe default.
     func start() async {
-        hosts = await field.hosts()
+        hosts = [Engine.localHost] + (await field.hosts())
         guard let snapshot = SessionStore.load(from: SessionStore.defaultURL()) else { return }
         focusedSide = snapshot.focused
         left.restore(snapshot.left)

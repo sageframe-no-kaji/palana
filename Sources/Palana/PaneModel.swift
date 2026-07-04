@@ -14,12 +14,42 @@ import SwiftUI
 
 /// The engine handles a pane borrows — built once by the session.
 struct Engine: Sendable {
-    /// The single door.
+    /// The reserved host name for the operator's own machine.
+    static let localHost = "local"
+
+    /// The single door to the wire.
     let conduit: SSHConduit
     /// The topology and its facts.
     let field: Field
-    /// The directory reader.
+    /// The directory reader over the wire.
     let listing: Listing
+    /// The door into this Mac — no wire, no sessions.
+    let localConduit = LocalConduit()
+    /// The directory reader over the local shell.
+    let localListing: Listing
+
+    /// Wires both doors.
+    init(conduit: SSHConduit, field: Field, listing: Listing) {
+        self.conduit = conduit
+        self.field = field
+        self.listing = listing
+        self.localListing = Listing(conduit: localConduit)
+    }
+
+    /// True for the operator's own machine.
+    func isLocal(_ host: String) -> Bool {
+        host == Self.localHost
+    }
+
+    /// The reader that speaks to this host.
+    func listing(for host: String) -> Listing {
+        isLocal(host) ? localListing : listing
+    }
+
+    /// The door that reaches this host.
+    func conduit(for host: String) -> any Conduit {
+        isLocal(host) ? localConduit : conduit
+    }
 }
 
 /// One pane: state, rows, status, and the wiring behind them.
@@ -164,7 +194,8 @@ final class PaneModel {
         isReading = true
         Task {
             do {
-                let data = try await self.engine.listing.readFile(on: host, path: remotePath)
+                let data = try await self.engine.listing(for: host)
+                    .readFile(on: host, path: remotePath)
                 let directory = FileManager.default.temporaryDirectory
                     .appendingPathComponent("palana-open", isDirectory: true)
                 try FileManager.default.createDirectory(
@@ -200,7 +231,8 @@ final class PaneModel {
                     path = try await self.resolveTilde(path, host: host)
                 }
                 let flavor = try await self.resolveFlavor(host: host)
-                let entries = try await self.engine.listing.list(on: host, path: path, flavor: flavor)
+                let entries = try await self.engine.listing(for: host)
+                    .list(on: host, path: path, flavor: flavor)
                 guard !Task.isCancelled else { return }
                 self.commit(host: host, path: path, entries: entries)
             } catch {
@@ -235,14 +267,18 @@ final class PaneModel {
 
     /// Asks the host where home is — one round trip, POSIX-plain.
     private func resolveTilde(_ path: String, host: String) async throws -> String {
-        let result = try await engine.conduit.run(on: host, "printf %s \"$HOME\"").collect()
+        let door = engine.conduit(for: host)
+        let result = try await door.run(on: host, "printf %s \"$HOME\"").collect()
         let home = result.stdoutText
         guard result.exitStatus == 0, home.hasPrefix("/") else { return path }
         return path == "~" ? home : home + path.dropFirst(1)
     }
 
     /// The flavor fact, from memory or one discovery round trip.
+    ///
+    /// The local machine is this Mac — Darwin, BSD, no discovery.
     private func resolveFlavor(host: String) async throws -> UserlandFlavor {
+        if engine.isLocal(host) { return .bsd }
         if let flavor = await engine.field.facts(for: host)?.capability?.value.flavor {
             return flavor
         }

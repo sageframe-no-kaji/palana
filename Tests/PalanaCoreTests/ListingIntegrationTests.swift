@@ -9,20 +9,6 @@ import Testing
 
 @testable import PalanaCore
 
-/// A conduit into the local shell — /bin/sh -c, host ignored.
-///
-/// Exists so the BSD listing path can be exercised and recorded against
-/// real Darwin without standing up an sshd. Test infrastructure only.
-struct LocalShellConduit: Conduit {
-    func run(on host: String, _ command: String) async throws -> RunningCommand {
-        try SSHConduit.spawn(executable: "/bin/sh", arguments: ["-c", command])
-    }
-
-    func close(host: String) async {}
-
-    func closeAll() async {}
-}
-
 /// Builds the hostile-name directory the batteries list.
 ///
 /// One command, POSIX sh, works on every fixture userland.
@@ -67,7 +53,7 @@ struct ListingLocalDarwinTests {
 
     @Test("the hostile battery survives the BSD path byte for byte")
     func hostileBattery() async throws {
-        let conduit = LocalShellConduit()
+        let conduit = LocalConduit()
         let setupCommand = hostileSetup.replacingOccurrences(of: "%DIR%", with: Self.dir)
         let setup = try await conduit.run(on: "local", setupCommand).collect()
         #expect(setup.exitStatus == 0, "setup failed: \(setup.stderrText)")
@@ -83,7 +69,7 @@ struct ListingLocalDarwinTests {
 
     @Test("read failures classify from a real shell's stderr")
     func realFailures() async throws {
-        let listing = Listing(conduit: LocalShellConduit())
+        let listing = Listing(conduit: LocalConduit())
         await #expect(throws: ListingError.directoryNotFound(path: "/no/such/palana/dir")) {
             _ = try await listing.list(on: "local", path: "/no/such/palana/dir", flavor: .bsd)
         }
@@ -96,7 +82,7 @@ struct ListingLocalDarwinTests {
         "capture the Darwin listing for the corpus",
         .enabled(if: ProcessInfo.processInfo.environment["PALANA_RECORD_FIXTURES"] == "1"))
     func captureDarwinListing() async throws {
-        let recorder = RecordingConduit(wrapping: LocalShellConduit())
+        let recorder = RecordingConduit(wrapping: LocalConduit())
         let dir = "/tmp/palana-listing-corpus"
         let setupCommand = hostileSetup.replacingOccurrences(of: "%DIR%", with: dir)
         _ = try await recorder.run(on: "local-darwin", setupCommand).collect()
