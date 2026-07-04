@@ -63,6 +63,14 @@ public actor Field {
         memory[host]
     }
 
+    /// A snapshot of all remembered facts — memory only, no wire contact.
+    ///
+    /// Returns the full in-memory dictionary as it stands at call time. A
+    /// field that has never run discovery answers `[:]`.
+    public func allFacts() -> [String: HostFacts] {
+        memory
+    }
+
     /// Discovers a host — the capability probe, then the topology read
     /// when zfs is present, memory and cache updated after.
     ///

@@ -194,6 +194,27 @@ struct FieldTests {
                 == "ssh failed (255): last line")
     }
 
+    @Test("allFacts() returns the remembered snapshot — no wire contact")
+    func allFactsReturnsSnapshot() async throws {
+        let field = Self.makeField()
+        #expect(await field.allFacts().isEmpty, "unvisited field has no facts")
+        try await field.discover("jodo")
+        let snapshot = await field.allFacts()
+        #expect(snapshot["jodo"]?.capability?.value.kernel == "Linux")
+        #expect(snapshot["mac"] == nil, "only discovered hosts appear")
+    }
+
+    @Test("allFacts() on a field built with an empty cache answers [:]")
+    func allFactsEmptyCache() async {
+        let field = Field(
+            conduit: RecordedConduit(transcript: ConduitTranscript()),
+            hosts: [],
+            cache: Self.freshCache(),
+            now: Self.clock
+        )
+        #expect(await field.allFacts().isEmpty)
+    }
+
     @Test("a cache that cannot write downgrades to memory-only, discovery unharmed")
     func unwritableCacheTolerated() async throws {
         let cache = FieldCache(url: URL(fileURLWithPath: "/dev/null/impossible/cache.json"))
