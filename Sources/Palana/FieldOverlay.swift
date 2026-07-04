@@ -196,17 +196,23 @@ struct FieldOverlay: View {
 
     /// The disclosure triangle for a host row with datasets, or an invisible
     /// placeholder that keeps the alias column aligned when datasets are absent.
+    ///
+    /// Sized to be seen and hit — "the little arrow is TINY" (round 3).
     @ViewBuilder
     private func disclosureTriangle(_ hl: FieldOutline.HostLine, index: Int) -> some View {
         if hl.datasetCount > 0 {
-            Text(hl.expanded ? "▾" : "▸")
-                .foregroundStyle(Theme.inkFaint)
+            Text(Image(systemName: "chevron.right"))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .rotationEffect(.degrees(hl.expanded ? 90 : 0))
+                .frame(width: 18, alignment: .center)
+                .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.moveCursor(to: index)
                     viewModel.toggleExpansion()
                 }
         } else {
-            Text("▸").opacity(0)  // same width as triangle — aliases stay in one column
+            Text("").frame(width: 18)  // aliases stay in one column
         }
     }
 
