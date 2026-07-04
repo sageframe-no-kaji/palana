@@ -231,30 +231,35 @@ struct PaneView: View {
     /// had gone down.
     @ViewBuilder
     private func contextMenuItems(for ids: Set<FileEntry.ID>) -> some View {
-        Button("open / enter — return") {
+        Button("open / enter") {
             onFocus()
             if let id = ids.first { model.activate(id) }
         }
+        .keyboardShortcut(.return, modifiers: [])
         Divider()
-        // Keys ride in the labels, lowercase — the shortcut column
-        // renders "Y" for y, a lie in a case-sensitive grammar where
-        // g and G are different verbs.
-        Button("copy to other pane — y") { operate(.copy, ids: ids) }
-        Button("move to other pane — m") { operate(.move, ids: ids) }
-        Button("remove, plan first — r") { operate(.delete, ids: ids) }
+        // Native glyphs where AppKit can draw them (its caps display is
+        // convention, not case), quiet spaced suffixes for the two-key
+        // sequences it cannot — mixed, per the hands.
+        Button("copy to other pane") { operate(.copy, ids: ids) }
+            .keyboardShortcut("y", modifiers: [])
+        Button("move to other pane") { operate(.move, ids: ids) }
+            .keyboardShortcut("m", modifiers: [])
+        Button("remove — plan first") { operate(.delete, ids: ids) }
+            .keyboardShortcut("r", modifiers: [])
         Divider()
-        // Two-key sequences cannot render as menu shortcuts — the key
-        // rides in the label instead, so every verb still names its key.
-        Button("copy path — cc") { model.copyToClipboard(.copyPath, ids: ids) }
-        Button("copy filename — cf") { model.copyToClipboard(.copyFilename, ids: ids) }
-        Button("copy name without extension — cn") {
+        Button("copy path      cc") { model.copyToClipboard(.copyPath, ids: ids) }
+        Button("copy filename      cf") { model.copyToClipboard(.copyFilename, ids: ids) }
+        Button("copy name without extension      cn") {
             model.copyToClipboard(.copyNameSansExtension, ids: ids)
         }
-        Button("copy this directory's path — cd") { model.copyToClipboard(.copyDirectory, ids: ids) }
+        Button("copy this directory's path      cd") {
+            model.copyToClipboard(.copyDirectory, ids: ids)
+        }
         Divider()
-        Button(model.state.showHidden ? "hide hidden files — ." : "show hidden files — .") {
+        Button(model.state.showHidden ? "hide hidden files" : "show hidden files") {
             model.apply(.toggleHidden)
         }
+        .keyboardShortcut(".", modifiers: [])
         Button("refresh") { model.apply(.refresh) }
             .keyboardShortcut("r", modifiers: .command)
     }
