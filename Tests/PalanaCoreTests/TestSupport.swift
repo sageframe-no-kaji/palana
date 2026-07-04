@@ -130,4 +130,10 @@ enum ZFSFixture {
         )
         return (configuration, facts["PALANA_ZFS_HOST"] ?? "lima-palana-zfs")
     }
+
+    /// The VM's second name — the destination host of a "cross-host"
+    /// zfs transfer whose both ends are the same throwaway pool.
+    static func selfAlias() throws -> String {
+        try SSHFixture.parseEnv(envFile)["PALANA_ZFS_SELF"] ?? "zfs-self"
+    }
 }

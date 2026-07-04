@@ -136,7 +136,7 @@ struct PlanCompositionTests {
         #expect(
             plan.steps.map(\.command) == [
                 "zfs snapshot -r tank/media@t1",
-                "zfs send -R tank/media@t1 | ssh koan 'zfs receive rpool/cold/media'",
+                "zfs send -R -v tank/media@t1 | ssh koan 'zfs receive -u rpool/cold/media'",
                 "zfs destroy -r rpool/cold/media@t1",
                 "zfs destroy -r tank/media",
             ])
@@ -168,7 +168,7 @@ struct PlanCompositionTests {
         #expect(
             plan.steps.map(\.command) == [
                 "zfs snapshot -r tank/media@t1",
-                "ssh jodo 'zfs send -R tank/media@t1' | ssh koan 'zfs receive rpool/cold/media'",
+                "ssh jodo 'zfs send -R -v tank/media@t1' | ssh koan 'zfs receive -u rpool/cold/media'",
                 "zfs destroy -r rpool/cold/media@t1",
                 "zfs destroy -r tank/media@t1",
             ])
@@ -225,8 +225,8 @@ struct PlanCorpusTests {
         #expect(
             plan.steps.map(\.command) == [
                 "zfs snapshot -r palana/tank/media/photos@corpus",
-                "zfs send -R palana/tank/media/photos@corpus | "
-                    + "ssh koan 'zfs receive palana/svc/photos'",
+                "zfs send -R -v palana/tank/media/photos@corpus | "
+                    + "ssh koan 'zfs receive -u palana/svc/photos'",
                 "zfs destroy -r palana/svc/photos@corpus",
                 "zfs destroy -r palana/tank/media/photos",
             ])

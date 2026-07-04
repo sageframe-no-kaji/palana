@@ -104,13 +104,13 @@ struct TransportsTests {
             events.contains(
                 .verifying(host: "j", command: "find /tank/a/f1 /tank/a/f2 | wc -l")))
         #expect(
-            events.contains(.verified(VerificationReport(sourceCount: 2, destinationCount: 2))))
+            events.contains(.verified(VerificationReport.counts(source: 2, destination: 2))))
         #expect(events.contains(.stepBegan(index: 1, step: plan.steps[1])))
         #expect(events.last == .finished)
 
         // Verification strictly precedes the gated step.
         let verifiedAt = try #require(
-            events.firstIndex(of: .verified(VerificationReport(sourceCount: 2, destinationCount: 2))))
+            events.firstIndex(of: .verified(VerificationReport.counts(source: 2, destination: 2))))
         let gateAt = try #require(events.firstIndex(of: .stepBegan(index: 1, step: plan.steps[1])))
         #expect(verifiedAt < gateAt)
     }
@@ -126,7 +126,7 @@ struct TransportsTests {
             Self.entry("j", "find /tank/b/f1 /tank/b/f2 | wc -l", stdout: "1\n"),
         ])
         let expected = EnactmentError.verificationFailed(
-            VerificationReport(sourceCount: 2, destinationCount: 1))
+            VerificationReport.counts(source: 2, destination: 1))
         await #expect(throws: expected) {
             _ = try await Self.collect(transports.enact(plan))
         }
@@ -205,12 +205,10 @@ struct TransportsTests {
         }
     }
 
-    @Test("zfs transports refuse in this half, typed for ho-06.2")
-    func zfsUnsupportedHere() async throws {
-        let dataset = ZFSDataset(name: "tank/media", mountpoint: "/tank/media", mounted: true)
+    private static func zfsMove(forwarding: ForwardingFact) throws -> Plan {
         let capability = HostCapability(
             kernel: "Linux", flavor: .gnu, zfs: "zfs-2.2.2", rsync: nil)
-        let plan = try PlanEngine.plan(
+        return try PlanEngine.plan(
             PlanRequest(
                 operation: .move,
                 source: Locus(host: "j", directory: "/tank"),
@@ -220,12 +218,54 @@ struct TransportsTests {
             facts: PlanFacts(
                 destinationDataset: ZFSDataset(
                     name: "rpool/cold", mountpoint: "/rpool/cold", mounted: true),
-                selectionWholeDataset: dataset,
+                selectionWholeDataset: ZFSDataset(
+                    name: "tank/media", mountpoint: "/tank/media", mounted: true),
                 sourceCapability: capability,
                 destinationCapability: capability,
-                agentForwarding: .available))
-        let transports = Self.transports([])
-        let expected = EnactmentError.unsupportedTransport(.zfsSendReceiveForwarded)
+                agentForwarding: forwarding))
+    }
+
+    @Test("a zfs move gates its destroys on the dataset having been received")
+    func zfsMoveEnacts() async throws {
+        let plan = try Self.zfsMove(forwarding: .available)
+        #expect(plan.receivedDataset == "rpool/cold/media")
+        let transports = Self.transports([
+            Self.entry("j", "zfs snapshot -r tank/media@t1"),
+            Self.entry(
+                "j", "zfs send -R -v tank/media@t1 | ssh k 'zfs receive -u rpool/cold/media'"),
+            Self.entry(
+                "k", "zfs list -H -o name rpool/cold/media", stdout: "rpool/cold/media\n"),
+            Self.entry("k", "zfs destroy -r rpool/cold/media@t1"),
+            Self.entry("j", "zfs destroy -r tank/media"),
+        ])
+        let events = try await Self.collect(transports.enact(plan))
+
+        let verified = EnactmentEvent.verified(
+            .datasetReceived(name: "rpool/cold/media", exists: true))
+        #expect(events.contains(verified))
+        #expect(events.last == .finished)
+        let verifiedAt = try #require(events.firstIndex(of: verified))
+        let firstGate = try #require(
+            events.firstIndex(of: .stepBegan(index: 2, step: plan.steps[2])))
+        #expect(verifiedAt < firstGate)
+    }
+
+    @Test("a receive that did not land keeps every destroy unrun")
+    func zfsMissingDatasetHoldsGate() async throws {
+        let plan = try Self.zfsMove(forwarding: .available)
+        // No destroy entries: a gate leak would surface as UnrecordedCommand.
+        let transports = Self.transports([
+            Self.entry("j", "zfs snapshot -r tank/media@t1"),
+            Self.entry(
+                "j", "zfs send -R -v tank/media@t1 | ssh k 'zfs receive -u rpool/cold/media'"),
+            Self.entry(
+                "k",
+                "zfs list -H -o name rpool/cold/media",
+                stderr: "cannot open 'rpool/cold/media': dataset does not exist",
+                exit: 1),
+        ])
+        let expected = EnactmentError.verificationFailed(
+            .datasetReceived(name: "rpool/cold/media", exists: false))
         await #expect(throws: expected) {
             _ = try await Self.collect(transports.enact(plan))
         }

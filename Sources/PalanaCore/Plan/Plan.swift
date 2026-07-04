@@ -168,6 +168,9 @@ public struct Plan: Codable, Sendable, Equatable {
     public var transport: Transport
     /// The commands, in order, gates declared.
     public var steps: [PlanStep]
+    /// The dataset a zfs transport will create at the destination —
+    /// what verification asks for by name. nil on file transports.
+    public var receivedDataset: String?
 
     /// Assembles a plan.
     public init(
@@ -178,7 +181,8 @@ public struct Plan: Codable, Sendable, Equatable {
         source: Locus,
         destination: Locus?,
         transport: Transport,
-        steps: [PlanStep]
+        steps: [PlanStep],
+        receivedDataset: String? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -188,5 +192,6 @@ public struct Plan: Codable, Sendable, Equatable {
         self.destination = destination
         self.transport = transport
         self.steps = steps
+        self.receivedDataset = receivedDataset
     }
 }

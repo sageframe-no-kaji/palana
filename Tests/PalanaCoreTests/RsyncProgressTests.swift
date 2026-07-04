@@ -63,3 +63,53 @@ struct RsyncProgressTests {
         #expect(reports.last?.fraction == 1.0)
     }
 }
+
+@Suite("ZfsSendProgress")
+struct ZfsSendProgressTests {
+    @Test("the header's estimate anchors the fraction")
+    func estimateAnchorsFraction() throws {
+        var parser = ZfsSendProgress()
+        let stream = """
+            full send of palana/t62@t1 estimated size is 10M
+            17:02:03   5.0M   palana/t62@t1
+            17:02:04   10M   palana/t62@t1
+            """
+        let reports = parser.consume(Data((stream + "\n").utf8))
+        #expect(reports.count == 2)
+        #expect(reports.first?.fraction == 0.5)
+        #expect(reports.last?.fraction == 1.0)
+        let bytes = try #require(reports.first?.bytesTransferred)
+        #expect(bytes == 5 * 1024 * 1024)
+    }
+
+    @Test("without an estimate, bytes report and fraction stays honest-nil")
+    func noEstimateNoFraction() {
+        var parser = ZfsSendProgress()
+        let reports = parser.consume(Data("17:02:03   1.5K   tank@s\n".utf8))
+        #expect(reports.first?.bytesTransferred == 1536)
+        #expect(reports.first?.fraction == nil)
+    }
+
+    @Test("a fraction never exceeds one — estimates are estimates")
+    func fractionCapped() {
+        var parser = ZfsSendProgress()
+        let stream = "full send of x@s estimated size is 1K\n17:02:03   4K   x@s\n"
+        #expect(parser.consume(Data(stream.utf8)).first?.fraction == 1.0)
+    }
+
+    @Test("chunk boundaries inside a line do not tear the parse")
+    func chunkBoundary() throws {
+        var parser = ZfsSendProgress()
+        #expect(parser.consume(Data("17:02:03   2.".utf8)).isEmpty)
+        let reports = parser.consume(Data("0M   tank@s\n".utf8))
+        let bytes = try #require(reports.first?.bytesTransferred)
+        #expect(bytes == 2 * 1024 * 1024)
+    }
+
+    @Test("noise lines are not progress")
+    func noiseIgnored() {
+        var parser = ZfsSendProgress()
+        let noise = "warning: cannot send 'x': permission denied\nTIME SENT SNAPSHOT\n"
+        #expect(parser.consume(Data(noise.utf8)).isEmpty)
+    }
+}

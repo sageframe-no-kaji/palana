@@ -121,7 +121,7 @@ struct TransportsIntegrationTests {
         #expect(!progressReports.isEmpty, "progress2 produced observations")
         #expect(progressReports.last?.fraction == 1.0, "the bar finishes at 100 exactly")
         #expect(
-            events.contains(.verified(VerificationReport(sourceCount: 2, destinationCount: 2))))
+            events.contains(.verified(VerificationReport.counts(source: 2, destination: 2))))
         try await Self.assertMoved(world, base: base)
     }
 

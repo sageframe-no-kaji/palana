@@ -57,9 +57,6 @@ public struct Transports: Sendable {
     }
 
     private func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
-        if plan.transport == .zfsSendReceiveForwarded || plan.transport == .zfsSendReceiveProxied {
-            throw EnactmentError.unsupportedTransport(plan.transport)
-        }
         var gatesReleased = false
         for (index, step) in plan.steps.enumerated() {
             if step.gatedOnVerification, !gatesReleased {
@@ -121,11 +118,20 @@ public struct Transports: Sendable {
     ) async throws -> StepResult {
         let running = try await conduit.run(on: host, step.command)
         let parseProgress = step.role == .transfer && plan.transport == .rsyncAgentForwarded
+        // The forwarded zfs path's progress arrives on stderr — send -v.
+        let parseSendProgress =
+            step.role == .transfer && plan.transport == .zfsSendReceiveForwarded
 
         async let stderrTail: Data = {
             var tail = Data()
+            var sendProgress = ZfsSendProgress()
             for await chunk in running.stderr {
                 emit(.outputChunk(stepIndex: index, channel: .stderr, data: chunk))
+                if parseSendProgress {
+                    for report in sendProgress.consume(chunk) {
+                        emit(.progress(report))
+                    }
+                }
                 tail.append(chunk)
                 if tail.count > 4096 {
                     tail = tail.suffix(4096)
@@ -153,8 +159,9 @@ public struct Transports: Sendable {
 
     // MARK: - Verification
 
-    /// Counts entries under the source selection and their transplanted
-    /// names at the destination — visibly, through the Conduit.
+    /// The gate's evidence, shaped per transport: counts for file
+    /// transfers, dataset existence for zfs — visibly, through the
+    /// Conduit.
     private func verify(
         _ plan: Plan,
         emit: @Sendable (EnactmentEvent) -> Void
@@ -162,12 +169,18 @@ public struct Transports: Sendable {
         guard let destination = plan.destination else {
             throw EnactmentError.malformedPlan("gated steps but no destination to verify against")
         }
+        if let received = plan.receivedDataset {
+            let command = "zfs list -H -o name \(ShellQuote.quote(received))"
+            emit(.verifying(host: destination.host, command: command))
+            let result = try await conduit.run(on: destination.host, command).collect()
+            return .datasetReceived(name: received, exists: result.exitStatus == 0)
+        }
         let sourcePaths = plan.entries.map { join(plan.source.directory, $0.name) }
         let destinationPaths = plan.entries.map { join(destination.directory, $0.name) }
         let sourceCount = try await count(paths: sourcePaths, on: plan.source.host, emit: emit)
         let destinationCount = try await count(
             paths: destinationPaths, on: destination.host, emit: emit)
-        return VerificationReport(sourceCount: sourceCount, destinationCount: destinationCount)
+        return .counts(source: sourceCount, destination: destinationCount)
     }
 
     private func count(

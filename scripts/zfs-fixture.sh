@@ -44,8 +44,35 @@ start() {
         zpool status $POOL
     "
     datasets
+    selfreach
     write_env
     echo "fixture up: pool '$POOL' in VM '$VM' — facts in .fixtures/zfs.env"
+}
+
+# ho-06.2: the VM learns to reach itself as zfs-self, and the pool
+# delegates to the VM user — send/receive enact as pālana would run
+# them, no sudo in any composed command.
+selfreach() {
+    limactl shell "$VM" -- bash -c '
+        set -e
+        if [ ! -f ~/.ssh/palana_fixture ]; then
+            ssh-keygen -t ed25519 -N "" -f ~/.ssh/palana_fixture -q
+            cat ~/.ssh/palana_fixture.pub >> ~/.ssh/authorized_keys
+            cat >> ~/.ssh/config <<CONF
+Host zfs-self
+    HostName localhost
+    Port 22
+    IdentityFile ~/.ssh/palana_fixture
+    StrictHostKeyChecking accept-new
+CONF
+            chmod 600 ~/.ssh/config
+        fi
+        # Property names ride along: creating with -o canmount=noauto —
+        # and receiving a -R stream that carries it — needs the property
+        # itself delegated, not just the verb.
+        sudo zfs allow -u "$(whoami)" \
+            send,snapshot,hold,create,receive,mount,destroy,canmount,mountpoint palana
+    '
 }
 
 # The dataset shapes the ho-03 boundary battery runs against: nesting,
@@ -69,10 +96,13 @@ datasets() {
 
 write_env() {
     mkdir -p "$FIXTURES"
-    # lima maintains this config; `limactl show-ssh` is deprecated in its favor
-    cp "$HOME/.lima/$VM/ssh.config" "$FIXTURES/zfs-ssh-config"
+    # lima maintains this config; `limactl show-ssh` is deprecated in its favor.
+    # The Host line learns a second name so zfs-self resolves operator-side too.
+    sed "s/^Host lima-$VM\$/Host lima-$VM zfs-self/" \
+        "$HOME/.lima/$VM/ssh.config" > "$FIXTURES/zfs-ssh-config"
     cat > "$FIXTURES/zfs.env" <<EOF
 PALANA_ZFS_HOST=lima-$VM
+PALANA_ZFS_SELF=zfs-self
 PALANA_ZFS_SSH_CONFIG=$FIXTURES/zfs-ssh-config
 PALANA_ZFS_POOL=$POOL
 EOF

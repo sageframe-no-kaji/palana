@@ -30,21 +30,27 @@ public struct ProgressReport: Sendable, Equatable {
     }
 }
 
-/// The count check that releases gated steps.
-public struct VerificationReport: Sendable, Equatable {
-    /// Entries found under the source selection.
-    public var sourceCount: Int
-    /// Entries found under the transplanted names at the destination.
-    public var destinationCount: Int
-
-    /// Assembles a report.
-    public init(sourceCount: Int, destinationCount: Int) {
-        self.sourceCount = sourceCount
-        self.destinationCount = destinationCount
-    }
+/// The check that releases gated steps — shaped per transport.
+///
+/// File transfers count entries both ends. A zfs stream is checksummed
+/// end to end by zfs itself, so a clean receive IS the byte
+/// verification and the gate's question becomes existence.
+public enum VerificationReport: Sendable, Equatable {
+    /// Entries counted under the source selection and their
+    /// transplanted names at the destination.
+    case counts(source: Int, destination: Int)
+    /// The received dataset, present or not, on the destination.
+    case datasetReceived(name: String, exists: Bool)
 
     /// The gate's condition.
-    public var matched: Bool { sourceCount == destinationCount }
+    public var matched: Bool {
+        switch self {
+        case .counts(let source, let destination):
+            source == destination
+        case .datasetReceived(_, let exists):
+            exists
+        }
+    }
 }
 
 /// What enactment emits, in order, as it happens.
@@ -77,6 +83,4 @@ public enum EnactmentError: Error, Sendable, Equatable {
     /// A count command itself failed — the gate cannot decide, so it
     /// stays closed.
     case verificationUnavailable(host: String, detail: String)
-    /// A transport this half does not carry. ho-06.2 lifts it.
-    case unsupportedTransport(Transport)
 }

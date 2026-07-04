@@ -25,8 +25,23 @@ public enum PlanEngine {
             source: request.source,
             destination: request.destination,
             transport: transport,
-            steps: steps
+            steps: steps,
+            receivedDataset: zfsChild(request: request, facts: facts, transport: transport)
         )
+    }
+
+    /// The dataset a zfs transport will create at the destination.
+    private static func zfsChild(
+        request: PlanRequest,
+        facts: PlanFacts,
+        transport: Transport
+    ) -> String? {
+        guard
+            transport == .zfsSendReceiveForwarded || transport == .zfsSendReceiveProxied,
+            let source = facts.selectionWholeDataset,
+            let destination = facts.destinationDataset
+        else { return nil }
+        return "\(destination.name)/\(lastComponent(of: source.name))"
     }
 
     // MARK: - Validation
@@ -222,8 +237,12 @@ public enum PlanEngine {
         else { return [] }
         let child = "\(destinationDataset.name)/\(lastComponent(of: sourceDataset.name))"
         let snapshot = "\(sourceDataset.name)@\(request.token)"
-        let send = "zfs send -R \(ShellQuote.quote(snapshot))"
-        let receive = "zfs receive \(ShellQuote.quote(child))"
+        // -v: send's stderr cadence is the forwarded path's progress.
+        // -u: Linux mounting is root's alone regardless of delegation —
+        // a bare receive lands the dataset and then fails the mount,
+        // an exit code that lies about the transfer (ho-06.2).
+        let send = "zfs send -R -v \(ShellQuote.quote(snapshot))"
+        let receive = "zfs receive -u \(ShellQuote.quote(child))"
         let sourceHost = Runner.host(request.source.host)
 
         var steps = [
