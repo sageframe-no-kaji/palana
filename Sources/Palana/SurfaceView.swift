@@ -32,10 +32,32 @@ struct SurfaceView: View {
                 pane(session.left, side: .left)
                 pane(session.right, side: .right)
             }
+            .overlay {
+                if session.showsSendArrow {
+                    sendArrow
+                }
+            }
+            if session.operation.active {
+                Divider()
+                PlanPanel(operation: session.operation)
+                    .frame(minHeight: 160, idealHeight: 280, maxHeight: 320)
+            }
             Divider()
             footer
         }
         .background(Theme.ground)
+    }
+
+    /// The send direction, visible before any verb goes down — the
+    /// subjects would travel from the focused pane toward the other.
+    private var sendArrow: some View {
+        Image(systemName: session.focusedSide == .left ? "arrow.right" : "arrow.left")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Theme.accent.opacity(0.85))
+            .padding(7)
+            .background(Circle().fill(Theme.groundDeep))
+            .overlay(Circle().stroke(Theme.accent.opacity(0.25), lineWidth: 1))
+            .allowsHitTesting(false)
     }
 
     private func pane(_ model: PaneModel, side: SessionSnapshot.Side) -> some View {

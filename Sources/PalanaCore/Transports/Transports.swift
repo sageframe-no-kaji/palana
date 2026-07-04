@@ -117,7 +117,9 @@ public struct Transports: Sendable {
         emit: @Sendable (EnactmentEvent) -> Void
     ) async throws -> StepResult {
         let running = try await conduit.run(on: host, step.command)
-        let parseProgress = step.role == .transfer && plan.transport == .rsyncAgentForwarded
+        let parseProgress =
+            step.role == .transfer
+            && (plan.transport == .rsyncAgentForwarded || plan.transport == .rsyncDirect)
         // The forwarded zfs path's progress arrives on stderr — send -v.
         let parseSendProgress =
             step.role == .transfer && plan.transport == .zfsSendReceiveForwarded

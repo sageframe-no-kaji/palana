@@ -59,4 +59,10 @@ public enum PaneIntent: String, CaseIterable, Sendable {
     case switchPane
     /// Show the keyboard vocabulary.
     case help
+    /// Compose a copy plan — this pane's subjects toward the other pane.
+    case operationCopy
+    /// Compose a move plan — this pane's subjects toward the other pane.
+    case operationMove
+    /// Compose a deletion plan for this pane's subjects.
+    case operationDelete
 }

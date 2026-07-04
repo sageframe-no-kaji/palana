@@ -49,6 +49,27 @@ public enum ZFSTopology {
             .max { $0.mountpoint.count < $1.mountpoint.count }
     }
 
+    /// The whole-dataset gate's fact: non-nil when the selection is one
+    /// directory entry whose path is exactly a mounted dataset's
+    /// mountpoint — the shape `zfs send` can carry.
+    ///
+    /// The facts-assembly half of ho-05's `selectionWholeDataset`,
+    /// landed here so no caller reimplements the boundary arithmetic.
+    public static func wholeDatasetSelection(
+        entries: [FileEntry],
+        sourceDirectory: String,
+        datasets: [ZFSDataset]
+    ) -> ZFSDataset? {
+        guard entries.count == 1, let entry = entries.first, entry.kind == .directory else {
+            return nil
+        }
+        let base = normalize(sourceDirectory)
+        let path = base == "/" ? "/\(entry.name)" : "\(base)/\(entry.name)"
+        return datasets.first {
+            $0.mounted && $0.mountpoint.hasPrefix("/") && normalize($0.mountpoint) == path
+        }
+    }
+
     private static func normalize(_ path: String) -> String {
         guard path != "/" else { return "/" }
         var result = path

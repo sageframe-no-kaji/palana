@@ -13,4 +13,11 @@ public enum PalanaCore {
     ///
     /// Bumped at release tags. Surfaced by the app's About surface.
     public static let version = "0.1.0"
+
+    /// The reserved host name for the operator's own machine.
+    ///
+    /// "local" is a host (second hands session's word) — the router
+    /// dispatches on it, the engine composes around it, the host menu
+    /// leads with it. One name, one source of truth.
+    public static let localHostName = "local"
 }

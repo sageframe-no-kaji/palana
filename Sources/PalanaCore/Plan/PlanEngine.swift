@@ -113,10 +113,14 @@ public enum PlanEngine {
 
     // MARK: - Transport selection
 
+    /// Selects how the bytes move.
+    ///
     /// zfs when both ends are whole datasets, forwarded rsync when the
     /// fact says available, tar stream through the operator's machine
     /// otherwise — unprobed selects the proxy path, the conservative
-    /// truth.
+    /// truth. This machine at either end runs rsync here directly: the
+    /// operator's own agent authenticates, no forwarding exists to
+    /// probe, and proxying through yourself to yourself is absurd.
     static func transport(
         for classification: Classification,
         request: PlanRequest,
@@ -126,6 +130,12 @@ public enum PlanEngine {
         case .withinDatasetRename, .crossDatasetCopyPlusDelete, .withinHostCopy, .deletion:
             return .local
         case .crossHostTransfer, .crossHostCopy:
+            let touchesThisMachine =
+                request.source.host == PalanaCore.localHostName
+                || request.destination?.host == PalanaCore.localHostName
+            if touchesThisMachine {
+                return .rsyncDirect
+            }
             let forwarded = facts.agentForwarding == .available
             if wholeDatasetGate(request: request, facts: facts) {
                 return forwarded ? .zfsSendReceiveForwarded : .zfsSendReceiveProxied
@@ -147,9 +157,11 @@ public enum PlanEngine {
         else { return false }
         return normalize(destination.directory) == normalize(destinationDataset.mountpoint)
     }
+}
 
-    // MARK: - Composition
+// MARK: - Composition
 
+extension PlanEngine {
     private static func compose(
         _ request: PlanRequest,
         facts: PlanFacts,
@@ -161,6 +173,8 @@ public enum PlanEngine {
             return composeLocal(request, classification: classification)
         case .rsyncAgentForwarded:
             return composeRsync(request)
+        case .rsyncDirect:
+            return composeRsyncDirect(request)
         case .tarStreamProxied:
             return composeTarStream(request)
         case .zfsSendReceiveForwarded:
@@ -216,6 +230,44 @@ public enum PlanEngine {
                 PlanStep(
                     runsOn: sourceHost,
                     command: "rm -rf \(sources)",
+                    role: .delete,
+                    gatedOnVerification: true))
+        }
+        return steps
+    }
+
+    /// Composes the rsync-from-this-machine steps.
+    ///
+    /// Pushing when the selection lives here, pulling when it lives on
+    /// the remote. The gated delete runs wherever the source is, routed
+    /// like any other host step.
+    private static func composeRsyncDirect(_ request: PlanRequest) -> [PlanStep] {
+        let here = Runner.host(PalanaCore.localHostName)
+        let pushing = request.source.host == PalanaCore.localHostName
+        let sources: String
+        let target: String
+        if pushing {
+            sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
+            target = ShellQuote.quote(
+                "\(request.destination?.host ?? ""):\(destinationDirectorySlash(request))")
+        } else {
+            sources = sourcePaths(request)
+                .map { ShellQuote.quote("\(request.source.host):\($0)") }
+                .joined(separator: " ")
+            target = quotedDestinationDirectory(request)
+        }
+        var steps = [
+            PlanStep(
+                runsOn: here,
+                command: "rsync -a -s --info=progress2 \(sources) \(target)",
+                role: .transfer)
+        ]
+        if request.operation == .move {
+            let removed = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
+            steps.append(
+                PlanStep(
+                    runsOn: .host(request.source.host),
+                    command: "rm -rf \(removed)",
                     role: .delete,
                     gatedOnVerification: true))
         }

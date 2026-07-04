@@ -43,6 +43,10 @@ public enum Transport: String, Codable, Sendable {
     /// rsync host-to-host, the operator's agent forwarded to the source
     /// host. The fast path.
     case rsyncAgentForwarded = "rsync host-to-host · auth: agent-forwarded direct"
+    /// rsync with this machine at one end — the operator's own agent
+    /// authenticates and nothing is forwarded, so the plan never claims
+    /// a forwarding that isn't happening.
+    case rsyncDirect = "rsync from this machine · auth: this machine's agent"
     /// A tar stream piped through the operator's machine — the fallback
     /// when forwarding is unavailable or unprobed. rsync cannot proxy:
     /// it refuses two remote endpoints.

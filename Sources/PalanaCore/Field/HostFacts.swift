@@ -113,15 +113,22 @@ public struct HostFacts: Codable, Sendable, Equatable {
     public var capability: Dated<HostCapability>?
     /// The dataset list, when zfs was last read.
     public var zfsTopology: Dated<[ZFSDataset]>?
+    /// Whether this host can reach others with the operator's forwarded
+    /// agent, keyed by destination alias — the system design's "probed
+    /// once, remembered." Absent means unprobed, and unprobed selects
+    /// the proxy path, the conservative truth.
+    public var forwarding: [String: Dated<ForwardingFact>]?
 
     /// A host not yet visited — all groups empty.
     public init(
         reachability: Dated<Reachability>? = nil,
         capability: Dated<HostCapability>? = nil,
-        zfsTopology: Dated<[ZFSDataset]>? = nil
+        zfsTopology: Dated<[ZFSDataset]>? = nil,
+        forwarding: [String: Dated<ForwardingFact>]? = nil
     ) {
         self.reachability = reachability
         self.capability = capability
         self.zfsTopology = zfsTopology
+        self.forwarding = forwarding
     }
 }

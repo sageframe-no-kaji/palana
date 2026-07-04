@@ -26,6 +26,8 @@ final class PalanaSession {
     var gotoTarget: SessionSnapshot.Side?
     /// Whether the vocabulary card is up.
     var helpVisible = false
+    /// The one operation in flight — verb to plan to enactment.
+    let operation: OperationModel
     /// The pending multi-key prefix, for the footer.
     private(set) var pendingPrefix = ""
     /// The hosts the Field knows — the go-to bar's menu.
@@ -45,7 +47,8 @@ final class PalanaSession {
             override.map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh/config")
         let extraOptions = override.map { ["-F", $0] } ?? []
-        let conduit = SSHConduit(configuration: SSHConfiguration(extraOptions: extraOptions))
+        let configuration = SSHConfiguration(extraOptions: extraOptions)
+        let conduit = SSHConduit(configuration: configuration)
         let configText = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         self.sshConfigURL = configURL
         self.conduit = conduit
@@ -54,8 +57,13 @@ final class PalanaSession {
         let engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
         self.left = PaneModel(engine: engine)
         self.right = PaneModel(engine: engine)
+        self.operation = OperationModel(engine: engine, configuration: configuration)
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
+        operation.onFinished = { [weak self] in
+            self?.left.apply(.refresh)
+            self?.right.apply(.refresh)
+        }
     }
 
     /// The pane the keyboard drives.
@@ -115,6 +123,9 @@ final class PalanaSession {
         // to the field, not the grammar.
         guard !left.pathEditing, !right.pathEditing else { return false }
         guard let token = Grammar.token(for: event) else { return false }
+        if operation.active {
+            return handlePanelKey(token)
+        }
         if helpVisible {
             // The card holds the keyboard: ? or Esc closes, the rest
             // waits so the panes stay put while the eyes are here.
@@ -145,6 +156,15 @@ final class PalanaSession {
         }
     }
 
+    /// The panel holds the keyboard: Enter enacts, Esc dismisses or
+    /// cancels, plain keys wait — but the app's own chords (quit,
+    /// close) pass through untouched.
+    private func handlePanelKey(_ token: String) -> Bool {
+        if token == "return" { operation.enact() }
+        if token == "esc" { operation.dismissOrCancel() }
+        return !token.contains("cmd-")
+    }
+
     /// The session's verbs stay here; everything else goes to the pane.
     private func dispatch(_ intent: PaneIntent) {
         switch intent {
@@ -155,9 +175,35 @@ final class PalanaSession {
             gotoTarget = focusedSide
         case .help:
             helpVisible = true
+        case .operationCopy:
+            beginOperation(.copy)
+        case .operationMove:
+            beginOperation(.move)
+        case .operationDelete:
+            beginOperation(.delete)
         default:
             focusedPane.apply(intent)
         }
+    }
+
+    /// A verb goes down: the focused pane is the source, the other pane
+    /// is the destination, the panel takes it from here.
+    private func beginOperation(_ operationKind: PlanOperation) {
+        let destination = focusedSide == .left ? right : left
+        operation.begin(operationKind, source: focusedPane, destination: destination)
+    }
+
+    /// True when the divider should show where a send would go.
+    ///
+    /// The practitioner's ask, verbatim: "a subtle directional arrow on
+    /// selection showing send direction source→destination pane."
+    var showsSendArrow: Bool {
+        guard !operation.active, gotoTarget == nil, !helpVisible else { return false }
+        guard focusedPane.status == .ready, !focusedPane.operationSubjects.isEmpty else {
+            return false
+        }
+        let other = focusedSide == .left ? right : left
+        return other.status == .ready
     }
 
     /// Points a pane from the go-to bar.

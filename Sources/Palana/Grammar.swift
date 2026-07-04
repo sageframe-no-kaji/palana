@@ -45,6 +45,9 @@ enum Grammar {
         ["cmd-r"]: .refresh,
         ["cmd-shift-g"]: .goTo,
         ["?"]: .help,
+        ["y"]: .operationCopy,
+        ["m"]: .operationMove,
+        ["d"]: .operationDelete,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.

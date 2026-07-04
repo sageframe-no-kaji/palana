@@ -15,7 +15,7 @@ import SwiftUI
 /// The engine handles a pane borrows — built once by the session.
 struct Engine: Sendable {
     /// The reserved host name for the operator's own machine.
-    static let localHost = "local"
+    static let localHost = PalanaCore.localHostName
 
     /// The single door to the wire.
     let conduit: SSHConduit
@@ -157,6 +157,17 @@ final class PaneModel {
     var cursorEntry: FileEntry? {
         guard let cursor = state.cursor else { return nil }
         return rows.first { $0.id == cursor }
+    }
+
+    /// What an operation verb acts on.
+    ///
+    /// The selection when it exists, the cursor entry otherwise — the
+    /// clipboard-verb precedent.
+    var operationSubjects: [FileEntry] {
+        if state.selection.isEmpty {
+            return [cursorEntry].compactMap { $0 }
+        }
+        return rows.filter { state.selection.contains($0.id) }
     }
 
     // MARK: - Navigation

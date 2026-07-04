@@ -24,4 +24,10 @@ enum Theme {
     ///
     /// Cursor row, selection marks, the focused pane's indicator.
     static let accent = Color(red: 0.353, green: 0.459, blue: 0.322)
+
+    /// Failure ink — quiet rust, the panel's only other voice.
+    ///
+    /// Reserved for typed failures and incomplete-size floors; a
+    /// placeholder value like the rest, pruned by the hands sessions.
+    static let alarm = Color(red: 0.596, green: 0.302, blue: 0.235)
 }
