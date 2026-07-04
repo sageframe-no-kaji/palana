@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 04
@@ -91,13 +91,15 @@ Order of work:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+**Did both parsers hold against the hostile battery?** Both held, byte for byte. The battery ran live three ways—GNU over real ssh against the container, BSD over the local shell against real Darwin, and whichever flavor CI's runner answers—with the same eleven-name hostile directory: embedded newline, trailing newline, UTF-8, a name shaped like the section marker, symlinks with spaces in both name and target. The trailing-newline name earned its place: command substitution strips trailing newlines, so even *creating* it takes the `${nl%X}` trick—exactly the kind of name a parser never meets until it does. One test-infrastructure find: a local-shell conduit (`/bin/sh -c` through the same spawn path) gives the BSD parser live Darwin coverage on every run with no fixture standing, and recorded the Darwin corpus transcript.
 
-- **Did both parsers hold against the hostile battery?** What did real filenames do that synthetic ones didn't?
-- **The BSD fork cost.** Measured against a plausible Mac directory—acceptable, or does the optimization arrive early?
-- **Model review.** Did FileEntry/PaneState survive contact with ho-05's and ho-07's needs as far as they can be seen from here?
-- **Followups for ho-05.**
+**The BSD fork cost.** Not measured against a large directory this session—the hostile battery is eleven entries and the fork-per-entry cost is invisible at that scale. The design position stands: BSD flavor means a Mac target in practice, Mac directories are modest, and the GNU path carries the fleet. If a UI/UX session ever points a pane at a huge Mac directory and feels it, that is a new ho, forward-only.
+
+**Model review.** `FileEntry`'s bytes-truth/String-face split held cleanly through both parsers—nothing upstream ever needed the name as text. One honest limitation, named for ho-05: `list(on:path:flavor:)` takes the path as a String, so navigation *into* a directory whose own name is not valid UTF-8 would lossy-decode before composing the next read. The entry bytes are preserved end to end; the path plumbing is UTF-8 v1. If the Plan Engine needs byte-exact path composition, that is ho-05's call to make with the bytes FileEntry already carries. `PaneState` is committed but unexercised by real rendering—ho-07 is its contact with reality.
+
+**Followups for ho-05.** The Plan Engine now has everything it composes from: `datasetContaining` (ho-03) for classification, `FileEntry` selections (ho-04) for the manifest, `ShellQuote` for embedding paths. Carried findings: swift-format and SwiftLint disagree on multiline chains and parameters—write one-call-per-statement in tests and it never comes up. `optional_data_string_conversion` fires on every deliberate lossy decode; the disable-with-comment pattern is established at four sites.
 
 ---
 
-_Authored: 2026-07-03 (Think phase)._
+_Authored: 2026-07-03 (Think phase). Executed and closed: 2026-07-03._
+_119 tests, 23 suites. PalanaCore 97.60% line coverage against the 90% floor._
