@@ -31,7 +31,11 @@ struct PalanaApp: App {
         Window("the keys", id: "palana-keys") {
             HelpWindow()
                 .preferredColorScheme(.light)
+                .ignoresSafeArea()
         }
+        // The scene owns the titlebar — hiding it here is what sticks;
+        // window-level flags alone get reasserted by SwiftUI.
+        .windowStyle(.hiddenTitleBar)
         .defaultPosition(.topTrailing)
     }
 }
