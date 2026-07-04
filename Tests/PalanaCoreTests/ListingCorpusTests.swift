@@ -23,6 +23,7 @@ struct ListingCorpusTests {
         return switch flavor {
         case .gnu: try GNUListingParser.parse(Data(entry.stdout.utf8))
         case .bsd: try BSDListingParser.parse(Data(entry.stdout.utf8))
+        case .busybox: try BusyBoxListingParser.parse(entry.stdout)
         }
     }
 

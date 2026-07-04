@@ -18,12 +18,16 @@ public struct ProbeParseError: Error, Equatable, Sendable {
 public enum CapabilityProbe {
     /// The probe command, POSIX-sh portable across GNU, BSD, and BusyBox.
     ///
-    /// `stat --version` answering is the GNU tell. Absent binaries yield
-    /// empty marker values — the shell's not-found noise lands on the
-    /// redirected stderr, never in the markers.
+    /// `stat --version` answering is the GNU tell; `busybox true`
+    /// exiting clean is the BusyBox tell where GNU stat did not answer
+    /// (a GNU host with busybox installed stays GNU — first tell wins).
+    /// Absent binaries yield empty marker values — the shell's
+    /// not-found noise lands on the redirected stderr, never in the
+    /// markers.
     public static let command = [
         #"echo "palana:kernel:$(uname -s)""#,
         #"if stat --version >/dev/null 2>&1; then echo "palana:flavor:GNU"; "#
+            + #"elif busybox true >/dev/null 2>&1; then echo "palana:flavor:BusyBox"; "#
             + #"else echo "palana:flavor:BSD"; fi"#,
         #"echo "palana:zfs:$(zfs version 2>/dev/null | head -n 1)""#,
         #"echo "palana:rsync:$(rsync --version 2>/dev/null | head -n 1)""#,

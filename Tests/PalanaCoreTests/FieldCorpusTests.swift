@@ -15,7 +15,7 @@ struct FieldCorpusTests {
                 "Tests/PalanaCoreTests/Fixtures/\(name)"))
     }
 
-    @Test("the container's recorded probe parses: Linux, no zfs, no rsync")
+    @Test("the container's recorded probe parses: Linux, no zfs, rsync since ho-06.1")
     func containerProbe() throws {
         let transcript = try Self.corpus("probe-container.json")
         let entry = try #require(
@@ -23,7 +23,10 @@ struct FieldCorpusTests {
         let capability = try CapabilityProbe.parse(entry.stdout)
         #expect(capability.kernel == "Linux")
         #expect(capability.zfs == nil)
-        #expect(capability.rsync == nil)
+        // ho-06.1 gave the fixture rsync; the ho-07.5 recapture recorded
+        // that truth. Version drifts with the container — presence is
+        // the fact.
+        #expect(capability.rsyncVersion != nil)
     }
 
     @Test("the pool VM's recorded probe parses: GNU, zfs and rsync versioned")

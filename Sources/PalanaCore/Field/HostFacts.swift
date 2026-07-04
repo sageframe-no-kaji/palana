@@ -34,14 +34,17 @@ public enum Reachability: Codable, Sendable, Equatable {
 
 /// Userland flavor, as the probe classifies it.
 ///
-/// GNU means `stat --version` answered. BusyBox declines long options and
-/// classifies BSD — the conservative side, since BSD is the fallback
-/// command path downstream.
+/// GNU means `stat --version` answered. BusyBox means the busybox
+/// binary itself answered where GNU stat did not (ho-07.5 — the first
+/// cut classified BusyBox as BSD, and zencat's stat-less userland
+/// refused the BSD listing). BSD is the remainder — Macs, real BSDs.
 public enum UserlandFlavor: String, Codable, Sendable {
     /// GNU coreutils userland.
     case gnu = "GNU"
-    /// BSD or BusyBox userland — the portable command path.
+    /// BSD userland — stat without long options.
     case bsd = "BSD"
+    /// BusyBox userland — applets, trimmed flags, maybe no stat at all.
+    case busybox = "BusyBox"
 }
 
 /// What one probe round trip learns about a host.

@@ -54,6 +54,7 @@ public struct Listing: Sendable {
         switch flavor {
         case .gnu: GNUListingParser.command(for: path)
         case .bsd: BSDListingParser.command(for: path)
+        case .busybox: BusyBoxListingParser.command(for: path)
         }
     }
 
@@ -76,6 +77,7 @@ public struct Listing: Sendable {
         return switch flavor {
         case .gnu: try GNUListingParser.parse(result.stdout)
         case .bsd: try BSDListingParser.parse(result.stdout)
+        case .busybox: try BusyBoxListingParser.parse(result.stdoutText)
         }
     }
 
@@ -109,6 +111,9 @@ public struct Listing: Sendable {
         flavor: UserlandFlavor
     ) async throws -> [RecursiveSize] {
         guard !paths.isEmpty else { return [] }
+        // BusyBox's find cannot walk by type — no facts, and the plan
+        // shows the inode floor with its flag, ho-06.5's honesty.
+        guard flavor != .busybox else { return [] }
         let command = TreeSize.command(for: paths, flavor: flavor)
         let result = try await conduit.run(on: host, command).collect()
         guard result.exitStatus == 0 else {

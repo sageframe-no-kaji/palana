@@ -37,6 +37,9 @@ public enum TreeSize {
                 switch flavor {
                 case .gnu: #"find \#(quoted) -type f -printf '%s\n' 2>&1"#
                 case .bsd: #"find \#(quoted) -type f -exec stat -f %z {} + 2>&1"#
+                // Unreachable by contract: Listing.treeSizes answers
+                // no-facts for BusyBox before composing (no -type f).
+                case .busybox: #"false"#
                 }
             return "{ \(sizes); } | " + #"awk '/^[0-9]+$/{s+=$1} !/^[0-9]+$/{e=1} "#
                 + #"END{printf "%.0f %d\n", s+0, e+0}'"#
