@@ -17,6 +17,11 @@ struct SurfaceView: View {
                     HelpOverlay()
                 }
             }
+            .overlay {
+                if session.fieldVisible {
+                    FieldOverlay(viewModel: session.fieldViewModel)
+                }
+            }
             .sheet(item: $session.gotoTarget) { side in
                 gotoBar(for: side)
             }
@@ -25,9 +30,10 @@ struct SurfaceView: View {
                 KeysPanelController.shared.show()
             }
             .onChange(of: session.helpVisible) { _, visible in
-                // Never both: the card summons, the panel yields.
+                // Never both: help summons, the field and panel yield.
                 if visible {
                     KeysPanelController.shared.close()
+                    session.fieldVisible = false
                 }
             }
             .task {

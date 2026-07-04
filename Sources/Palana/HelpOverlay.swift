@@ -43,6 +43,7 @@ struct HelpOverlay: View {
         HelpRow(keys: ",n ,s ,m", what: "sort by name, size, modified — again flips"),
         HelpRow(keys: ".", what: "show hidden files"),
         HelpRow(keys: "⌘R", what: "refresh"),
+        HelpRow(keys: "f", what: "field view"),
         HelpRow(keys: "?", what: "this card · ? again floats it"),
     ]
 

@@ -35,11 +35,16 @@ final class PalanaSession {
     let operation: OperationModel
     /// The pending multi-key prefix, for the footer.
     private(set) var pendingPrefix = ""
+    /// True while the topology overlay is up.
+    var fieldVisible = false
+    /// The topology overlay's view model — shared with SurfaceView.
+    let fieldViewModel: FieldViewModel
     /// The hosts the Field knows — the go-to bar's menu.
     private(set) var hosts: [String] = []
 
     private let conduit: SSHConduit
     private let field: Field
+    private let engine: Engine
     private let sshConfigURL: URL
     private var recognizer: SequenceRecognizer<PaneIntent>
     private var keyMonitor: Any?
@@ -59,10 +64,11 @@ final class PalanaSession {
         self.conduit = conduit
         self.field = Field(conduit: conduit, sshConfigText: configText, cache: FieldCache())
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
-        let engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
-        self.left = PaneModel(engine: engine)
-        self.right = PaneModel(engine: engine)
-        self.operation = OperationModel(engine: engine, configuration: configuration)
+        self.engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
+        self.fieldViewModel = FieldViewModel(engine: self.engine)
+        self.left = PaneModel(engine: self.engine)
+        self.right = PaneModel(engine: self.engine)
+        self.operation = OperationModel(engine: self.engine, configuration: configuration)
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
         operation.onFinished = { [weak self] in
@@ -154,14 +160,16 @@ final class PalanaSession {
         guard let token = Grammar.token(for: event) else { return false }
         if helpVisible {
             // The card holds the keyboard above everything, panel
-            // included: Esc closes, a second ? trades the card for the
-            // floating keys window, the rest waits — and the app's own
-            // chords pass through untouched.
-            if token == "esc" { helpVisible = false }
-            if token == "?" {
-                helpVisible = false
-                floatingHelpTick += 1
-            }
+            // included. App chords pass through; everything else waits.
+            handleHelpKey(token)
+            return !token.contains("cmd-")
+        }
+        if fieldVisible {
+            // The topology card holds the keyboard — j/k/l/h navigate,
+            // r reprobes, Enter points, f and esc dismiss, tab switches
+            // the pane (the pointed target follows the dot). App chords
+            // pass through; everything else is swallowed.
+            handleFieldKey(token)
             return !token.contains("cmd-")
         }
         if operation.panelShowing {
@@ -175,6 +183,13 @@ final class PalanaSession {
                 recognizer.reset()
                 pendingPrefix = ""
             }
+            return true
+        }
+        // f summons the topology card — only from the main grammar path,
+        // only when no chord is pending (c f is copyFilename, not field).
+        if token == "f", pendingPrefix.isEmpty {
+            fieldVisible = true
+            fieldViewModel.summon(hosts: hosts)
             return true
         }
         switch recognizer.press(token) {
@@ -314,5 +329,51 @@ final class PalanaSession {
     /// Closes every ControlMaster — the quit path owns this.
     func closeDoors() async {
         await conduit.closeAll()
+    }
+}
+
+// MARK: - Help and field overlay keys
+
+extension PalanaSession {
+    /// Routes one keystroke while the vocabulary card is up.
+    ///
+    /// Esc closes; ? trades the card for the floating panel; f trades it
+    /// for the field.
+    private func handleHelpKey(_ token: String) {
+        if token == "esc" { helpVisible = false }
+        if token == "?" {
+            helpVisible = false
+            floatingHelpTick += 1
+        }
+        if token == "f" {
+            helpVisible = false
+            fieldVisible = true
+            fieldViewModel.summon(hosts: hosts)
+        }
+    }
+
+    /// Routes one keystroke while the topology overlay is up.
+    ///
+    /// j/k/down/up move the cursor; l/h/right/left expand and collapse;
+    /// r reprobes; f and esc dismiss; tab switches the pane without
+    /// closing the card; Enter points the focused pane and dismisses.
+    private func handleFieldKey(_ token: String) {
+        switch token {
+        case "j", "down": fieldViewModel.cursorDown()
+        case "k", "up": fieldViewModel.cursorUp()
+        case "l", "right": fieldViewModel.expand()
+        case "h", "left": fieldViewModel.collapse()
+        case "r": fieldViewModel.reprobe()
+        case "f", "esc": fieldVisible = false
+        case "tab":
+            // The pointing target follows the focus dot — the card stays.
+            focusedSide = focusedSide == .left ? .right : .left
+            persist()
+        case "return":
+            guard let pointing = fieldViewModel.pointing() else { return }
+            point(focusedSide, host: pointing.host, path: pointing.path)
+            fieldVisible = false
+        default: break
+        }
     }
 }
