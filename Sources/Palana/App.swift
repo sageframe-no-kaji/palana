@@ -1,31 +1,57 @@
 // Palana: the SwiftUI app — a thin surface with no business logic.
-//
-// Placeholder shell. The Surface (dual panes, plan panel, field view,
-// keyboard grammar) arrives with its hos; everything it renders comes
-// from PalanaCore.
+// Everything it renders comes from PalanaCore; everything it does is
+// forwarded intent. The delegate carries the two AppKit duties SwiftUI
+// does not: activation for a bare `swift run`, and the quit path that
+// closes every ControlMaster before the process ends.
 
+import AppKit
 import PalanaCore
 import SwiftUI
 
 @main
 struct PalanaApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self)
+    private var delegate
+    @State private var session = PalanaSession()
+
     var body: some Scene {
         WindowGroup("pālana") {
-            ContentView()
+            SurfaceView(session: session)
+                .frame(minWidth: 720, minHeight: 420)
+                // The notebook is light-first for v1 — a dark variant is
+                // post-hands work, not a free system toggle.
+                .preferredColorScheme(.light)
+                .onAppear { delegate.session = session }
         }
-        .windowResizability(.contentSize)
+        .defaultSize(width: 1120, height: 700)
     }
 }
 
-struct ContentView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("pālana")
-                .font(.largeTitle)
-            Text("v\(PalanaCore.version)")
-                .foregroundStyle(.secondary)
+/// Activation and the quit path.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Set by the scene once the session exists.
+    var session: PalanaSession?
+
+    /// A bare `swift run Palana` starts as a background process —
+    /// become a regular app and take the front.
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Persist, close the doors, then go — nothing outlives the window.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let session else { return .terminateNow }
+        session.persist()
+        Task { @MainActor in
+            await session.closeDoors()
+            sender.reply(toApplicationShouldTerminate: true)
         }
-        .padding(40)
-        .frame(minWidth: 480, minHeight: 320)
+        return .terminateLater
+    }
+
+    /// Closing the window is quitting — there is no headless mode.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
     }
 }

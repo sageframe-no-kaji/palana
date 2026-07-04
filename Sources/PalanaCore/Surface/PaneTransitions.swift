@@ -1,18 +1,22 @@
 // The pane transitions — pure state moves the grammar dispatches into.
 // Everything that can be wrong about navigation lives here, under the
-// floor; the app's binding table stays declarative data. All moves
-// operate over the displayed order, because that is the order the
-// operator is looking at.
+// floor; the app's binding table stays declarative data.
+//
+// The hot moves — cursor and selection, fired per keystroke — take the
+// displayed rows as a parameter instead of re-deriving them: sorting
+// 5,000 names with localizedStandardCompare on every keypress would
+// eat the ho-01 cadence. The caller computes rows once per display
+// change and passes them back in. The cold moves — hidden, sort,
+// replace — re-derive internally, because they are the display change.
 
 import Foundation
 
 extension PaneState {
-    /// Moves the cursor by a signed number of displayed rows, clamped.
+    /// Moves the cursor by a signed number of rows, clamped.
     ///
     /// With no cursor yet, a downward move lands on the first row and
     /// an upward move on the last — the keyboard always gets footing.
-    public mutating func moveCursor(by offset: Int) {
-        let rows = sortedEntries()
+    public mutating func moveCursor(by offset: Int, in rows: [FileEntry]) {
         guard !rows.isEmpty else {
             cursor = nil
             return
@@ -25,32 +29,32 @@ extension PaneState {
         cursor = rows[target].id
     }
 
-    /// Cursor to the first displayed row.
-    public mutating func moveCursorToTop() {
-        cursor = sortedEntries().first?.id
+    /// Cursor to the first row.
+    public mutating func moveCursorToTop(in rows: [FileEntry]) {
+        cursor = rows.first?.id
     }
 
-    /// Cursor to the last displayed row.
-    public mutating func moveCursorToBottom() {
-        cursor = sortedEntries().last?.id
+    /// Cursor to the last row.
+    public mutating func moveCursorToBottom(in rows: [FileEntry]) {
+        cursor = rows.last?.id
     }
 
     /// Toggles selection on the cursor entry, then advances one row.
     ///
     /// yazi's Space: mark and move on. No cursor, no effect.
-    public mutating func toggleSelectionAtCursorAndAdvance() {
+    public mutating func toggleSelectionAtCursorAndAdvance(in rows: [FileEntry]) {
         guard let current = cursor else { return }
         if selection.contains(current) {
             selection.remove(current)
         } else {
             selection.insert(current)
         }
-        moveCursor(by: 1)
+        moveCursor(by: 1, in: rows)
     }
 
     /// Selects every displayed entry — hidden entries stay unselected.
-    public mutating func selectAll() {
-        selection = Set(sortedEntries().map(\.id))
+    public mutating func selectAll(in rows: [FileEntry]) {
+        selection = Set(rows.map(\.id))
     }
 
     /// Clears the selection.
@@ -82,18 +86,17 @@ extension PaneState {
     /// standing somewhere.
     public mutating func replaceEntries(_ newEntries: [FileEntry]) {
         entries = newEntries
-        let displayed = Set(sortedEntries().map(\.id))
-        selection = selection.intersection(displayed)
-        if let current = cursor, displayed.contains(current) { return }
-        cursor = sortedEntries().first?.id
+        reconcileToDisplayed(refootDeadCursor: true)
     }
 
     /// Prunes cursor and selection to the displayed rows.
-    private mutating func reconcileToDisplayed() {
-        let displayed = Set(sortedEntries().map(\.id))
+    private mutating func reconcileToDisplayed(refootDeadCursor: Bool = false) {
+        let rows = sortedEntries()
+        let displayed = Set(rows.map(\.id))
         selection = selection.intersection(displayed)
-        if let current = cursor, !displayed.contains(current) {
-            cursor = sortedEntries().first?.id
+        if let current = cursor, displayed.contains(current) { return }
+        if cursor != nil || refootDeadCursor {
+            cursor = rows.first?.id
         }
     }
 }

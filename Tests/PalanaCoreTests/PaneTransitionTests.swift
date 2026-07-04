@@ -1,6 +1,8 @@
 // The pane transitions — the grammar's state moves, pinned pure. The
 // Surface dispatches intents into these; everything that can be wrong
-// about navigation is provable here without a window.
+// about navigation is provable here without a window. Hot moves take
+// the displayed rows the way the caller passes them — computed once
+// per display change, never per keystroke.
 
 import Foundation
 import Testing
@@ -37,50 +39,50 @@ struct PaneCursorTests {
     @Test("a downward move with no cursor lands on the first row")
     func footingDown() {
         var pane = PaneState(entries: Self.entries)
-        pane.moveCursor(by: 1)
+        pane.moveCursor(by: 1, in: pane.sortedEntries())
         #expect(pane.cursor == identity("alpha"))
     }
 
     @Test("an upward move with no cursor lands on the last row")
     func footingUp() {
         var pane = PaneState(entries: Self.entries)
-        pane.moveCursor(by: -1)
+        pane.moveCursor(by: -1, in: pane.sortedEntries())
         #expect(pane.cursor == identity("delta"))
     }
 
     @Test("moves clamp at both ends")
     func clamping() {
         var pane = PaneState(entries: Self.entries, cursor: identity("charlie"))
-        pane.moveCursor(by: 100)
+        pane.moveCursor(by: 100, in: pane.sortedEntries())
         #expect(pane.cursor == identity("delta"))
-        pane.moveCursor(by: -100)
+        pane.moveCursor(by: -100, in: pane.sortedEntries())
         #expect(pane.cursor == identity("alpha"))
     }
 
     @Test("moves walk the displayed order, not the arrival order")
     func displayedOrder() {
         var pane = PaneState(entries: [makeEntry("file10"), makeEntry("file2")])
-        pane.moveCursor(by: 1)
+        pane.moveCursor(by: 1, in: pane.sortedEntries())
         #expect(pane.cursor == identity("file2"), "Finder order puts file2 first")
-        pane.moveCursor(by: 1)
+        pane.moveCursor(by: 1, in: pane.sortedEntries())
         #expect(pane.cursor == identity("file10"))
     }
 
     @Test("top and bottom land on the displayed extremes")
     func topAndBottom() {
         var pane = PaneState(entries: Self.entries, cursor: identity("bravo"))
-        pane.moveCursorToBottom()
+        pane.moveCursorToBottom(in: pane.sortedEntries())
         #expect(pane.cursor == identity("delta"))
-        pane.moveCursorToTop()
+        pane.moveCursorToTop(in: pane.sortedEntries())
         #expect(pane.cursor == identity("alpha"))
     }
 
     @Test("an empty pane keeps the cursor nil through every move")
     func emptyPane() {
         var pane = PaneState()
-        pane.moveCursor(by: 1)
+        pane.moveCursor(by: 1, in: pane.sortedEntries())
         #expect(pane.cursor == nil)
-        pane.moveCursorToTop()
+        pane.moveCursorToTop(in: pane.sortedEntries())
         #expect(pane.cursor == nil)
     }
 }
@@ -96,25 +98,25 @@ struct PaneSelectionTests {
     @Test("space toggles the cursor entry and advances")
     func toggleAndAdvance() {
         var pane = PaneState(entries: Self.entries, cursor: identity("alpha"))
-        pane.toggleSelectionAtCursorAndAdvance()
+        pane.toggleSelectionAtCursorAndAdvance(in: pane.sortedEntries())
         #expect(pane.selection == [identity("alpha")])
         #expect(pane.cursor == identity("bravo"))
-        pane.moveCursor(by: -1)
-        pane.toggleSelectionAtCursorAndAdvance()
+        pane.moveCursor(by: -1, in: pane.sortedEntries())
+        pane.toggleSelectionAtCursorAndAdvance(in: pane.sortedEntries())
         #expect(pane.selection.isEmpty, "the second toggle unmarks")
     }
 
     @Test("space with no cursor does nothing")
     func noCursorNoop() {
         var pane = PaneState(entries: Self.entries)
-        pane.toggleSelectionAtCursorAndAdvance()
+        pane.toggleSelectionAtCursorAndAdvance(in: pane.sortedEntries())
         #expect(pane.selection.isEmpty)
     }
 
     @Test("select all takes the displayed entries only")
     func selectAllDisplayed() {
         var pane = PaneState(entries: Self.entries)
-        pane.selectAll()
+        pane.selectAll(in: pane.sortedEntries())
         #expect(pane.selection == [identity("alpha"), identity("bravo")])
     }
 
@@ -144,7 +146,7 @@ struct PaneDisplayTests {
     @Test("hiding prunes a hidden cursor and hidden selections")
     func hidingReconciles() {
         var pane = PaneState(entries: Self.entries, showHidden: true)
-        pane.selectAll()
+        pane.selectAll(in: pane.sortedEntries())
         pane.cursor = identity(".dotfile")
         pane.toggleHidden()
         #expect(pane.selection == [identity("visible")])
@@ -185,6 +187,13 @@ struct PaneDisplayTests {
         pane.replaceEntries([makeEntry("bravo"), makeEntry("alpha")])
         #expect(pane.cursor == identity("alpha"))
         #expect(pane.selection.isEmpty)
+    }
+
+    @Test("a fresh listing gives a nil cursor footing on the first row")
+    func replaceFootsFreshPane() {
+        var pane = PaneState()
+        pane.replaceEntries([makeEntry("bravo"), makeEntry("alpha")])
+        #expect(pane.cursor == identity("alpha"))
     }
 
     @Test("replacing with nothing clears the cursor")

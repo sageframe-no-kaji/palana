@@ -1,0 +1,256 @@
+// The pane model — one pane's live state and its engine wiring. Holds
+// the PaneState value, computes the displayed rows once per display
+// change, and runs the ho-04 read path: facts, discover if the
+// capability is missing, list with the flavor. Every failure renders
+// as a quiet line in the pane, never an alert.
+
+import AppKit
+import PalanaCore
+import SwiftUI
+
+/// The engine handles a pane borrows — built once by the session.
+struct Engine: Sendable {
+    /// The single door.
+    let conduit: SSHConduit
+    /// The topology and its facts.
+    let field: Field
+    /// The directory reader.
+    let listing: Listing
+}
+
+/// One pane: state, rows, status, and the wiring behind them.
+@MainActor
+@Observable
+final class PaneModel {
+    /// Where the pane stands with its host.
+    enum Status: Equatable {
+        /// No host yet — the go-to hint renders.
+        case unpointed
+        /// A read is in flight.
+        case loading
+        /// Entries are showing.
+        case ready
+        /// The read failed — the line says why, in place.
+        case failed(String)
+    }
+
+    /// The pane's value — the core's contract.
+    var state = PaneState()
+    /// The displayed rows, recomputed only when the display changes.
+    private(set) var rows: [FileEntry] = []
+    /// Where the pane stands.
+    private(set) var status = Status.unpointed
+    /// Rows a page move jumps — the view updates it from geometry.
+    var pageSize = 25
+
+    /// Fires on pointing, sort, and hidden changes — the session persists there.
+    ///
+    /// Set once, right after construction.
+    var onDisplayChange: @MainActor () -> Void = {}
+
+    private let engine: Engine
+    private var loadTask: Task<Void, Never>?
+    private var landOn: Data?
+
+    /// A pane over the session's engine.
+    init(engine: Engine) {
+        self.engine = engine
+    }
+
+    /// Re-points the pane from a remembered session.
+    func restore(_ remembered: SessionSnapshot.Pane) {
+        state.sort = remembered.sort
+        state.showHidden = remembered.showHidden
+        if let host = remembered.host {
+            point(host: host, path: remembered.path)
+        }
+    }
+
+    /// Points the pane at a host and path, and reads it.
+    func point(host: String, path: String) {
+        state.host = host
+        state.path = path
+        state.entries = []
+        state.selection = []
+        state.cursor = nil
+        rows = []
+        onDisplayChange()
+        load()
+    }
+
+    /// Applies one intent.
+    ///
+    /// Cursor and selection moves mutate synchronously; reads spawn.
+    func apply(_ intent: PaneIntent) {
+        if applyCursorOrSelection(intent) { return }
+        switch intent {
+        case .toggleHidden: applyDisplayChange { $0.toggleHidden() }
+        case .sortByName: applyDisplayChange { $0.setSort(key: .name) }
+        case .sortBySize: applyDisplayChange { $0.setSort(key: .size) }
+        case .sortByModified: applyDisplayChange { $0.setSort(key: .modified) }
+        case .ascend: ascend()
+        case .descend: descend()
+        case .refresh: load()
+        case .copyPath, .copyDirectory, .copyFilename, .copyNameSansExtension:
+            copyToClipboard(intent)
+        default:
+            break  // the session's verbs — dispatched before reaching a pane
+        }
+    }
+
+    /// The hot half of the grammar — true when the intent was one of them.
+    private func applyCursorOrSelection(_ intent: PaneIntent) -> Bool {
+        switch intent {
+        case .cursorDown: state.moveCursor(by: 1, in: rows)
+        case .cursorUp: state.moveCursor(by: -1, in: rows)
+        case .cursorHalfPageDown: state.moveCursor(by: max(pageSize / 2, 1), in: rows)
+        case .cursorHalfPageUp: state.moveCursor(by: -max(pageSize / 2, 1), in: rows)
+        case .cursorPageDown: state.moveCursor(by: max(pageSize, 1), in: rows)
+        case .cursorPageUp: state.moveCursor(by: -max(pageSize, 1), in: rows)
+        case .cursorToTop: state.moveCursorToTop(in: rows)
+        case .cursorToBottom: state.moveCursorToBottom(in: rows)
+        case .toggleSelectionAndAdvance: state.toggleSelectionAtCursorAndAdvance(in: rows)
+        case .selectAll: state.selectAll(in: rows)
+        case .clearSelection: state.clearSelection()
+        default: return false
+        }
+        return true
+    }
+
+    /// The entry under the cursor, if any.
+    var cursorEntry: FileEntry? {
+        guard let cursor = state.cursor else { return nil }
+        return rows.first { $0.id == cursor }
+    }
+
+    // MARK: - Navigation
+
+    private func ascend() {
+        guard let host = state.host, state.path != "/" else { return }
+        let leaving = Self.lastComponent(of: state.path)
+        landOn = Data(leaving.utf8)
+        point(host: host, path: Self.parentPath(of: state.path))
+    }
+
+    private func descend() {
+        guard let host = state.host, let entry = cursorEntry, entry.kind == .directory else { return }
+        point(host: host, path: Self.childPath(of: state.path, name: entry.name))
+    }
+
+    /// One directory read through the engine — ho-04's wiring exactly.
+    private func load() {
+        guard let host = state.host else { return }
+        let path = state.path
+        loadTask?.cancel()
+        status = .loading
+        loadTask = Task {
+            do {
+                let flavor = try await self.resolveFlavor(host: host)
+                let entries = try await self.engine.listing.list(on: host, path: path, flavor: flavor)
+                guard !Task.isCancelled, self.state.host == host, self.state.path == path else { return }
+                self.state.replaceEntries(entries)
+                self.refreshRows()
+                if let landOn = self.landOn {
+                    self.landOn = nil
+                    if self.rows.contains(where: { $0.id == landOn }) { self.state.cursor = landOn }
+                }
+                self.status = .ready
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.status = .failed(Self.describe(error))
+            }
+        }
+    }
+
+    /// The flavor fact, from memory or one discovery round trip.
+    private func resolveFlavor(host: String) async throws -> UserlandFlavor {
+        if let flavor = await engine.field.facts(for: host)?.capability?.value.flavor {
+            return flavor
+        }
+        let facts = try await engine.field.discover(host)
+        if let flavor = facts.capability?.value.flavor {
+            return flavor
+        }
+        if case .unreachable(let detail) = facts.reachability?.value {
+            throw PointingError.unreachable(detail)
+        }
+        throw PointingError.unreachable("no capability fact")
+    }
+
+    /// A display-changing move: mutate, recompute rows, persist.
+    private func applyDisplayChange(_ change: (inout PaneState) -> Void) {
+        change(&state)
+        refreshRows()
+        onDisplayChange()
+    }
+
+    private func refreshRows() {
+        rows = state.sortedEntries()
+    }
+
+    // MARK: - Clipboard
+
+    /// The clipboard verbs — selection when it exists, cursor otherwise.
+    private func copyToClipboard(_ intent: PaneIntent) {
+        let subjects =
+            state.selection.isEmpty
+            ? [cursorEntry].compactMap { $0 }
+            : rows.filter { state.selection.contains($0.id) }
+        guard !subjects.isEmpty || intent == .copyDirectory else { return }
+        let lines: [String]
+        switch intent {
+        case .copyPath: lines = subjects.map { Self.childPath(of: state.path, name: $0.name) }
+        case .copyDirectory: lines = [state.path]
+        case .copyFilename: lines = subjects.map(\.name)
+        case .copyNameSansExtension: lines = subjects.map { Self.nameSansExtension($0.name) }
+        default: return
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
+    // MARK: - Errors
+
+    /// One quiet line for the pane — typed errors say what they are.
+    private static func describe(_ error: any Error) -> String {
+        switch error {
+        case ListingError.directoryNotFound(let path): "no such directory: \(path)"
+        case ListingError.permissionDenied(let path): "permission denied: \(path)"
+        case ListingError.notADirectory(let path): "not a directory: \(path)"
+        case ListingError.listingFailed(_, let stderr): "read failed: \(stderr)"
+        case ListingError.malformedListing: "the listing did not parse — worth reporting"
+        case PointingError.unreachable(let detail): detail
+        case let conduitError as ConduitError: "\(conduitError)"
+        default: "\(error)"
+        }
+    }
+
+    /// Why a pane could not point.
+    private enum PointingError: Error {
+        case unreachable(String)
+    }
+
+    // MARK: - Path arithmetic (UTF-8 v1, per ho-04's named limitation)
+
+    static func childPath(of path: String, name: String) -> String {
+        path == "/" ? "/\(name)" : "\(path)/\(name)"
+    }
+
+    static func parentPath(of path: String) -> String {
+        let trimmed = path.hasSuffix("/") ? String(path.dropLast()) : path
+        guard let cut = trimmed.lastIndex(of: "/"), cut != trimmed.startIndex else { return "/" }
+        return String(trimmed[..<cut])
+    }
+
+    static func lastComponent(of path: String) -> String {
+        let trimmed = path.hasSuffix("/") ? String(path.dropLast()) : path
+        guard let cut = trimmed.lastIndex(of: "/") else { return trimmed }
+        return String(trimmed[trimmed.index(after: cut)...])
+    }
+
+    static func nameSansExtension(_ name: String) -> String {
+        guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return name }
+        return String(name[..<dot])
+    }
+}
