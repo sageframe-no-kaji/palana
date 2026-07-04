@@ -36,6 +36,7 @@ struct PalanaApp: App {
         // The scene owns the titlebar — hiding it here is what sticks;
         // window-level flags alone get reasserted by SwiftUI.
         .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
         .defaultPosition(.topTrailing)
     }
 }

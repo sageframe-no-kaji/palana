@@ -89,50 +89,26 @@ struct HelpOverlay: View {
 
 /// The floating keys window — the card itself, chromeless.
 ///
-/// No titlebar, no border, no white space: the card IS the window
-/// (second hands session: "it was better before"). Esc closes it.
-/// One truth, three doors: drag the frame (aspect forced by the
-/// window itself), ⌘ + / −, or the +/− icons — all move the same
-/// remembered scale. The window's identifier tells the session's key
-/// monitor to stand down while this window is key.
+/// The window hugs the card exactly — no margins, no glass, the
+/// scene hides the titlebar and resizability tracks content, so the
+/// frame cannot disagree with the card. Two doors move the one
+/// remembered scale: ⌘ + / − and the +/− icons. Esc closes, handled
+/// by the session's key monitor by window identity.
 struct HelpWindow: View {
-    /// The name the key monitor stands down for.
+    /// The name the key monitor recognizes.
     static let windowIdentifier = "palana-keys-window"
 
-    /// The remembered scale — shared truth for every resize door.
+    /// The remembered scale — shared truth for both resize doors.
     @AppStorage("palana.keysScale")
     private var scale = 1.0
-
-    @State private var window: NSWindow?
-    /// The card's natural size at scale 1 — measured, not guessed, so
-    /// the frame hugs the card exactly and the aspect is the card's own.
-    @State private var base: CGSize?
-
-    @Environment(\.dismissWindow)
-    private var dismissWindow
 
     private static let scaleRange = 0.7...1.8
 
     var body: some View {
-        Group {
-            if let base {
-                GeometryReader { geometry in
-                    card(scale: geometry.size.width / base.width)
-                }
-            } else {
-                // First frame: natural size at the remembered scale,
-                // measured once to learn the card's true aspect.
-                card(scale: scale)
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear.onAppear {
-                                base = CGSize(
-                                    width: geometry.size.width / scale,
-                                    height: geometry.size.height / scale)
-                            }
-                        })
-            }
-        }
+        HelpOverlay(
+            scale: scale,
+            footer: "esc closes · ⌘ + / − or the icons resize"
+        )
         .overlay(alignment: .topTrailing) {
             HStack(spacing: 2) {
                 scaleButton("minus.circle", by: -0.1, key: "-")
@@ -140,42 +116,13 @@ struct HelpWindow: View {
             }
             .padding(12)
         }
-        .background(WindowChrome { self.window = $0 })
-        .onChange(of: base) { _, measured in
-            guard let measured, let window else { return }
-            window.contentAspectRatio = measured
-            window.minSize = CGSize(
-                width: measured.width * Self.scaleRange.lowerBound,
-                height: measured.height * Self.scaleRange.lowerBound)
-            window.setContentSize(
-                CGSize(width: measured.width * scale, height: measured.height * scale))
-        }
-        .onExitCommand {
-            dismissWindow(id: "palana-keys")
-        }
-        .onDisappear {
-            // The frame is the truth when the window closes — remember
-            // it so the next summon opens at the same size.
-            if let base, let width = window?.frame.width {
-                scale = clamp(width / base.width)
-            }
-        }
-    }
-
-    private func card(scale: Double) -> some View {
-        HelpOverlay(
-            scale: scale,
-            footer: "esc closes · drag, ⌘ + / −, or the icons resize"
-        )
+        .background(WindowChrome())
     }
 
     private func scaleButton(_ systemName: String, by delta: Double, key: KeyEquivalent) -> some View {
         Button {
-            guard let window, let base else { return }
-            let next = clamp(window.frame.width / base.width + delta)
-            scale = next
-            window.setContentSize(
-                CGSize(width: base.width * next, height: base.height * next))
+            scale = min(
+                max(scale + delta, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 12))
@@ -185,32 +132,22 @@ struct HelpWindow: View {
         .keyboardShortcut(key, modifiers: .command)
         .help(delta > 0 ? "larger (⌘+)" : "smaller (⌘−)")
     }
-
-    private func clamp(_ value: Double) -> Double {
-        min(max(value, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
-    }
 }
 
-/// Strips the window to the card: no titlebar, no buttons, clear
-/// ground, movable by its body — and named so the key monitor knows.
+/// Names the window for the key monitor and strips what the scene
+/// style leaves behind — clear ground, movable by the card's body.
 private struct WindowChrome: NSViewRepresentable {
-    let onWindow: (NSWindow) -> Void
-
     func makeNSView(context: Context) -> NSView {
         let probe = NSView()
         DispatchQueue.main.async {
             guard let window = probe.window else { return }
             window.identifier = NSUserInterfaceItemIdentifier(HelpWindow.windowIdentifier)
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-            window.styleMask.insert(.fullSizeContentView)
             window.standardWindowButton(.closeButton)?.isHidden = true
             window.standardWindowButton(.miniaturizeButton)?.isHidden = true
             window.standardWindowButton(.zoomButton)?.isHidden = true
             window.isMovableByWindowBackground = true
             window.backgroundColor = .clear
             window.isOpaque = false
-            onWindow(window)
         }
         return probe
     }
