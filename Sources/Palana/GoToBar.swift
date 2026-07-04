@@ -43,7 +43,7 @@ struct GoToBar: View {
                 }
             }
             .labelsHidden()
-            TextField("path", text: $path)
+            TextField("path — absolute, or ~/ for home", text: $path)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(commit)
             HStack {

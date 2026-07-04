@@ -44,6 +44,7 @@ enum Grammar {
         [",", "m"]: .sortByModified,
         ["cmd-r"]: .refresh,
         ["cmd-shift-g"]: .goTo,
+        ["?"]: .help,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.

@@ -57,4 +57,6 @@ public enum PaneIntent: String, CaseIterable, Sendable {
     case goTo
     /// Move focus to the other pane.
     case switchPane
+    /// Show the keyboard vocabulary.
+    case help
 }

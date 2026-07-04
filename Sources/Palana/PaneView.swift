@@ -65,6 +65,19 @@ struct PaneView: View {
     }
 
     private var table: some View {
+        ScrollViewReader { proxy in
+            innerTable
+                .onChange(of: model.state.cursor) { _, cursor in
+                    // Keyed moves must keep the cursor on screen — the
+                    // Table does not follow programmatic selection on
+                    // its own (first hands session's finding).
+                    guard let cursor else { return }
+                    proxy.scrollTo(cursor)
+                }
+        }
+    }
+
+    private var innerTable: some View {
         Table(model.rows, selection: cursorBinding) {
             TableColumn("name") { entry in
                 nameCell(entry)
@@ -86,6 +99,15 @@ struct PaneView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
         .tint(Theme.accent)
+        .background(
+            GeometryReader { geometry in
+                Color.clear
+                    .onChange(of: geometry.size.height, initial: true) { _, height in
+                        // A page is what the eye can see — keep the
+                        // jump keys honest about the window's height.
+                        model.pageSize = max(Int(height / 24) - 1, 1)
+                    }
+            })
     }
 
     /// Sizes as facts — `0 bytes`, never `Zero kB`.
@@ -118,7 +140,13 @@ struct PaneView: View {
     private var cursorBinding: Binding<FileEntry.ID?> {
         Binding(
             get: { model.state.cursor },
-            set: { model.state.cursor = $0 })
+            set: {
+                // The setter only fires from the Table's own interaction
+                // — a click — so focus follows it. Keyed moves write the
+                // state directly and never pass through here.
+                model.state.cursor = $0
+                onFocus()
+            })
     }
 
     private func quietLine(_ text: String) -> some View {

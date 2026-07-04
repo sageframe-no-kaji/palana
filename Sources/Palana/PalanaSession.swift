@@ -24,6 +24,8 @@ final class PalanaSession {
     var focusedSide = SessionSnapshot.Side.left
     /// Non-nil while the go-to bar is up, naming the pane it points.
     var gotoTarget: SessionSnapshot.Side?
+    /// Whether the vocabulary card is up.
+    var helpVisible = false
     /// The pending multi-key prefix, for the footer.
     private(set) var pendingPrefix = ""
     /// The hosts the Field knows — the go-to bar's menu.
@@ -88,6 +90,12 @@ final class PalanaSession {
     func handle(_ event: NSEvent) -> Bool {
         guard gotoTarget == nil else { return false }
         guard let token = Grammar.token(for: event) else { return false }
+        if helpVisible {
+            // The card holds the keyboard: ? or Esc closes, the rest
+            // waits so the panes stay put while the eyes are here.
+            if token == "esc" || token == "?" { helpVisible = false }
+            return true
+        }
         if token == "esc" {
             // A pending prefix dies first; a bare Esc clears the selection.
             if pendingPrefix.isEmpty {
@@ -120,6 +128,8 @@ final class PalanaSession {
             persist()
         case .goTo:
             gotoTarget = focusedSide
+        case .help:
+            helpVisible = true
         default:
             focusedPane.apply(intent)
         }

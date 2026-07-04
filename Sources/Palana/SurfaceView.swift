@@ -11,6 +11,22 @@ struct SurfaceView: View {
     @Bindable var session: PalanaSession
 
     var body: some View {
+        panes
+            .overlay {
+                if session.helpVisible {
+                    HelpOverlay()
+                }
+            }
+            .sheet(item: $session.gotoTarget) { side in
+                gotoBar(for: side)
+            }
+            .task {
+                session.installKeyMonitor()
+                await session.start()
+            }
+    }
+
+    private var panes: some View {
         VStack(spacing: 0) {
             HSplitView {
                 PaneView(
@@ -32,13 +48,6 @@ struct SurfaceView: View {
             footer
         }
         .background(Theme.ground)
-        .sheet(item: $session.gotoTarget) { side in
-            gotoBar(for: side)
-        }
-        .task {
-            session.installKeyMonitor()
-            await session.start()
-        }
     }
 
     private var footer: some View {
@@ -55,6 +64,7 @@ struct SurfaceView: View {
                     .foregroundStyle(Theme.accent)
             }
             Text(sortLine)
+            Text("? keys")
         }
         .font(.system(size: 11))
         .foregroundStyle(Theme.inkFaint)

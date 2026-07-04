@@ -137,14 +137,23 @@ final class PaneModel {
         point(host: host, path: Self.childPath(of: state.path, name: entry.name))
     }
 
-    /// One directory read through the engine — ho-04's wiring exactly.
+    /// One directory read through the engine — ho-04's wiring exactly,
+    /// with one Surface courtesy first: a leading `~` resolves to the
+    /// remote home, because the listing quotes its path and the remote
+    /// shell never sees a tilde to expand.
     private func load() {
         guard let host = state.host else { return }
-        let path = state.path
         loadTask?.cancel()
         status = .loading
         loadTask = Task {
             do {
+                var path = self.state.path
+                if path == "~" || path.hasPrefix("~/") {
+                    path = try await self.resolveTilde(path, host: host)
+                    guard !Task.isCancelled, self.state.host == host else { return }
+                    self.state.path = path
+                    self.onDisplayChange()
+                }
                 let flavor = try await self.resolveFlavor(host: host)
                 let entries = try await self.engine.listing.list(on: host, path: path, flavor: flavor)
                 guard !Task.isCancelled, self.state.host == host, self.state.path == path else { return }
@@ -160,6 +169,14 @@ final class PaneModel {
                 self.status = .failed(Self.describe(error))
             }
         }
+    }
+
+    /// Asks the host where home is — one round trip, POSIX-plain.
+    private func resolveTilde(_ path: String, host: String) async throws -> String {
+        let result = try await engine.conduit.run(on: host, "printf %s \"$HOME\"").collect()
+        let home = result.stdoutText
+        guard result.exitStatus == 0, home.hasPrefix("/") else { return path }
+        return path == "~" ? home : home + path.dropFirst(1)
     }
 
     /// The flavor fact, from memory or one discovery round trip.
