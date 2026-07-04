@@ -182,16 +182,21 @@ struct PaneView: View {
         Table(model.rows, selection: cursorBinding) {
             TableColumn("name") { entry in
                 nameCell(entry)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(cursorWash(entry))
             }
             TableColumn("size") { entry in
                 Text(entry.kind == .directory ? "—" : Self.sizeText(entry.size))
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .trailing)
+                    .background(cursorWash(entry))
             }
             .width(min: 60, ideal: 80, max: 110)
             TableColumn("modified") { entry in
                 Text(entry.modified.formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(Theme.inkFaint)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(cursorWash(entry))
             }
             .width(min: 110, ideal: 150, max: 190)
         }
@@ -199,7 +204,7 @@ struct PaneView: View {
         .alternatingRowBackgrounds(.disabled)
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
-        .tint(Theme.accent)
+        .background(TableSelectionStyler())
         .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
             contextMenuItems(for: ids)
         }
@@ -244,6 +249,13 @@ struct PaneView: View {
 
     private func displayName(_ entry: FileEntry) -> String {
         entry.kind == .directory ? "\(entry.name)/" : entry.name
+    }
+
+    /// The cursor row's own paint — moss wash, not the system accent.
+    private func cursorWash(_ entry: FileEntry) -> some View {
+        RoundedRectangle(cornerRadius: 3)
+            .fill(Theme.accent.opacity(model.state.cursor == entry.id ? 0.18 : 0))
+            .padding(.horizontal, -6)
     }
 
     private var cursorBinding: Binding<FileEntry.ID?> {
