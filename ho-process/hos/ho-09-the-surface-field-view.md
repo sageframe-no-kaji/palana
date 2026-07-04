@@ -1,9 +1,10 @@
 ---
 created: 2026-07-04
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 09
+commit: f69ed65..HEAD (author f69ed65, core c997005, mark d69ae6b, overlay 3bc8f0f, round 1 b6d16f5, openrsync errata at close)
 kamae: 5
 shape: ha
 builds-on:
@@ -97,14 +98,17 @@ Each task carries its own verification—lint, build, the full suite—and lands
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution and the third UI/UX session. Prompts:*
+**The design held, and the real cache did the judging.** The overlay rendered his cache instantly—koan at 159 datasets, kanyo at 18, the github aliases as honest rust refusals—and the grammar carried the session without a collision. What the Think phase didn't anticipate came from the map being honest about what it knows: the github rows prompted the filter question the ho had deliberately held, kanyo prompted "what about the ground that isn't ZFS," and both resolved into direction rather than code.
 
-- **Did the design hold?** Where did the real cache surface things the Think phase didn't anticipate?
-- **Decision review.** Was `f` right under his hands? Did the overlay grammar collide with muscle memory anywhere?
-- **The re-probe in anger.** Did `r` heal zencat's flavor in one stroke, and did the pane pick it up without ceremony?
-- **What the third session queued.** Findings consolidate at Checkpoint 3 with ho-07's and ho-08's.
+**Decision review.** `f` drew no complaint. The in-window overlay held—no window machinery fought back. Decision 4 proved itself in anger: `r` on zencat traded the stale BSD for BusyBox in one keystroke, live, at 20:23—the cache shows the healing. And the config-as-control surface passed its deepest test unprompted: he asked "can I add to the field?", was told the ▾ menu edits `~/.ssh/config`, and chumon appeared in the map with 10 datasets before the session ended—edit, reload, probe, no code helping. His verdict on the mechanism, verbatim: "i love that that is the control."
+
+**Delegation review.** All three agent tasks ran on `claude-sonnet-4-6` and came back spec-faithful and green. What the session's review caught is the argument for keeping review at the top tier: probe refusals held in state but never rendered (silence where the law says failures render in place), the missing scroll-follow (ho-07's first hands finding, about to be rediscovered), a cancellation seam opened by making `commit` async, and a type-body budget tipped at the brink.
+
+**What broke that the tests didn't catch—and what CI caught that the session nearly didn't.** CI had been red since ho-08's first code push: the rsync floor compose carried `-s`, which openrsync refuses—hidden locally by this Mac's real rsync 3.4.1, declared "openrsync-safe" by the very test that asserted it. Under it a deeper incompatibility: rsync ≥3.2.4 protects remote args by default, so a floor-style inner quote arrives literal on a modern client—no one flag set serves an unknown local rsync. The errata makes `rsyncDirect` ask for both binaries known (unknown falls to tar), keeps `-s` for the modern compose, and inner-quotes remote paths for the floor. The routing live tests now probe this machine's own rsync and feed it as fact—modern proven here, floor proven on the runner, the self-skip the ho-08 record imagined replaced by a floor that works. Two session lessons re-learned the hard way: `swift test | tail` masked a failing run at one commit (the build record's own recorded trap), and the ho-08 scratch timing probe flaked against a mutating `/private/tmp`—deleted per its own header, and the finding that a directory changing between the listing's name pass and stat batch refuses as `malformedListing` is queued as a real v1 edge.
+
+**The third session's queue, for Checkpoint 3.** Sealed direction: `# palana: hide` comments in `~/.ssh/config` as the host filter, edited by a settings surface for operators who don't speak ssh config. Settings live in pālana's own popped panels, mirrored to the Apple Settings scene; a settings gear joins the titlebar when they exist. The host map grows from a mounts fact (`findmnt`-shaped, new Field vocabulary)—all hosts, filesystems present including the non-ZFS ground kanyo asked about—surface decided when it opens. Built mid-session as round 1: the titlebar `?`. Standing from earlier sessions: create/rename, favorites, drag-and-drop, host onboarding, help-card cmd-swallow verify, design polish, the NSMenu refit.
 
 ---
 
-_Authored: 2026-07-04 (Think phase)._
-_Execution and Reflect: pending._
+_Authored: 2026-07-04 (Think phase). Executed same day—three agent tasks on claude-sonnet-4-6, reviewed and verified by the session._
+_Third UI/UX session run live. 323 tests, 58 suites, PalanaCore 97.67% line coverage._
