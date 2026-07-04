@@ -28,11 +28,44 @@ for _ in $(seq 1 30); do
 done
 [ -s "$FIXTURES/known_hosts" ] || { echo "runner sshd never answered" >&2; exit 1; }
 
+# ho-06.1 aliases: both names reach the runner. The remote half of a
+# "cross-host" transfer resolves fixture-self through the runner user's
+# own ssh config — the runner is the remote, so they are the same file
+# world. The runner ships openrsync, so the rsync-direct live test
+# skips itself there (no dotted rsync version fact); the tar proxy and
+# the gate machinery run in full.
+RUNNER_USER=$(whoami)
+cat > "$FIXTURES/ssh_config" <<EOF
+Host fixture fixture-self
+    HostName localhost
+    Port 22
+    User $RUNNER_USER
+    IdentityFile $FIXTURES/id_fixture
+    UserKnownHostsFile $FIXTURES/known_hosts
+    StrictHostKeyChecking accept-new
+    IdentitiesOnly yes
+    ConnectTimeout 5
+EOF
+touch ~/.ssh/config
+cat >> ~/.ssh/config <<EOF
+
+Host fixture-self
+    HostName localhost
+    Port 22
+    User $RUNNER_USER
+    IdentityFile $FIXTURES/id_fixture
+    StrictHostKeyChecking accept-new
+EOF
+chmod 600 ~/.ssh/config
+
 cat > "$FIXTURES/sshd.env" <<EOF
 PALANA_FIXTURE_HOST=$(whoami)@localhost
 PALANA_FIXTURE_PORT=22
 PALANA_FIXTURE_IDENTITY=$FIXTURES/id_fixture
 PALANA_FIXTURE_IDENTITY_DENIED=$FIXTURES/id_denied
 PALANA_FIXTURE_KNOWN_HOSTS=$FIXTURES/known_hosts
+PALANA_FIXTURE_SSH_CONFIG=$FIXTURES/ssh_config
+PALANA_FIXTURE_ALIAS=fixture
+PALANA_FIXTURE_SELF=fixture-self
 EOF
 echo "runner fixture up: $(whoami)@localhost:22"

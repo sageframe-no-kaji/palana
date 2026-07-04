@@ -37,12 +37,47 @@ start() {
     done
     [ -s "$FIXTURES/known_hosts" ] || { echo "sshd never answered on :$PORT" >&2; exit 1; }
 
+    # ho-06.1: the container learns rsync and how to reach itself, so a
+    # "cross-host" transfer has a real remote end with one container.
+    docker exec -u root "$CONTAINER" apk add --no-cache --quiet rsync
+    docker cp "$FIXTURES/id_fixture" "$CONTAINER:/config/.ssh/id_fixture" >/dev/null
+    docker exec -u root "$CONTAINER" sh -c '
+        cat > /config/.ssh/config <<CONF
+Host fixture-self
+    HostName localhost
+    Port 2222
+    User palana
+    IdentityFile /config/.ssh/id_fixture
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile /config/.ssh/known_hosts
+CONF
+        chown -R 1000:1000 /config/.ssh
+        chmod 600 /config/.ssh/id_fixture /config/.ssh/config
+    '
+
+    # Operator-side aliases: both names reach the container. Tests and
+    # the proxy pipeline halves resolve them via -F.
+    cat > "$FIXTURES/ssh_config" <<EOF
+Host fixture fixture-self
+    HostName localhost
+    Port $PORT
+    User palana
+    IdentityFile $FIXTURES/id_fixture
+    UserKnownHostsFile $FIXTURES/known_hosts
+    StrictHostKeyChecking accept-new
+    IdentitiesOnly yes
+    ConnectTimeout 5
+EOF
+
     cat > "$FIXTURES/sshd.env" <<EOF
 PALANA_FIXTURE_HOST=palana@localhost
 PALANA_FIXTURE_PORT=$PORT
 PALANA_FIXTURE_IDENTITY=$FIXTURES/id_fixture
 PALANA_FIXTURE_IDENTITY_DENIED=$FIXTURES/id_denied
 PALANA_FIXTURE_KNOWN_HOSTS=$FIXTURES/known_hosts
+PALANA_FIXTURE_SSH_CONFIG=$FIXTURES/ssh_config
+PALANA_FIXTURE_ALIAS=fixture
+PALANA_FIXTURE_SELF=fixture-self
 EOF
     echo "fixture up: palana@localhost:$PORT — facts in .fixtures/sshd.env"
 }

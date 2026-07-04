@@ -185,12 +185,18 @@ public enum PlanEngine {
         let names = request.entries.map { ShellQuote.quote($0.name) }.joined(separator: " ")
         let pack = "tar -cf - -C \(ShellQuote.quote(request.source.directory)) -- \(names)"
         let unpack = "tar -xpf - -C \(ShellQuote.quote(request.destination?.directory ?? ""))"
+        let destinationHost = request.destination?.host ?? ""
         var steps = [
             PlanStep(
                 runsOn: .operatorMachine,
                 command: "ssh \(request.source.host) \(ShellQuote.quote(pack)) | "
-                    + "ssh \(request.destination?.host ?? "") \(ShellQuote.quote(unpack))",
-                role: .transfer)
+                    + "ssh \(destinationHost) \(ShellQuote.quote(unpack))",
+                role: .transfer,
+                pipeline: Pipeline(
+                    fromHost: request.source.host,
+                    fromCommand: pack,
+                    toHost: destinationHost,
+                    toCommand: unpack))
         ]
         if request.operation == .move {
             let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
@@ -238,7 +244,12 @@ public enum PlanEngine {
                     runsOn: .operatorMachine,
                     command: "ssh \(request.source.host) \(ShellQuote.quote(send)) | "
                         + "ssh \(destinationHost) \(ShellQuote.quote(receive))",
-                    role: .transfer))
+                    role: .transfer,
+                    pipeline: Pipeline(
+                        fromHost: request.source.host,
+                        fromCommand: send,
+                        toHost: destinationHost,
+                        toCommand: receive)))
         }
         steps.append(
             PlanStep(

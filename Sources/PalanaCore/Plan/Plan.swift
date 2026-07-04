@@ -61,6 +61,31 @@ public enum Runner: Codable, Sendable, Equatable, Hashable {
     case host(String)
 }
 
+/// The two halves of a proxied pipeline, structured.
+///
+/// The step's command string is the paste-able truth; this is the same
+/// truth in parts, so enactment can spawn the halves in-process and
+/// count the bytes between them without re-parsing shell. Both are
+/// composed together by the engine — they cannot drift.
+public struct Pipeline: Codable, Sendable, Equatable {
+    /// The host the producing half runs against.
+    public var fromHost: String
+    /// The producing command — tar -cf, zfs send.
+    public var fromCommand: String
+    /// The host the consuming half runs against.
+    public var toHost: String
+    /// The consuming command — tar -xpf, zfs receive.
+    public var toCommand: String
+
+    /// Assembles a pipeline spec.
+    public init(fromHost: String, fromCommand: String, toHost: String, toCommand: String) {
+        self.fromHost = fromHost
+        self.fromCommand = fromCommand
+        self.toHost = toHost
+        self.toCommand = toCommand
+    }
+}
+
 /// One command in an approved sequence.
 public struct PlanStep: Codable, Sendable, Equatable {
     /// What the step is for — the panel labels it, the Transports gate
@@ -91,13 +116,22 @@ public struct PlanStep: Codable, Sendable, Equatable {
     ///
     /// The Plan declares the gate; enforcing it is enactment's job.
     public var gatedOnVerification: Bool
+    /// The structured halves, present only on proxied pipeline steps.
+    public var pipeline: Pipeline?
 
     /// Assembles a step.
-    public init(runsOn: Runner, command: String, role: Role, gatedOnVerification: Bool = false) {
+    public init(
+        runsOn: Runner,
+        command: String,
+        role: Role,
+        gatedOnVerification: Bool = false,
+        pipeline: Pipeline? = nil
+    ) {
         self.runsOn = runsOn
         self.command = command
         self.role = role
         self.gatedOnVerification = gatedOnVerification
+        self.pipeline = pipeline
     }
 }
 

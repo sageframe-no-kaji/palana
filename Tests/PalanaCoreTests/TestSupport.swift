@@ -79,6 +79,32 @@ enum SSHFixture {
         case fixture
         case emptyStrict
     }
+
+    /// True when the fixture carries the ho-06.1 alias config.
+    static var aliasesAvailable: Bool {
+        (try? facts()["PALANA_FIXTURE_SSH_CONFIG"]) != nil
+    }
+
+    /// The alias world — a `-F` configuration where `fixture` and
+    /// `fixture-self` both resolve, operator-side and remote-side.
+    struct AliasWorld {
+        var configuration: SSHConfiguration
+        var source: String
+        var destination: String
+    }
+
+    static func aliasConfiguration() throws -> AliasWorld {
+        let facts = try facts()
+        let configuration = SSHConfiguration(
+            controlDirectory: freshControlDirectory(),
+            extraOptions: ["-F", facts["PALANA_FIXTURE_SSH_CONFIG"] ?? ""]
+        )
+        return AliasWorld(
+            configuration: configuration,
+            source: facts["PALANA_FIXTURE_ALIAS"] ?? "fixture",
+            destination: facts["PALANA_FIXTURE_SELF"] ?? "fixture-self"
+        )
+    }
 }
 
 /// The ZFS fixture — the Lima VM's throwaway pool.
