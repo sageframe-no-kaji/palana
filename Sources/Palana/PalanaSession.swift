@@ -115,14 +115,28 @@ final class PalanaSession {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             // The grammar lives in the surface window only. The keys
-            // window answers exactly one key here — Esc closes it —
-            // and keeps its own responder chain for the rest.
-            if event.window?.identifier?.rawValue == HelpWindow.windowIdentifier {
-                if event.keyCode == 53 {
-                    event.window?.close()
-                    return nil
+            // panel answers three keys here — Esc closes, ⌘ + / −
+            // resize — deterministically, no responder chain to lose.
+            if event.window?.identifier?.rawValue == KeysPanelController.identifier {
+                let keyCode = event.keyCode
+                let chars = event.charactersIgnoringModifiers
+                let hasCommand = event.modifierFlags.contains(.command)
+                let consumed = MainActor.assumeIsolated { () -> Bool in
+                    if keyCode == 53 {
+                        KeysPanelController.shared.close()
+                        return true
+                    }
+                    if hasCommand, chars == "=" || chars == "+" {
+                        KeysPanelController.shared.adjust(by: 0.1)
+                        return true
+                    }
+                    if hasCommand, chars == "-" {
+                        KeysPanelController.shared.adjust(by: -0.1)
+                        return true
+                    }
+                    return false
                 }
-                return event
+                return consumed ? nil : event
             }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event

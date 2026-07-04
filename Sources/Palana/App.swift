@@ -24,20 +24,6 @@ struct PalanaApp: App {
                 .onAppear { delegate.session = session }
         }
         .defaultSize(width: 1120, height: 700)
-
-        // ? ? — the vocabulary as a window that stays up while the
-        // hands learn. The single-? card remains the quick glance;
-        // never both at once.
-        Window("the keys", id: "palana-keys") {
-            HelpWindow()
-                .preferredColorScheme(.light)
-                .ignoresSafeArea()
-        }
-        // The scene owns the titlebar — hiding it here is what sticks;
-        // window-level flags alone get reasserted by SwiftUI.
-        .windowStyle(.hiddenTitleBar)
-        .windowResizability(.contentSize)
-        .defaultPosition(.topTrailing)
     }
 }
 

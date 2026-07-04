@@ -1,11 +1,9 @@
-// The vocabulary, summoned — ? brings the card, ? ? trades it for a
-// floating window that stays. Never both: opening either closes the
-// other. The card is fixed and ephemeral, a glance; the window owns
-// size, and every way in reaches the same truth — drag the frame
-// (aspect held), ⌘ + / −, or the small +/− icons. Weird key glyphs
-// are spelled as words, the way space and return already were —
-// modifiers keep their marks, which render clean. Display copy lives
-// here beside the binding table it describes.
+// The vocabulary, summoned — ? brings the card, ? ? trades it for the
+// floating keys panel (KeysPanel.swift). Never both: opening either
+// closes the other. The card is fixed and ephemeral, a glance. Weird
+// key glyphs are spelled as words, the way space and return already
+// were — modifiers keep their marks, which render clean. Display copy
+// lives here beside the binding table it describes.
 
 import AppKit
 import SwiftUI
@@ -85,72 +83,4 @@ struct HelpOverlay: View {
         .font(.system(size: 12 * scale))
         .fixedSize()
     }
-}
-
-/// The floating keys window — the card itself, chromeless.
-///
-/// The window hugs the card exactly — no margins, no glass, the
-/// scene hides the titlebar and resizability tracks content, so the
-/// frame cannot disagree with the card. Two doors move the one
-/// remembered scale: ⌘ + / − and the +/− icons. Esc closes, handled
-/// by the session's key monitor by window identity.
-struct HelpWindow: View {
-    /// The name the key monitor recognizes.
-    static let windowIdentifier = "palana-keys-window"
-
-    /// The remembered scale — shared truth for both resize doors.
-    @AppStorage("palana.keysScale")
-    private var scale = 1.0
-
-    private static let scaleRange = 0.7...1.8
-
-    var body: some View {
-        HelpOverlay(
-            scale: scale,
-            footer: "esc closes · ⌘ + / − or the icons resize"
-        )
-        .overlay(alignment: .topTrailing) {
-            HStack(spacing: 2) {
-                scaleButton("minus.circle", by: -0.1, key: "-")
-                scaleButton("plus.circle", by: 0.1, key: "=")
-            }
-            .padding(12)
-        }
-        .background(WindowChrome())
-    }
-
-    private func scaleButton(_ systemName: String, by delta: Double, key: KeyEquivalent) -> some View {
-        Button {
-            scale = min(
-                max(scale + delta, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
-        } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.inkFaint)
-        }
-        .buttonStyle(.plain)
-        .keyboardShortcut(key, modifiers: .command)
-        .help(delta > 0 ? "larger (⌘+)" : "smaller (⌘−)")
-    }
-}
-
-/// Names the window for the key monitor and strips what the scene
-/// style leaves behind — clear ground, movable by the card's body.
-private struct WindowChrome: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let probe = NSView()
-        DispatchQueue.main.async {
-            guard let window = probe.window else { return }
-            window.identifier = NSUserInterfaceItemIdentifier(HelpWindow.windowIdentifier)
-            window.standardWindowButton(.closeButton)?.isHidden = true
-            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-            window.standardWindowButton(.zoomButton)?.isHidden = true
-            window.isMovableByWindowBackground = true
-            window.backgroundColor = .clear
-            window.isOpaque = false
-        }
-        return probe
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
 }

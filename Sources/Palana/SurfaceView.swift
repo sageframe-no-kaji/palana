@@ -10,11 +10,6 @@ struct SurfaceView: View {
     /// The root object.
     @Bindable var session: PalanaSession
 
-    @Environment(\.openWindow)
-    private var openWindow
-    @Environment(\.dismissWindow)
-    private var dismissWindow
-
     var body: some View {
         panes
             .overlay {
@@ -26,13 +21,13 @@ struct SurfaceView: View {
                 gotoBar(for: side)
             }
             .onChange(of: session.floatingHelpTick) {
-                // ? ? — the card trades itself for a window that stays.
-                openWindow(id: "palana-keys")
+                // ? ? — the card trades itself for the panel that stays.
+                KeysPanelController.shared.show()
             }
             .onChange(of: session.helpVisible) { _, visible in
-                // Never both: the card summons, the window yields.
+                // Never both: the card summons, the panel yields.
                 if visible {
-                    dismissWindow(id: "palana-keys")
+                    KeysPanelController.shared.close()
                 }
             }
             .task {
