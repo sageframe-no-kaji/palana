@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 08
@@ -97,14 +97,19 @@ Order of work:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+**The purpose-built echo was enough — the emulator was never missed.** EchoBuffer's CR repaint carried rsync's progress line, the UTF-8 seam holds survived the synthetic battery, and the one Swift trap worth recording: `"\r\n"` is a single grapheme cluster, so the fold walks unicode scalars, never Characters. Deferred decision 7 closed on the smaller thing and the smaller thing held.
 
-- **Did the echo hold at real line rates?** Where did the event stream surface what the recorded corpus didn't?
-- **Decision review.** Was the purpose-built echo enough? Did the local branch and the probe land where the Think phase put them?
-- **What the hands changed.** The second session's rounds, recorded.
-- **Followups for ho-09 and Checkpoint 3.**
+**The Think phase survived contact; the vocabulary around it did not.** The engine decisions — RoutingConduit, rsyncDirect, the forwarding probe with its verdict-on-stdout shape — landed exactly where placed and passed live. What the six feedback rounds rewrote was everything at the edge of the hand: the send arrow died twice (floating overlay drifted on resize, then covered the host menu) before settling in the titlebar's empty center, the practitioner's own suggestion. Arrows navigate and Enter alone opens — a file under a navigation key stays shut. `d` became `r`, the rm mnemonic. Esc became the view's verb and ⌃C the work's: hiding the panel never stops the transfer, a failure reopens the panel itself, and a finished run frees the grammar without an Esc.
+
+**The engineering the questions exposed.** "What if rsync isn't installed?" found the engine composing rsync toward hosts that never carried it — rsync is now a fact gate (both ends, modern sender) with tar as the floor everywhere, including a new direct shape for local endpoints. "You might want that for a big copy" put rsync under same-host copies where the host has it — progress and resume where cp -a was opaque. Every rsync compose gained `--partial`. And "is that weird?" was the round's best bug report: the BSD listing forked stat once per entry — 602 entries on his /tmp cost 3.5 seconds against 0.04 batched. The batch pairing keeps byte-exactness by count, refuses desync by the `./` prefix, and the first instrumentation logged at a level macOS never persists — measured nothing, fixed to notice.
+
+**Two structural findings.** The fish-wall debt was already discharged — SSHPipeline's halves compose through the same `sh -c` seam rounds 5–6 wrapped; verified by reading the one function. And the session's key monitor was app-wide: the grammar fired while the keys window was frontmost. The monitor now stands down for any window that is not the surface — the rule the Workbench terminal will inherit, with a focused text input owning every key absolutely.
+
+**The role boundary, set by the practitioner mid-session:** he is UI/UX and behavior, the engineer's decisions are the engineer's. Typed-commands-in-the-panel stays at the Workbench per the chain — held, not pushed forward.
+
+**Followups queued for their own hos or Checkpoint 3:** create and rename (PlanRequest needs a target name — engine growth); favorites, host-bound and global, a star and a `favorites.json`; drag-and-drop between panes composing the same plans; settings with verb-time overrides where more than one honest tool exists; transcript scroll-pinning during live output; the zfs management verbs, already committed as the Workbench's first plugin. His verdicts on the register, verbatim: "This is the best!" — and the recheck that nothing else out there does this held.
 
 ---
 
-_Authored: 2026-07-03 (Think phase)._
-_Execution and Reflect: pending._
+_Authored: 2026-07-03 (Think phase). Executed: 2026-07-04, closed through a six-round live UI/UX session._
+_280 tests, 52 suites. PalanaCore 97.9 against the 90 floor._
