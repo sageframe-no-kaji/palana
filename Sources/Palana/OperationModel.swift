@@ -16,6 +16,8 @@ final class OperationModel {
     enum Phase: Equatable {
         /// No operation — the panel is down.
         case idle
+        /// The operator is typing a name — the panel shows the name field.
+        case naming
         /// Facts on their way in, named as they land.
         case gathering
         /// The plan is on screen, whole. Enter is armed.
@@ -40,9 +42,18 @@ final class OperationModel {
     private(set) var progress: ProgressReport?
     /// What was asked — names the panel while the plan composes.
     private(set) var requested: PlanOperation?
+    /// The label shown during naming — old name for rename, the hint for create.
+    private(set) var namingLabel: String = ""
+    /// The text the name field starts with — old name for rename, empty for create.
+    private(set) var namingPrefill: String = ""
+    /// The bare result name set when naming commits — the session lands the cursor here.
+    private(set) var resultName: String?
 
     /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
+
+    /// True while the naming field is live — the key monitor stands down.
+    var isNaming: Bool { phase == .naming }
 
     /// Whether the panel is on screen — the view, not the work.
     ///
@@ -60,6 +71,8 @@ final class OperationModel {
     private var gatherTask: Task<Void, Never>?
     private var enactTask: Task<Void, Never>?
     private var probedLocalCapability: HostCapability?
+    private var pendingNamingEntry: FileEntry?
+    private var pendingNamingSource: Locus?
 
     /// An operation flow over the session's engine.
     init(engine: Engine, configuration: SSHConfiguration) {
@@ -77,7 +90,7 @@ final class OperationModel {
     /// "cleared when opened again."
     func begin(_ operation: PlanOperation, source: PaneModel, destination: PaneModel) {
         switch phase {
-        case .gathering, .ready, .enacting:
+        case .gathering, .ready, .enacting, .naming:
             panelShowing = true
             return
         case .idle, .finished, .failed, .cancelled:
@@ -283,6 +296,8 @@ final class OperationModel {
         switch phase {
         case .idle:
             break
+        case .naming:
+            reset()
         case .gathering:
             gatherTask?.cancel()
             reset()
@@ -314,10 +329,17 @@ final class OperationModel {
         progress = nil
         requested = nil
         panelShowing = false
+        namingLabel = ""
+        namingPrefill = ""
+        resultName = nil
+        pendingNamingEntry = nil
+        pendingNamingSource = nil
     }
+}
 
-    // MARK: - Lines
+// MARK: - Lines
 
+extension OperationModel {
     private func note(_ text: String) {
         echo.appendLine(text, kind: .note)
     }
@@ -345,13 +367,8 @@ final class OperationModel {
 
     /// One sentence per failure — typed errors say what they are.
     private static func describe(_ error: any Error) -> String {
+        if let text = describePlanError(error) { return text }
         switch error {
-        case PlanError.emptySelection:
-            return "nothing selected — there is nothing to plan"
-        case PlanError.missingDestination:
-            return "the other pane is the destination — point it somewhere first"
-        case PlanError.unrepresentableName:
-            return "an entry's name does not survive composition — refusing rather than guessing"
         case EnactmentError.stepFailed(let index, let status, let stderrTail):
             let tail = stderrTail.trimmingCharacters(in: .whitespacesAndNewlines)
             return "step \(index + 1) failed (\(status))\(tail.isEmpty ? "" : ": \(tail)")"
@@ -369,6 +386,120 @@ final class OperationModel {
             return "\(conduitError)"
         default:
             return "\(error)"
+        }
+    }
+
+    /// Translates PlanError cases to one-sentence descriptions, nil for non-PlanErrors.
+    private static func describePlanError(_ error: any Error) -> String? {
+        switch error {
+        case PlanError.emptySelection:
+            return "nothing selected — there is nothing to plan"
+        case PlanError.missingDestination:
+            return "the other pane is the destination — point it somewhere first"
+        case PlanError.unrepresentableName:
+            return "an entry's name does not survive composition — refusing rather than guessing"
+        case PlanError.renameRequiresOneEntry:
+            return "rename operates on one entry — cursor on exactly one"
+        case PlanError.targetNameRequired:
+            return "a name is required"
+        case PlanError.targetNameUnchanged:
+            return "the name did not change"
+        case PlanError.targetNameContainsSeparator:
+            return "a name cannot contain path separators"
+        case PlanError.entriesForbiddenForCreate:
+            return "create needs an empty selection — deselect first"
+        case PlanError.destinationForbidden:
+            return "rename and create stay in the source directory — no destination"
+        default:
+            return nil
+        }
+    }
+}
+
+// MARK: - Naming
+
+extension OperationModel {
+    /// Opens the panel with a name field for rename or create.
+    ///
+    /// For rename the field prefills with the cursor entry's name and selects
+    /// all text. For create the field is empty. While the field is live, the
+    /// key monitor stands down — typed letters belong to the field.
+    func beginNaming(_ operation: PlanOperation, source: PaneModel) {
+        switch phase {
+        case .gathering, .ready, .enacting, .naming:
+            panelShowing = true
+            return
+        case .idle, .finished, .failed, .cancelled:
+            break
+        }
+        guard let sourceHost = source.state.host, source.status == .ready else { return }
+        if operation == .rename {
+            guard let entry = source.cursorEntry else { return }
+            pendingNamingEntry = entry
+            namingPrefill = entry.name
+            namingLabel = "rename: \(entry.name)"
+        } else {
+            pendingNamingEntry = nil
+            namingPrefill = ""
+            namingLabel = "create  (trailing / = directory)"
+        }
+        pendingNamingSource = Locus(host: sourceHost, directory: source.state.path)
+        requested = operation
+        echo = EchoBuffer()
+        progress = nil
+        plan = nil
+        resultName = nil
+        phase = .naming
+        panelShowing = true
+    }
+
+    /// Called by the name field's onSubmit — builds the plan or dismisses quietly.
+    ///
+    /// An empty or unchanged (rename) name dismisses without a plan. A name the
+    /// engine refuses renders as a failure in the panel. A good name composes
+    /// immediately — rename and create need no fact gathering.
+    func commitNaming(_ name: String) {
+        guard phase == .naming, let operation = requested,
+            let source = pendingNamingSource
+        else {
+            reset()
+            return
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            reset()
+            return
+        }
+        if operation == .rename, let entry = pendingNamingEntry, trimmed == entry.name {
+            reset()
+            return
+        }
+        let entries: [FileEntry] =
+            operation == .rename
+            ? (pendingNamingEntry.map { [$0] } ?? [])
+            : []
+        // The bare name for cursor landing — create directory names carry a trailing
+        // slash in the request (signals mkdir) but land without it.
+        let bareName: String =
+            operation == .create && trimmed.hasSuffix("/")
+            ? String(trimmed.dropLast())
+            : trimmed
+        let request = PlanRequest(
+            operation: operation,
+            source: source,
+            entries: entries,
+            destination: nil,
+            token: Self.mintToken(),
+            targetName: trimmed
+        )
+        do {
+            plan = try PlanEngine.plan(request, facts: PlanFacts())
+            resultName = bareName
+            phase = .ready
+        } catch {
+            echo.appendLine(Self.describe(error), kind: .failure)
+            phase = .failed
+            panelShowing = true
         }
     }
 }

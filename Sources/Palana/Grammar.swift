@@ -48,6 +48,8 @@ enum Grammar {
         ["y"]: .operationCopy,
         ["m"]: .operationMove,
         ["r"]: .operationDelete,
+        ["R"]: .operationRename,
+        ["a"]: .operationCreate,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.

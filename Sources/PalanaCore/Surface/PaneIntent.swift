@@ -72,4 +72,8 @@ public enum PaneIntent: String, CaseIterable, Sendable {
     case operationMove
     /// Compose a deletion plan for this pane's subjects.
     case operationDelete
+    /// Rename the cursor entry in place — plan first, Enter enacts.
+    case operationRename
+    /// Create a new entry in the source directory — plan first, Enter enacts.
+    case operationCreate
 }

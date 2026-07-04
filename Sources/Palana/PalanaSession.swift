@@ -72,8 +72,15 @@ final class PalanaSession {
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
         operation.onFinished = { [weak self] in
-            self?.left.apply(.refresh)
-            self?.right.apply(.refresh)
+            guard let self else { return }
+            // Land the cursor on the renamed or created entry before the refresh
+            // fires — both panes get it; only the one that holds the entry matches.
+            if let name = operation.resultName {
+                left.setLandOn(name)
+                right.setLandOn(name)
+            }
+            left.apply(.refresh)
+            right.apply(.refresh)
         }
     }
 
@@ -154,9 +161,9 @@ final class PalanaSession {
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
         guard gotoTarget == nil else { return false }
-        // While a path is being typed in a header, the letters belong
-        // to the field, not the grammar.
-        guard !left.pathEditing, !right.pathEditing else { return false }
+        // While any text field is live — the path headers or the naming field —
+        // every key belongs to the field, not the grammar.
+        guard !left.pathEditing, !right.pathEditing, !operation.isNaming else { return false }
         guard let token = Grammar.token(for: event) else { return false }
         if helpVisible {
             // The card holds the keyboard above everything, panel
@@ -256,6 +263,10 @@ final class PalanaSession {
             beginOperation(.move)
         case .operationDelete:
             beginOperation(.delete)
+        case .operationRename:
+            beginNaming(.rename)
+        case .operationCreate:
+            beginNaming(.create)
         default:
             focusedPane.apply(intent)
         }
@@ -266,6 +277,11 @@ final class PalanaSession {
     func beginOperation(_ operationKind: PlanOperation) {
         let destination = focusedSide == .left ? right : left
         operation.begin(operationKind, source: focusedPane, destination: destination)
+    }
+
+    /// R or a: opens the naming field on the focused pane — no destination needed.
+    func beginNaming(_ operationKind: PlanOperation) {
+        operation.beginNaming(operationKind, source: focusedPane)
     }
 
     /// The pane the focused one would send toward.

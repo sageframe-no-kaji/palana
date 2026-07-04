@@ -180,6 +180,14 @@ final class PaneModel {
 
     // MARK: - Navigation
 
+    /// Schedules a cursor landing on the named entry after the next read.
+    ///
+    /// Rename and create operations call this before refreshing so the
+    /// cursor follows the result to its new or freshly created position.
+    func setLandOn(_ name: String) {
+        landOn = Data(name.utf8)
+    }
+
     private func ascend() {
         guard let host = state.host, state.path != "/" else { return }
         let leaving = Self.lastComponent(of: state.path)

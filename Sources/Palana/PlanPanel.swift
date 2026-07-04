@@ -12,6 +12,9 @@ struct PlanPanel: View {
     /// The operation flow this panel renders.
     var operation: OperationModel
 
+    @FocusState private var namingFieldFocused: Bool
+    @State private var nameText = ""
+
     private let mono = Font.system(size: 12, design: .monospaced)
     private let monoSmall = Font.system(size: 11, design: .monospaced)
 
@@ -22,10 +25,14 @@ struct PlanPanel: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
-                        if let plan = operation.plan {
-                            planBlock(plan)
+                        if operation.phase == .naming {
+                            namingFieldView
+                        } else {
+                            if let plan = operation.plan {
+                                planBlock(plan)
+                            }
+                            transcript
                         }
-                        transcript
                         Color.clear.frame(height: 1).id("panel-bottom")
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -45,6 +52,11 @@ struct PlanPanel: View {
         }
         .font(mono)
         .background(Theme.panelGround)
+        .task(id: operation.phase) {
+            guard operation.phase == .naming else { return }
+            nameText = operation.namingPrefill
+            namingFieldFocused = true
+        }
     }
 
     // MARK: - Header
@@ -67,6 +79,7 @@ struct PlanPanel: View {
         let verb = operation.requested.map { "\($0.rawValue) · " } ?? ""
         switch operation.phase {
         case .idle: return ""
+        case .naming: return "\(verb)naming"
         case .gathering: return "\(verb)composing…"
         case .ready: return "\(verb)the plan"
         case .enacting: return "\(verb)running"
@@ -79,9 +92,24 @@ struct PlanPanel: View {
     private var hint: String {
         switch operation.phase {
         case .idle, .gathering: return "esc dismiss"
+        case .naming: return "⏎ commit · esc cancel"
         case .ready: return "⏎ enact · esc dismiss"
         case .enacting: return "esc hides, keeps running · ⌃c cancels"
-        case .finished, .failed, .cancelled: return "esc closes · y m r go again"
+        case .finished, .failed, .cancelled: return "esc closes · y m r R a go again"
+        }
+    }
+
+    // MARK: - The naming field
+
+    @ViewBuilder private var namingFieldView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(operation.namingLabel)
+                .foregroundStyle(Theme.inkFaint)
+            TextField("", text: $nameText)
+                .textFieldStyle(.plain)
+                .focused($namingFieldFocused)
+                .onSubmit { operation.commitNaming(nameText) }
+                .onExitCommand { operation.dismissOrCancel() }
         }
     }
 
