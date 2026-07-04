@@ -46,7 +46,7 @@ struct SurfaceView: View {
             VSplitView {
                 paneArea
                     .frame(minHeight: 220)
-                if session.operation.active {
+                if session.operation.panelShowing {
                     PlanPanel(operation: session.operation)
                         .frame(minHeight: 130, idealHeight: 280)
                 }
@@ -135,6 +135,11 @@ struct SurfaceView: View {
                     .foregroundStyle(Theme.accent)
                     .lineLimit(1)
                     .truncationMode(.middle)
+            }
+            if session.operation.phase == .enacting, !session.operation.panelShowing {
+                // The hidden terminal's heartbeat — the work continues.
+                Text("transfer running — y, m, or r brings the panel back")
+                    .foregroundStyle(Theme.accent)
             }
             Spacer()
             if !session.pendingPrefix.isEmpty {

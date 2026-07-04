@@ -146,7 +146,7 @@ final class PalanaSession {
             }
             return !token.contains("cmd-")
         }
-        if operation.active {
+        if operation.panelShowing {
             return handlePanelKey(token)
         }
         if token == "esc" {
@@ -175,14 +175,35 @@ final class PalanaSession {
 
     /// The panel's keys.
     ///
-    /// Enter enacts, Esc dismisses or cancels, ? still summons the
-    /// card (second hands session: "something needs to be able to
-    /// open it"), plain keys wait — but the app's own chords (quit,
-    /// close) pass through untouched.
+    /// Enter enacts, Esc dismisses or hides (a running enactment keeps
+    /// going), ⌃C cancels — terminal muscle — and ? still summons the
+    /// card. After a run ends, the verbs go straight again: y, m, r
+    /// start the next operation without an Esc first. The app's own
+    /// chords pass through untouched.
     private func handlePanelKey(_ token: String) -> Bool {
         if token == "return" { operation.enact() }
         if token == "esc" { operation.dismissOrCancel() }
+        if token == "ctrl-c" { operation.cancelEnactment() }
         if token == "?" { helpVisible = true }
+        let runOver =
+            operation.phase == .finished || operation.phase == .failed
+            || operation.phase == .cancelled
+        if runOver {
+            // The run is over — the grammar flows again; the next verb
+            // clears the transcript and composes fresh.
+            switch recognizer.press(token) {
+            case .matched(let intent):
+                pendingPrefix = ""
+                dispatch(intent)
+                return true
+            case .pending(let prefix):
+                pendingPrefix = prefix.joined()
+                return true
+            case .unmatched:
+                pendingPrefix = ""
+                return !token.contains("cmd-")
+            }
+        }
         return !token.contains("cmd-")
     }
 

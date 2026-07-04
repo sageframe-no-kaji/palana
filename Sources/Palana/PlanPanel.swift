@@ -80,8 +80,8 @@ struct PlanPanel: View {
         switch operation.phase {
         case .idle, .gathering: return "esc dismiss"
         case .ready: return "⏎ enact · esc dismiss"
-        case .enacting: return "esc cancel"
-        case .finished, .failed, .cancelled: return "esc close"
+        case .enacting: return "esc hides, keeps running · ⌃c cancels"
+        case .finished, .failed, .cancelled: return "esc closes · y m r go again"
         }
     }
 

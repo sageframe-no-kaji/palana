@@ -41,8 +41,14 @@ final class OperationModel {
     /// What was asked — names the panel while the plan composes.
     private(set) var requested: PlanOperation?
 
-    /// True whenever the panel is up.
+    /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
+
+    /// Whether the panel is on screen — the view, not the work.
+    ///
+    /// An enactment keeps running when the panel hides (second hands
+    /// session: "the same terminal session running in the background").
+    private(set) var panelShowing = false
 
     /// Fires when an enactment completes — the session refreshes panes.
     ///
@@ -65,9 +71,20 @@ final class OperationModel {
 
     /// Opens the panel and composes — subjects from the source pane,
     /// destination from the other pane, facts gathered in the open.
+    ///
+    /// One operation at a time: a verb during a live one just brings
+    /// the panel back. A finished transcript clears for the next —
+    /// "cleared when opened again."
     func begin(_ operation: PlanOperation, source: PaneModel, destination: PaneModel) {
-        guard phase == .idle else { return }
+        switch phase {
+        case .gathering, .ready, .enacting:
+            panelShowing = true
+            return
+        case .idle, .finished, .failed, .cancelled:
+            break
+        }
         guard let sourceHost = source.state.host, source.status == .ready else { return }
+        panelShowing = true
         let subjects = source.operationSubjects
         guard !subjects.isEmpty else { return }
         requested = operation
@@ -220,6 +237,8 @@ final class OperationModel {
                 echo.appendLine(Self.describe(error), kind: .failure)
                 progress = nil
                 phase = .failed
+                // A failure never stays off-screen.
+                panelShowing = true
             }
         }
     }
@@ -247,12 +266,19 @@ final class OperationModel {
             echo.appendLine("enacted — every step ran, every gate proved", kind: .note)
             phase = .finished
             onFinished()
+            // A run that finished off-screen closes its own books.
+            if !panelShowing {
+                reset()
+            }
         }
     }
 
-    // MARK: - Dismiss
+    // MARK: - Dismiss and cancel
 
-    /// Esc — dismisses before Enter, cancels during, closes after.
+    /// Esc — the view's verb, never the work's.
+    ///
+    /// Dismisses before Enter, hides during (the work continues),
+    /// closes after. Cancelling is ⌃C's job, terminal muscle.
     func dismissOrCancel() {
         switch phase {
         case .idle:
@@ -263,15 +289,22 @@ final class OperationModel {
         case .ready, .finished, .failed, .cancelled:
             reset()
         case .enacting:
-            enactTask?.cancel()
-            echo.flushAll()
-            echo.appendLine(
-                "cancelled — gated steps never ran; an interrupted transfer can leave "
-                    + "partial entries at the destination",
-                kind: .failure)
-            progress = nil
-            phase = .cancelled
+            panelShowing = false
         }
+    }
+
+    /// ⌃C — stops a running enactment where Esc only hides it.
+    func cancelEnactment() {
+        guard phase == .enacting else { return }
+        enactTask?.cancel()
+        echo.flushAll()
+        echo.appendLine(
+            "cancelled — gated steps never ran; an interrupted transfer can leave "
+                + "partial entries at the destination",
+            kind: .failure)
+        progress = nil
+        phase = .cancelled
+        panelShowing = true
     }
 
     private func reset() {
@@ -280,6 +313,7 @@ final class OperationModel {
         echo = EchoBuffer()
         progress = nil
         requested = nil
+        panelShowing = false
     }
 
     // MARK: - Lines

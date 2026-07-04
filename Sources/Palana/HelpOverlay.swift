@@ -39,7 +39,7 @@ struct HelpOverlay: View {
         HelpRow(keys: "space", what: "select and advance"),
         HelpRow(keys: "⌘A / esc", what: "select all / clear"),
         HelpRow(keys: "y / m", what: "copy / move to the other pane — plan first"),
-        HelpRow(keys: "d", what: "delete — plan first, Enter enacts"),
+        HelpRow(keys: "r", what: "remove — plan first, Enter enacts"),
         HelpRow(keys: "cc / cd", what: "copy path / directory path"),
         HelpRow(keys: "cf / cn", what: "copy filename / name sans extension"),
         HelpRow(keys: ",n ,s ,m", what: "sort by name, size, modified — again flips"),

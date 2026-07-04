@@ -47,7 +47,7 @@ enum Grammar {
         ["?"]: .help,
         ["y"]: .operationCopy,
         ["m"]: .operationMove,
-        ["d"]: .operationDelete,
+        ["r"]: .operationDelete,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.

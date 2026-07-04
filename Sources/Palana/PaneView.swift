@@ -241,7 +241,7 @@ struct PaneView: View {
         // g and G are different verbs.
         Button("copy to other pane — y") { operate(.copy, ids: ids) }
         Button("move to other pane — m") { operate(.move, ids: ids) }
-        Button("delete, plan first — d") { operate(.delete, ids: ids) }
+        Button("remove, plan first — r") { operate(.delete, ids: ids) }
         Divider()
         // Two-key sequences cannot render as menu shortcuts — the key
         // rides in the label instead, so every verb still names its key.
