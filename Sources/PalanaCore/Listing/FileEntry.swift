@@ -62,6 +62,9 @@ public struct FileEntry: Sendable, Equatable, Hashable, Identifiable, Codable {
     /// The name bytes are the identity.
     public var id: Data { nameData }
 
+    /// True for dotfiles — judged on the bytes, not the face.
+    public var isHidden: Bool { nameData.first == UInt8(ascii: ".") }
+
     /// The filename for display — lossy UTF-8, never for composition.
     public var name: String {
         // swiftlint:disable:next optional_data_string_conversion

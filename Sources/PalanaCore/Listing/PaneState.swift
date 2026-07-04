@@ -47,6 +47,8 @@ public struct PaneState: Sendable, Equatable {
     public var cursor: FileEntry.ID?
     /// The active sort order.
     public var sort: Sort
+    /// Whether dotfiles display — hidden is the opening state.
+    public var showHidden: Bool
 
     /// A pane, pointed or not.
     public init(
@@ -55,7 +57,8 @@ public struct PaneState: Sendable, Equatable {
         entries: [FileEntry] = [],
         selection: Set<FileEntry.ID> = [],
         cursor: FileEntry.ID? = nil,
-        sort: Sort = .byName
+        sort: Sort = .byName,
+        showHidden: Bool = false
     ) {
         self.host = host
         self.path = path
@@ -63,15 +66,18 @@ public struct PaneState: Sendable, Equatable {
         self.selection = selection
         self.cursor = cursor
         self.sort = sort
+        self.showHidden = showHidden
     }
 
-    /// The entries in the active sort order.
+    /// The displayed entries in the active sort order.
     ///
+    /// Dotfiles are filtered out unless ``showHidden`` says otherwise.
     /// Name sorting uses `localizedStandardCompare` — the Finder's
     /// ordering, where `file2` precedes `file10`. Ties break on name
     /// bytes so the order is total and stable.
     public func sortedEntries() -> [FileEntry] {
-        let ordered = entries.sorted { lhs, rhs in
+        let visible = showHidden ? entries : entries.filter { !$0.isHidden }
+        let ordered = visible.sorted { lhs, rhs in
             switch sort.key {
             case .name:
                 let comparison = lhs.name.localizedStandardCompare(rhs.name)
