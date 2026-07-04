@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 07
@@ -113,14 +113,17 @@ Order of work:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution and the UI/UX session. Prompts:*
+**Did the Table hold at real density with the grammar on top?** At 3,000 fixture entries under live driving, yes — with one real gap the spike could not have seen: the `Table` does not follow programmatic selection, so a keyed cursor ran off screen ("screen doesn't scroll if you key past the bottom," the session's first finding). `ScrollViewReader.scrollTo` on cursor change fixed it. One resistance stands: the native selection row paints in the system accent, not the theme's — `.tint` does not reach it. Queued for the design-polish pass, not fought here.
 
-- **Did the Table hold at real density with the grammar on top?** Where did the spike's numbers and the app's feel diverge?
-- **Which verbs did the hands prune, add, or rebind?**
-- **Decision review.** Did the bindings-data/machinery-core split keep the app target trivially thin?
-- **The recursive-size word.** Continue as planned, or ho-06.5 before ho-08?
-- **Followups queued as new hos.**
+**The UI/UX session, three rounds live.** The practitioner drove while the session ran, and the ho grew by feedback rounds instead of closing at first contact — the autonomous shape's version of the feedback loop working better than designed. What the hands changed: reads commit only on success — a bad pointing leaves the pane where it was and says why in a banner ("should not take you out of where you were"); the header path is click-to-type; the unfocused pane sits a shade dimmer; right-click carries the clipboard verbs; `?` summons the vocabulary card, because a grammar that lives in a notification is not discoverable; Enter and `l` open files through a size-guarded temp fetch — which sent `readFile` composition down into the core's Listing, where composition belongs. The verdict on the vocabulary itself: "i like the vim keys" — deferred decision 6 resolves as yazi-under-Mac, kept whole. Space stays selection over Finder-preview muscle memory, revisitable by feel.
+
+**Decision review.** The bindings-data/machinery-core split held under pressure: three feedback rounds edited app-target views and one binding table; the core changed only to gain `readFile`, and the Surface still composes nothing. The rows-as-parameter correction (made before the app was built) was right — sorting per keystroke would have been the stutter the register forbids. The read-then-commit restructure is the one Think-phase miss worth naming: Decision 5's original shape mutated the pointing before the read, and the hands caught it inside an hour.
+
+**The recursive-size word: "we NEED to know the WHOLE contents, not just the next level down. 100% recursive."** ho-06.5 slots in before ho-08, recorded in the overview.
+
+**Followups queued, for Checkpoint 3's consolidation or the ho that owns them:** following symlinks on descend; the selection-color/system-accent question and palette values (design polish); Space-to-open reconsideration; dataset and mount-boundary indicators in the pane (rides the Field's facts, ho-09 territory); rename/copy/paste/delete are ho-08 as sequenced. One operator-truth note for the docs: on the fixture container home is `/config`, and `~` resolving there read as a bug twice — the field-use docs should name what `~` means on a remote.
 
 ---
 
-_Authored: 2026-07-03 (Think phase). Execution and Reflect: pending._
+_Authored: 2026-07-03 (Think phase). Executed and closed: 2026-07-03, through a live three-round UI/UX session._
+_208 tests, 40 suites. PalanaCore holds the floor._
