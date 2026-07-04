@@ -22,7 +22,7 @@ struct HelpOverlay: View {
         HelpRow(keys: "⌃d / ⌃u", what: "half page down / up"),
         HelpRow(keys: "⇞ / ⇟", what: "page up / down"),
         HelpRow(keys: "⇥", what: "switch pane"),
-        HelpRow(keys: "⇧⌘G", what: "point pane at host : path"),
+        HelpRow(keys: "⇧⌘G", what: "go to host : path"),
     ]
 
     private static let actions = [

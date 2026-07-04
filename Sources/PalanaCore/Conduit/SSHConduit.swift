@@ -83,7 +83,11 @@ public actor SSHConduit: Conduit {
         }
         args.append(host)
         if let command {
-            args.append(command)
+            // The remote command runs under `sh -c` — the door promises
+            // POSIX regardless of the far side's login shell. A fish
+            // login shell rejects POSIX conditionals, and the probe
+            // against such a host returned silence (ho-07's session).
+            args.append("sh -c \(ShellQuote.quote(command))")
         }
         return args
     }

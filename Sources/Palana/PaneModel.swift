@@ -341,8 +341,24 @@ final class PaneModel {
         case ListingError.listingFailed(_, let stderr): "read failed: \(stderr)"
         case ListingError.malformedListing: "the listing did not parse — worth reporting"
         case PointingError.unreachable(let detail): detail
+        case is ProbeParseError:
+            "the host answered, but its capability probe came back unreadable — worth reporting"
         case let conduitError as ConduitError: "\(conduitError)"
         default: "\(error)"
+        }
+    }
+
+    /// Points from a typed `host:path` address — bare host means home.
+    func pointAddress(_ address: String) {
+        let typed = address.trimmingCharacters(in: .whitespaces)
+        guard !typed.isEmpty else { return }
+        if let colon = typed.firstIndex(of: ":") {
+            let host = String(typed[..<colon])
+            let path = String(typed[typed.index(after: colon)...])
+            guard !host.isEmpty else { return }
+            point(host: host, path: path.isEmpty ? "~" : path)
+        } else {
+            point(host: typed, path: "~")
         }
     }
 

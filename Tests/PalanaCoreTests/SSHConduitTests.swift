@@ -20,7 +20,16 @@ struct SSHConduitArgumentsTests {
         #expect(args.contains("ControlPath=/tmp/palana-cm-test/%C"))
         #expect(args.contains("ControlPersist=yes"))
         #expect(args.contains("BatchMode=yes"))
-        #expect(args.suffix(2) == ["jodo", "echo ok"])
+        #expect(args.suffix(2) == ["jodo", "sh -c 'echo ok'"])
+    }
+
+    @Test("the remote command wears sh -c — a fish login shell must not read it")
+    func posixWrap() {
+        let args = SSHConduit.arguments(
+            host: "koan", command: #"if true; then echo "y"; fi"#, configuration: configuration)
+        let last = args.last ?? ""
+        #expect(last.hasPrefix("sh -c '"))
+        #expect(last.contains("if true"))
     }
 
     @Test("extra options ride between the master flags and the host")

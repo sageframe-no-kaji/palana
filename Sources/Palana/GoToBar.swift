@@ -34,7 +34,7 @@ struct GoToBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("point this pane")
+            Text("go to")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             Picker("host", selection: $host) {
@@ -50,7 +50,7 @@ struct GoToBar: View {
                 Spacer()
                 Button("cancel", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
-                Button("point", action: commit)
+                Button("go", action: commit)
                     .keyboardShortcut(.defaultAction)
                     .disabled(host.isEmpty)
             }

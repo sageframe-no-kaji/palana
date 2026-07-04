@@ -44,15 +44,7 @@ struct PaneView: View {
             Circle()
                 .fill(isFocused ? Theme.accent : Theme.inkFaint.opacity(0.25))
                 .frame(width: 7, height: 7)
-            if let host = model.state.host {
-                Text("\(host):")
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Theme.ink)
-                pathReadout
-            } else {
-                Text("nowhere")
-                    .foregroundStyle(Theme.inkFaint)
-            }
+            addressReadout
             if model.isReading {
                 Text("reading…")
                     .foregroundStyle(Theme.inkFaint)
@@ -65,44 +57,55 @@ struct PaneView: View {
         .background(Theme.groundDeep)
     }
 
-    /// The path — text until clicked, a field while typing.
-    @ViewBuilder private var pathReadout: some View {
+    /// The whole address — text until clicked, one typeable field after.
+    ///
+    /// `host:path` is the vocabulary, same as the terminal's. A pane
+    /// pointed nowhere is one click and one address from somewhere.
+    @ViewBuilder private var addressReadout: some View {
         if model.pathEditing {
-            TextField("path", text: $pathDraft)
+            TextField("host:path — local: for this Mac, ~ for home", text: $pathDraft)
                 .textFieldStyle(.plain)
                 .focused($pathFieldFocused)
                 .foregroundStyle(Theme.ink)
-                .onSubmit { commitPathDraft() }
-                .onExitCommand { endPathEditing() }
+                .onSubmit { commitAddressDraft() }
+                .onExitCommand { endAddressEditing() }
                 .onChange(of: pathFieldFocused) { _, focused in
-                    if !focused { endPathEditing() }
+                    if !focused { endAddressEditing() }
                 }
+        } else if let host = model.state.host {
+            HStack(spacing: 2) {
+                Text("\(host):")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.ink)
+                Text(model.state.path)
+                    .foregroundStyle(Theme.inkFaint)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            .onTapGesture { beginAddressEditing() }
+            .help("click to type host:path")
         } else {
-            Text(model.state.path)
+            Text("nowhere — click to type host:path")
                 .foregroundStyle(Theme.inkFaint)
-                .lineLimit(1)
-                .truncationMode(.head)
-                .onTapGesture { beginPathEditing() }
-                .help("click to type a path")
+                .onTapGesture { beginAddressEditing() }
         }
     }
 
-    private func beginPathEditing() {
-        pathDraft = model.state.path
+    private func beginAddressEditing() {
+        pathDraft = model.state.host.map { "\($0):\(model.state.path)" } ?? ""
         model.pathEditing = true
         pathFieldFocused = true
     }
 
-    private func endPathEditing() {
+    private func endAddressEditing() {
         model.pathEditing = false
         pathFieldFocused = false
     }
 
-    private func commitPathDraft() {
-        let typed = pathDraft.trimmingCharacters(in: .whitespaces)
-        endPathEditing()
-        guard let host = model.state.host, !typed.isEmpty else { return }
-        model.point(host: host, path: typed)
+    private func commitAddressDraft() {
+        let typed = pathDraft
+        endAddressEditing()
+        model.pointAddress(typed)
     }
 
     // MARK: - Content
@@ -110,7 +113,7 @@ struct PaneView: View {
     @ViewBuilder private var content: some View {
         switch model.status {
         case .unpointed:
-            quietLine(model.lastError ?? "⇧⌘G points this pane")
+            quietLine(model.lastError ?? "⇧⌘G to go somewhere — or click the bar above and type host:path")
         case .loading:
             quietLine("reading…")
         case .ready:
