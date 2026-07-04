@@ -136,10 +136,12 @@ public actor SSHConduit: Conduit {
         )
     }
 
-    /// Thin spawn path on the readabilityHandler drain — never
-    /// FileHandle.bytes, whose blocking read starved the second reader
-    /// and deadlocked against a full pipe (observed, ho-01).
-    private static func spawn(executable: String, arguments: [String]) throws -> RunningCommand {
+    /// Thin spawn path on the readabilityHandler drain.
+    ///
+    /// Never FileHandle.bytes, whose blocking read starved the second
+    /// reader and deadlocked against a full pipe (observed, ho-01).
+    /// Internal: the test target's local-shell conduit reuses it.
+    static func spawn(executable: String, arguments: [String]) throws -> RunningCommand {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments

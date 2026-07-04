@@ -36,7 +36,10 @@ let package = Package(
         ),
         .testTarget(
             name: "PalanaCoreTests",
-            dependencies: ["PalanaCore"]
+            dependencies: ["PalanaCore"],
+            // Transcripts are read via #filePath, not the bundle — exclude
+            // them so SwiftPM stops warning about unhandled resources.
+            exclude: ["Fixtures"]
         ),
     ],
     swiftLanguageModes: [.v6]

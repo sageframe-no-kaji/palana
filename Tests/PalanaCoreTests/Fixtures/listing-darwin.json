@@ -1,0 +1,25 @@
+{
+  "entries" : [
+    {
+      "command" : "rm -rf \/tmp\/palana-listing-corpus && mkdir -p \/tmp\/palana-listing-corpus && cd \/tmp\/palana-listing-corpus && touch plain 'with space' 'café' PALANA-LINKS && touch \"$(printf 'new\\nline')\" && nl=$(printf '\\nX') && nl=${nl%X} && touch \"end${nl}\" && printf x > sized && ln -s plain alink && ln -s 'with space' 'link with space' && mkdir subdir && mkdir empty",
+      "exit" : 0,
+      "host" : "local-darwin",
+      "stderr" : "",
+      "stdout" : ""
+    },
+    {
+      "command" : "cd '\/tmp\/palana-listing-corpus' && { find . -mindepth 1 -maxdepth 1 -exec stat -f '%HT\t%z\t%m\t%Lp\t%Su\t%Sg' {} \\; -print0; printf 'PALANA-LINKS\\0'; find . -mindepth 1 -maxdepth 1 -type l -exec sh -c 'for f; do printf \"%s\\0\" \"$f\"; readlink -n -- \"$f\"; printf \"\\0\"; done' palana {} +; }",
+      "exit" : 0,
+      "host" : "local-darwin",
+      "stderr" : "",
+      "stdout" : "Regular File\t1\t1783121104\t644\tatmarcus\twheel\n.\/sized\u0000Symbolic Link\t5\t1783121104\t755\tatmarcus\twheel\n.\/alink\u0000Directory\t64\t1783121104\t755\tatmarcus\twheel\n.\/empty\u0000Symbolic Link\t10\t1783121104\t755\tatmarcus\twheel\n.\/link with space\u0000Regular File\t0\t1783121104\t644\tatmarcus\twheel\n.\/plain\u0000Directory\t64\t1783121104\t755\tatmarcus\twheel\n.\/subdir\u0000Regular File\t0\t1783121104\t644\tatmarcus\twheel\n.\/with space\u0000Regular File\t0\t1783121104\t644\tatmarcus\twheel\n.\/new\nline\u0000Regular File\t0\t1783121104\t644\tatmarcus\twheel\n.\/end\n\u0000Regular File\t0\t1783121104\t644\tatmarcus\twheel\n.\/café\u0000Regular File\t0\t1783121104\t644\tatmarcus\twheel\n.\/PALANA-LINKS\u0000PALANA-LINKS\u0000.\/alink\u0000plain\u0000.\/link with space\u0000with space\u0000"
+    },
+    {
+      "command" : "rm -rf \/tmp\/palana-listing-corpus",
+      "exit" : 0,
+      "host" : "local-darwin",
+      "stderr" : "",
+      "stdout" : ""
+    }
+  ]
+}
