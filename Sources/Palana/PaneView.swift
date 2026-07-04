@@ -51,12 +51,12 @@ struct PaneView: View {
                 .fill(isFocused ? Theme.accent : Theme.inkFaint.opacity(0.25))
                 .frame(width: 7, height: 7)
             addressReadout
-            hostMenu
             if model.isReading {
                 Text("reading…")
                     .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
+            hostMenu
         }
         .font(.system(size: 12))
         .padding(.horizontal, 12)
