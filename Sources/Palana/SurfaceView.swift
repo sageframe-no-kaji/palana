@@ -12,6 +12,8 @@ struct SurfaceView: View {
 
     @Environment(\.openWindow)
     private var openWindow
+    @Environment(\.dismissWindow)
+    private var dismissWindow
 
     var body: some View {
         panes
@@ -26,6 +28,12 @@ struct SurfaceView: View {
             .onChange(of: session.floatingHelpTick) {
                 // ? ? — the card trades itself for a window that stays.
                 openWindow(id: "palana-keys")
+            }
+            .onChange(of: session.helpVisible) { _, visible in
+                // Never both: the card summons, the window yields.
+                if visible {
+                    dismissWindow(id: "palana-keys")
+                }
             }
             .task {
                 session.installKeyMonitor()

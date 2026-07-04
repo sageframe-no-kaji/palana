@@ -1,11 +1,13 @@
 // The vocabulary, summoned — ? brings the card, ? ? trades it for a
-// floating window that stays. The layout is absolute: every label one
-// line, the card exactly as wide as its content, no reflow ever
-// (second hands session: "control the aspect absolutely"). ⌘ + / −
-// scale the text, aspect intact; small +/− icons carry the same verbs.
-// Display copy lives here beside the binding table it describes —
-// pruning the grammar edits both.
+// floating window that stays. Never both: opening either closes the
+// other. The card is fixed and ephemeral, a glance; the window owns
+// size, and every way in reaches the same truth — drag the frame
+// (aspect held), ⌘ + / −, or the small +/− icons. Weird key glyphs
+// are spelled as words, the way space and return already were —
+// modifiers keep their marks, which render clean. Display copy lives
+// here beside the binding table it describes.
 
+import AppKit
 import SwiftUI
 
 /// One keystroke's worth of help.
@@ -15,13 +17,12 @@ private struct HelpRow: Identifiable {
     var id: String { keys }
 }
 
-/// The keyboard vocabulary as a summonable card.
+/// The keyboard vocabulary — pure display, scaled by its caller.
 struct HelpOverlay: View {
-    /// Text scale, remembered — the aspect never changes, only the size.
-    @AppStorage("palana.keysScale")
-    private var scale = 1.0
-
-    private static let scaleRange = 0.7...1.6
+    /// Text scale — the card passes 1, the window passes its fit.
+    var scale = 1.0
+    /// The quiet last line — the card and the window say different things.
+    var footer = "? floats this card · esc closes"
 
     private static let navigation = [
         HelpRow(keys: "j / k  ↓ / ↑", what: "cursor down / up"),
@@ -29,8 +30,8 @@ struct HelpOverlay: View {
         HelpRow(keys: "return", what: "enter directory · open file"),
         HelpRow(keys: "gg / G", what: "top / bottom"),
         HelpRow(keys: "⌃d / ⌃u", what: "half page down / up"),
-        HelpRow(keys: "⇞ / ⇟", what: "page up / down"),
-        HelpRow(keys: "⇥", what: "switch pane"),
+        HelpRow(keys: "pgup / pgdn", what: "page up / down"),
+        HelpRow(keys: "tab", what: "switch pane"),
         HelpRow(keys: "⇧⌘G", what: "go to host : path"),
     ]
 
@@ -49,19 +50,14 @@ struct HelpOverlay: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14 * scale) {
-            HStack(spacing: 8) {
-                Text("the keys")
-                    .font(.system(size: 12 * scale, weight: .semibold))
-                    .foregroundStyle(Theme.inkFaint)
-                Spacer(minLength: 24)
-                scaleButton("minus.circle", by: -0.1, key: "-")
-                scaleButton("plus.circle", by: 0.1, key: "=")
-            }
+            Text("the keys")
+                .font(.system(size: 12 * scale, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
             HStack(alignment: .top, spacing: 32 * scale) {
                 column(Self.navigation)
                 column(Self.actions)
             }
-            Text("? or esc closes · ⌘ + / − resize")
+            Text(footer)
                 .font(.system(size: 10 * scale))
                 .foregroundStyle(Theme.inkFaint)
         }
@@ -70,20 +66,6 @@ struct HelpOverlay: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
         .fixedSize()
-    }
-
-    /// One quiet resize verb — icon and ⌘-key, same move.
-    private func scaleButton(_ systemName: String, by delta: Double, key: KeyEquivalent) -> some View {
-        Button {
-            scale = min(max(scale + delta, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
-        } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 11 * scale))
-                .foregroundStyle(Theme.inkFaint)
-        }
-        .buttonStyle(.plain)
-        .keyboardShortcut(key, modifiers: .command)
-        .help(delta > 0 ? "larger text (⌘+)" : "smaller text (⌘−)")
     }
 
     private func column(_ rows: [HelpRow]) -> some View {
@@ -103,4 +85,95 @@ struct HelpOverlay: View {
         .font(.system(size: 12 * scale))
         .fixedSize()
     }
+}
+
+/// The floating keys window — the scalable face of the same card.
+///
+/// One truth, three doors: drag the frame (aspect forced by the
+/// window itself), ⌘ + / −, or the +/− icons. All of them move the
+/// same remembered scale.
+struct HelpWindow: View {
+    /// The remembered scale — shared truth for every resize door.
+    @AppStorage("palana.keysScale")
+    private var scale = 1.0
+
+    @State private var window: NSWindow?
+
+    /// The card's logical size at scale 1 — the aspect every resize keeps.
+    private static let base = CGSize(width: 640, height: 452)
+    private static let scaleRange = 0.7...1.8
+
+    var body: some View {
+        GeometryReader { geometry in
+            HelpOverlay(
+                scale: geometry.size.width / Self.base.width,
+                footer: "drag, ⌘ + / −, or the icons — same size, three doors"
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 2) {
+                scaleButton("minus.circle", by: -0.1, key: "-")
+                scaleButton("plus.circle", by: 0.1, key: "=")
+            }
+            .padding(10)
+        }
+        .background(
+            WindowChrome { chromed in
+                chromed.contentAspectRatio = Self.base
+                chromed.minSize = CGSize(
+                    width: Self.base.width * Self.scaleRange.lowerBound,
+                    height: Self.base.height * Self.scaleRange.lowerBound)
+                chromed.setContentSize(
+                    CGSize(width: Self.base.width * scale, height: Self.base.height * scale))
+                window = chromed
+            }
+        )
+        .onDisappear {
+            // The frame is the truth when the window closes — remember
+            // it so the next summon opens at the same size.
+            if let width = window?.frame.width {
+                scale = clamp(width / Self.base.width)
+            }
+        }
+    }
+
+    private func scaleButton(_ systemName: String, by delta: Double, key: KeyEquivalent) -> some View {
+        Button {
+            guard let window else { return }
+            let next = clamp(window.frame.width / Self.base.width + delta)
+            scale = next
+            window.setContentSize(
+                CGSize(width: Self.base.width * next, height: Self.base.height * next))
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.inkFaint)
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut(key, modifiers: .command)
+        .help(delta > 0 ? "larger (⌘+)" : "smaller (⌘−)")
+    }
+
+    private func clamp(_ value: Double) -> Double {
+        min(max(value, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
+    }
+}
+
+/// Reaches the hosting NSWindow once it exists — aspect and size are
+/// window truths, not view truths.
+private struct WindowChrome: NSViewRepresentable {
+    let configure: (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let probe = NSView()
+        DispatchQueue.main.async {
+            if let window = probe.window {
+                configure(window)
+            }
+        }
+        return probe
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

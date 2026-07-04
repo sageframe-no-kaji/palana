@@ -26,14 +26,12 @@ struct PalanaApp: App {
         .defaultSize(width: 1120, height: 700)
 
         // ? ? — the vocabulary as a window that stays up while the
-        // hands learn. The single-? card remains the quick glance.
+        // hands learn. The single-? card remains the quick glance;
+        // never both at once.
         Window("the keys", id: "palana-keys") {
-            HelpOverlay()
-                .padding(12)
-                .background(Theme.ground)
+            HelpWindow()
                 .preferredColorScheme(.light)
         }
-        .windowResizability(.contentSize)
         .defaultPosition(.topTrailing)
     }
 }
