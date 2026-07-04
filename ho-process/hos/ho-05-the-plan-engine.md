@@ -1,6 +1,6 @@
 ---
 created: 2026-07-03
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 05
@@ -77,14 +77,15 @@ Order of work:
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+**Did the fact table stay total?** Total by construction—Swift's exhaustive switches close every cell, and the battery walks them: proven-same-dataset renames, both orders of unknown-dataset conservatism, the three forwarding states, the zfs gate's four failure modes (no whole-dataset selection, no destination dataset, destination deeper than the mountpoint, either end missing zfs). The one cell the types allow but the routing forbids—a cross-host classification reaching the local composer—returns empty steps and is documented as unreachable rather than papered over with a fatalError.
 
-- **Did the fact table stay total?** Any cell the types let through unclassified?
-- **The composed commands against hand-run truth.** Any command that surprised when pasted?
-- **The forwarding fact.** Does `nil`-means-proxy hold up, or does ho-06 need a richer shape?
-- **Followups for ho-06.**
+**The composed commands against hand-run truth.** The whole battery of hand-verified strings passed on first run, which says the composition logic is as boring as it should be. The interesting command is the one that changed shape before it was ever composed: the proxy path. rsync refuses two remote endpoints—`The source and destination cannot both be remote.` is rsync's own sentence—so the overview's "rsync proxied" was corrected in this ho's Think phase to a tar stream: `ssh src 'tar -cf - -C dir -- entries' | ssh dest 'tar -xpf - -C dir'`, streaming through the operator's machine with no temp storage, both halves visible in the plan. Every architectural commitment held; one tool name did not. Flagged for Checkpoint 2. A second refinement earned its place: `ShellQuote` went smart—safe strings stay bare, so the common plan reads `mv /tank/media/a.txt /tank/other/` instead of a wall of quotes, and hostile names still get full armor. The plan panel's register is the reason.
+
+**The forwarding fact.** `Bool?` did not survive contact with the linter, and the linter was right: `discouraged_optional_boolean` forced the question and the answer is `ForwardingFact`—available, unavailable, unprobed—which is exactly the richer shape the prompt anticipated. Unprobed selects the proxy path. ho-06 discovers the fact; the seam is ready.
+
+**Followups for ho-06.** The Transports enact what this ho composed: the rsync flag set (`-a -s --info=progress2`) is committed and progress2 is the parse target. The tar proxy pipeline should be enacted in-process—two Conduit-spawned processes piped together—with pālana counting bytes for progress, since tar offers no progress2. The zfs step sequence (snapshot → send/receive → gated cleanups/destroys) declares gates the Transports must enforce: nothing gated runs before count verification. Also carried: `Plan.totalSize` counts directory entries at inode size—recursive sizing is a facts question for a later ho if the panel wants honest totals for directory selections.
 
 ---
 
-_Authored: 2026-07-03 (Think phase)._
-_Execution and Reflect: pending—next session opens here._
+_Authored: 2026-07-03 (Think phase). Executed and closed: 2026-07-03._
+_149 tests, 29 suites. PalanaCore 97.34% line coverage against the 90% floor._
