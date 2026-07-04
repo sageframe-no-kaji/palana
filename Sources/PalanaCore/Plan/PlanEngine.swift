@@ -73,15 +73,41 @@ public enum PlanEngine {
     // MARK: - Validation
 
     private static func validate(_ request: PlanRequest) throws {
-        guard !request.entries.isEmpty else { throw PlanError.emptySelection }
-        if request.operation != .delete, request.destination == nil {
-            throw PlanError.missingDestination
+        switch request.operation {
+        case .move, .copy:
+            guard !request.entries.isEmpty else { throw PlanError.emptySelection }
+            guard request.destination != nil else { throw PlanError.missingDestination }
+        case .delete:
+            guard !request.entries.isEmpty else { throw PlanError.emptySelection }
+        case .rename:
+            try validateRename(request)
+        case .create:
+            try validateCreate(request)
         }
         for entry in request.entries {
             guard String(data: entry.nameData, encoding: .utf8) != nil else {
                 throw PlanError.unrepresentableName(entry.nameData)
             }
         }
+    }
+
+    private static func validateRename(_ request: PlanRequest) throws {
+        guard request.destination == nil else { throw PlanError.destinationForbidden }
+        guard request.entries.count == 1 else { throw PlanError.renameRequiresOneEntry }
+        let name = request.targetName ?? ""
+        guard !name.isEmpty else { throw PlanError.targetNameRequired }
+        guard !name.contains("/") else { throw PlanError.targetNameContainsSeparator }
+        guard name != request.entries[0].name else { throw PlanError.targetNameUnchanged }
+    }
+
+    private static func validateCreate(_ request: PlanRequest) throws {
+        guard request.destination == nil else { throw PlanError.destinationForbidden }
+        guard request.entries.isEmpty else { throw PlanError.entriesForbiddenForCreate }
+        let name = request.targetName ?? ""
+        guard !name.isEmpty else { throw PlanError.targetNameRequired }
+        let stripped = name.hasSuffix("/") ? String(name.dropLast()) : name
+        guard !stripped.isEmpty else { throw PlanError.targetNameRequired }
+        guard !stripped.contains("/") else { throw PlanError.targetNameContainsSeparator }
     }
 
     // MARK: - Classification
@@ -91,16 +117,20 @@ public enum PlanEngine {
     /// Unknown datasets classify conservatively: a rename is claimed
     /// only when both datasets are known and equal.
     static func classify(_ request: PlanRequest, facts: PlanFacts) -> Classification {
-        guard request.operation != .delete else { return .deletion }
-        let sameHost = request.source.host == request.destination?.host
         switch request.operation {
+        case .rename:
+            return .withinDatasetRename
+        case .create:
+            return .creation
+        case .delete:
+            return .deletion
         case .move:
+            let sameHost = request.source.host == request.destination?.host
             guard sameHost else { return .crossHostTransfer }
             return provenSameDataset(facts) ? .withinDatasetRename : .crossDatasetCopyPlusDelete
         case .copy:
+            let sameHost = request.source.host == request.destination?.host
             return sameHost ? .withinHostCopy : .crossHostCopy
-        case .delete:
-            return .deletion
         }
     }
 
@@ -127,7 +157,8 @@ public enum PlanEngine {
         facts: PlanFacts
     ) -> Transport {
         switch classification {
-        case .withinDatasetRename, .crossDatasetCopyPlusDelete, .withinHostCopy, .deletion:
+        case .withinDatasetRename, .crossDatasetCopyPlusDelete, .withinHostCopy, .deletion,
+            .creation:
             return .local
         case .crossHostTransfer, .crossHostCopy:
             let touchesThisMachine =
@@ -240,6 +271,9 @@ extension PlanEngine {
         case .deletion:
             return [PlanStep(runsOn: host, command: "rm -rf \(sources)", role: .delete)]
         case .withinDatasetRename:
+            if request.operation == .rename {
+                return composeInPlaceRename(request)
+            }
             let dest = quotedDestinationDirectory(request)
             return [PlanStep(runsOn: host, command: "mv \(sources) \(dest)", role: .rename)]
         case .crossDatasetCopyPlusDelete:
@@ -255,6 +289,8 @@ extension PlanEngine {
         case .withinHostCopy:
             let dest = quotedDestinationDirectory(request)
             return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
+        case .creation:
+            return composeCreate(request)
         case .crossHostTransfer, .crossHostCopy:
             return []  // never local — the transport switch routes these away
         }
@@ -455,6 +491,45 @@ extension PlanEngine {
                     gatedOnVerification: true))
         }
         return steps
+    }
+
+    private static func composeInPlaceRename(_ request: PlanRequest) -> [PlanStep] {
+        let host = Runner.host(request.source.host)
+        let entry = request.entries[0]
+        let newName = request.targetName ?? ""
+        let oldPath = ShellQuote.quote(join(request.source.directory, entry.name))
+        let newPath = ShellQuote.quote(join(request.source.directory, newName))
+        return [
+            PlanStep(
+                runsOn: host,
+                command: "test ! -e \(newPath) && mv -- \(oldPath) \(newPath)",
+                role: .rename),
+            PlanStep(
+                runsOn: host,
+                command: "test -e \(newPath) && test ! -e \(oldPath)",
+                role: .verify),
+        ]
+    }
+
+    private static func composeCreate(_ request: PlanRequest) -> [PlanStep] {
+        let host = Runner.host(request.source.host)
+        let nameRaw = request.targetName ?? ""
+        let isDirectory = nameRaw.hasSuffix("/")
+        let name = isDirectory ? String(nameRaw.dropLast()) : nameRaw
+        let path = ShellQuote.quote(join(request.source.directory, name))
+        guard isDirectory else {
+            return [
+                PlanStep(
+                    runsOn: host,
+                    command: "test ! -e \(path) && touch -- \(path)",
+                    role: .create),
+                PlanStep(runsOn: host, command: "test -f \(path)", role: .verify),
+            ]
+        }
+        return [
+            PlanStep(runsOn: host, command: "mkdir -- \(path)", role: .create),
+            PlanStep(runsOn: host, command: "test -d \(path)", role: .verify),
+        ]
     }
 
     // MARK: - Path helpers

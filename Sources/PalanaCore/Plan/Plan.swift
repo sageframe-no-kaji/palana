@@ -13,6 +13,10 @@ public enum PlanOperation: String, Codable, Sendable {
     case copy
     /// Remove the selected entries.
     case delete
+    /// Rename an entry in the source directory in place.
+    case rename
+    /// Create a new entry in the source directory.
+    case create
 }
 
 /// What the operation actually is, named before it runs.
@@ -33,6 +37,8 @@ public enum Classification: String, Codable, Sendable {
     case crossHostCopy = "cross-host copy"
     /// Entries removed where they stand.
     case deletion
+    /// An entry created where it stands.
+    case creation
 }
 
 /// How the bytes move, auth path included — the plan names it, the
@@ -111,6 +117,10 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case snapshot
         /// Snapshot removal after a completed transfer.
         case cleanup
+        /// An entry created in the source directory.
+        case create
+        /// The result confirmed after a mutation.
+        case verify
     }
 
     /// Where the command runs.
