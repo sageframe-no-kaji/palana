@@ -208,6 +208,31 @@ final class PaneModel {
         descend(openingFiles: true)
     }
 
+    /// Shift-click: select the run from the cursor to the clicked row,
+    /// inclusive — Finder's manners over yazi's marks.
+    func extendSelection(to id: FileEntry.ID) {
+        guard
+            let anchor = state.cursor,
+            let from = rows.firstIndex(where: { $0.id == anchor }),
+            let to = rows.firstIndex(where: { $0.id == id })
+        else {
+            state.selection.insert(id)
+            return
+        }
+        for row in rows[min(from, to)...max(from, to)] {
+            state.selection.insert(row.id)
+        }
+    }
+
+    /// ⌘- or ⌥-click: toggle one row in or out of the selection.
+    func toggleSelection(_ id: FileEntry.ID) {
+        if state.selection.contains(id) {
+            state.selection.remove(id)
+        } else {
+            state.selection.insert(id)
+        }
+    }
+
     /// Enter on a file: fetch a temp copy, hand it to the system.
     ///
     /// Guarded by size — a pane is not a transfer tool, and the real
@@ -267,11 +292,11 @@ final class PaneModel {
                 let entries = try await self.engine.listing(for: host)
                     .list(on: host, path: path, flavor: flavor)
                 guard !Task.isCancelled else { return }
-                // Read timing in the unified log — `log stream --process
-                // Palana` answers "is that weird?" with numbers.
+                // Read timing in the unified log — notice level because
+                // info is memory-only and `log show` would miss it.
                 let elapsed = "\(ContinuousClock.now - started)"
                 let line = "read \(host):\(path) — \(entries.count) entries in \(elapsed)"
-                Self.logger.info("\(line, privacy: .public)")
+                Self.logger.notice("\(line, privacy: .public)")
                 self.commit(host: host, path: path, entries: entries)
             } catch {
                 guard !Task.isCancelled else { return }

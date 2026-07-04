@@ -244,10 +244,14 @@ struct PaneView: View {
         Button("delete — plan first") { operate(.delete, ids: ids) }
             .keyboardShortcut("d", modifiers: [])
         Divider()
-        Button("copy path") { model.copyToClipboard(.copyPath, ids: ids) }
-        Button("copy filename") { model.copyToClipboard(.copyFilename, ids: ids) }
-        Button("copy name without extension") { model.copyToClipboard(.copyNameSansExtension, ids: ids) }
-        Button("copy this directory's path") { model.copyToClipboard(.copyDirectory, ids: ids) }
+        // Two-key sequences cannot render as menu shortcuts — the key
+        // rides in the label instead, so every verb still names its key.
+        Button("copy path — cc") { model.copyToClipboard(.copyPath, ids: ids) }
+        Button("copy filename — cf") { model.copyToClipboard(.copyFilename, ids: ids) }
+        Button("copy name without extension — cn") {
+            model.copyToClipboard(.copyNameSansExtension, ids: ids)
+        }
+        Button("copy this directory's path — cd") { model.copyToClipboard(.copyDirectory, ids: ids) }
         Divider()
         Button(model.state.showHidden ? "hide hidden files" : "show hidden files") {
             model.apply(.toggleHidden)
@@ -303,11 +307,19 @@ struct PaneView: View {
     private var cursorBinding: Binding<FileEntry.ID?> {
         Binding(
             get: { model.state.cursor },
-            set: {
+            set: { clicked in
                 // The setter only fires from the Table's own interaction
-                // — a click — so focus follows it. Keyed moves write the
-                // state directly and never pass through here.
-                model.state.cursor = $0
+                // — a click — so focus follows it, and the modifiers
+                // carry Finder's selection manners: shift extends from
+                // the cursor, ⌘ or ⌥ toggles one row. Keyed moves write
+                // the state directly and never pass through here.
+                let flags = NSApp.currentEvent?.modifierFlags ?? []
+                if let clicked, flags.contains(.shift) {
+                    model.extendSelection(to: clicked)
+                } else if let clicked, !flags.isDisjoint(with: [.command, .option]) {
+                    model.toggleSelection(clicked)
+                }
+                model.state.cursor = clicked
                 onFocus()
             })
     }

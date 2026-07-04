@@ -1,11 +1,12 @@
-// The BSD listing path — self-aligned records, targets as a keyed map.
-// BSD stat cannot emit NUL from its format string (\0 truncates the
-// format, verified on Darwin), so each entry is a stat line the shell
-// can't corrupt followed by find's own -print0 name: line, then NUL
-// name, self-aligned in one traversal. Symlink targets arrive in a
-// second section keyed by name — race-safe by construction. Cost,
-// named: one stat fork per entry. BSD means a Mac target in practice,
-// and correctness buys the forks.
+// The BSD listing path — batched stat blocks paired with NUL-framed
+// names by count. BSD stat cannot emit NUL from its format string
+// (\0 prints literally, verified on Darwin), so the pairing rides
+// structure instead: each find batch emits its stat lines, one NUL,
+// then the same files' names NUL-terminated in the same order — counts
+// must agree or the parse refuses. The first cut ran one stat fork per
+// entry ("correctness buys the forks") — the second hands session
+// found 600 forks cost 3.5 seconds on a Mac's /tmp, and the batch
+// shape buys the same correctness at two forks per thousand entries.
 
 import Foundation
 
@@ -21,34 +22,54 @@ enum BSDListingParser {
     static func command(for path: String) -> String {
         let quoted = ShellQuote.quote(path)
         let statFormat = "%HT\t%z\t%m\t%Lp\t%Su\t%Sg"
+        let batch =
+            #"stat -f "\#(statFormat)" -- "$@"; printf "\0"; printf "%s\0" "$@""#
         return "cd \(quoted) && { "
-            + "find . -mindepth 1 -maxdepth 1 -exec stat -f '\(statFormat)' {} \\; -print0; "
+            + "find . -mindepth 1 -maxdepth 1 -exec sh -c '\(batch)' palana {} +; "
             + "printf '\(linksMarker)\\0'; "
             + "find . -mindepth 1 -maxdepth 1 -type l -exec sh -c "
             + #"'for f; do printf "%s\0" "$f"; readlink -n -- "$f"; printf "\0"; done' palana {} +;"#
             + " }"
     }
 
-    /// Parses line-then-NUL-name records plus the keyed link section,
-    /// sorted by name bytes.
+    /// Parses batch-paired records plus the keyed link section, sorted
+    /// by name bytes.
+    ///
+    /// Per batch: a NUL-terminated block of stat lines, then exactly as
+    /// many NUL-terminated names, traversal order both. A count
+    /// mismatch is a malformed listing, never a guess.
     static func parse(_ data: Data) throws -> [FileEntry] {
         var remainder = data[...]
         var records: [(attributes: [String], nameData: Data)] = []
 
         let marker = Data(linksMarker.utf8) + [0]
         while !remainder.isEmpty, !remainder.starts(with: marker) {
-            guard let newline = remainder.firstIndex(of: UInt8(ascii: "\n")) else {
+            guard let blockEnd = remainder.firstIndex(of: 0) else {
                 throw ListingError.malformedListing
             }
             // swiftlint:disable:next optional_data_string_conversion
-            let line = String(decoding: remainder[..<newline], as: UTF8.self)  // ASCII by format
-            let attributes = line.components(separatedBy: "\t")
-            remainder = remainder[remainder.index(after: newline)...]
-            guard let nul = remainder.firstIndex(of: 0) else {
+            let block = String(decoding: remainder[..<blockEnd], as: UTF8.self)  // ASCII by format
+            remainder = remainder[remainder.index(after: blockEnd)...]
+            let lines = block.split(separator: "\n", omittingEmptySubsequences: false)
+                .filter { !$0.isEmpty }
+            guard !lines.isEmpty else {
                 throw ListingError.malformedListing
             }
-            records.append((attributes, stripDotSlash(remainder[..<nul])))
-            remainder = remainder[remainder.index(after: nul)...]
+            for line in lines {
+                let attributes = line.components(separatedBy: "\t")
+                guard let nul = remainder.firstIndex(of: 0) else {
+                    throw ListingError.malformedListing
+                }
+                let nameBytes = remainder[..<nul]
+                // Every paired name carries find's ./ prefix — a
+                // segment without it is a desynced batch, refused, so
+                // a mismatch can never swallow the marker as a name.
+                guard nameBytes.starts(with: [UInt8(ascii: "."), UInt8(ascii: "/")]) else {
+                    throw ListingError.malformedListing
+                }
+                records.append((attributes, stripDotSlash(nameBytes)))
+                remainder = remainder[remainder.index(after: nul)...]
+            }
         }
 
         var targets: [Data: Data] = [:]
@@ -109,7 +130,7 @@ enum BSDListingParser {
         }
     }
 
-    /// Names from `-print0` carry the traversal prefix — exactly `./`.
+    /// Names from the batch pairing carry the traversal prefix — `./`.
     private static func stripDotSlash(_ bytes: Data.SubSequence) -> Data {
         let name = Data(bytes)
         guard name.count > 2, name[name.startIndex] == UInt8(ascii: "."),

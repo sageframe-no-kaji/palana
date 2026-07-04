@@ -12,7 +12,7 @@ struct ListingTests {
     private static let gnuStdout = "notes.txt\0f\012\01700000000.5\0644\0op\0op\0\0"
 
     private static let bsdStdout =
-        "Regular File\t12\t1700000000\t644\top\tstaff\n./notes.txt\0PALANA-LINKS\0"
+        "Regular File\t12\t1700000000\t644\top\tstaff\n\0./notes.txt\0PALANA-LINKS\0"
 
     private static func transcript() -> ConduitTranscript {
         ConduitTranscript(entries: [

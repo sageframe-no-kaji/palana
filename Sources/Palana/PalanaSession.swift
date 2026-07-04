@@ -128,19 +128,20 @@ final class PalanaSession {
         // to the field, not the grammar.
         guard !left.pathEditing, !right.pathEditing else { return false }
         guard let token = Grammar.token(for: event) else { return false }
-        if operation.active {
-            return handlePanelKey(token)
-        }
         if helpVisible {
-            // The card holds the keyboard: Esc closes, a second ?
-            // trades the card for the floating keys window, the rest
-            // waits — and the app's own chords pass through untouched.
+            // The card holds the keyboard above everything, panel
+            // included: Esc closes, a second ? trades the card for the
+            // floating keys window, the rest waits — and the app's own
+            // chords pass through untouched.
             if token == "esc" { helpVisible = false }
             if token == "?" {
                 helpVisible = false
                 floatingHelpTick += 1
             }
             return !token.contains("cmd-")
+        }
+        if operation.active {
+            return handlePanelKey(token)
         }
         if token == "esc" {
             // A pending prefix dies first; a bare Esc clears the selection.
@@ -166,12 +167,16 @@ final class PalanaSession {
         }
     }
 
-    /// The panel holds the keyboard: Enter enacts, Esc dismisses or
-    /// cancels, plain keys wait — but the app's own chords (quit,
+    /// The panel's keys.
+    ///
+    /// Enter enacts, Esc dismisses or cancels, ? still summons the
+    /// card (second hands session: "something needs to be able to
+    /// open it"), plain keys wait — but the app's own chords (quit,
     /// close) pass through untouched.
     private func handlePanelKey(_ token: String) -> Bool {
         if token == "return" { operation.enact() }
         if token == "esc" { operation.dismissOrCancel() }
+        if token == "?" { helpVisible = true }
         return !token.contains("cmd-")
     }
 

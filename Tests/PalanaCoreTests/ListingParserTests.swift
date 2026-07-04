@@ -104,10 +104,19 @@ struct BSDListingParserTests {
         [type, size, mtime, perms, owner, group].joined(separator: "\t") + "\n"
     }
 
-    private static func stream(_ parts: [String], links: [(String, String)] = []) -> Data {
+    /// Builds the batch framing: stat lines, one NUL, the same count of
+    /// NUL-terminated ./ names — repeated per batch, marker after.
+    private static func stream(
+        batches: [(lines: [String], names: [String])],
+        links: [(String, String)] = []
+    ) -> Data {
         var data = Data()
-        for part in parts {
-            data += Data(part.utf8)
+        for batch in batches {
+            data += Data(batch.lines.joined().utf8)
+            data += Data([0])
+            for name in batch.names {
+                data += Data("./\(name)\0".utf8)
+            }
         }
         data += Data("PALANA-LINKS\0".utf8)
         for (name, target) in links {
@@ -116,10 +125,13 @@ struct BSDListingParserTests {
         return data
     }
 
-    @Test("line-then-NUL-name records parse whole")
+    @Test("a batch of stat lines pairs with its names by count")
     func fullRecord() throws {
-        let data = Self.stream([
-            Self.statLine("Regular File", size: "42", mtime: "1700000001"), "./notes.txt\0",
+        let data = Self.stream(batches: [
+            (
+                lines: [Self.statLine("Regular File", size: "42", mtime: "1700000001")],
+                names: ["notes.txt"]
+            )
         ])
         let entry = try #require(try BSDListingParser.parse(data).first)
         #expect(entry.name == "notes.txt")
@@ -129,11 +141,30 @@ struct BSDListingParserTests {
         #expect(entry.group == "staff")
     }
 
+    @Test("multiple batches concatenate — ARG_MAX splits are invisible")
+    func multipleBatches() throws {
+        let data = Self.stream(batches: [
+            (
+                lines: [Self.statLine("Regular File"), Self.statLine("Directory")],
+                names: ["a.txt", "subdir"]
+            ),
+            (
+                lines: [Self.statLine("Regular File", size: "7")],
+                names: ["late.txt"]
+            ),
+        ])
+        let entries = try BSDListingParser.parse(data)
+        #expect(entries.map(\.name) == ["a.txt", "late.txt", "subdir"])
+        #expect(entries.first { $0.name == "late.txt" }?.size == 7)
+    }
+
     @Test("a name containing a newline survives — the NUL bounds it")
     func newlineInName() throws {
-        let data = Self.stream([
-            Self.statLine("Regular File"), "./new\nline\0",
-            Self.statLine("Directory"), "./plain\0",
+        let data = Self.stream(batches: [
+            (
+                lines: [Self.statLine("Regular File"), Self.statLine("Directory")],
+                names: ["new\nline", "plain"]
+            )
         ])
         let names = try BSDListingParser.parse(data).map(\.nameData)
         #expect(names.contains(Data("new\nline".utf8)))
@@ -142,9 +173,11 @@ struct BSDListingParserTests {
     @Test("symlink targets resolve from the keyed section")
     func linkTargets() throws {
         let data = Self.stream(
-            [
-                Self.statLine("Symbolic Link", size: "5"), "./alink\0",
-                Self.statLine("Regular File"), "./plain\0",
+            batches: [
+                (
+                    lines: [Self.statLine("Symbolic Link", size: "5"), Self.statLine("Regular File")],
+                    names: ["alink", "plain"]
+                )
             ],
             links: [("alink", "plain")])
         let link = try #require(try BSDListingParser.parse(data).first { $0.kind == .symlink })
@@ -153,8 +186,8 @@ struct BSDListingParserTests {
 
     @Test("a file named like the marker cannot collide — names carry ./")
     func markerCollision() throws {
-        let data = Self.stream([
-            Self.statLine("Regular File"), "./PALANA-LINKS\0",
+        let data = Self.stream(batches: [
+            (lines: [Self.statLine("Regular File")], names: ["PALANA-LINKS"])
         ])
         let entries = try BSDListingParser.parse(data)
         #expect(entries.map(\.name) == ["PALANA-LINKS"])
@@ -162,11 +195,14 @@ struct BSDListingParserTests {
 
     @Test("kinds map from stat's type words")
     func kindMapping() throws {
-        let data = Self.stream([
-            Self.statLine("Regular File"), "./a\0",
-            Self.statLine("Directory"), "./b\0",
-            Self.statLine("Symbolic Link"), "./c\0",
-            Self.statLine("Socket"), "./d\0",
+        let data = Self.stream(batches: [
+            (
+                lines: [
+                    Self.statLine("Regular File"), Self.statLine("Directory"),
+                    Self.statLine("Symbolic Link"), Self.statLine("Socket"),
+                ],
+                names: ["a", "b", "c", "d"]
+            )
         ])
         let kinds = try BSDListingParser.parse(data).map(\.kind)
         #expect(kinds == [.file, .directory, .symlink, .other])
@@ -174,7 +210,7 @@ struct BSDListingParserTests {
 
     @Test("an empty directory parses to no entries — marker only")
     func emptyDirectory() throws {
-        #expect(try BSDListingParser.parse(Self.stream([])).isEmpty)
+        #expect(try BSDListingParser.parse(Self.stream(batches: [])).isEmpty)
         #expect(try BSDListingParser.parse(Data()).isEmpty)
     }
 
@@ -185,19 +221,35 @@ struct BSDListingParserTests {
         }
         #expect(throws: ListingError.malformedListing) {
             _ = try BSDListingParser.parse(
-                Data("Regular File\t0\t170\t644\top\tstaff\n./name-without-nul".utf8))
+                Data("Regular File\t0\t170\t644\top\tstaff\n\0./name-without-nul".utf8))
         }
         #expect(throws: ListingError.malformedListing) {
-            let short = "Regular File\t0\n./x\0"
+            let short = "Regular File\t0\n\0./x\0"
             _ = try BSDListingParser.parse(Data(short.utf8))
         }
     }
 
-    @Test("the command carries the marker, the stat format, and the link loop")
+    @Test("a desynced batch is refused, never guessed at")
+    func desyncedBatchThrows() {
+        // Two stat lines, one name — the marker must not be eaten as
+        // the second name.
+        var data = Data(
+            (Self.statLine("Regular File")
+                + Self.statLine("Directory")).utf8)
+        data += Data([0])
+        data += Data("./only-one\0".utf8)
+        data += Data("PALANA-LINKS\0".utf8)
+        #expect(throws: ListingError.malformedListing) {
+            _ = try BSDListingParser.parse(data)
+        }
+    }
+
+    @Test("the command carries the marker, the batched stat, and the link loop")
     func commandShape() {
         let command = BSDListingParser.command(for: "/Users/op")
         #expect(command.contains("PALANA-LINKS"))
         #expect(command.contains("stat -f"))
+        #expect(command.contains(#"-- "$@""#), "stat runs batched, not once per entry")
         #expect(command.contains("readlink -n"))
         #expect(command.hasPrefix("cd /Users/op"), "safe paths stay bare — plans read clean")
     }
