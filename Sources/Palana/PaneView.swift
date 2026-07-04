@@ -99,22 +99,16 @@ struct PaneView: View {
     }
 
     /// The bar's list — every host the config names, then the ways in.
+    ///
+    /// Right-pinned so it never crosses the pane's edge.
     private var hostMenu: some View {
-        Menu {
-            ForEach(hosts, id: \.self) { host in
-                Button("\(host):~") { model.pointAddress("\(host):~") }
-            }
-            Divider()
-            Button("type an address…") { beginAddressEditing() }
-            Button("edit ~/.ssh/config…") { onEditConfig() }
-            Button("reload hosts") { onReloadHosts() }
-        } label: {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(Theme.inkFaint)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+        HostMenuButton(
+            hosts: hosts,
+            onChoose: { model.pointAddress("\($0):~") },
+            onType: { beginAddressEditing() },
+            onEditConfig: onEditConfig,
+            onReload: onReloadHosts
+        )
         .fixedSize()
     }
 
