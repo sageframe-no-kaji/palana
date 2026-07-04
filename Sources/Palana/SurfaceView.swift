@@ -63,6 +63,13 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
+            // The vocabulary, reachable by mouse — third hands session's
+            // ask. A settings gear joins it when settings exist.
+            ToolbarItem(placement: .primaryAction) {
+                paneVerb("questionmark", help: "the keys — ? on the keyboard") {
+                    session.helpVisible.toggle()
+                }
+            }
         }
     }
 
