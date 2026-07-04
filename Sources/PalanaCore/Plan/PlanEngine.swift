@@ -17,17 +17,43 @@ public enum PlanEngine {
         let transport = transport(for: classification, request: request, facts: facts)
         let steps = compose(
             request, facts: facts, classification: classification, transport: transport)
+        let sizeFacts = totalSize(request.entries, facts: facts)
         return Plan(
             operation: request.operation,
             classification: classification,
             entries: request.entries,
-            totalSize: request.entries.map(\.size).reduce(0, +),
+            totalSize: sizeFacts.bytes,
+            totalSizeComplete: sizeFacts.complete,
             source: request.source,
             destination: request.destination,
             transport: transport,
             steps: steps,
             receivedDataset: zfsChild(request: request, facts: facts, transport: transport)
         )
+    }
+
+    /// The selection's byte truth (ho-06.5): recursive facts for
+    /// directories where gathered, reported sizes for files, inode
+    /// size as the honest floor — and the floor is never silent.
+    private static func totalSize(
+        _ entries: [FileEntry], facts: PlanFacts
+    ) -> RecursiveSize {
+        var bytes: Int64 = 0
+        var complete = true
+        for entry in entries {
+            if entry.kind == .directory {
+                if let fact = facts.recursiveSizes[entry.id] {
+                    bytes += fact.bytes
+                    complete = complete && fact.complete
+                } else {
+                    bytes += entry.size
+                    complete = false
+                }
+            } else {
+                bytes += entry.size
+            }
+        }
+        return RecursiveSize(bytes: bytes, complete: complete)
     }
 
     /// The dataset a zfs transport will create at the destination.

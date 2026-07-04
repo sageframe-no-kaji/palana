@@ -157,9 +157,13 @@ public struct Plan: Codable, Sendable, Equatable {
     public var classification: Classification
     /// The selected entries.
     public var entries: [FileEntry]
-    /// Sum of the entries' reported sizes — directory entries count at
-    /// inode size, not recursive size.
+    /// The selection's byte total — recursive truth for directory
+    /// entries when the facts carry it (ho-06.5), reported size for
+    /// files, inode size as the honest floor when a fact is missing.
     public var totalSize: Int64
+    /// False when any directory's walk was refused or ungathered —
+    /// the total is a floor, and the panel must say so.
+    public var totalSizeComplete: Bool
     /// Where the entries are.
     public var source: Locus
     /// Where they are going. nil for deletion.
@@ -178,6 +182,7 @@ public struct Plan: Codable, Sendable, Equatable {
         classification: Classification,
         entries: [FileEntry],
         totalSize: Int64,
+        totalSizeComplete: Bool = true,
         source: Locus,
         destination: Locus?,
         transport: Transport,
@@ -188,6 +193,7 @@ public struct Plan: Codable, Sendable, Equatable {
         self.classification = classification
         self.entries = entries
         self.totalSize = totalSize
+        self.totalSizeComplete = totalSizeComplete
         self.source = source
         self.destination = destination
         self.transport = transport

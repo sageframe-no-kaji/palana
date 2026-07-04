@@ -97,4 +97,24 @@ public struct Listing: Sendable {
         }
         return result.stdout
     }
+
+    /// The recursive size fact for each path, one round trip.
+    ///
+    /// The plan gathers these fresh, per plan — a size promise with a
+    /// timestamp is still a lie. Composition and parsing live in
+    /// ``TreeSize``.
+    public func treeSizes(
+        on host: String,
+        paths: [String],
+        flavor: UserlandFlavor
+    ) async throws -> [RecursiveSize] {
+        guard !paths.isEmpty else { return [] }
+        let command = TreeSize.command(for: paths, flavor: flavor)
+        let result = try await conduit.run(on: host, command).collect()
+        guard result.exitStatus == 0 else {
+            throw ListingError.listingFailed(
+                exitStatus: result.exitStatus, stderr: result.stderrText)
+        }
+        return try TreeSize.parse(result.stdoutText, expecting: paths.count)
+    }
 }

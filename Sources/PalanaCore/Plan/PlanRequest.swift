@@ -65,6 +65,12 @@ public struct PlanFacts: Sendable, Equatable {
     public var destinationCapability: HostCapability?
     /// The forwarding fact — unprobed until ho-06 learns otherwise.
     public var agentForwarding: ForwardingFact
+    /// Recursive size facts for directory entries, keyed by identity.
+    ///
+    /// Gathered per plan via `Listing.treeSizes` (ho-06.5). A directory
+    /// with no fact here counts at inode size and marks the plan's
+    /// total incomplete.
+    public var recursiveSizes: [FileEntry.ID: RecursiveSize]
 
     /// Assembles a facts bundle — everything defaults to unknown.
     public init(
@@ -73,7 +79,8 @@ public struct PlanFacts: Sendable, Equatable {
         selectionWholeDataset: ZFSDataset? = nil,
         sourceCapability: HostCapability? = nil,
         destinationCapability: HostCapability? = nil,
-        agentForwarding: ForwardingFact = .unprobed
+        agentForwarding: ForwardingFact = .unprobed,
+        recursiveSizes: [FileEntry.ID: RecursiveSize] = [:]
     ) {
         self.sourceDataset = sourceDataset
         self.destinationDataset = destinationDataset
@@ -81,6 +88,7 @@ public struct PlanFacts: Sendable, Equatable {
         self.sourceCapability = sourceCapability
         self.destinationCapability = destinationCapability
         self.agentForwarding = agentForwarding
+        self.recursiveSizes = recursiveSizes
     }
 }
 
