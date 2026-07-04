@@ -29,25 +29,25 @@ struct SurfaceView: View {
     private var panes: some View {
         VStack(spacing: 0) {
             HSplitView {
-                PaneView(
-                    model: session.left,
-                    isFocused: session.focusedSide == .left
-                ) {
-                    session.focusedSide = .left
-                }
-                .frame(minWidth: 320)
-                PaneView(
-                    model: session.right,
-                    isFocused: session.focusedSide == .right
-                ) {
-                    session.focusedSide = .right
-                }
-                .frame(minWidth: 320)
+                pane(session.left, side: .left)
+                pane(session.right, side: .right)
             }
             Divider()
             footer
         }
         .background(Theme.ground)
+    }
+
+    private func pane(_ model: PaneModel, side: SessionSnapshot.Side) -> some View {
+        PaneView(
+            model: model,
+            isFocused: session.focusedSide == side,
+            hosts: session.hosts,
+            onFocus: { session.focusedSide = side },
+            onEditConfig: { session.editSSHConfig() },
+            onReloadHosts: { session.reloadHosts() }
+        )
+        .frame(minWidth: 320)
     }
 
     private var footer: some View {

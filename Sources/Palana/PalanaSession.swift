@@ -33,6 +33,7 @@ final class PalanaSession {
 
     private let conduit: SSHConduit
     private let field: Field
+    private let sshConfigURL: URL
     private var recognizer: SequenceRecognizer<PaneIntent>
     private var keyMonitor: Any?
 
@@ -46,6 +47,7 @@ final class PalanaSession {
         let extraOptions = override.map { ["-F", $0] } ?? []
         let conduit = SSHConduit(configuration: SSHConfiguration(extraOptions: extraOptions))
         let configText = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        self.sshConfigURL = configURL
         self.conduit = conduit
         self.field = Field(conduit: conduit, sshConfigText: configText, cache: FieldCache())
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
@@ -71,6 +73,23 @@ final class PalanaSession {
         focusedSide = snapshot.focused
         left.restore(snapshot.left)
         right.restore(snapshot.right)
+    }
+
+    /// Re-reads `~/.ssh/config` for the host menus.
+    ///
+    /// The config is the only host registry — pālana never keeps its
+    /// own. New aliases appear here the moment the file says so.
+    func reloadHosts() {
+        let text = (try? String(contentsOf: sshConfigURL, encoding: .utf8)) ?? ""
+        hosts = [Engine.localHost] + SSHConfigParser.hosts(in: text)
+    }
+
+    /// Opens the operator's ssh config in whatever edits it.
+    ///
+    /// The way into adding a host is the file itself — no dialog, no
+    /// parallel registry, no trust ceremony.
+    func editSSHConfig() {
+        NSWorkspace.shared.open(sshConfigURL)
     }
 
     // MARK: - Keyboard

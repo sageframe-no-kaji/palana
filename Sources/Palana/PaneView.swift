@@ -15,8 +15,14 @@ struct PaneView: View {
     let model: PaneModel
     /// Whether the keyboard drives this pane.
     let isFocused: Bool
+    /// The Field's hosts, for the header menu.
+    let hosts: [String]
     /// Called when a click lands here — focus follows.
     let onFocus: () -> Void
+    /// Opens `~/.ssh/config` — the only way hosts are added.
+    let onEditConfig: () -> Void
+    /// Re-reads the config for the menus.
+    let onReloadHosts: () -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -45,6 +51,7 @@ struct PaneView: View {
                 .fill(isFocused ? Theme.accent : Theme.inkFaint.opacity(0.25))
                 .frame(width: 7, height: 7)
             addressReadout
+            hostMenu
             if model.isReading {
                 Text("reading…")
                     .foregroundStyle(Theme.inkFaint)
@@ -89,6 +96,26 @@ struct PaneView: View {
                 .foregroundStyle(Theme.inkFaint)
                 .onTapGesture { beginAddressEditing() }
         }
+    }
+
+    /// The bar's list — every host the config names, then the ways in.
+    private var hostMenu: some View {
+        Menu {
+            ForEach(hosts, id: \.self) { host in
+                Button("\(host):~") { model.pointAddress("\(host):~") }
+            }
+            Divider()
+            Button("type an address…") { beginAddressEditing() }
+            Button("edit ~/.ssh/config…") { onEditConfig() }
+            Button("reload hosts") { onReloadHosts() }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
     }
 
     private func beginAddressEditing() {
