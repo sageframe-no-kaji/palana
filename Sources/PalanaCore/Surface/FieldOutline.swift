@@ -115,6 +115,14 @@ public struct FieldOutline: Equatable, Sendable {
         cursor = max(cursor - 1, 0)
     }
 
+    /// Moves the cursor to the given index.
+    ///
+    /// Clamps `index` into `[0, lines.count − 1]`. No-op when the outline is empty.
+    public mutating func moveCursor(to index: Int) {
+        guard !lines.isEmpty else { return }
+        cursor = max(0, min(index, lines.count - 1))
+    }
+
     // MARK: - Expand / Collapse
 
     /// Expands the host row under the cursor, showing its remembered datasets.
@@ -127,6 +135,21 @@ public struct FieldOutline: Equatable, Sendable {
         expandedHosts.insert(alias)
         lines = Self.build(hosts: hosts, facts: facts, localHost: localHost, expanded: expandedHosts)
         cursor = Self.hostIndex(for: alias, in: lines) ?? cursor
+    }
+
+    /// Toggles the expansion of the host row under the cursor.
+    ///
+    /// On a host row with at least one remembered dataset: expands when
+    /// collapsed, collapses when expanded. On a dataset row or a datasetless
+    /// host row: no-op. Delegates to `expand()` and `collapse()` so the
+    /// rebuild logic stays in one place.
+    public mutating func toggleExpansion() {
+        guard !lines.isEmpty, case .host(let hl) = lines[cursor], hl.datasetCount > 0 else { return }
+        if hl.expanded {
+            collapse()
+        } else {
+            expand()
+        }
     }
 
     /// Collapses the current host or the dataset's owning host.

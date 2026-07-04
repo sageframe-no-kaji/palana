@@ -57,6 +57,12 @@ final class FieldViewModel {
     /// Collapses the host under the cursor, or its host when on a dataset.
     func collapse() { outline?.collapse() }
 
+    /// Toggles the expansion of the host row under the cursor.
+    func toggleExpansion() { outline?.toggleExpansion() }
+
+    /// Moves the cursor to the given index — for mouse interaction.
+    func moveCursor(to index: Int) { outline?.moveCursor(to: index) }
+
     /// Resolves the cursor's pointing target — nil for non-pointable rows.
     func pointing() -> FieldOutline.Pointing? { outline?.pointing() }
 
@@ -100,6 +106,8 @@ final class FieldViewModel {
 struct FieldOverlay: View {
     /// The view model driving this card.
     let viewModel: FieldViewModel
+    /// Called when the operator double-clicks a row that resolves a pointing.
+    let onPoint: (FieldOutline.Pointing) -> Void
 
     var body: some View {
         ZStack {
@@ -137,7 +145,7 @@ struct FieldOverlay: View {
                 VStack(alignment: .leading, spacing: 0) {
                     if let outline = viewModel.outline {
                         ForEach(outline.lines.indices, id: \.self) { i in
-                            fieldRow(outline.lines[i], isCursor: i == outline.cursor)
+                            fieldRow(outline.lines[i], index: i, isCursor: i == outline.cursor)
                                 .id(i)
                         }
                     }
@@ -152,17 +160,18 @@ struct FieldOverlay: View {
     }
 
     @ViewBuilder
-    private func fieldRow(_ line: FieldOutline.Line, isCursor: Bool) -> some View {
+    private func fieldRow(_ line: FieldOutline.Line, index: Int, isCursor: Bool) -> some View {
         switch line {
         case .host(let hl):
-            hostRow(hl, isCursor: isCursor)
+            hostRow(hl, index: index, isCursor: isCursor)
         case .dataset(let dl):
-            datasetRow(dl, isCursor: isCursor)
+            datasetRow(dl, index: index, isCursor: isCursor)
         }
     }
 
-    private func hostRow(_ hl: FieldOutline.HostLine, isCursor: Bool) -> some View {
+    private func hostRow(_ hl: FieldOutline.HostLine, index: Int, isCursor: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
+            disclosureTriangle(hl, index: index)
             Text(hl.alias)
                 .fontWeight(.medium)
                 .foregroundStyle(Theme.ink)
@@ -175,6 +184,30 @@ struct FieldOverlay: View {
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
         .background(cursorWash(isCursor))
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            viewModel.moveCursor(to: index)
+            if let pt = viewModel.pointing() { onPoint(pt) }
+        }
+        .onTapGesture(count: 1) {
+            viewModel.moveCursor(to: index)
+        }
+    }
+
+    /// The disclosure triangle for a host row with datasets, or an invisible
+    /// placeholder that keeps the alias column aligned when datasets are absent.
+    @ViewBuilder
+    private func disclosureTriangle(_ hl: FieldOutline.HostLine, index: Int) -> some View {
+        if hl.datasetCount > 0 {
+            Text(hl.expanded ? "▾" : "▸")
+                .foregroundStyle(Theme.inkFaint)
+                .onTapGesture {
+                    viewModel.moveCursor(to: index)
+                    viewModel.toggleExpansion()
+                }
+        } else {
+            Text("▸").opacity(0)  // same width as triangle — aliases stay in one column
+        }
     }
 
     @ViewBuilder
@@ -233,7 +266,7 @@ struct FieldOverlay: View {
         }
     }
 
-    private func datasetRow(_ dl: FieldOutline.DatasetLine, isCursor: Bool) -> some View {
+    private func datasetRow(_ dl: FieldOutline.DatasetLine, index: Int, isCursor: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(dl.name)
                 .foregroundStyle(dl.pointable ? Theme.ink : Theme.inkFaint)
@@ -247,6 +280,14 @@ struct FieldOverlay: View {
         .padding(.vertical, 3)
         .padding(.horizontal, 8)
         .background(cursorWash(isCursor))
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            viewModel.moveCursor(to: index)
+            if let pt = viewModel.pointing() { onPoint(pt) }
+        }
+        .onTapGesture(count: 1) {
+            viewModel.moveCursor(to: index)
+        }
     }
 
     private func cursorWash(_ isCursor: Bool) -> some View {
@@ -257,7 +298,7 @@ struct FieldOverlay: View {
 
     private var cardFooter: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("↵ point  ·  l expand  ·  r re-probe  ·  esc dismiss")
+            Text("↵ / dbl-click point  ·  l toggle  ·  r re-probe  ·  esc dismiss")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
             Text("~ is the remote user's home")

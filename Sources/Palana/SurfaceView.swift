@@ -19,7 +19,13 @@ struct SurfaceView: View {
             }
             .overlay {
                 if session.fieldVisible {
-                    FieldOverlay(viewModel: session.fieldViewModel)
+                    FieldOverlay(viewModel: session.fieldViewModel) { pointing in
+                        session.point(
+                            session.focusedSide,
+                            host: pointing.host,
+                            path: pointing.path)
+                        session.fieldVisible = false
+                    }
                 }
             }
             .sheet(item: $session.gotoTarget) { side in

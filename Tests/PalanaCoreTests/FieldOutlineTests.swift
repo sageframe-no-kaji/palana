@@ -291,6 +291,72 @@ struct FieldOutlineCursorTests {
     }
 }
 
+// MARK: - moveCursor and toggleExpansion
+
+@Suite("FieldOutline — moveCursor and toggleExpansion")
+struct FieldOutlineMoveAndToggleTests {
+    @Test("moveCursor(to:) lands, clamps, and no-ops on empty")
+    func moveCursorClampingAndRange() {
+        var outline = FieldOutline(hosts: ["local", "jodo", "chumon"], facts: [:], localHost: "local")
+        outline.moveCursor(to: 2)
+        #expect(outline.cursor == 2)
+        outline.moveCursor(to: -5)
+        #expect(outline.cursor == 0)
+        outline.moveCursor(to: 100)
+        #expect(outline.cursor == 2)
+        var empty = FieldOutline(hosts: [], facts: [:], localHost: "local")
+        empty.moveCursor(to: 0)
+        #expect(empty.cursor == 0)
+    }
+
+    @Test("toggleExpansion expands then folds — l-l round-trip, cursor stays on host row")
+    func toggleExpansionRoundTrip() {
+        let datasets = [ZFSDataset(name: "tank", mountpoint: "/tank", mounted: true)]
+        var outline = FieldOutline(
+            hosts: ["local", "jodo"],
+            facts: ["jodo": makeFacts(zfsVersion: "zfs-2.2.2", datasets: datasets)],
+            localHost: "local")
+        outline.cursorDown()  // index 1 (jodo)
+        outline.toggleExpansion()
+        #expect(outline.lines.count == 3)
+        guard case .host(let expanded) = outline.lines[1] else {
+            Issue.record("expected host line at index 1 after expand")
+            return
+        }
+        #expect(expanded.expanded)
+        #expect(outline.cursor == 1)
+        outline.toggleExpansion()
+        #expect(outline.lines.count == 2)
+        guard case .host(let folded) = outline.lines[1] else {
+            Issue.record("expected host line at index 1 after fold")
+            return
+        }
+        #expect(!folded.expanded)
+        #expect(outline.cursor == 1)
+    }
+
+    @Test("toggleExpansion is a no-op on a datasetless host and on a dataset row")
+    func toggleExpansionNoops() {
+        let datasets = [ZFSDataset(name: "tank", mountpoint: "/tank", mounted: true)]
+        var noDatasets = FieldOutline(hosts: ["local", "ghost"], facts: ["ghost": makeFacts()], localHost: "local")
+        noDatasets.cursorDown()
+        let beforeHost = noDatasets.lines
+        noDatasets.toggleExpansion()
+        #expect(noDatasets.lines == beforeHost)
+        var withDatasets = FieldOutline(
+            hosts: ["local", "jodo"],
+            facts: ["jodo": makeFacts(zfsVersion: "zfs-2.2.2", datasets: datasets)],
+            localHost: "local")
+        withDatasets.cursorDown()
+        withDatasets.expand()
+        withDatasets.cursorDown()  // on the dataset row
+        let beforeDataset = withDatasets.lines
+        withDatasets.toggleExpansion()
+        #expect(withDatasets.lines == beforeDataset)
+        #expect(withDatasets.cursor == 2)
+    }
+}
+
 // MARK: - Pointing
 
 @Suite("FieldOutline — pointing")

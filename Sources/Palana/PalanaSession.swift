@@ -361,7 +361,7 @@ extension PalanaSession {
         switch token {
         case "j", "down": fieldViewModel.cursorDown()
         case "k", "up": fieldViewModel.cursorUp()
-        case "l", "right": fieldViewModel.expand()
+        case "l", "right": fieldViewModel.toggleExpansion()
         case "h", "left": fieldViewModel.collapse()
         case "r": fieldViewModel.reprobe()
         case "f", "esc": fieldVisible = false
