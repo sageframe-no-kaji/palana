@@ -231,18 +231,17 @@ struct PaneView: View {
     /// had gone down.
     @ViewBuilder
     private func contextMenuItems(for ids: Set<FileEntry.ID>) -> some View {
-        Button("open / enter") {
+        Button("open / enter — return") {
             onFocus()
             if let id = ids.first { model.activate(id) }
         }
-        .keyboardShortcut(.return, modifiers: [])
         Divider()
-        Button("copy to other pane") { operate(.copy, ids: ids) }
-            .keyboardShortcut("y", modifiers: [])
-        Button("move to other pane") { operate(.move, ids: ids) }
-            .keyboardShortcut("m", modifiers: [])
-        Button("delete — plan first") { operate(.delete, ids: ids) }
-            .keyboardShortcut("d", modifiers: [])
+        // Keys ride in the labels, lowercase — the shortcut column
+        // renders "Y" for y, a lie in a case-sensitive grammar where
+        // g and G are different verbs.
+        Button("copy to other pane — y") { operate(.copy, ids: ids) }
+        Button("move to other pane — m") { operate(.move, ids: ids) }
+        Button("delete, plan first — d") { operate(.delete, ids: ids) }
         Divider()
         // Two-key sequences cannot render as menu shortcuts — the key
         // rides in the label instead, so every verb still names its key.
@@ -253,10 +252,9 @@ struct PaneView: View {
         }
         Button("copy this directory's path — cd") { model.copyToClipboard(.copyDirectory, ids: ids) }
         Divider()
-        Button(model.state.showHidden ? "hide hidden files" : "show hidden files") {
+        Button(model.state.showHidden ? "hide hidden files — ." : "show hidden files — .") {
             model.apply(.toggleHidden)
         }
-        .keyboardShortcut(".", modifiers: [])
         Button("refresh") { model.apply(.refresh) }
             .keyboardShortcut("r", modifiers: .command)
     }

@@ -114,6 +114,12 @@ final class PalanaSession {
     func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // The grammar lives in the surface window only — the keys
+            // window (and any future sibling) keeps its own responder
+            // chain, so Esc there closes it instead of clearing marks.
+            if event.window?.identifier?.rawValue == HelpWindow.windowIdentifier {
+                return event
+            }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
         }
