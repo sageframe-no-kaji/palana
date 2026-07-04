@@ -1,0 +1,158 @@
+// The Plan — the value the panel renders and the Transports run. Plans
+// are values: the post-release queue is a list of them, the battery
+// compares them whole, and nothing in one can change between the
+// operator reading it and Enter.
+
+import Foundation
+
+/// What the operator asked for.
+public enum PlanOperation: String, Codable, Sendable {
+    /// Transfer then delete source, delete gated on verification.
+    case move
+    /// Transfer, source untouched.
+    case copy
+    /// Remove the selected entries.
+    case delete
+}
+
+/// What the operation actually is, named before it runs.
+///
+/// The committed vocabulary from the system design — a cross-dataset
+/// move is a copy-plus-delete wearing a rename's clothes, and saying so
+/// is the sentence this project exists to make true.
+public enum Classification: String, Codable, Sendable {
+    /// Same host, same dataset — a true rename.
+    case withinDatasetRename = "within-dataset rename"
+    /// Same host, different (or unproven-same) datasets.
+    case crossDatasetCopyPlusDelete = "cross-dataset copy-plus-delete"
+    /// Different hosts — bytes travel host to host.
+    case crossHostTransfer = "cross-host transfer"
+    /// A copy that never leaves the host.
+    case withinHostCopy = "within-host copy"
+    /// A copy whose bytes travel host to host.
+    case crossHostCopy = "cross-host copy"
+    /// Entries removed where they stand.
+    case deletion
+}
+
+/// How the bytes move, auth path included — the plan names it, the
+/// operator never chooses.
+public enum Transport: String, Codable, Sendable {
+    /// No wire — the command runs on the one host involved.
+    case local
+    /// rsync host-to-host, the operator's agent forwarded to the source
+    /// host. The fast path.
+    case rsyncAgentForwarded = "rsync host-to-host · auth: agent-forwarded direct"
+    /// A tar stream piped through the operator's machine — the fallback
+    /// when forwarding is unavailable or unprobed. rsync cannot proxy:
+    /// it refuses two remote endpoints.
+    case tarStreamProxied = "tar stream · proxied through this machine"
+    /// zfs send piped to zfs receive over the forwarded path.
+    case zfsSendReceiveForwarded = "zfs send/receive · auth: agent-forwarded direct"
+    /// zfs send piped to zfs receive through the operator's machine.
+    case zfsSendReceiveProxied = "zfs send/receive · proxied through this machine"
+}
+
+/// Where a step's command runs.
+public enum Runner: Codable, Sendable, Equatable, Hashable {
+    /// The operator's machine — proxied pipelines run here.
+    case operatorMachine
+    /// A named host, reached through the Conduit.
+    case host(String)
+}
+
+/// One command in an approved sequence.
+public struct PlanStep: Codable, Sendable, Equatable {
+    /// What the step is for — the panel labels it, the Transports gate
+    /// on it.
+    public enum Role: String, Codable, Sendable {
+        /// Bytes moving toward the destination.
+        case transfer
+        /// A same-host copy.
+        case copy
+        /// A true rename.
+        case rename
+        /// Source removal — the back half of a move, or a delete.
+        case delete
+        /// A zfs snapshot taken so send has a stable point.
+        case snapshot
+        /// Snapshot removal after a completed transfer.
+        case cleanup
+    }
+
+    /// Where the command runs.
+    public var runsOn: Runner
+    /// The exact command — something the operator could paste and get
+    /// the same result.
+    public var command: String
+    /// What the step is for.
+    public var role: Role
+    /// True when the step must not run until the transfer verified.
+    ///
+    /// The Plan declares the gate; enforcing it is enactment's job.
+    public var gatedOnVerification: Bool
+
+    /// Assembles a step.
+    public init(runsOn: Runner, command: String, role: Role, gatedOnVerification: Bool = false) {
+        self.runsOn = runsOn
+        self.command = command
+        self.role = role
+        self.gatedOnVerification = gatedOnVerification
+    }
+}
+
+/// An endpoint: a directory on a host.
+public struct Locus: Codable, Sendable, Equatable {
+    /// The host alias, as the ssh config names it.
+    public var host: String
+    /// The directory path on that host.
+    public var directory: String
+
+    /// An endpoint.
+    public init(host: String, directory: String) {
+        self.host = host
+        self.directory = directory
+    }
+}
+
+/// The composed plan — everything the operator reads before Enter.
+public struct Plan: Codable, Sendable, Equatable {
+    /// What was asked.
+    public var operation: PlanOperation
+    /// What it actually is.
+    public var classification: Classification
+    /// The selected entries.
+    public var entries: [FileEntry]
+    /// Sum of the entries' reported sizes — directory entries count at
+    /// inode size, not recursive size.
+    public var totalSize: Int64
+    /// Where the entries are.
+    public var source: Locus
+    /// Where they are going. nil for deletion.
+    public var destination: Locus?
+    /// How the bytes move.
+    public var transport: Transport
+    /// The commands, in order, gates declared.
+    public var steps: [PlanStep]
+
+    /// Assembles a plan.
+    public init(
+        operation: PlanOperation,
+        classification: Classification,
+        entries: [FileEntry],
+        totalSize: Int64,
+        source: Locus,
+        destination: Locus?,
+        transport: Transport,
+        steps: [PlanStep]
+    ) {
+        self.operation = operation
+        self.classification = classification
+        self.entries = entries
+        self.totalSize = totalSize
+        self.source = source
+        self.destination = destination
+        self.transport = transport
+        self.steps = steps
+    }
+}

@@ -69,12 +69,3 @@ enum GNUListingParser {
         String(decoding: field, as: UTF8.self)  // non-name fields are ASCII by format
     }
 }
-
-/// POSIX single-quote escaping for paths embedded in remote commands.
-enum ShellQuote {
-    /// Wraps in single quotes, escaping embedded single quotes the POSIX
-    /// way: `'` becomes `'\''`.
-    static func quote(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: #"'\''"#) + "'"
-    }
-}

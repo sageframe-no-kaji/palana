@@ -40,9 +40,9 @@ The core abstraction. A pure function—(source state, destination state, reques
 - Different hosts → **cross-host transfer**: rsync host-to-host, delete gated behind verification for moves.
 - `copy` composes the same shapes minus delete. `delete` needs no destination and composes gated `rm`.
 
-### Decision 4 — Transport selection: zfs for whole datasets, agent-forwarded rsync, proxy as floor
+### Decision 4 — Transport selection: zfs for whole datasets, agent-forwarded rsync, tar stream as the proxy floor
 
-When both ends of a cross-host move/copy are whole datasets (source selection is exactly a dataset root, destination is a dataset) and both capabilities carry zfs, transport is `zfs send | ssh | zfs receive`. Otherwise rsync: agent-forwarded direct when the fact says available, proxied through the operator's machine when unavailable or unprobed. The operator never chooses—the plan names the path taken and why-shaped facts stay visible in the value.
+When both ends of a cross-host move/copy are whole datasets (source selection is exactly a dataset root, destination directory is exactly a dataset's mountpoint) and both capabilities carry zfs, transport is `zfs send | ssh | zfs receive`—over the forwarded path when available, piped through the operator's machine when not. Otherwise: rsync agent-forwarded direct when the forwarding fact says available. When unavailable or unprobed, the proxy path is a **tar stream**, not rsync—rsync refuses two remote endpoints (`The source and destination cannot both be remote.`, verified), so "rsync proxied" as the overview's one-liner had it is not a command that exists. `ssh src 'tar -cf - …' | ssh dest 'tar -xpf - …'` streams through the operator's machine with no temp storage, both commands visible in the plan—every architectural commitment intact, one tool corrected. The operator never chooses—the plan names the path taken.
 
 ### Decision 5 — Composition refuses to lie: UTF-8 or refuse
 

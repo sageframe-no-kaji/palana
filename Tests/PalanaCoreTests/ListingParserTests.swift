@@ -199,6 +199,6 @@ struct BSDListingParserTests {
         #expect(command.contains("PALANA-LINKS"))
         #expect(command.contains("stat -f"))
         #expect(command.contains("readlink -n"))
-        #expect(command.hasPrefix("cd '/Users/op'"))
+        #expect(command.hasPrefix("cd /Users/op"), "safe paths stay bare — plans read clean")
     }
 }

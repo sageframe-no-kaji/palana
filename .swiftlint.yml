@@ -101,6 +101,9 @@ opt_in_rules:
 disabled_rules:
   - todo                    # TODO/FIXME stay visible; don't lint them
   - line_length             # swift-format owns this
+  - trailing_comma          # swift-format owns commas: it wants them on multi-element
+                            # multiline literals and FORBIDS them on single-element ones;
+                            # SwiftLint's mandatory_comma cannot make that distinction
   - sorted_imports          # swift-format's OrderedImports owns this; the two conflict
                             # (sorted_imports = alphabetical; OrderedImports = regular before @testable)
   - extension_access_modifier  # conflicts with swift-format's NoAccessLevelOnExtensionDeclaration: true
@@ -149,9 +152,3 @@ file_length:
 cyclomatic_complexity:
   warning: 12
   error: 20
-
-trailing_comma:
-  # Aligned with swift-format's multiElementCollectionTrailingCommas: true —
-  # the two tools disagree by default. swift-format is the canonical formatter,
-  # so SwiftLint follows its style here.
-  mandatory_comma: true
