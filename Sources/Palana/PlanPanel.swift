@@ -44,7 +44,7 @@ struct PlanPanel: View {
             }
         }
         .font(mono)
-        .background(Theme.groundDeep)
+        .background(Theme.panelGround)
     }
 
     // MARK: - Header

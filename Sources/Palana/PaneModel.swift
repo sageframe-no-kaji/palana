@@ -11,6 +11,7 @@
 import AppKit
 import PalanaCore
 import SwiftUI
+import os
 
 /// The engine handles a pane borrows — built once by the session.
 struct Engine: Sendable {
@@ -87,6 +88,8 @@ final class PaneModel {
     ///
     /// Set once, right after construction.
     var onDisplayChange: @MainActor () -> Void = {}
+
+    private static let logger = Logger(subsystem: "net.sageframe.palana", category: "pane")
 
     private let engine: Engine
     private var loadTask: Task<Void, Never>?
@@ -182,13 +185,22 @@ final class PaneModel {
     private func descend() {
         guard let host = state.host, let entry = cursorEntry else { return }
         switch entry.kind {
-        case .directory:
+        case .directory, .symlink:
+            // A symlink descends as a directory attempt — read-then-
+            // commit means a link to a file just says so and stays put
+            // (second hands session: "why can't I navigate it?").
             point(host: host, path: Self.childPath(of: state.path, name: entry.name))
         case .file:
             openFile(entry, on: host)
-        case .symlink, .other:
-            break  // following symlinks is queued work, not a guess
+        case .other:
+            break
         }
+    }
+
+    /// A double-click: aim the cursor at the row, then descend or open.
+    func activate(_ id: FileEntry.ID) {
+        state.cursor = id
+        descend()
     }
 
     /// Enter on a file: fetch a temp copy, hand it to the system.
@@ -214,7 +226,11 @@ final class PaneModel {
                 let local = directory.appendingPathComponent(entry.name)
                 try data.write(to: local, options: .atomic)
                 self.isReading = false
-                NSWorkspace.shared.open(local)
+                // In the foreground — an open that lands behind the
+                // window is an open that looks like it didn't happen.
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.activates = true
+                _ = try await NSWorkspace.shared.open(local, configuration: configuration)
             } catch {
                 self.isReading = false
                 self.lastError = Self.describe(error)
@@ -237,6 +253,7 @@ final class PaneModel {
         isReading = true
         loadTask = Task {
             do {
+                let started = ContinuousClock.now
                 var path = targetPath
                 if path == "~" || path.hasPrefix("~/") {
                     path = try await self.resolveTilde(path, host: host)
@@ -245,6 +262,11 @@ final class PaneModel {
                 let entries = try await self.engine.listing(for: host)
                     .list(on: host, path: path, flavor: flavor)
                 guard !Task.isCancelled else { return }
+                // Read timing in the unified log — `log stream --process
+                // Palana` answers "is that weird?" with numbers.
+                let elapsed = "\(ContinuousClock.now - started)"
+                let line = "read \(host):\(path) — \(entries.count) entries in \(elapsed)"
+                Self.logger.info("\(line, privacy: .public)")
                 self.commit(host: host, path: path, entries: entries)
             } catch {
                 guard !Task.isCancelled else { return }

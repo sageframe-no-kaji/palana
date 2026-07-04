@@ -26,6 +26,11 @@ final class PalanaSession {
     var gotoTarget: SessionSnapshot.Side?
     /// Whether the vocabulary card is up.
     var helpVisible = false
+    /// Asks the surface to open the floating keys window.
+    ///
+    /// Bumped by a second ? while the card is up — the surface watches
+    /// for the change.
+    private(set) var floatingHelpTick = 0
     /// The one operation in flight — verb to plan to enactment.
     let operation: OperationModel
     /// The pending multi-key prefix, for the footer.
@@ -127,10 +132,15 @@ final class PalanaSession {
             return handlePanelKey(token)
         }
         if helpVisible {
-            // The card holds the keyboard: ? or Esc closes, the rest
-            // waits so the panes stay put while the eyes are here.
-            if token == "esc" || token == "?" { helpVisible = false }
-            return true
+            // The card holds the keyboard: Esc closes, a second ?
+            // trades the card for the floating keys window, the rest
+            // waits — and the app's own chords pass through untouched.
+            if token == "esc" { helpVisible = false }
+            if token == "?" {
+                helpVisible = false
+                floatingHelpTick += 1
+            }
+            return !token.contains("cmd-")
         }
         if token == "esc" {
             // A pending prefix dies first; a bare Esc clears the selection.
@@ -188,22 +198,46 @@ final class PalanaSession {
 
     /// A verb goes down: the focused pane is the source, the other pane
     /// is the destination, the panel takes it from here.
-    private func beginOperation(_ operationKind: PlanOperation) {
+    func beginOperation(_ operationKind: PlanOperation) {
         let destination = focusedSide == .left ? right : left
         operation.begin(operationKind, source: focusedPane, destination: destination)
     }
 
-    /// True when the divider should show where a send would go.
+    /// The pane the focused one would send toward.
+    var otherPane: PaneModel {
+        focusedSide == .left ? right : left
+    }
+
+    /// The footer's send line.
     ///
-    /// The practitioner's ask, verbatim: "a subtle directional arrow on
-    /// selection showing send direction source→destination pane."
-    var showsSendArrow: Bool {
-        guard !operation.active, gotoTarget == nil, !helpVisible else { return false }
+    /// Where y and m would send, visible before any verb goes down —
+    /// nil when there is nothing to say.
+    var sendLine: String? {
+        guard !operation.active, gotoTarget == nil, !helpVisible else { return nil }
         guard focusedPane.status == .ready, !focusedPane.operationSubjects.isEmpty else {
-            return false
+            return nil
         }
-        let other = focusedSide == .left ? right : left
-        return other.status == .ready
+        guard otherPane.status == .ready, let host = otherPane.state.host else { return nil }
+        return "sends → \(host):\(otherPane.state.path)"
+    }
+
+    // MARK: - Pane verbs (the divider cluster)
+
+    /// Exchanges the two pointings — both panes re-read, ho-04's budget.
+    func swapPanes() {
+        guard let leftHost = left.state.host, let rightHost = right.state.host else { return }
+        let leftPath = left.state.path
+        let rightPath = right.state.path
+        left.point(host: rightHost, path: rightPath)
+        right.point(host: leftHost, path: leftPath)
+    }
+
+    /// Points one side where the other points — the mirror verb.
+    func mirror(to side: SessionSnapshot.Side) {
+        let source = side == .left ? right : left
+        let target = side == .left ? left : right
+        guard let host = source.state.host else { return }
+        target.point(host: host, path: source.state.path)
     }
 
     /// Points a pane from the go-to bar.

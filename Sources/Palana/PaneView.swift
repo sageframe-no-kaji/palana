@@ -23,6 +23,9 @@ struct PaneView: View {
     let onEditConfig: () -> Void
     /// Re-reads the config for the menus.
     let onReloadHosts: () -> Void
+    /// Starts an operation with this pane as the source — the session
+    /// owns the panel.
+    let onOperation: (PlanOperation) -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -201,6 +204,14 @@ struct PaneView: View {
         .background(TableSelectionStyler())
         .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
             contextMenuItems(for: ids)
+        } primaryAction: { ids in
+            // A double-click enters the directory or opens the file —
+            // single click stays the cursor, so a row can be chosen
+            // without being entered.
+            onFocus()
+            if let id = ids.first {
+                model.activate(id)
+            }
         }
         .background(
             GeometryReader { geometry in
@@ -213,14 +224,51 @@ struct PaneView: View {
             })
     }
 
-    /// The clipboard verbs, right-clicked — same truth as cc/cd/cf/cn.
+    /// The full menu, right-clicked.
+    ///
+    /// Every verb names its key. The operation verbs aim at the
+    /// clicked rows, then the panel takes over exactly as if the key
+    /// had gone down.
     @ViewBuilder
     private func contextMenuItems(for ids: Set<FileEntry.ID>) -> some View {
+        Button("open / enter") {
+            onFocus()
+            if let id = ids.first { model.activate(id) }
+        }
+        .keyboardShortcut(.return, modifiers: [])
+        Divider()
+        Button("copy to other pane") { operate(.copy, ids: ids) }
+            .keyboardShortcut("y", modifiers: [])
+        Button("move to other pane") { operate(.move, ids: ids) }
+            .keyboardShortcut("m", modifiers: [])
+        Button("delete — plan first") { operate(.delete, ids: ids) }
+            .keyboardShortcut("d", modifiers: [])
+        Divider()
         Button("copy path") { model.copyToClipboard(.copyPath, ids: ids) }
         Button("copy filename") { model.copyToClipboard(.copyFilename, ids: ids) }
         Button("copy name without extension") { model.copyToClipboard(.copyNameSansExtension, ids: ids) }
-        Divider()
         Button("copy this directory's path") { model.copyToClipboard(.copyDirectory, ids: ids) }
+        Divider()
+        Button(model.state.showHidden ? "hide hidden files" : "show hidden files") {
+            model.apply(.toggleHidden)
+        }
+        .keyboardShortcut(".", modifiers: [])
+        Button("refresh") { model.apply(.refresh) }
+            .keyboardShortcut("r", modifiers: .command)
+    }
+
+    /// Aims the pane's subjects at the clicked rows, then starts the
+    /// operation.
+    ///
+    /// Rows already inside the selection keep the whole selection —
+    /// Finder's manners.
+    private func operate(_ operation: PlanOperation, ids: Set<FileEntry.ID>) {
+        onFocus()
+        if !ids.isEmpty, !ids.isSubset(of: model.state.selection) {
+            model.state.selection = ids.count > 1 ? ids : []
+            model.state.cursor = ids.first
+        }
+        onOperation(operation)
     }
 
     private func nameCell(_ entry: FileEntry) -> some View {

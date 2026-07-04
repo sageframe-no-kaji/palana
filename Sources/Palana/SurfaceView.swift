@@ -10,6 +10,9 @@ struct SurfaceView: View {
     /// The root object.
     @Bindable var session: PalanaSession
 
+    @Environment(\.openWindow)
+    private var openWindow
+
     var body: some View {
         panes
             .overlay {
@@ -20,27 +23,28 @@ struct SurfaceView: View {
             .sheet(item: $session.gotoTarget) { side in
                 gotoBar(for: side)
             }
+            .onChange(of: session.floatingHelpTick) {
+                // ? ? — the card trades itself for a window that stays.
+                openWindow(id: "palana-keys")
+            }
             .task {
                 session.installKeyMonitor()
                 await session.start()
             }
     }
 
+    /// The left pane's live width — the verb cluster rides the divider.
+    @State private var leftPaneWidth: CGFloat = 0
+
     private var panes: some View {
         VStack(spacing: 0) {
-            HSplitView {
-                pane(session.left, side: .left)
-                pane(session.right, side: .right)
-            }
-            .overlay {
-                if session.showsSendArrow {
-                    sendArrow
+            VSplitView {
+                paneArea
+                    .frame(minHeight: 220)
+                if session.operation.active {
+                    PlanPanel(operation: session.operation)
+                        .frame(minHeight: 130, idealHeight: 280)
                 }
-            }
-            if session.operation.active {
-                Divider()
-                PlanPanel(operation: session.operation)
-                    .frame(minHeight: 160, idealHeight: 280, maxHeight: 320)
             }
             Divider()
             footer
@@ -48,16 +52,58 @@ struct SurfaceView: View {
         .background(Theme.ground)
     }
 
-    /// The send direction, visible before any verb goes down — the
-    /// subjects would travel from the focused pane toward the other.
-    private var sendArrow: some View {
-        Image(systemName: session.focusedSide == .left ? "arrow.right" : "arrow.left")
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(Theme.accent.opacity(0.85))
-            .padding(7)
-            .background(Circle().fill(Theme.groundDeep))
-            .overlay(Circle().stroke(Theme.accent.opacity(0.25), lineWidth: 1))
-            .allowsHitTesting(false)
+    private var paneArea: some View {
+        HSplitView {
+            pane(session.left, side: .left)
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onChange(of: geometry.size.width, initial: true) { _, width in
+                                leftPaneWidth = width
+                            }
+                    })
+            pane(session.right, side: .right)
+        }
+        .overlay(alignment: .topLeading) {
+            paneVerbs
+                .offset(x: leftPaneWidth - 37, y: 4)
+        }
+    }
+
+    /// The divider cluster — mirror either way, swap both, sitting on
+    /// the seam it acts across (second hands session's ask).
+    private var paneVerbs: some View {
+        HStack(spacing: 0) {
+            paneVerb("arrow.left", help: "point left where right points") {
+                session.mirror(to: .left)
+            }
+            .disabled(session.right.state.host == nil)
+            paneVerb("arrow.left.arrow.right", help: "swap the panes") {
+                session.swapPanes()
+            }
+            .disabled(session.left.state.host == nil || session.right.state.host == nil)
+            paneVerb("arrow.right", help: "point right where left points") {
+                session.mirror(to: .right)
+            }
+            .disabled(session.left.state.host == nil)
+        }
+        .background(Capsule().fill(Theme.groundDeep))
+        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+    }
+
+    private func paneVerb(
+        _ systemName: String, help: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     private func pane(_ model: PaneModel, side: SessionSnapshot.Side) -> some View {
@@ -67,7 +113,11 @@ struct SurfaceView: View {
             hosts: session.hosts,
             onFocus: { session.focusedSide = side },
             onEditConfig: { session.editSSHConfig() },
-            onReloadHosts: { session.reloadHosts() }
+            onReloadHosts: { session.reloadHosts() },
+            onOperation: { operation in
+                session.focusedSide = side
+                session.beginOperation(operation)
+            }
         )
         .frame(minWidth: 320)
     }
@@ -78,6 +128,12 @@ struct SurfaceView: View {
             if selectionCount > 0 {
                 Text("\(selectionCount) selected")
                     .foregroundStyle(Theme.accent)
+            }
+            if let sendLine = session.sendLine {
+                Text(sendLine)
+                    .foregroundStyle(Theme.accent)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             Spacer()
             if !session.pendingPrefix.isEmpty {

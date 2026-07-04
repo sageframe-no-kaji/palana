@@ -25,6 +25,12 @@ enum Theme {
     /// Cursor row, selection marks, the focused pane's indicator.
     static let accent = Color(red: 0.353, green: 0.459, blue: 0.322)
 
+    /// The plan panel's ground — the notebook gone a shade cooler.
+    ///
+    /// A very subtle slate over the deep ground (second hands session:
+    /// "maybe a VERY subtle slate blue. like 5%").
+    static let panelGround = Color(red: 0.929, green: 0.933, blue: 0.943)
+
     /// Failure ink — quiet rust, the panel's only other voice.
     ///
     /// Reserved for typed failures and incomplete-size floors; a
