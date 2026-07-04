@@ -1,8 +1,10 @@
-// One pane — a header naming where it points, a Table over the rows,
-// and quiet in-place lines for the unpointed, loading, and failed
+// One pane — a header naming where it points (click the path to type
+// a new one), a Table over the rows, an error banner that never steals
+// the view, and quiet in-place lines for the unpointed and loading
 // states. The Table's selection binding is the cursor; the selection
 // set renders as accent marks. The register is the notebook: no
-// chrome, one accent, directories by weight and a trailing slash.
+// chrome, one accent, directories by weight and a trailing slash. The
+// unfocused pane sits a shade dimmer — the eye finds the live one.
 
 import PalanaCore
 import SwiftUI
@@ -16,6 +18,9 @@ struct PaneView: View {
     /// Called when a click lands here — focus follows.
     let onFocus: () -> Void
 
+    @State private var pathDraft = ""
+    @FocusState private var pathFieldFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -23,8 +28,16 @@ struct PaneView: View {
             content
         }
         .background(Theme.ground)
+        .overlay {
+            if !isFocused {
+                Theme.ink.opacity(0.045)
+                    .allowsHitTesting(false)
+            }
+        }
         .simultaneousGesture(TapGesture().onEnded { onFocus() })
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 8) {
@@ -35,12 +48,13 @@ struct PaneView: View {
                 Text(host)
                     .fontWeight(.semibold)
                     .foregroundStyle(Theme.ink)
-                Text(model.state.path)
-                    .foregroundStyle(Theme.inkFaint)
-                    .lineLimit(1)
-                    .truncationMode(.head)
+                pathReadout
             } else {
                 Text("nowhere")
+                    .foregroundStyle(Theme.inkFaint)
+            }
+            if model.isReading {
+                Text("reading…")
                     .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
@@ -51,17 +65,74 @@ struct PaneView: View {
         .background(Theme.groundDeep)
     }
 
+    /// The path — text until clicked, a field while typing.
+    @ViewBuilder private var pathReadout: some View {
+        if model.pathEditing {
+            TextField("path", text: $pathDraft)
+                .textFieldStyle(.plain)
+                .focused($pathFieldFocused)
+                .foregroundStyle(Theme.ink)
+                .onSubmit { commitPathDraft() }
+                .onExitCommand { endPathEditing() }
+                .onChange(of: pathFieldFocused) { _, focused in
+                    if !focused { endPathEditing() }
+                }
+        } else {
+            Text(model.state.path)
+                .foregroundStyle(Theme.inkFaint)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .onTapGesture { beginPathEditing() }
+                .help("click to type a path")
+        }
+    }
+
+    private func beginPathEditing() {
+        pathDraft = model.state.path
+        model.pathEditing = true
+        pathFieldFocused = true
+    }
+
+    private func endPathEditing() {
+        model.pathEditing = false
+        pathFieldFocused = false
+    }
+
+    private func commitPathDraft() {
+        let typed = pathDraft.trimmingCharacters(in: .whitespaces)
+        endPathEditing()
+        guard let host = model.state.host, !typed.isEmpty else { return }
+        model.point(host: host, path: typed)
+    }
+
+    // MARK: - Content
+
     @ViewBuilder private var content: some View {
         switch model.status {
         case .unpointed:
-            quietLine("⇧⌘G points this pane")
+            quietLine(model.lastError ?? "⇧⌘G points this pane")
         case .loading:
             quietLine("reading…")
-        case .failed(let why):
-            quietLine(why)
         case .ready:
             table
+                .overlay(alignment: .bottom) {
+                    if let error = model.lastError {
+                        errorBanner(error)
+                    }
+                }
         }
+    }
+
+    /// A failed read over a live listing — say it, stay put.
+    private func errorBanner(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundStyle(Theme.ground)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(Theme.ink.opacity(0.82), in: Capsule())
+            .padding(.bottom, 10)
+            .allowsHitTesting(false)
     }
 
     private var table: some View {
@@ -99,6 +170,9 @@ struct PaneView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
         .tint(Theme.accent)
+        .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
+            contextMenuItems(for: ids)
+        }
         .background(
             GeometryReader { geometry in
                 Color.clear
@@ -110,9 +184,14 @@ struct PaneView: View {
             })
     }
 
-    /// Sizes as facts — `0 bytes`, never `Zero kB`.
-    private static func sizeText(_ size: Int64) -> String {
-        size.formatted(.byteCount(style: .file, spellsOutZero: false))
+    /// The clipboard verbs, right-clicked — same truth as cc/cd/cf/cn.
+    @ViewBuilder
+    private func contextMenuItems(for ids: Set<FileEntry.ID>) -> some View {
+        Button("copy path") { model.copyToClipboard(.copyPath, ids: ids) }
+        Button("copy filename") { model.copyToClipboard(.copyFilename, ids: ids) }
+        Button("copy name without extension") { model.copyToClipboard(.copyNameSansExtension, ids: ids) }
+        Divider()
+        Button("copy this directory's path") { model.copyToClipboard(.copyDirectory, ids: ids) }
     }
 
     private func nameCell(_ entry: FileEntry) -> some View {
@@ -147,6 +226,11 @@ struct PaneView: View {
                 model.state.cursor = $0
                 onFocus()
             })
+    }
+
+    /// Sizes as facts — `0 bytes`, never `Zero kB`.
+    private static func sizeText(_ size: Int64) -> String {
+        size.formatted(.byteCount(style: .file, spellsOutZero: false))
     }
 
     private func quietLine(_ text: String) -> some View {

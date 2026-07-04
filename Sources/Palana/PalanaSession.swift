@@ -89,6 +89,9 @@ final class PalanaSession {
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
         guard gotoTarget == nil else { return false }
+        // While a path is being typed in a header, the letters belong
+        // to the field, not the grammar.
+        guard !left.pathEditing, !right.pathEditing else { return false }
         guard let token = Grammar.token(for: event) else { return false }
         if helpVisible {
             // The card holds the keyboard: ? or Esc closes, the rest

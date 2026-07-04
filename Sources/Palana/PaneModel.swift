@@ -1,8 +1,12 @@
 // The pane model — one pane's live state and its engine wiring. Holds
 // the PaneState value, computes the displayed rows once per display
 // change, and runs the ho-04 read path: facts, discover if the
-// capability is missing, list with the flavor. Every failure renders
-// as a quiet line in the pane, never an alert.
+// capability is missing, list with the flavor.
+//
+// Reads commit only on success. A pane never navigates to a failure:
+// pointing somewhere unreadable leaves the pane where it was and says
+// why in a quiet line — second hands session's finding. Every failure
+// renders in place, never as an alert.
 
 import AppKit
 import PalanaCore
@@ -24,14 +28,12 @@ struct Engine: Sendable {
 final class PaneModel {
     /// Where the pane stands with its host.
     enum Status: Equatable {
-        /// No host yet — the go-to hint renders.
+        /// Never pointed anywhere — the go-to hint renders.
         case unpointed
-        /// A read is in flight.
+        /// First read in flight — nothing older to show.
         case loading
         /// Entries are showing.
         case ready
-        /// The read failed — the line says why, in place.
-        case failed(String)
     }
 
     /// The pane's value — the core's contract.
@@ -40,8 +42,16 @@ final class PaneModel {
     private(set) var rows: [FileEntry] = []
     /// Where the pane stands.
     private(set) var status = Status.unpointed
+    /// The last read's failure, cleared by the next success — a banner
+    /// over a ready pane, the whole line otherwise.
+    private(set) var lastError: String?
+    /// True while a read is in flight over a ready pane.
+    private(set) var isReading = false
     /// Rows a page move jumps — the view updates it from geometry.
     var pageSize = 25
+    /// True while the header's path field is being typed in — the key
+    /// monitor stands down so the letters reach the field.
+    var pathEditing = false
 
     /// Fires on pointing, sort, and hidden changes — the session persists there.
     ///
@@ -66,16 +76,12 @@ final class PaneModel {
         }
     }
 
-    /// Points the pane at a host and path, and reads it.
+    /// Points the pane at a host and path.
+    ///
+    /// The pointing commits only if the read succeeds — a bad path
+    /// leaves the pane exactly where it was.
     func point(host: String, path: String) {
-        state.host = host
-        state.path = path
-        state.entries = []
-        state.selection = []
-        state.cursor = nil
-        rows = []
-        onDisplayChange()
-        load()
+        read(host: host, path: path.isEmpty ? "/" : path)
     }
 
     /// Applies one intent.
@@ -90,9 +96,9 @@ final class PaneModel {
         case .sortByModified: applyDisplayChange { $0.setSort(key: .modified) }
         case .ascend: ascend()
         case .descend: descend()
-        case .refresh: load()
+        case .refresh: refresh()
         case .copyPath, .copyDirectory, .copyFilename, .copyNameSansExtension:
-            copyToClipboard(intent)
+            copyToClipboard(intent, ids: nil)
         default:
             break  // the session's verbs — dispatched before reaching a pane
         }
@@ -137,38 +143,57 @@ final class PaneModel {
         point(host: host, path: Self.childPath(of: state.path, name: entry.name))
     }
 
+    private func refresh() {
+        guard let host = state.host else { return }
+        read(host: host, path: state.path)
+    }
+
     /// One directory read through the engine — ho-04's wiring exactly,
     /// with one Surface courtesy first: a leading `~` resolves to the
     /// remote home, because the listing quotes its path and the remote
     /// shell never sees a tilde to expand.
-    private func load() {
-        guard let host = state.host else { return }
+    private func read(host: String, path targetPath: String) {
         loadTask?.cancel()
-        status = .loading
+        if status != .ready { status = .loading }
+        isReading = true
         loadTask = Task {
             do {
-                var path = self.state.path
+                var path = targetPath
                 if path == "~" || path.hasPrefix("~/") {
                     path = try await self.resolveTilde(path, host: host)
-                    guard !Task.isCancelled, self.state.host == host else { return }
-                    self.state.path = path
-                    self.onDisplayChange()
                 }
                 let flavor = try await self.resolveFlavor(host: host)
                 let entries = try await self.engine.listing.list(on: host, path: path, flavor: flavor)
-                guard !Task.isCancelled, self.state.host == host, self.state.path == path else { return }
-                self.state.replaceEntries(entries)
-                self.refreshRows()
-                if let landOn = self.landOn {
-                    self.landOn = nil
-                    if self.rows.contains(where: { $0.id == landOn }) { self.state.cursor = landOn }
-                }
-                self.status = .ready
+                guard !Task.isCancelled else { return }
+                self.commit(host: host, path: path, entries: entries)
             } catch {
                 guard !Task.isCancelled else { return }
-                self.status = .failed(Self.describe(error))
+                self.isReading = false
+                if self.status == .loading { self.status = self.rows.isEmpty ? .unpointed : .ready }
+                self.lastError = Self.describe(error)
             }
         }
+    }
+
+    /// A successful read lands: the pointing, the entries, the cursor.
+    private func commit(host: String, path: String, entries: [FileEntry]) {
+        let moved = host != state.host || path != state.path
+        state.host = host
+        state.path = path
+        if moved {
+            state.selection = []
+            state.cursor = nil
+        }
+        state.replaceEntries(entries)
+        refreshRows()
+        if let landOn {
+            self.landOn = nil
+            if rows.contains(where: { $0.id == landOn }) { state.cursor = landOn }
+        }
+        status = .ready
+        isReading = false
+        lastError = nil
+        onDisplayChange()
     }
 
     /// Asks the host where home is — one round trip, POSIX-plain.
@@ -207,12 +232,17 @@ final class PaneModel {
 
     // MARK: - Clipboard
 
-    /// The clipboard verbs — selection when it exists, cursor otherwise.
-    private func copyToClipboard(_ intent: PaneIntent) {
-        let subjects =
-            state.selection.isEmpty
-            ? [cursorEntry].compactMap { $0 }
-            : rows.filter { state.selection.contains($0.id) }
+    /// The clipboard verbs — explicit rows when the context menu names
+    /// them, the selection when it exists, the cursor otherwise.
+    func copyToClipboard(_ intent: PaneIntent, ids: Set<FileEntry.ID>?) {
+        let subjects: [FileEntry]
+        if let ids, !ids.isEmpty {
+            subjects = rows.filter { ids.contains($0.id) }
+        } else if state.selection.isEmpty {
+            subjects = [cursorEntry].compactMap { $0 }
+        } else {
+            subjects = rows.filter { state.selection.contains($0.id) }
+        }
         guard !subjects.isEmpty || intent == .copyDirectory else { return }
         let lines: [String]
         switch intent {
