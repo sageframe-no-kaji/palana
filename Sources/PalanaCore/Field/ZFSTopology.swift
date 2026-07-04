@@ -70,6 +70,18 @@ public enum ZFSTopology {
         }
     }
 
+    /// The mountpoints of all currently mounted datasets with absolute paths.
+    ///
+    /// `legacy`, `none`, and unmounted datasets are excluded. Each path is
+    /// normalized without a trailing slash; `/` itself stays `/`.
+    public static func mountpointSet(in datasets: [ZFSDataset]) -> Set<String> {
+        Set(
+            datasets
+                .filter { $0.mounted && $0.mountpoint.hasPrefix("/") }
+                .map { normalize($0.mountpoint) }
+        )
+    }
+
     private static func normalize(_ path: String) -> String {
         guard path != "/" else { return "/" }
         var result = path

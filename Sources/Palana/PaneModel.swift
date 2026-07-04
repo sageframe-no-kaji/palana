@@ -78,6 +78,10 @@ final class PaneModel {
     private(set) var lastError: String?
     /// True while a read is in flight over a ready pane.
     private(set) var isReading = false
+    /// Dataset mountpoints gathered from cached ZFS facts at the last
+    /// successful commit — empty when the host is local, facts are absent,
+    /// or ZFS is not in the facts.
+    private(set) var datasetMountpoints: Set<String> = []
     /// Rows a page move jumps — the view updates it from geometry.
     var pageSize = 25
     /// True while the header's path field is being typed in — the key
@@ -297,7 +301,7 @@ final class PaneModel {
                 let elapsed = "\(ContinuousClock.now - started)"
                 let line = "read \(host):\(path) — \(entries.count) entries in \(elapsed)"
                 Self.logger.notice("\(line, privacy: .public)")
-                self.commit(host: host, path: path, entries: entries)
+                await self.commit(host: host, path: path, entries: entries)
             } catch {
                 guard !Task.isCancelled else { return }
                 self.isReading = false
@@ -308,7 +312,13 @@ final class PaneModel {
     }
 
     /// A successful read lands: the pointing, the entries, the cursor.
-    private func commit(host: String, path: String, entries: [FileEntry]) {
+    private func commit(host: String, path: String, entries: [FileEntry]) async {
+        // Gather ZFS mountpoints from memory — no wire, Decision 6.
+        let datasets = await engine.field.facts(for: host)?.zfsTopology?.value ?? []
+        // The facts hop is an await — a superseding read may have
+        // cancelled this one mid-hop, and a stale commit never lands.
+        guard !Task.isCancelled else { return }
+        datasetMountpoints = engine.isLocal(host) ? [] : ZFSTopology.mountpointSet(in: datasets)
         let moved = host != state.host || path != state.path
         state.host = host
         state.path = path
@@ -429,7 +439,6 @@ final class PaneModel {
     private enum PointingError: Error {
         case unreachable(String)
     }
-
     // MARK: - Path arithmetic (UTF-8 v1, per ho-04's named limitation)
 
     static func childPath(of path: String, name: String) -> String {
@@ -451,5 +460,17 @@ final class PaneModel {
     static func nameSansExtension(_ name: String) -> String {
         guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return name }
         return String(name[..<dot])
+    }
+}
+
+// MARK: - Dataset boundary mark (ho-09 Decision 6)
+
+extension PaneModel {
+    /// True when the entry is a directory whose full path is an exact
+    /// dataset mountpoint in the cached ZFS facts — the boundary mark.
+    func isDatasetMountpoint(_ entry: FileEntry) -> Bool {
+        guard entry.kind == .directory else { return false }
+        let fullPath = Self.childPath(of: state.path, name: entry.name)
+        return datasetMountpoints.contains(fullPath)
     }
 }

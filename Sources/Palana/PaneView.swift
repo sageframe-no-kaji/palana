@@ -293,6 +293,10 @@ struct PaneView: View {
                     .foregroundStyle(Theme.inkFaint)
                     .lineLimit(1)
             }
+            if model.isDatasetMountpoint(entry) {
+                Text("◆")
+                    .foregroundStyle(Theme.inkFaint)
+            }
         }
     }
 

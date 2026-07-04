@@ -73,4 +73,31 @@ struct ZFSTopologyTests {
         #expect(ZFSTopology.datasetContaining("/var/log/syslog", in: datasets) == nil)
         #expect(ZFSTopology.datasetContaining("/var/log", in: []) == nil)
     }
+
+    @Test("mounted absolute mountpoints are in the set; unmounted and non-absolute are not")
+    func mountpointSetFilters() {
+        let set = ZFSTopology.mountpointSet(in: datasets)
+        #expect(set.contains("/palana"))
+        #expect(set.contains("/palana/tank"))
+        #expect(set.contains("/palana/tank/media"))
+        #expect(set.contains("/opt/services"))
+        #expect(!set.contains("legacy"))
+        #expect(!set.contains("none"))
+        #expect(!set.contains("/palana/detached"))
+        #expect(set.count == 4)
+    }
+
+    @Test("trailing slash is stripped; / stays /")
+    func mountpointSetNormalization() {
+        let trailingSlash = [ZFSDataset(name: "t/d", mountpoint: "/tank/data/", mounted: true)]
+        #expect(ZFSTopology.mountpointSet(in: trailingSlash).contains("/tank/data"))
+        #expect(!ZFSTopology.mountpointSet(in: trailingSlash).contains("/tank/data/"))
+        let root = [ZFSDataset(name: "pool/root", mountpoint: "/", mounted: true)]
+        #expect(ZFSTopology.mountpointSet(in: root).contains("/"))
+    }
+
+    @Test("empty dataset list yields an empty set")
+    func mountpointSetEmpty() {
+        #expect(ZFSTopology.mountpointSet(in: []).isEmpty)
+    }
 }
