@@ -24,6 +24,7 @@ struct RoutingIntegrationTests {
         var configuration: SSHConfiguration
         var container: String
         var capability: HostCapability
+        var localCapability: HostCapability
         var flavor: UserlandFlavor
         var localBase: URL
         var remoteBase: String
@@ -34,6 +35,11 @@ struct RoutingIntegrationTests {
         let remote = SSHConduit(configuration: aliases.configuration)
         let probe = try await remote.run(on: aliases.source, CapabilityProbe.command).collect()
         let capability = try CapabilityProbe.parse(probe.stdoutText)
+        // This machine's own rsync, probed like any host's — modern
+        // here, openrsync on the CI runner, both compose paths live.
+        let localProbe = try await LocalConduit().run(on: "local", CapabilityProbe.command)
+            .collect()
+        let localCapability = try CapabilityProbe.parse(localProbe.stdoutText)
         let configPath = try SSHFixture.facts()["PALANA_FIXTURE_SSH_CONFIG"] ?? ""
         // The composed rsync spawns plain `ssh`; the fixture alias lives
         // in a -F config the operator's real ~/.ssh/config would carry.
@@ -54,6 +60,7 @@ struct RoutingIntegrationTests {
             configuration: aliases.configuration,
             container: aliases.source,
             capability: capability,
+            localCapability: localCapability,
             flavor: capability.flavor,
             localBase: localBase,
             remoteBase: remoteBase)
@@ -93,7 +100,9 @@ struct RoutingIntegrationTests {
                 source: Locus(host: "local", directory: src.path),
                 entries: entries,
                 destination: Locus(host: world.container, directory: "\(world.remoteBase)/dst")),
-            facts: PlanFacts(destinationCapability: world.capability))
+            facts: PlanFacts(
+                sourceCapability: world.localCapability,
+                destinationCapability: world.capability))
         #expect(plan.transport == .rsyncDirect)
         #expect(plan.steps.first?.runsOn == .host("local"))
 
@@ -134,7 +143,9 @@ struct RoutingIntegrationTests {
                 source: Locus(host: world.container, directory: "\(world.remoteBase)/src"),
                 entries: entries,
                 destination: Locus(host: "local", directory: dst.path)),
-            facts: PlanFacts(sourceCapability: world.capability))
+            facts: PlanFacts(
+                sourceCapability: world.capability,
+                destinationCapability: world.localCapability))
         #expect(plan.transport == .rsyncDirect)
 
         let events = try await Self.enactCollecting(plan, world: world)

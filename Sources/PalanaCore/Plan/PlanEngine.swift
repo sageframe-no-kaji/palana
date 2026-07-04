@@ -134,10 +134,16 @@ public enum PlanEngine {
                 request.source.host == PalanaCore.localHostName
                 || request.destination?.host == PalanaCore.localHostName
             if touchesThisMachine {
-                let remote =
-                    request.source.host == PalanaCore.localHostName
-                    ? facts.destinationCapability : facts.sourceCapability
-                return remote?.rsync != nil ? .rsyncDirect : .tarStreamDirect
+                let pushing = request.source.host == PalanaCore.localHostName
+                let remote = pushing ? facts.destinationCapability : facts.sourceCapability
+                let local = pushing ? facts.sourceCapability : facts.destinationCapability
+                // rsync from this machine asks for both binaries known.
+                // An unknown local rsync could be modern (protects args
+                // itself) or openrsync (refuses -s) — the composes are
+                // incompatible, so unknown falls to tar, which always
+                // speaks. The app probes this machine once per session.
+                return remote?.rsync != nil && local?.rsync != nil
+                    ? .rsyncDirect : .tarStreamDirect
             }
             let forwarded = facts.agentForwarding == .available
             if wholeDatasetGate(request: request, facts: facts) {
@@ -203,13 +209,15 @@ extension PlanEngine {
         }
     }
 
-    /// The rsync flag set: archive, arg-protect, keep partials so an
-    /// interrupted transfer resumes — progress2 only when the running
-    /// side's rsync is modern enough to speak it.
+    /// The rsync flag set: archive, keep partials so an interrupted
+    /// transfer resumes — `-s` and progress2 only when the running
+    /// side's rsync is modern enough to speak them. openrsync refuses
+    /// `-s` outright (CI found it live), so the floor protects remote
+    /// paths by inner-quoting instead — see `composeRsyncDirect`.
     private static func rsyncFlags(runningOn capability: HostCapability?) -> String {
         Self.modernRsync(capability)
             ? "-a -s --partial --info=progress2"
-            : "-a -s --partial"
+            : "-a --partial"
     }
 
     private static func composeLocal(
@@ -284,15 +292,20 @@ extension PlanEngine {
         let here = Runner.host(PalanaCore.localHostName)
         let pushing = request.source.host == PalanaCore.localHostName
         let localCapability = pushing ? facts.sourceCapability : facts.destinationCapability
+        // A modern rsync carries -s and remote paths ride the protocol
+        // literally. The floor has no -s, so the remote shell sees the
+        // path — an inner quote keeps its spaces whole.
+        let modernHere = Self.modernRsync(localCapability)
+        let remotePath: (String) -> String = { modernHere ? $0 : ShellQuote.quote($0) }
         let sources: String
         let target: String
         if pushing {
             sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
             target = ShellQuote.quote(
-                "\(request.destination?.host ?? ""):\(destinationDirectorySlash(request))")
+                "\(request.destination?.host ?? ""):\(remotePath(destinationDirectorySlash(request)))")
         } else {
             sources = sourcePaths(request)
-                .map { ShellQuote.quote("\(request.source.host):\($0)") }
+                .map { ShellQuote.quote("\(request.source.host):\(remotePath($0))") }
                 .joined(separator: " ")
             target = quotedDestinationDirectory(request)
         }

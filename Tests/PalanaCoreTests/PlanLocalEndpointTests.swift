@@ -32,6 +32,8 @@ struct PlanLocalEndpointTests {
         kernel: "Linux", flavor: .bsd, zfs: nil, rsync: nil)
     private static let localModern = HostCapability(
         kernel: "Darwin", flavor: .bsd, zfs: nil, rsync: "rsync  version 3.4.1")
+    private static let localFloor = HostCapability(
+        kernel: "Darwin", flavor: .bsd, zfs: nil, rsync: "openrsync: protocol version 29")
 
     private func plan(
         _ operation: PlanOperation,
@@ -51,17 +53,25 @@ struct PlanLocalEndpointTests {
 
     @Test("pushing runs rsync here toward the remote, named honestly")
     func pushCopy() throws {
-        // Local capability unknown — the flags stay openrsync-safe.
-        let facts = PlanFacts(destinationCapability: Self.remoteRsync)
+        // An openrsync Mac — the flags stay openrsync-safe, no -s.
+        let facts = PlanFacts(
+            sourceCapability: Self.localFloor, destinationCapability: Self.remoteRsync)
         let plan = try plan(.copy, from: here, to: koan, facts: facts)
         #expect(plan.transport == .rsyncDirect)
         #expect(
             plan.steps.map(\.command) == [
-                "rsync -a -s --partial /Users/op/files/a.txt "
+                "rsync -a --partial /Users/op/files/a.txt "
                     + "'/Users/op/files/with space' koan:/rpool/cold/"
             ])
         #expect(plan.steps.first?.runsOn == .host("local"))
         #expect(plan.transport.rawValue.contains("this machine's agent"))
+    }
+
+    @Test("an unknown local rsync falls to tar — the composes are incompatible")
+    func unknownLocalRsyncFallsToTar() throws {
+        let facts = PlanFacts(destinationCapability: Self.remoteRsync)
+        let plan = try plan(.copy, from: here, to: koan, facts: facts)
+        #expect(plan.transport == .tarStreamDirect)
     }
 
     @Test("a modern local rsync carries progress2")
@@ -74,13 +84,16 @@ struct PlanLocalEndpointTests {
 
     @Test("pulling runs rsync here with remote sources")
     func pullCopy() throws {
-        let facts = PlanFacts(sourceCapability: Self.remoteRsync)
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync, destinationCapability: Self.localFloor)
         let plan = try plan(.copy, from: koan, to: here, facts: facts)
         #expect(plan.transport == .rsyncDirect)
+        // The floor has no -s, so the spaced remote path rides an inner
+        // quote the remote shell unwraps.
         #expect(
             plan.steps.map(\.command) == [
-                "rsync -a -s --partial koan:/rpool/cold/a.txt "
-                    + "'koan:/rpool/cold/with space' /Users/op/files/"
+                "rsync -a --partial koan:/rpool/cold/a.txt "
+                    + #"'koan:'\''/rpool/cold/with space'\''' /Users/op/files/"#
             ])
         #expect(plan.steps.first?.runsOn == .host("local"))
     }
@@ -137,6 +150,7 @@ struct PlanLocalEndpointTests {
             selectionWholeDataset: dataset,
             agentForwarding: .available)
         facts.sourceCapability = Self.remoteRsync
+        facts.destinationCapability = Self.localModern
         let plan = try plan(.copy, from: koan, to: here, facts: facts)
         #expect(plan.transport == .rsyncDirect)
         #expect(plan.receivedDataset == nil)
