@@ -23,6 +23,7 @@ struct RoutingIntegrationTests {
         var remote: SSHConduit
         var configuration: SSHConfiguration
         var container: String
+        var capability: HostCapability
         var flavor: UserlandFlavor
         var localBase: URL
         var remoteBase: String
@@ -52,6 +53,7 @@ struct RoutingIntegrationTests {
             remote: remote,
             configuration: aliases.configuration,
             container: aliases.source,
+            capability: capability,
             flavor: capability.flavor,
             localBase: localBase,
             remoteBase: remoteBase)
@@ -91,7 +93,7 @@ struct RoutingIntegrationTests {
                 source: Locus(host: "local", directory: src.path),
                 entries: entries,
                 destination: Locus(host: world.container, directory: "\(world.remoteBase)/dst")),
-            facts: PlanFacts())
+            facts: PlanFacts(destinationCapability: world.capability))
         #expect(plan.transport == .rsyncDirect)
         #expect(plan.steps.first?.runsOn == .host("local"))
 
@@ -132,7 +134,7 @@ struct RoutingIntegrationTests {
                 source: Locus(host: world.container, directory: "\(world.remoteBase)/src"),
                 entries: entries,
                 destination: Locus(host: "local", directory: dst.path)),
-            facts: PlanFacts())
+            facts: PlanFacts(sourceCapability: world.capability))
         #expect(plan.transport == .rsyncDirect)
 
         let events = try await Self.enactCollecting(plan, world: world)

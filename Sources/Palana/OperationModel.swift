@@ -53,6 +53,7 @@ final class OperationModel {
     private let configuration: SSHConfiguration
     private var gatherTask: Task<Void, Never>?
     private var enactTask: Task<Void, Never>?
+    private var probedLocalCapability: HostCapability?
 
     /// An operation flow over the session's engine.
     init(engine: Engine, configuration: SSHConfiguration) {
@@ -103,8 +104,14 @@ final class OperationModel {
             if let destination {
                 destinationFacts = try await ensureFacts(destination.host)
             }
-            facts.sourceCapability = sourceFacts?.capability?.value
-            facts.destinationCapability = destinationFacts?.capability?.value
+            facts.sourceCapability =
+                engine.isLocal(source.host)
+                ? await localCapability() : sourceFacts?.capability?.value
+            if let destination {
+                facts.destinationCapability =
+                    engine.isLocal(destination.host)
+                    ? await localCapability() : destinationFacts?.capability?.value
+            }
             if let topology = sourceFacts?.zfsTopology?.value {
                 facts.sourceDataset = ZFSTopology.datasetContaining(
                     source.directory, in: topology)
@@ -155,6 +162,21 @@ final class OperationModel {
         destination.host != source.host
             && !engine.isLocal(source.host)
             && !engine.isLocal(destination.host)
+    }
+
+    /// This Mac's own capability — probed once per session, in memory.
+    ///
+    /// The engine flags rsync commands by the running side's rsync;
+    /// this machine's answer decides whether progress2 rides.
+    private func localCapability() async -> HostCapability? {
+        if let probedLocalCapability { return probedLocalCapability }
+        guard
+            let result = try? await engine.localConduit
+                .run(on: PalanaCore.localHostName, CapabilityProbe.command).collect(),
+            let capability = try? CapabilityProbe.parse(result.stdoutText)
+        else { return nil }
+        probedLocalCapability = capability
+        return capability
     }
 
     /// Remembered facts, or one discovery when the host was never met.

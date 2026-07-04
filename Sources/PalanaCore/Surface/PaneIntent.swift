@@ -33,8 +33,15 @@ public enum PaneIntent: String, CaseIterable, Sendable {
     case clearSelection
     /// Ascend to the parent directory.
     case ascend
-    /// Descend into the directory under the cursor.
+    /// Descend into the directory under the cursor — files stay shut.
+    ///
+    /// The arrow keys' half: navigation never opens a file by
+    /// accident (second hands session: "what about enter alone?").
     case descend
+    /// Descend into a directory, or open the file under the cursor.
+    ///
+    /// Enter's half — opening is deliberate, never a navigation slip.
+    case descendOrOpen
     /// Show or hide dotfiles.
     case toggleHidden
     /// Sort by name — again flips direction.

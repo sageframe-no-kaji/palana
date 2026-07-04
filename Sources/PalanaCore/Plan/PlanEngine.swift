@@ -134,14 +134,31 @@ public enum PlanEngine {
                 request.source.host == PalanaCore.localHostName
                 || request.destination?.host == PalanaCore.localHostName
             if touchesThisMachine {
-                return .rsyncDirect
+                let remote =
+                    request.source.host == PalanaCore.localHostName
+                    ? facts.destinationCapability : facts.sourceCapability
+                return remote?.rsync != nil ? .rsyncDirect : .tarStreamDirect
             }
             let forwarded = facts.agentForwarding == .available
             if wholeDatasetGate(request: request, facts: facts) {
                 return forwarded ? .zfsSendReceiveForwarded : .zfsSendReceiveProxied
             }
-            return forwarded ? .rsyncAgentForwarded : .tarStreamProxied
+            // rsync asks for rsync on both ends and a sender modern
+            // enough for progress2 — anything less falls to tar, which
+            // every userland speaks.
+            let rsyncViable =
+                modernRsync(facts.sourceCapability) && facts.destinationCapability?.rsync != nil
+            return forwarded && rsyncViable ? .rsyncAgentForwarded : .tarStreamProxied
         }
+    }
+
+    /// Real rsync, 3.1 or newer — the dotted version is the tell;
+    /// openrsync's "protocol version 29" never parses one.
+    static func modernRsync(_ capability: HostCapability?) -> Bool {
+        guard let version = capability?.rsyncVersion else { return false }
+        let parts = version.split(separator: ".").compactMap { Int($0) }
+        guard parts.count >= 2 else { return false }
+        return parts[0] > 3 || (parts[0] == 3 && parts[1] >= 1)
     }
 
     /// Both ends whole datasets: the selection is exactly a dataset
@@ -170,13 +187,15 @@ extension PlanEngine {
     ) -> [PlanStep] {
         switch transport {
         case .local:
-            return composeLocal(request, classification: classification)
+            return composeLocal(request, facts: facts, classification: classification)
         case .rsyncAgentForwarded:
-            return composeRsync(request)
+            return composeRsync(request, facts: facts)
         case .rsyncDirect:
-            return composeRsyncDirect(request)
+            return composeRsyncDirect(request, facts: facts)
         case .tarStreamProxied:
             return composeTarStream(request)
+        case .tarStreamDirect:
+            return composeTarDirect(request)
         case .zfsSendReceiveForwarded:
             return composeZfs(request, facts: facts, forwarded: true)
         case .zfsSendReceiveProxied:
@@ -184,12 +203,31 @@ extension PlanEngine {
         }
     }
 
+    /// The rsync flag set: archive, arg-protect, keep partials so an
+    /// interrupted transfer resumes — progress2 only when the running
+    /// side's rsync is modern enough to speak it.
+    private static func rsyncFlags(runningOn capability: HostCapability?) -> String {
+        Self.modernRsync(capability)
+            ? "-a -s --partial --info=progress2"
+            : "-a -s --partial"
+    }
+
     private static func composeLocal(
         _ request: PlanRequest,
+        facts: PlanFacts,
         classification: Classification
     ) -> [PlanStep] {
         let host = Runner.host(request.source.host)
         let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
+        // A same-host copy rides rsync when the host carries it —
+        // progress and resume where cp -a is opaque and starts over
+        // (second hands session: "on a local machine you might want
+        // that for a big copy"). cp -a stays the floor.
+        let copyCommand: (String) -> String = { dest in
+            facts.sourceCapability?.rsync != nil
+                ? "rsync \(rsyncFlags(runningOn: facts.sourceCapability)) \(sources) \(dest)"
+                : "cp -a \(sources) \(dest)"
+        }
         switch classification {
         case .deletion:
             return [PlanStep(runsOn: host, command: "rm -rf \(sources)", role: .delete)]
@@ -199,7 +237,7 @@ extension PlanEngine {
         case .crossDatasetCopyPlusDelete:
             let dest = quotedDestinationDirectory(request)
             return [
-                PlanStep(runsOn: host, command: "cp -a \(sources) \(dest)", role: .copy),
+                PlanStep(runsOn: host, command: copyCommand(dest), role: .copy),
                 PlanStep(
                     runsOn: host,
                     command: "rm -rf \(sources)",
@@ -208,13 +246,13 @@ extension PlanEngine {
             ]
         case .withinHostCopy:
             let dest = quotedDestinationDirectory(request)
-            return [PlanStep(runsOn: host, command: "cp -a \(sources) \(dest)", role: .copy)]
+            return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
         case .crossHostTransfer, .crossHostCopy:
             return []  // never local — the transport switch routes these away
         }
     }
 
-    private static func composeRsync(_ request: PlanRequest) -> [PlanStep] {
+    private static func composeRsync(_ request: PlanRequest, facts: PlanFacts) -> [PlanStep] {
         let sourceHost = Runner.host(request.source.host)
         let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
         let remote = ShellQuote.quote(
@@ -222,7 +260,7 @@ extension PlanEngine {
         var steps = [
             PlanStep(
                 runsOn: sourceHost,
-                command: "rsync -a -s --info=progress2 \(sources) \(remote)",
+                command: "rsync \(rsyncFlags(runningOn: facts.sourceCapability)) \(sources) \(remote)",
                 role: .transfer)
         ]
         if request.operation == .move {
@@ -240,10 +278,12 @@ extension PlanEngine {
     ///
     /// Pushing when the selection lives here, pulling when it lives on
     /// the remote. The gated delete runs wherever the source is, routed
-    /// like any other host step.
-    private static func composeRsyncDirect(_ request: PlanRequest) -> [PlanStep] {
+    /// like any other host step. The flags follow this machine's own
+    /// rsync — an openrsync Mac still transfers, without progress2.
+    private static func composeRsyncDirect(_ request: PlanRequest, facts: PlanFacts) -> [PlanStep] {
         let here = Runner.host(PalanaCore.localHostName)
         let pushing = request.source.host == PalanaCore.localHostName
+        let localCapability = pushing ? facts.sourceCapability : facts.destinationCapability
         let sources: String
         let target: String
         if pushing {
@@ -259,7 +299,39 @@ extension PlanEngine {
         var steps = [
             PlanStep(
                 runsOn: here,
-                command: "rsync -a -s --info=progress2 \(sources) \(target)",
+                command: "rsync \(rsyncFlags(runningOn: localCapability)) \(sources) \(target)",
+                role: .transfer)
+        ]
+        if request.operation == .move {
+            let removed = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
+            steps.append(
+                PlanStep(
+                    runsOn: .host(request.source.host),
+                    command: "rm -rf \(removed)",
+                    role: .delete,
+                    gatedOnVerification: true))
+        }
+        return steps
+    }
+
+    /// Composes the tar-from-this-machine steps — the remote end has no
+    /// rsync, so one pipe runs here and ssh carries the other half.
+    ///
+    /// No proxy in the name because there is none: with this machine at
+    /// one end, the bytes were coming through here anyway.
+    private static func composeTarDirect(_ request: PlanRequest) -> [PlanStep] {
+        let pushing = request.source.host == PalanaCore.localHostName
+        let names = request.entries.map { ShellQuote.quote($0.name) }.joined(separator: " ")
+        let pack = "tar -cf - -C \(ShellQuote.quote(request.source.directory)) -- \(names)"
+        let unpack = "tar -xpf - -C \(ShellQuote.quote(request.destination?.directory ?? ""))"
+        let command =
+            pushing
+            ? "\(pack) | ssh \(request.destination?.host ?? "") \(ShellQuote.quote(unpack))"
+            : "ssh \(request.source.host) \(ShellQuote.quote(pack)) | \(unpack)"
+        var steps = [
+            PlanStep(
+                runsOn: .host(PalanaCore.localHostName),
+                command: command,
                 role: .transfer)
         ]
         if request.operation == .move {

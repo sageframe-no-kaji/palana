@@ -78,15 +78,24 @@ struct PlanCompositionTests {
         #expect(plan.steps.first?.gatedOnVerification == false, "Enter is the gate for delete")
     }
 
+    private static let rsyncHost = HostCapability(
+        kernel: "Linux", flavor: .gnu, zfs: nil, rsync: "rsync  version 3.2.7")
+
+    private static var forwardedRsyncFacts: PlanFacts {
+        PlanFacts(
+            sourceCapability: rsyncHost,
+            destinationCapability: rsyncHost,
+            agentForwarding: .available)
+    }
+
     @Test("a forwarded cross-host move is rsync on the source host plus a gated rm")
     func rsyncCommands() throws {
-        let plan = try plan(
-            .move, to: crossHostDest, facts: PlanFacts(agentForwarding: .available))
+        let plan = try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
         #expect(plan.transport == .rsyncAgentForwarded)
         #expect(
             plan.steps.map(\.command) == [
-                "rsync -a -s --info=progress2 /tank/media/a.txt '/tank/media/with space' "
-                    + "koan:/rpool/cold/",
+                "rsync -a -s --partial --info=progress2 /tank/media/a.txt "
+                    + "'/tank/media/with space' koan:/rpool/cold/",
                 "rm -rf /tank/media/a.txt '/tank/media/with space'",
             ])
         #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo")])
@@ -94,11 +103,32 @@ struct PlanCompositionTests {
 
     @Test("a copy composes the same transfer minus the delete")
     func copyLeavesSource() throws {
-        let plan = try plan(
-            .copy, to: crossHostDest, facts: PlanFacts(agentForwarding: .available))
+        let plan = try plan(.copy, to: crossHostDest, facts: Self.forwardedRsyncFacts)
         #expect(plan.classification == .crossHostCopy)
         #expect(plan.steps.count == 1)
         #expect(plan.steps.first?.role == .transfer)
+    }
+
+    @Test("a same-host copy rides rsync when the host carries it")
+    func sameHostCopyPrefersRsync() throws {
+        let facts = PlanFacts(sourceCapability: Self.rsyncHost)
+        let plan = try plan(.copy, to: sameHostDest, facts: facts)
+        #expect(plan.transport == .local)
+        #expect(
+            plan.steps.map(\.command) == [
+                "rsync -a -s --partial --info=progress2 /tank/media/a.txt "
+                    + "'/tank/media/with space' /tank/other/"
+            ])
+        #expect(plan.steps.first?.role == .copy)
+    }
+
+    @Test("a same-host move between datasets gates its rm behind the rsync copy")
+    func sameHostMovePrefersRsync() throws {
+        let facts = PlanFacts(sourceCapability: Self.rsyncHost)
+        let plan = try plan(.move, to: sameHostDest, facts: facts)
+        #expect(plan.steps.count == 2)
+        #expect(plan.steps[0].command.hasPrefix("rsync -a -s --partial"))
+        #expect(plan.steps[1].gatedOnVerification)
     }
 
     @Test("the proxy path is two ssh commands piped on the operator's machine")

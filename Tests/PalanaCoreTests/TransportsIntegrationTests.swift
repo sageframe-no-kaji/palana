@@ -71,6 +71,9 @@ struct TransportsIntegrationTests {
                 token: "t61"),
             facts: PlanFacts(
                 sourceCapability: world.capability,
+                // One container plays both hosts — the destination's
+                // userland is the source's.
+                destinationCapability: world.capability,
                 agentForwarding: forwarding))
     }
 

@@ -51,6 +51,10 @@ public enum Transport: String, Codable, Sendable {
     /// when forwarding is unavailable or unprobed. rsync cannot proxy:
     /// it refuses two remote endpoints.
     case tarStreamProxied = "tar stream · proxied through this machine"
+    /// A tar stream with this machine at one end — the fallback when
+    /// the remote end has no rsync. One pipe, no proxy: the bytes were
+    /// coming through here anyway.
+    case tarStreamDirect = "tar stream · from this machine"
     /// zfs send piped to zfs receive over the forwarded path.
     case zfsSendReceiveForwarded = "zfs send/receive · auth: agent-forwarded direct"
     /// zfs send piped to zfs receive through the operator's machine.

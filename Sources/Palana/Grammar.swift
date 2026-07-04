@@ -22,7 +22,7 @@ enum Grammar {
         ["left"]: .ascend,
         ["l"]: .descend,
         ["right"]: .descend,
-        ["return"]: .descend,
+        ["return"]: .descendOrOpen,
         ["g", "g"]: .cursorToTop,
         ["home"]: .cursorToTop,
         ["G"]: .cursorToBottom,

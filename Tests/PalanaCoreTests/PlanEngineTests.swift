@@ -113,9 +113,12 @@ struct PlanTransportTests {
         #expect(plan?.transport == .local)
     }
 
-    @Test("forwarding available selects rsync agent-forwarded")
+    @Test("forwarding available with rsync both ends selects rsync agent-forwarded")
     func forwardedRsync() {
-        let facts = PlanFacts(agentForwarding: .available)
+        let facts = PlanFacts(
+            sourceCapability: zfsHost,
+            destinationCapability: zfsHost,
+            agentForwarding: .available)
         let transport = PlanEngine.transport(
             for: .crossHostTransfer,
             request: request(.move),
@@ -126,13 +129,56 @@ struct PlanTransportTests {
     @Test("forwarding unavailable or unprobed selects the tar stream proxy")
     func proxyFloor() {
         for forwarding in [ForwardingFact.unavailable, .unprobed] {
-            let facts = PlanFacts(agentForwarding: forwarding)
+            let facts = PlanFacts(
+                sourceCapability: zfsHost,
+                destinationCapability: zfsHost,
+                agentForwarding: forwarding)
             let transport = PlanEngine.transport(
                 for: .crossHostTransfer,
                 request: request(.move),
                 facts: facts)
             #expect(transport == .tarStreamProxied, "forwarding=\(forwarding)")
         }
+    }
+
+    @Test("rsync missing on either end falls to tar even when forwarded")
+    func rsyncAbsenceFallsToTar() {
+        for (source, destination) in [(zfsHost, plainHost), (plainHost, zfsHost)] {
+            let facts = PlanFacts(
+                sourceCapability: source,
+                destinationCapability: destination,
+                agentForwarding: .available)
+            let transport = PlanEngine.transport(
+                for: .crossHostTransfer,
+                request: request(.move),
+                facts: facts)
+            #expect(transport == .tarStreamProxied)
+        }
+    }
+
+    @Test("openrsync on the sender is not modern rsync — tar carries it")
+    func openrsyncFallsToTar() {
+        let openrsyncHost = HostCapability(
+            kernel: "Darwin", flavor: .bsd, zfs: nil, rsync: "openrsync: protocol version 29")
+        let facts = PlanFacts(
+            sourceCapability: openrsyncHost,
+            destinationCapability: zfsHost,
+            agentForwarding: .available)
+        let transport = PlanEngine.transport(
+            for: .crossHostTransfer,
+            request: request(.move),
+            facts: facts)
+        #expect(transport == .tarStreamProxied)
+    }
+
+    @Test("unknown capabilities select tar — the conservative truth")
+    func unknownCapabilitiesFallToTar() {
+        let facts = PlanFacts(agentForwarding: .available)
+        let transport = PlanEngine.transport(
+            for: .crossHostTransfer,
+            request: request(.move),
+            facts: facts)
+        #expect(transport == .tarStreamProxied)
     }
 
     @Test("whole datasets both ends select zfs send/receive, auth path named")
@@ -159,7 +205,10 @@ struct PlanTransportTests {
             facts: facts)
         #expect(transport == .rsyncAgentForwarded)
 
-        facts.destinationCapability = plainHost
+        // No zfs at the destination but rsync present — the zfs gate
+        // closes and rsync still carries it.
+        facts.destinationCapability = HostCapability(
+            kernel: "Linux", flavor: .gnu, zfs: nil, rsync: "rsync  version 3.2.7")
         let noZfs = PlanEngine.transport(
             for: .crossHostTransfer,
             request: request(.move),

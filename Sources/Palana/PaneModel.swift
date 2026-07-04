@@ -128,7 +128,8 @@ final class PaneModel {
         case .sortBySize: applyDisplayChange { $0.setSort(key: .size) }
         case .sortByModified: applyDisplayChange { $0.setSort(key: .modified) }
         case .ascend: ascend()
-        case .descend: descend()
+        case .descend: descend(openingFiles: false)
+        case .descendOrOpen: descend(openingFiles: true)
         case .refresh: refresh()
         case .copyPath, .copyDirectory, .copyFilename, .copyNameSansExtension:
             copyToClipboard(intent, ids: nil)
@@ -182,7 +183,9 @@ final class PaneModel {
         point(host: host, path: Self.parentPath(of: state.path))
     }
 
-    private func descend() {
+    /// Arrows navigate, Enter opens — a file under an arrow key stays
+    /// shut (second hands session: "what about enter alone?").
+    private func descend(openingFiles: Bool) {
         guard let host = state.host, let entry = cursorEntry else { return }
         switch entry.kind {
         case .directory, .symlink:
@@ -191,16 +194,18 @@ final class PaneModel {
             // (second hands session: "why can't I navigate it?").
             point(host: host, path: Self.childPath(of: state.path, name: entry.name))
         case .file:
-            openFile(entry, on: host)
+            if openingFiles {
+                openFile(entry, on: host)
+            }
         case .other:
             break
         }
     }
 
-    /// A double-click: aim the cursor at the row, then descend or open.
+    /// A double-click: aim the cursor at the row, then enter or open.
     func activate(_ id: FileEntry.ID) {
         state.cursor = id
-        descend()
+        descend(openingFiles: true)
     }
 
     /// Enter on a file: fetch a temp copy, hand it to the system.

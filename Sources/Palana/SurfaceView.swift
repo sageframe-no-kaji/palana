@@ -33,9 +33,6 @@ struct SurfaceView: View {
             }
     }
 
-    /// The left pane's live width — the verb cluster rides the divider.
-    @State private var leftPaneWidth: CGFloat = 0
-
     private var panes: some View {
         VStack(spacing: 0) {
             VSplitView {
@@ -50,28 +47,24 @@ struct SurfaceView: View {
             footer
         }
         .background(Theme.ground)
+        .toolbar {
+            // The titlebar's empty center — the one home that never
+            // covers a pane and never drifts on resize (the seam
+            // overlay managed both).
+            ToolbarItem(placement: .principal) {
+                paneVerbs
+            }
+        }
     }
 
     private var paneArea: some View {
         HSplitView {
             pane(session.left, side: .left)
-                .background(
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onChange(of: geometry.size.width, initial: true) { _, width in
-                                leftPaneWidth = width
-                            }
-                    })
             pane(session.right, side: .right)
-        }
-        .overlay(alignment: .topLeading) {
-            paneVerbs
-                .offset(x: leftPaneWidth - 37, y: 4)
         }
     }
 
-    /// The divider cluster — mirror either way, swap both, sitting on
-    /// the seam it acts across (second hands session's ask).
+    /// The pane verbs — mirror either way, swap both.
     private var paneVerbs: some View {
         HStack(spacing: 0) {
             paneVerb("arrow.left", help: "point left where right points") {
