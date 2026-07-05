@@ -502,13 +502,19 @@ extension PlanEngine {
         return [
             PlanStep(
                 runsOn: host,
-                command: "test ! -e \(newPath) && mv -- \(oldPath) \(newPath)",
+                command: "\(refusalGuard(newPath)) mv -- \(oldPath) \(newPath)",
                 role: .rename),
             PlanStep(
                 runsOn: host,
                 command: "test -e \(newPath) && test ! -e \(oldPath)",
                 role: .verify),
         ]
+    }
+
+    /// The guard that refuses an existing destination, legibly — the
+    /// panel shows a sentence, not a bare exit 1 (third hands session).
+    private static func refusalGuard(_ quotedPath: String) -> String {
+        "test -e \(quotedPath) && { echo refused: \(quotedPath) exists >&2; exit 1; };"
     }
 
     private static func composeCreate(_ request: PlanRequest) -> [PlanStep] {
@@ -521,7 +527,7 @@ extension PlanEngine {
             return [
                 PlanStep(
                     runsOn: host,
-                    command: "test ! -e \(path) && touch -- \(path)",
+                    command: "\(refusalGuard(path)) touch -- \(path)",
                     role: .create),
                 PlanStep(runsOn: host, command: "test -f \(path)", role: .verify),
             ]

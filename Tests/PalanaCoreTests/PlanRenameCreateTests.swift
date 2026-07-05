@@ -45,7 +45,8 @@ struct PlanRenameComposeTests {
         let plan = try planRename(entry: makeEntry("document.txt"), targetName: "renamed.txt")
         #expect(
             plan.steps.map(\.command) == [
-                "test ! -e /tank/media/renamed.txt && mv -- /tank/media/document.txt /tank/media/renamed.txt",
+                "test -e /tank/media/renamed.txt && { echo refused: /tank/media/renamed.txt exists >&2; exit 1; };"
+                    + " mv -- /tank/media/document.txt /tank/media/renamed.txt",
                 "test -e /tank/media/renamed.txt && test ! -e /tank/media/document.txt",
             ])
         #expect(plan.steps.map(\.role) == [.rename, .verify])
@@ -58,7 +59,8 @@ struct PlanRenameComposeTests {
         let plan = try planRename(entry: makeEntry("old file.txt"), targetName: "new name.txt")
         #expect(
             plan.steps.map(\.command) == [
-                "test ! -e '/tank/media/new name.txt' && mv -- '/tank/media/old file.txt' '/tank/media/new name.txt'",
+                "test -e '/tank/media/new name.txt' && { echo refused: '/tank/media/new name.txt' exists >&2; exit 1; };"
+                    + " mv -- '/tank/media/old file.txt' '/tank/media/new name.txt'",
                 "test -e '/tank/media/new name.txt' && test ! -e '/tank/media/old file.txt'",
             ])
     }
@@ -212,7 +214,8 @@ struct PlanCreateComposeTests {
         let plan = try planCreate(name: "newfile.txt")
         #expect(
             plan.steps.map(\.command) == [
-                "test ! -e /tank/media/newfile.txt && touch -- /tank/media/newfile.txt",
+                "test -e /tank/media/newfile.txt && { echo refused: /tank/media/newfile.txt exists >&2; exit 1; };"
+                    + " touch -- /tank/media/newfile.txt",
                 "test -f /tank/media/newfile.txt",
             ])
         #expect(plan.steps.map(\.role) == [.create, .verify])

@@ -249,37 +249,6 @@ final class PaneModel {
     ///
     /// Guarded by size — a pane is not a transfer tool, and the real
     /// moves belong to the plan panel.
-    private func openFile(_ entry: FileEntry, on host: String) {
-        let ceiling: Int64 = 50_000_000
-        guard entry.size <= ceiling else {
-            lastError = "too large to open here: \(entry.size.formatted(.byteCount(style: .file)))"
-            return
-        }
-        let remotePath = Self.childPath(of: state.path, name: entry.name)
-        isReading = true
-        Task {
-            do {
-                let data = try await self.engine.listing(for: host)
-                    .readFile(on: host, path: remotePath)
-                let directory = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("palana-open", isDirectory: true)
-                try FileManager.default.createDirectory(
-                    at: directory, withIntermediateDirectories: true)
-                let local = directory.appendingPathComponent(entry.name)
-                try data.write(to: local, options: .atomic)
-                self.isReading = false
-                // In the foreground — an open that lands behind the
-                // window is an open that looks like it didn't happen.
-                let configuration = NSWorkspace.OpenConfiguration()
-                configuration.activates = true
-                _ = try await NSWorkspace.shared.open(local, configuration: configuration)
-            } catch {
-                self.isReading = false
-                self.lastError = Self.describe(error)
-            }
-        }
-    }
-
     private func refresh() {
         guard let host = state.host else { return }
         read(host: host, path: state.path)
@@ -480,5 +449,54 @@ extension PaneModel {
         guard entry.kind == .directory else { return false }
         let fullPath = Self.childPath(of: state.path, name: entry.name)
         return datasetMountpoints.contains(fullPath)
+    }
+}
+
+// MARK: - Opening files (ho-07 addendum; local-in-place per the third session)
+
+extension PaneModel {
+    private func openFile(_ entry: FileEntry, on host: String) {
+        let path = Self.childPath(of: state.path, name: entry.name)
+        // A local file opens in place — the operator's edits land in
+        // the file itself, never in a copy (third session: edits saved
+        // to the fetched copy read as vanished).
+        if engine.isLocal(host) {
+            openInForeground(URL(fileURLWithPath: path))
+            return
+        }
+        let ceiling: Int64 = 50_000_000
+        guard entry.size <= ceiling else {
+            lastError = "too large to open here: \(entry.size.formatted(.byteCount(style: .file)))"
+            return
+        }
+        isReading = true
+        Task {
+            do {
+                let data = try await self.engine.listing(for: host)
+                    .readFile(on: host, path: path)
+                // A fresh directory per open — a re-open must never
+                // overwrite a copy the operator may have edited.
+                let directory = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("palana-open", isDirectory: true)
+                    .appendingPathComponent(UUID().uuidString, isDirectory: true)
+                try FileManager.default.createDirectory(
+                    at: directory, withIntermediateDirectories: true)
+                let local = directory.appendingPathComponent(entry.name)
+                try data.write(to: local, options: .atomic)
+                self.isReading = false
+                self.openInForeground(local)
+            } catch {
+                self.isReading = false
+                self.lastError = Self.describe(error)
+            }
+        }
+    }
+
+    /// Hands a URL to the system, activated — an open that lands
+    /// behind the window is an open that looks like it didn't happen.
+    private func openInForeground(_ url: URL) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open(url, configuration: configuration)
     }
 }
