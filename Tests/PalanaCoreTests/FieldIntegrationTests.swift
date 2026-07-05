@@ -128,6 +128,9 @@ struct FieldZFSIntegrationTests {
         defer { Task { await recorder.closeAll() } }
         _ = try await recorder.run(on: host, CapabilityProbe.command).collect()
         _ = try await recorder.run(on: host, ZFSTopology.listCommand).collect()
+        // The pool VM is Linux — the mounts exchange rides discover since
+        // ho-9.3, so the corpus must carry it or the replay breaks.
+        _ = try await recorder.run(on: host, MountTable.command(forKernel: "Linux")).collect()
         try await recorder.write(to: corpusURL("zfs-pool.json"))
     }
 

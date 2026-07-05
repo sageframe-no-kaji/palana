@@ -77,7 +77,7 @@ public enum MountTable {
         case "proc", "procfs", "sysfs", "devfs", "devpts", "devtmpfs", "tmpfs", "ramfs",
             "cgroup", "cgroup2", "pstore", "bpf", "securityfs", "debugfs", "tracefs",
             "configfs", "fusectl", "mqueue", "hugetlbfs", "overlay", "squashfs", "autofs",
-            "binfmt_misc", "rpc_pipefs", "nsfs", "fdescfs", "swap":
+            "binfmt_misc", "rpc_pipefs", "nsfs", "fdescfs", "swap", "efivarfs":
             return .system
         default:
             return .storage
