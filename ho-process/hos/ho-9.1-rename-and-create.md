@@ -1,6 +1,6 @@
 ---
 created: 2026-07-04
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 9.1
@@ -80,9 +80,15 @@ Grammar rows, the `naming` phase, the panel's field, monitor stand-down, landOn.
 
 ## Phase 3 — Reflect
 
-*To be filled after execution. Prompts: did the naming field fight the key monitor? Did the guard read legibly in the panel when it refused? What did his hands say?*
+**The naming field didn't fight the monitor.** The pathEditing precedent held—one flag beside it, letters reach the field, Esc cancels through the field's own exit. The panel's first text input cost less than feared.
+
+**The guard did not read legibly, and his hands said so.** A refused create surfaced as a bare exit 1—fixed in the errata: the guard carries its own sentence, `refused: <path> exists` on stderr, and the panel shows it typed.
+
+**His hands found what no battery could: the open path ate an edit.** Not this ho's code—ho-07's open verb fetched every file, local included, into one shared temp path, and a re-open destroyed the edited copy. The worst kind of failure: silent, data-losing, wearing correct behavior's clothes. Errata in the tree: local files open in place, remote opens get a fresh directory per open. Remote round-trip editing queued as ho-9.10.
+
+**The third finding named the next ho's reason.** A copy over an existing name enacts without the plan saying so—an unnamed overwrite is a lie of omission by the panel's own law. ho-9.9 Collision Facts queued: the plan states what it will overwrite, a gathered fact line, never a dialog. And create keeps its refusal—creating over a file is truncation wearing creation's name.
 
 ---
 
-_Authored: 2026-07-04 (Think phase)._
-_Execution and Reflect: pending._
+_Authored: 2026-07-04 (Think phase). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session._
+_Errata and Reflect: 2026-07-05, from the practitioner's hands. 345 tests, 61 suites, CI green._
