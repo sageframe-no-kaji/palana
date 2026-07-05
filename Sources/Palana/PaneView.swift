@@ -293,10 +293,24 @@ struct PaneView: View {
                     .foregroundStyle(Theme.inkFaint)
                     .lineLimit(1)
             }
-            if model.isDatasetMountpoint(entry) {
-                Text("◆")
-                    .foregroundStyle(Theme.inkFaint)
-            }
+            boundaryDiamond(for: entry)
+        }
+    }
+
+    /// The ◆ / ◇ filesystem boundary mark — dataset or plain mount, nothing otherwise.
+    @ViewBuilder
+    private func boundaryDiamond(for entry: FileEntry) -> some View {
+        switch model.boundaryMark(for: entry) {
+        case .dataset:
+            Text("◆")
+                .foregroundStyle(Theme.inkFaint)
+                .help("dataset mountpoint — a filesystem boundary")
+        case .mount:
+            Text("◇")
+                .foregroundStyle(Theme.inkFaint)
+                .help("mount point — a filesystem boundary")
+        case nil:
+            EmptyView()
         }
     }
 

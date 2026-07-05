@@ -82,6 +82,10 @@ final class PaneModel {
     /// successful commit — empty when the host is local, facts are absent,
     /// or ZFS is not in the facts.
     private(set) var datasetMountpoints: Set<String> = []
+    /// Mount targets gathered from cached mount facts at the last successful
+    /// commit — the plain-mount boundary set, empty when the host is local,
+    /// facts are absent, or mounts were never gathered.
+    private(set) var mountTargets: Set<String> = []
     /// Rows a page move jumps — the view updates it from geometry.
     var pageSize = 25
     /// True while the header's path field is being typed in — the key
@@ -290,12 +294,15 @@ final class PaneModel {
 
     /// A successful read lands: the pointing, the entries, the cursor.
     private func commit(host: String, path: String, entries: [FileEntry]) async {
-        // Gather ZFS mountpoints from memory — no wire, Decision 6.
-        let datasets = await engine.field.facts(for: host)?.zfsTopology?.value ?? []
+        // Gather ZFS mountpoints and mount targets from memory — no wire, Decisions 5–6.
+        let hostFacts = await engine.field.facts(for: host)
+        let datasets = hostFacts?.zfsTopology?.value ?? []
+        let allMounts = hostFacts?.mounts?.value ?? []
         // The facts hop is an await — a superseding read may have
         // cancelled this one mid-hop, and a stale commit never lands.
         guard !Task.isCancelled else { return }
         datasetMountpoints = engine.isLocal(host) ? [] : ZFSTopology.mountpointSet(in: datasets)
+        mountTargets = engine.isLocal(host) ? [] : MountTable.targetSet(in: allMounts)
         let moved = host != state.host || path != state.path
         state.host = host
         state.path = path
@@ -440,15 +447,35 @@ final class PaneModel {
     }
 }
 
-// MARK: - Dataset boundary mark (ho-09 Decision 6)
+// MARK: - Dataset boundary mark (ho-09 Decisions 5–6)
 
 extension PaneModel {
+    /// The boundary mark for a directory entry — dataset, plain mount, or absent.
+    enum BoundaryMark {
+        /// A ZFS dataset mountpoint — ◆.
+        case dataset
+        /// A plain mount target — ◇.
+        case mount
+    }
+
     /// True when the entry is a directory whose full path is an exact
     /// dataset mountpoint in the cached ZFS facts — the boundary mark.
     func isDatasetMountpoint(_ entry: FileEntry) -> Bool {
         guard entry.kind == .directory else { return false }
         let fullPath = Self.childPath(of: state.path, name: entry.name)
         return datasetMountpoints.contains(fullPath)
+    }
+
+    /// Resolves the boundary mark for a directory entry.
+    ///
+    /// Dataset mountpoint → `.dataset`, plain mount target → `.mount`,
+    /// nil otherwise. Non-directory entries always return nil.
+    func boundaryMark(for entry: FileEntry) -> BoundaryMark? {
+        guard entry.kind == .directory else { return nil }
+        let fullPath = Self.childPath(of: state.path, name: entry.name)
+        if datasetMountpoints.contains(fullPath) { return .dataset }
+        if mountTargets.contains(fullPath) { return .mount }
+        return nil
     }
 }
 

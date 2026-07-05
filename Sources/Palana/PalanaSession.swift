@@ -46,6 +46,8 @@ final class PalanaSession {
     var fieldVisible = false
     /// The topology overlay's view model — shared with SurfaceView.
     let fieldViewModel: FieldViewModel
+    /// The host map panel's view model — shared with HostMapPanelController.
+    let hostMapModel: HostMapModel
     /// The hosts the Field knows — the go-to bar's menu.
     ///
     /// Visible hosts only: hidden aliases (marked `# palana: hide` in the
@@ -85,6 +87,7 @@ final class PalanaSession {
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
         self.engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
         self.fieldViewModel = FieldViewModel(engine: self.engine)
+        self.hostMapModel = HostMapModel(engine: self.engine)
         self.left = PaneModel(engine: self.engine)
         self.right = PaneModel(engine: self.engine)
         self.operation = OperationModel(engine: self.engine, configuration: configuration, settings: settingsModel)
@@ -179,6 +182,17 @@ final class PalanaSession {
                 }
                 return consumed ? nil : event
             }
+            if event.window?.identifier?.rawValue == HostMapPanelController.identifier {
+                let keyCode = event.keyCode
+                let consumed = MainActor.assumeIsolated { () -> Bool in
+                    if keyCode == 53 {
+                        HostMapPanelController.shared.close()
+                        return true
+                    }
+                    return false
+                }
+                return consumed ? nil : event
+            }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
         }
@@ -217,6 +231,11 @@ final class PalanaSession {
         if token == "f", pendingPrefix.isEmpty {
             fieldVisible = true
             fieldViewModel.summon(hosts: hosts)
+            return true
+        }
+        // F toggles the floating host map panel — same grammar guard.
+        if token == "F", pendingPrefix.isEmpty {
+            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
             return true
         }
         switch recognizer.press(token) {

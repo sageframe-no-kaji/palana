@@ -92,6 +92,15 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
+            // The host map — summoned by F on the keyboard, this glyph, or esc.
+            ToolbarItem(placement: .primaryAction) {
+                paneVerb("server.rack", help: "the host map — F") {
+                    HostMapPanelController.shared.toggle(
+                        model: session.hostMapModel,
+                        hosts: session.hosts
+                    )
+                }
+            }
             // The settings gear — beside the vocabulary question mark.
             ToolbarItem(placement: .primaryAction) {
                 paneVerb("gearshape", help: "settings — ⌘,") {
