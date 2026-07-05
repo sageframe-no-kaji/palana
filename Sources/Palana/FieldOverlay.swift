@@ -235,10 +235,18 @@ struct FieldOverlay: View {
             case .reachable:
                 reachableText(hl)
             case .unreachable(let detail):
-                Text("unreachable · \(detail)")
+                Text("unreachable · \(Self.plainRefusal(detail))")
                     .foregroundStyle(Theme.alarm)
             }
         }
+    }
+
+    /// The key-shaped refusal in plain language — "what if someone
+    /// doesn't have ssh keypairs set up correctly?" (third session).
+    /// ho-9.5's onboarding walks the fix; until then the map names it.
+    static func plainRefusal(_ detail: String) -> String {
+        guard detail.localizedCaseInsensitiveContains("permission denied") else { return detail }
+        return "no usable ssh key — key setup needed · \(detail)"
     }
 
     @ViewBuilder

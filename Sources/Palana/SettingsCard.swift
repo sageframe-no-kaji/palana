@@ -64,7 +64,7 @@ struct SettingsForm: View {
     private func hostRow(_ entry: (alias: String, isHidden: Bool)) -> some View {
         HStack {
             Text(entry.alias)
-                .font(.system(size: 12))
+                .font(.system(size: 14))
                 .foregroundStyle(entry.isHidden ? Theme.inkFaint : Theme.ink)
             Spacer()
             Toggle(
