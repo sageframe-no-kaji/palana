@@ -6,21 +6,90 @@
 import Foundation
 import PalanaCore
 
+// MARK: - Stored (file-private persistence shape)
+
+/// The on-disk representation of persisted settings.
+///
+/// Declared at file scope to avoid a two-level nesting with `CodingKeys`.
+/// `excludeDSStore` and `excludeAppleDouble` are decoded with
+/// `decodeIfPresent` so that old `settings.json` files without these
+/// keys read false — upgrades from pre-exclude builds are lossless.
+private struct SettingsStored: Codable {
+    var rsyncFlags: String
+    var excludeDSStore: Bool
+    var excludeAppleDouble: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case rsyncFlags
+        case excludeDSStore
+        case excludeAppleDouble
+    }
+
+    // Custom decoder — missing keys in old settings.json read false.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rsyncFlags = try container.decode(String.self, forKey: .rsyncFlags)
+        excludeDSStore =
+            (try? container.decodeIfPresent(Bool.self, forKey: .excludeDSStore)) ?? false
+        excludeAppleDouble =
+            (try? container.decodeIfPresent(Bool.self, forKey: .excludeAppleDouble)) ?? false
+    }
+
+    init(rsyncFlags: String, excludeDSStore: Bool, excludeAppleDouble: Bool) {
+        self.rsyncFlags = rsyncFlags
+        self.excludeDSStore = excludeDSStore
+        self.excludeAppleDouble = excludeAppleDouble
+    }
+}
+
+// MARK: - SettingsModel
+
 /// Persisted settings and host-visibility control.
 ///
-/// `rsyncFlags` survives the session in `settings.json` beside
-/// `session.json`. Host visibility is computed from the live config
-/// text — the config is the only registry — and written as a single
-/// `# palana: hide` comment line via the AT-01 transform.
+/// `rsyncFlags`, `excludeDSStore`, and `excludeAppleDouble` survive the
+/// session in `settings.json` beside `session.json`. Host visibility is
+/// computed from the live config text — the config is the only registry
+/// — and written as a single `# palana: hide` comment line via the
+/// AT-01 transform.
 @MainActor
 @Observable
 final class SettingsModel {
-    /// Extra rsync flags appended to every rsync command.
+    /// Extra rsync flags appended to every rsync command (free-form field).
     ///
     /// Trimmed at use; an empty or whitespace-only string is absent.
     /// Persisted to `settings.json` on every assignment.
     var rsyncFlags: String = "" {
         didSet { persist() }
+    }
+
+    /// When true, `--exclude .DS_Store` is prepended to every rsync command.
+    ///
+    /// Persisted to `settings.json` on every assignment.
+    var excludeDSStore: Bool = false {
+        didSet { persist() }
+    }
+
+    /// When true, `--exclude '._*'` is prepended to every rsync command.
+    ///
+    /// Covers AppleDouble resource-fork sidecar files. Persisted to
+    /// `settings.json` on every assignment.
+    var excludeAppleDouble: Bool = false {
+        didSet { persist() }
+    }
+
+    /// The composed rsync flags for every operation.
+    ///
+    /// `--exclude .DS_Store` when `excludeDSStore` is on;
+    /// `--exclude '._*'` when `excludeAppleDouble` is on; then the
+    /// trimmed free-form field. Nil when all three sources are empty —
+    /// the caller treats nil as absent.
+    var effectiveRsyncFlags: String? {
+        var parts: [String] = []
+        if excludeDSStore { parts.append("--exclude .DS_Store") }
+        if excludeAppleDouble { parts.append("--exclude '._*'") }
+        let free = rsyncFlags.trimmingCharacters(in: .whitespaces)
+        if !free.isEmpty { parts.append(free) }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
     /// A one-line notice shown when a hide toggle targets an alias
@@ -53,10 +122,6 @@ final class SettingsModel {
 
     private let configURL: URL
     private let settingsURL: URL
-
-    private struct Stored: Codable {
-        var rsyncFlags: String
-    }
 
     /// Initialises from the ssh config and the settings file URLs.
     ///
@@ -130,15 +195,21 @@ final class SettingsModel {
     private func loadPersisted() {
         guard
             let data = try? Data(contentsOf: settingsURL),
-            let stored = try? JSONDecoder().decode(Stored.self, from: data)
+            let stored = try? JSONDecoder().decode(SettingsStored.self, from: data)
         else { return }
-        // didSet fires here but the resulting persist() is a harmless
-        // round-trip — the same value goes straight back to disk.
+        // didSet fires on each assignment but the resulting persist()
+        // calls are harmless round-trips — the same values go straight
+        // back to disk.
         rsyncFlags = stored.rsyncFlags
+        excludeDSStore = stored.excludeDSStore
+        excludeAppleDouble = stored.excludeAppleDouble
     }
 
     private func persist() {
-        let stored = Stored(rsyncFlags: rsyncFlags)
+        let stored = SettingsStored(
+            rsyncFlags: rsyncFlags,
+            excludeDSStore: excludeDSStore,
+            excludeAppleDouble: excludeAppleDouble)
         guard let data = try? JSONEncoder().encode(stored) else { return }
         let dir = settingsURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

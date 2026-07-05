@@ -173,8 +173,7 @@ final class OperationModel {
                 }
             }
             guard !Task.isCancelled else { return }
-            let trimmedFlags = settings.rsyncFlags.trimmingCharacters(in: .whitespaces)
-            facts.rsyncOperatorFlags = trimmedFlags.isEmpty ? nil : trimmedFlags
+            facts.rsyncOperatorFlags = settings.effectiveRsyncFlags
             let request = PlanRequest(
                 operation: operation,
                 source: source,

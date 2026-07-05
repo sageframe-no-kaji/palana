@@ -4,7 +4,8 @@
 //
 // Card pattern: ZStack with a dimmed ground and a centred card,
 // mirroring FieldOverlay. Esc dismisses; the grammar stands down while
-// the flags field is focused.
+// the flags field is focused. First Esc defocuses the field via
+// .onExitCommand; second Esc reaches handleSettingsKey and closes.
 
 import SwiftUI
 
@@ -16,7 +17,7 @@ import SwiftUI
 /// Settings scene directly. Holds the `FocusState` for the rsync flags
 /// field and wires the key-monitor stand-down flag on the session.
 struct SettingsForm: View {
-    /// The settings model — hosts, rsync flags, and config write verbs.
+    /// The settings model — hosts, rsync flags, exclude flags, and config write verbs.
     @Bindable var model: SettingsModel
     /// The session — receives the field-focused stand-down signal.
     var session: PalanaSession
@@ -55,6 +56,7 @@ struct SettingsForm: View {
                     .foregroundStyle(Theme.alarm)
                     .padding(.leading, 8)
             }
+            hostsFooter
         }
     }
 
@@ -73,9 +75,36 @@ struct SettingsForm: View {
             )
             .labelsHidden()
             .toggleStyle(.switch)
+            .controlSize(.mini)
+            .tint(Theme.accent)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
+    }
+
+    private var hostsFooter: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Button("add a host — edit ~/.ssh/config…") {
+                    session.editSSHConfig()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkFaint)
+                Button("reload hosts") {
+                    session.reloadHosts()
+                    model.refreshConfigText()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkFaint)
+            }
+            Text("a Host block in the file is a host in the field")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.inkFaint)
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 2)
     }
 
     // MARK: - Transfers
@@ -85,15 +114,26 @@ struct SettingsForm: View {
             Text("Transfers")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
+            Toggle("skip .DS_Store", isOn: $model.excludeDSStore)
+                .toggleStyle(.checkbox)
+                .controlSize(.mini)
+                .tint(Theme.accent)
+                .font(.system(size: 12))
+            Toggle("skip AppleDouble files (._*)", isOn: $model.excludeAppleDouble)
+                .toggleStyle(.checkbox)
+                .controlSize(.mini)
+                .tint(Theme.accent)
+                .font(.system(size: 12))
             HStack(spacing: 8) {
-                Text("rsync flags")
+                Text("more flags")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.inkFaint)
-                TextField("e.g. --exclude .DS_Store", text: $model.rsyncFlags)
+                TextField("e.g. --checksum", text: $model.rsyncFlags)
                     .font(.system(size: 12, design: .monospaced))
                     .focused($flagsFocused)
+                    .onExitCommand { flagsFocused = false }
             }
-            Text("appended to every rsync command")
+            Text("prepended before any extra flags on every rsync command")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 8)
