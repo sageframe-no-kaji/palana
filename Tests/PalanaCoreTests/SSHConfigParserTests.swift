@@ -139,3 +139,133 @@ struct SSHConfigParserTests {
         #expect(SSHConfigParser.systemConfigText(sshDirectory: dir) == "Host jodo")
     }
 }
+
+// MARK: - Hide parsing
+
+@Suite("SSHConfigParser hide parsing")
+struct SSHConfigParserHideParsingTests {
+    @Test("a marked block's alias appears in the hidden set")
+    func markedBlockHides() {
+        let config = """
+            Host jodo
+                # palana: hide
+                HostName jodo.local
+            Host chumon
+            """
+        let hidden = SSHConfigParser.hiddenHosts(in: config)
+        #expect(hidden == ["jodo"])
+    }
+
+    @Test("an unmarked block contributes nothing to the hidden set")
+    func unmarkedBlockNotHidden() {
+        let config = """
+            Host jodo
+                HostName jodo.local
+            """
+        #expect(SSHConfigParser.hiddenHosts(in: config).isEmpty)
+    }
+
+    @Test("all aliases on a multi-alias Host line are hidden when the block is marked")
+    func multiAliasBlockAllHidden() {
+        let config = """
+            Host github gh
+                # palana: hide
+                HostName github.com
+            Host jodo
+            """
+        let hidden = SSHConfigParser.hiddenHosts(in: config)
+        #expect(hidden == ["github", "gh"])
+    }
+
+    @Test("marker in an included file is followed — the hidden set still reports it")
+    func markerInIncludedFile() {
+        let top = """
+            Host jodo
+            Include private/*
+            """
+        let included = """
+            Host github
+                # palana: hide
+                HostName github.com
+            """
+        let hidden = SSHConfigParser.hiddenHosts(in: top) { path in
+            path == "private/*" ? [included] : []
+        }
+        #expect(hidden == ["github"])
+    }
+
+    @Test("marker with extra interior whitespace is tolerated")
+    func indentationTolerance() {
+        let config = "Host jodo\n    #  palana:   hide\n    HostName jodo.local\n"
+        #expect(SSHConfigParser.hiddenHosts(in: config) == ["jodo"])
+    }
+
+    @Test("marker on a CRLF line is tolerated")
+    func crlfTolerance() {
+        let config = "Host jodo\r\n    # palana: hide\r\n    HostName jodo.local\r\n"
+        #expect(SSHConfigParser.hiddenHosts(in: config) == ["jodo"])
+    }
+}
+
+// MARK: - Hide transform
+
+@Suite("SSHConfigParser hide transform")
+struct SSHConfigParserHideTransformTests {
+    private let singleBlock = "Host jodo\n    HostName jodo.local\n    User admin\n"
+
+    @Test("hiding inserts the marker; hiddenHosts then reports the alias")
+    func hidingInsertsMarker() throws {
+        let result = try #require(SSHConfigParser.hiding(alias: "jodo", in: singleBlock))
+        #expect(SSHConfigParser.hiddenHosts(in: result) == ["jodo"])
+    }
+
+    @Test("showing after hiding restores the original byte-for-byte")
+    func roundTrip() throws {
+        let hidden = try #require(SSHConfigParser.hiding(alias: "jodo", in: singleBlock))
+        let restored = try #require(SSHConfigParser.showing(alias: "jodo", in: hidden))
+        #expect(restored == singleBlock)
+    }
+
+    @Test("hiding an already-hidden alias returns nil")
+    func hideAlreadyHiddenReturnsNil() throws {
+        let hidden = try #require(SSHConfigParser.hiding(alias: "jodo", in: singleBlock))
+        #expect(SSHConfigParser.hiding(alias: "jodo", in: hidden) == nil)
+    }
+
+    @Test("hiding an unknown alias returns nil")
+    func hideUnknownAliasReturnsNil() {
+        #expect(SSHConfigParser.hiding(alias: "ghost", in: singleBlock) == nil)
+    }
+
+    @Test("hiding an alias declared only in an included file returns nil")
+    func hideAliasInIncludeReturnsNil() {
+        let top = "Host local\n    HostName localhost\nInclude private/*\n"
+        #expect(SSHConfigParser.hiding(alias: "github", in: top) == nil)
+    }
+
+    @Test("showing an alias that is not hidden returns nil")
+    func showUnhiddenAliasReturnsNil() {
+        #expect(SSHConfigParser.showing(alias: "jodo", in: singleBlock) == nil)
+    }
+
+    @Test("showing an unknown alias returns nil")
+    func showUnknownAliasReturnsNil() {
+        #expect(SSHConfigParser.showing(alias: "ghost", in: singleBlock) == nil)
+    }
+
+    @Test("hiding inserts the marker with matching indentation")
+    func markerIndentationMatchesBlock() throws {
+        let result = try #require(SSHConfigParser.hiding(alias: "jodo", in: singleBlock))
+        let lines = result.components(separatedBy: "\n")
+        // Line 1 (after "Host jodo") should be the marker
+        #expect(lines[1] == "    # palana: hide")
+    }
+
+    @Test("hiding an empty block uses four-space default indentation")
+    func emptyBlockDefaultIndent() throws {
+        let config = "Host jodo\nHost chumon\n    HostName 192.168.1.2\n"
+        let result = try #require(SSHConfigParser.hiding(alias: "jodo", in: config))
+        let lines = result.components(separatedBy: "\n")
+        #expect(lines[1] == "    # palana: hide")
+    }
+}

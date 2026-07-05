@@ -245,10 +245,23 @@ extension PlanEngine {
     /// side's rsync is modern enough to speak them. openrsync refuses
     /// `-s` outright (CI found it live), so the floor protects remote
     /// paths by inner-quoting instead — see `composeRsyncDirect`.
-    private static func rsyncFlags(runningOn capability: HostCapability?) -> String {
-        Self.modernRsync(capability)
+    ///
+    /// When ``operatorFlags`` is non-nil and non-empty after trimming,
+    /// the trimmed value is appended after the base set and before the
+    /// paths — the panel shows exactly what will run.
+    private static func rsyncFlags(
+        runningOn capability: HostCapability?,
+        operatorFlags: String? = nil
+    ) -> String {
+        let base =
+            Self.modernRsync(capability)
             ? "-a -s --partial --info=progress2"
             : "-a --partial"
+        guard
+            let trimmed = operatorFlags?.trimmingCharacters(in: .whitespaces),
+            !trimmed.isEmpty
+        else { return base }
+        return "\(base) \(trimmed)"
     }
 
     private static func composeLocal(
@@ -264,7 +277,7 @@ extension PlanEngine {
         // that for a big copy"). cp -a stays the floor.
         let copyCommand: (String) -> String = { dest in
             facts.sourceCapability?.rsync != nil
-                ? "rsync \(rsyncFlags(runningOn: facts.sourceCapability)) \(sources) \(dest)"
+                ? "rsync \(rsyncFlags(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(dest)"
                 : "cp -a \(sources) \(dest)"
         }
         switch classification {
@@ -304,7 +317,8 @@ extension PlanEngine {
         var steps = [
             PlanStep(
                 runsOn: sourceHost,
-                command: "rsync \(rsyncFlags(runningOn: facts.sourceCapability)) \(sources) \(remote)",
+                command:
+                    "rsync \(rsyncFlags(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(remote)",
                 role: .transfer)
         ]
         if request.operation == .move {
@@ -348,7 +362,8 @@ extension PlanEngine {
         var steps = [
             PlanStep(
                 runsOn: here,
-                command: "rsync \(rsyncFlags(runningOn: localCapability)) \(sources) \(target)",
+                command:
+                    "rsync \(rsyncFlags(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(target)",
                 role: .transfer)
         ]
         if request.operation == .move {

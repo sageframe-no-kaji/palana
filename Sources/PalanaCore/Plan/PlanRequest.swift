@@ -76,6 +76,14 @@ public struct PlanFacts: Sendable, Equatable {
     /// with no fact here counts at inode size and marks the plan's
     /// total incomplete.
     public var recursiveSizes: [FileEntry.ID: RecursiveSize]
+    /// Extra rsync flags appended to every rsync compose after the base
+    /// flag set and before the paths.
+    ///
+    /// `nil` or whitespace-only means absent. The engine trims and appends
+    /// the value verbatim — no validation, no escaping. The panel shows
+    /// the exact command; a bad flag fails at enactment, which is the
+    /// system's honesty working.
+    public var rsyncOperatorFlags: String?
 
     /// Assembles a facts bundle — everything defaults to unknown.
     public init(
@@ -85,7 +93,8 @@ public struct PlanFacts: Sendable, Equatable {
         sourceCapability: HostCapability? = nil,
         destinationCapability: HostCapability? = nil,
         agentForwarding: ForwardingFact = .unprobed,
-        recursiveSizes: [FileEntry.ID: RecursiveSize] = [:]
+        recursiveSizes: [FileEntry.ID: RecursiveSize] = [:],
+        rsyncOperatorFlags: String? = nil
     ) {
         self.sourceDataset = sourceDataset
         self.destinationDataset = destinationDataset
@@ -94,6 +103,7 @@ public struct PlanFacts: Sendable, Equatable {
         self.destinationCapability = destinationCapability
         self.agentForwarding = agentForwarding
         self.recursiveSizes = recursiveSizes
+        self.rsyncOperatorFlags = rsyncOperatorFlags
     }
 }
 

@@ -288,3 +288,142 @@ struct PlanCorpusTests {
         #expect(plan.totalSize == entries.map(\.size).reduce(0, +))
     }
 }
+
+// MARK: - Operator flags placement
+
+@Suite("PlanEngine rsync operator flags")
+struct PlanRsyncOperatorFlagsTests {
+    private let source = Locus(host: "jodo", directory: "/tank/media")
+    private let crossHostDest = Locus(host: "koan", directory: "/rpool/cold")
+    private let sameHostDest = Locus(host: "jodo", directory: "/tank/other")
+    private let oneFile = [makeEntry("a.txt", size: 100)]
+
+    private static let remoteRsync = HostCapability(
+        kernel: "Linux", flavor: .gnu, zfs: nil, rsync: "rsync  version 3.2.7")
+    private static let localModern = HostCapability(
+        kernel: "Darwin", flavor: .bsd, zfs: nil, rsync: "rsync  version 3.4.1")
+
+    @Test("forwarded rsync: operator flags land after base flags and before paths")
+    func forwardedRsyncCarriesFlags() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync,
+            destinationCapability: Self.remoteRsync,
+            agentForwarding: .available,
+            rsyncOperatorFlags: "--exclude .DS_Store")
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: facts)
+        #expect(plan.transport == .rsyncAgentForwarded)
+        let cmd = try #require(plan.steps.first?.command)
+        // Base flags, then operator flag, then source path
+        #expect(
+            cmd == "rsync -a -s --partial --info=progress2 --exclude .DS_Store "
+                + "/tank/media/a.txt koan:/rpool/cold/")
+    }
+
+    @Test("direct rsync: operator flags land after base flags and before paths")
+    func directRsyncCarriesFlags() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.localModern,
+            destinationCapability: Self.remoteRsync,
+            rsyncOperatorFlags: "--exclude .DS_Store")
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: Locus(host: "local", directory: "/Users/op/files"),
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: facts)
+        #expect(plan.transport == .rsyncDirect)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(
+            cmd == "rsync -a -s --partial --info=progress2 --exclude .DS_Store "
+                + "/Users/op/files/a.txt koan:/rpool/cold/")
+    }
+
+    @Test("same-host rsync: operator flags land after base flags and before paths")
+    func sameHostRsyncCarriesFlags() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync,
+            rsyncOperatorFlags: "--exclude .DS_Store")
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: sameHostDest,
+                token: "t1"),
+            facts: facts)
+        #expect(plan.transport == .local)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(
+            cmd == "rsync -a -s --partial --info=progress2 --exclude .DS_Store "
+                + "/tank/media/a.txt /tank/other/")
+    }
+
+    @Test("nil operator flags produce no extra token in the command")
+    func nilFlagsAbsent() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync,
+            destinationCapability: Self.remoteRsync,
+            agentForwarding: .available)
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: facts)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(
+            cmd == "rsync -a -s --partial --info=progress2 "
+                + "/tank/media/a.txt koan:/rpool/cold/")
+    }
+
+    @Test("whitespace-only operator flags are trimmed to empty and absent")
+    func whitespaceOnlyFlagsAbsent() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync,
+            destinationCapability: Self.remoteRsync,
+            agentForwarding: .available,
+            rsyncOperatorFlags: "   ")
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: facts)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(
+            cmd == "rsync -a -s --partial --info=progress2 "
+                + "/tank/media/a.txt koan:/rpool/cold/")
+    }
+
+    @Test("operator flags with leading and trailing spaces are trimmed")
+    func flagsTrimmed() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync,
+            destinationCapability: Self.remoteRsync,
+            agentForwarding: .available,
+            rsyncOperatorFlags: "  --exclude .DS_Store  ")
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: facts)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(cmd.contains("--info=progress2 --exclude .DS_Store /tank"))
+    }
+}
