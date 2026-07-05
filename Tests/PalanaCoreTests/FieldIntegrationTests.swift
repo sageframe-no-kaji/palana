@@ -25,6 +25,22 @@ struct FieldSSHIntegrationTests {
         #expect(facts.zfsTopology == nil, "no zfs, no topology read")
     }
 
+    @Test("discover records a non-empty mounts fact; targets include /")
+    func mountsAgainstContainer() async throws {
+        let (configuration, host) = try SSHFixture.configuration()
+        let conduit = SSHConduit(configuration: configuration)
+        defer { Task { await conduit.closeAll() } }
+        let field = Field(conduit: conduit, hosts: [host], cache: temporaryCache())
+        let facts = try await field.discover(host)
+        guard let mounts = facts.mounts else {
+            Issue.record("expected mounts fact, got nil")
+            return
+        }
+        #expect(!mounts.value.isEmpty, "fixture is Linux — /proc/mounts is always non-empty")
+        let targets = MountTable.targetSet(in: mounts.value)
+        #expect(targets.contains("/"), "every Linux host mounts /")
+    }
+
     @Test("a refused door records as an unreachable fact, not a thrown error")
     func unreachableRecordsAsFact() async throws {
         let (configuration, host) = try SSHFixture.configuration(portOverride: "2")
@@ -126,4 +142,24 @@ struct FieldZFSIntegrationTests {
 /// Committed corpus files live beside the failure corpus from ho-02.
 private func corpusURL(_ name: String) -> URL {
     SSHFixture.repoRoot.appendingPathComponent("Tests/PalanaCoreTests/Fixtures/\(name)")
+}
+
+// Local conduit reads `mount` from this machine — always enabled, always reads-only.
+// Darwin is the host machine; the BSD parser covers it.
+@Suite("Mounts: local machine parse")
+struct MountsLocalIntegrationTests {
+    @Test("local mount output parses to a non-empty list with / present")
+    func localMountsReadable() async throws {
+        let result = try await LocalConduit().run(on: "local", "mount").collect()
+        guard result.exitStatus == 0 else {
+            Issue.record("mount exited \(result.exitStatus): \(result.stderrText)")
+            return
+        }
+        let mounts = MountTable.parseBSD(result.stdoutText)
+        #expect(!mounts.isEmpty, "this machine has at least one mount")
+        let targets = MountTable.targetSet(in: mounts)
+        #expect(targets.contains("/"), "every macOS host mounts /")
+        let root = mounts.first { $0.target == "/" }
+        #expect(root?.fstype.isEmpty == false, "root has a non-empty fstype")
+    }
 }

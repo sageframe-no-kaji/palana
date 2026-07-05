@@ -26,8 +26,25 @@ struct FieldTests {
         palana:rsync:openrsync: protocol version 29
         """
 
+    private static let gnuNoZfsProbeStdout = """
+        palana:kernel:Linux
+        palana:flavor:GNU
+        palana:zfs:
+        palana:rsync:
+        """
+
     private static let zfsListStdout =
         "palana\t/palana\tyes\npalana/tank\t/palana/tank\tyes\npalana/legacy\tlegacy\tno\n"
+
+    private static let linuxMountsStdout = """
+        /dev/sda1 / ext4 rw,relatime 0 0
+        proc /proc proc rw 0 0
+        """
+
+    private static let darwinMountsStdout = """
+        /dev/disk1s1 on / (apfs, local, journaled)
+        devfs on /dev (devfs, local, nobrowse)
+        """
 
     private static func entry(
         _ host: String,
@@ -48,13 +65,22 @@ struct FieldTests {
         ConduitTranscript(entries: [
             entry("jodo", CapabilityProbe.command, stdout: gnuProbeStdout),
             entry("jodo", ZFSTopology.listCommand, stdout: zfsListStdout),
+            entry("jodo", MountTable.command(forKernel: "Linux"), stdout: linuxMountsStdout),
             entry("mac", CapabilityProbe.command, stdout: bsdProbeStdout),
+            entry("mac", MountTable.command(forKernel: "Darwin"), stdout: darwinMountsStdout),
             entry(
                 "koan",
                 CapabilityProbe.command,
                 stderr: "ssh: connect to host koan port 22: Connection refused",
                 exit: 255),
             entry("garbled", CapabilityProbe.command, stdout: "not a probe answer"),
+            // nomount: Linux host whose mounts command exits nonzero
+            entry("nomount", CapabilityProbe.command, stdout: gnuNoZfsProbeStdout),
+            entry(
+                "nomount",
+                MountTable.command(forKernel: "Linux"),
+                stderr: "cat: /proc/mounts: Permission denied",
+                exit: 1),
         ])
     }
 
@@ -88,7 +114,7 @@ struct FieldTests {
         #expect(await field.datasetContaining(path: "/anything", on: "jodo") == nil)
     }
 
-    @Test("discovery records reachability, capability, and topology, timestamped")
+    @Test("discovery records reachability, capability, topology, and mounts, timestamped")
     func discoverFullHouse() async throws {
         let field = Self.makeField()
         let facts = try await field.discover("jodo")
@@ -97,16 +123,19 @@ struct FieldTests {
         #expect(facts.capability?.value.flavor == .gnu)
         #expect(facts.capability?.value.zfsVersion == "2.2.2")
         #expect(facts.zfsTopology?.value.count == 3)
+        #expect(facts.mounts?.value.isEmpty == false, "mounts read records at least one entry")
+        #expect(facts.mounts?.discoveredAt == Self.clock())
         #expect(await field.facts(for: "jodo") == facts)
     }
 
-    @Test("a host without zfs gets no topology read — the transcript proves it")
+    @Test("a host without zfs gets no topology read; mounts still records")
     func noZfsNoTopologyRead() async throws {
         // The transcript carries no zfs list entry for "mac"; if discover
         // asked, UnrecordedCommand would surface here.
         let facts = try await Self.makeField().discover("mac")
         #expect(facts.capability?.value.zfs == nil)
         #expect(facts.zfsTopology == nil)
+        #expect(facts.mounts?.value.isEmpty == false, "mounts read runs regardless of zfs")
     }
 
     @Test("a door-level failure records as unreachable, earlier facts remembered")
@@ -177,6 +206,23 @@ struct FieldTests {
         let facts = try await rebuilt.discover("jodo")
         #expect(facts.capability?.value.kernel == "Linux")
         #expect(FileManager.default.fileExists(atPath: cache.url.path), "rediscovery rewrites")
+    }
+
+    @Test("a nonzero mounts exit leaves the prior mounts fact standing")
+    func failedMountsReadPreservesMemory() async throws {
+        let cache = Self.freshCache()
+        let priorMounts = [Mount(source: "/dev/sda1", target: "/", fstype: "ext4", readOnly: false)]
+        let prior = HostFacts(
+            mounts: Dated(value: priorMounts, discoveredAt: Date(timeIntervalSince1970: 1)))
+        try cache.save(["nomount": prior])
+        let field = Field(
+            conduit: RecordedConduit(transcript: Self.transcript()),
+            hosts: ["nomount"],
+            cache: cache,
+            now: Self.clock
+        )
+        let facts = try await field.discover("nomount")
+        #expect(facts.mounts?.value == priorMounts, "nonzero exit: prior mounts fact stands")
     }
 
     @Test("every door failure describes as a short human line")

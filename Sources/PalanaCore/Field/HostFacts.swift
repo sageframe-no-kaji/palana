@@ -85,6 +85,38 @@ public struct HostCapability: Codable, Sendable, Equatable {
     }
 }
 
+/// How a mount classifies — drives the surface's filter.
+///
+/// Unknown fstypes classify as storage: the unfamiliar shows rather than hides.
+public enum MountKind: String, Codable, Sendable, Equatable {
+    /// A data-bearing filesystem — ext4, apfs, zfs, xfs, and anything unknown.
+    case storage
+    /// A network-backed filesystem — nfs, cifs, sshfs, and their variants.
+    case network
+    /// A synthetic or kernel filesystem — proc, sysfs, devfs, tmpfs, overlay, and their kin.
+    case system
+}
+
+/// One mounted filesystem as the mount table reports it.
+public struct Mount: Codable, Sendable, Equatable, Hashable {
+    /// Device or remote spec — `/dev/sda1`, `tank/data`, `server:/export`.
+    public var source: String
+    /// The mountpoint path.
+    public var target: String
+    /// The filesystem type — `ext4`, `apfs`, `zfs`, `nfs`, `proc`, and others.
+    public var fstype: String
+    /// Derived from the options field — a read-only ground changes what the operator can do.
+    public var readOnly: Bool
+
+    /// Assembles a mount fact.
+    public init(source: String, target: String, fstype: String, readOnly: Bool) {
+        self.source = source
+        self.target = target
+        self.fstype = fstype
+        self.readOnly = readOnly
+    }
+}
+
 /// One ZFS filesystem as the topology read reports it.
 public struct ZFSDataset: Codable, Sendable, Equatable, Hashable {
     /// Dataset name — `tank/media/photos`.
@@ -116,6 +148,11 @@ public struct HostFacts: Codable, Sendable, Equatable {
     public var capability: Dated<HostCapability>?
     /// The dataset list, when zfs was last read.
     public var zfsTopology: Dated<[ZFSDataset]>?
+    /// The full mount table, when it was last read.
+    ///
+    /// Keyed on the kernel's own table — `/proc/mounts` on Linux, `mount`
+    /// on BSD. Every filesystem, not just ZFS. Nil means unread.
+    public var mounts: Dated<[Mount]>?
     /// Whether this host can reach others with the operator's forwarded
     /// agent, keyed by destination alias — the system design's "probed
     /// once, remembered." Absent means unprobed, and unprobed selects
@@ -127,11 +164,13 @@ public struct HostFacts: Codable, Sendable, Equatable {
         reachability: Dated<Reachability>? = nil,
         capability: Dated<HostCapability>? = nil,
         zfsTopology: Dated<[ZFSDataset]>? = nil,
+        mounts: Dated<[Mount]>? = nil,
         forwarding: [String: Dated<ForwardingFact>]? = nil
     ) {
         self.reachability = reachability
         self.capability = capability
         self.zfsTopology = zfsTopology
+        self.mounts = mounts
         self.forwarding = forwarding
     }
 }

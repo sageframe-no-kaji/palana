@@ -80,6 +80,36 @@ struct FieldCacheTests {
         #expect(loaded["chumon"] == HostFacts())
     }
 
+    @Test("facts with mounts round-trip through the file")
+    func mountsRoundTrip() throws {
+        let cache = FieldCache(url: Self.temporaryURL())
+        defer { try? FileManager.default.removeItem(at: cache.url) }
+        let mountFacts = HostFacts(
+            reachability: Dated(value: .reachable, discoveredAt: Self.stamp),
+            mounts: Dated(
+                value: [
+                    Mount(source: "/dev/sda1", target: "/", fstype: "ext4", readOnly: false),
+                    Mount(source: "server:/export", target: "/nfs/share", fstype: "nfs4", readOnly: true),
+                ],
+                discoveredAt: Self.stamp
+            )
+        )
+        try cache.save(["jodo": mountFacts])
+        let loaded = cache.load()
+        #expect(loaded == ["jodo": mountFacts])
+    }
+
+    @Test("a cache written without mounts still loads — pre-9.3 caches are not broken")
+    func priorCacheWithoutMountsStillLoads() throws {
+        let cache = FieldCache(url: Self.temporaryURL())
+        defer { try? FileManager.default.removeItem(at: cache.url) }
+        // sampleFacts has no mounts — saving it simulates what a pre-9.3 cache contains.
+        try cache.save(["jodo": Self.sampleFacts])
+        let loaded = cache.load()
+        #expect(loaded["jodo"]?.mounts == nil, "pre-9.3 cache loads fine; mounts is nil")
+        #expect(loaded["jodo"]?.capability?.value.kernel == "Linux")
+    }
+
     @Test("the default location sits under Application Support/palana")
     func defaultLocation() {
         let path = FieldCache.defaultURL.path

@@ -72,7 +72,7 @@ public actor Field {
     }
 
     /// Discovers a host — the capability probe, then the topology read
-    /// when zfs is present, memory and cache updated after.
+    /// when zfs is present, then the mount table, memory and cache updated after.
     ///
     /// The only method that touches the wire, and only when called.
     ///
@@ -95,6 +95,15 @@ public actor Field {
                         discoveredAt: now()
                     )
                 }
+            }
+            let mountsCmd = MountTable.command(forKernel: capability.kernel)
+            let mountsResult = try await conduit.run(on: host, mountsCmd).collect()
+            if mountsResult.exitStatus == 0 {
+                let parsed =
+                    capability.kernel == "Linux"
+                    ? MountTable.parseLinux(mountsResult.stdoutText)
+                    : MountTable.parseBSD(mountsResult.stdoutText)
+                facts.mounts = Dated(value: parsed, discoveredAt: now())
             }
         } catch let error as ConduitError {
             facts.reachability = Dated(

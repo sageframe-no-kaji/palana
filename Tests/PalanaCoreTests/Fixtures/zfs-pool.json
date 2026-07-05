@@ -13,6 +13,13 @@
       "host" : "lima-palana-zfs",
       "stderr" : "",
       "stdout" : "palana\t\/palana\tyes\npalana\/detached\t\/palana\/detached\tno\npalana\/legacy\tlegacy\tno\npalana\/svc\t\/opt\/services\tyes\npalana\/svc\/baserow\t\/opt\/services\/baserow\tyes\npalana\/tank\t\/palana\/tank\tyes\npalana\/tank\/media\t\/palana\/tank\/media\tyes\npalana\/tank\/media\/photos\t\/palana\/tank\/media\/photos\tyes\n"
+    },
+    {
+      "command" : "cat /proc/mounts",
+      "exit" : 0,
+      "host" : "lima-palana-zfs",
+      "stderr" : "",
+      "stdout" : "sysfs \/sys sysfs rw,nosuid,nodev,noexec,relatime 0 0\nproc \/proc proc rw,nosuid,nodev,noexec,relatime 0 0\ndevtmpfs \/dev devtmpfs rw,nosuid 0 0\n\/dev\/vda1 \/ ext4 rw,relatime 0 0\npalana \/palana zfs rw,xattr,noacl 0 0\npalana\/svc \/opt\/services zfs rw,xattr,noacl 0 0\npalana\/svc\/baserow \/opt\/services\/baserow zfs rw,xattr,noacl 0 0\npalana\/tank \/palana\/tank zfs rw,xattr,noacl 0 0\npalana\/tank\/media \/palana\/tank\/media zfs rw,xattr,noacl 0 0\npalana\/tank\/media\/photos \/palana\/tank\/media\/photos zfs rw,xattr,noacl 0 0\n"
     }
   ]
 }
