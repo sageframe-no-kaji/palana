@@ -24,6 +24,16 @@ struct PalanaApp: App {
                 .onAppear { delegate.session = session }
         }
         .defaultSize(width: 1120, height: 700)
+        Settings {
+            // The same SettingsModel that drives the in-window card.
+            // Both surfaces observe one instance — the practitioner's
+            // preference reads the same whether reached by ⌘, the gear,
+            // or the Apple Settings menu item.
+            SettingsForm(model: session.settings, session: session)
+                .padding(24)
+                .frame(minWidth: 360)
+                .preferredColorScheme(.light)
+        }
     }
 }
 

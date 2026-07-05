@@ -26,6 +26,13 @@ final class PalanaSession {
     var gotoTarget: SessionSnapshot.Side?
     /// Whether the vocabulary card is up.
     var helpVisible = false
+    /// Whether the settings card is up.
+    var settingsVisible = false
+    /// True while a text field inside the settings card is focused.
+    ///
+    /// The key monitor stands down while this is true — typed characters
+    /// belong to the field, not the grammar.
+    var settingsFieldFocused = false
     /// Asks the surface to open the floating keys window.
     ///
     /// Bumped by a second ? while the card is up — the surface watches
@@ -40,7 +47,13 @@ final class PalanaSession {
     /// The topology overlay's view model — shared with SurfaceView.
     let fieldViewModel: FieldViewModel
     /// The hosts the Field knows — the go-to bar's menu.
+    ///
+    /// Visible hosts only: hidden aliases (marked `# palana: hide` in the
+    /// ssh config) are filtered out. Typed addresses in the path header
+    /// are never filtered — the filter is a curtain, not a lock.
     private(set) var hosts: [String] = []
+    /// The settings model — rsync flags and host-hide controls.
+    let settings: SettingsModel
 
     private let conduit: SSHConduit
     private let field: Field
@@ -60,17 +73,24 @@ final class PalanaSession {
         let configuration = SSHConfiguration(extraOptions: extraOptions)
         let conduit = SSHConduit(configuration: configuration)
         let configText = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        let settingsURL =
+            SessionStore.defaultURL()
+            .deletingLastPathComponent()
+            .appendingPathComponent("settings.json")
+        let settingsModel = SettingsModel(configURL: configURL, settingsURL: settingsURL)
         self.sshConfigURL = configURL
         self.conduit = conduit
+        self.settings = settingsModel
         self.field = Field(conduit: conduit, sshConfigText: configText, cache: FieldCache())
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
         self.engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
         self.fieldViewModel = FieldViewModel(engine: self.engine)
         self.left = PaneModel(engine: self.engine)
         self.right = PaneModel(engine: self.engine)
-        self.operation = OperationModel(engine: self.engine, configuration: configuration)
+        self.operation = OperationModel(engine: self.engine, configuration: configuration, settings: settingsModel)
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
+        settingsModel.onConfigChanged = { [weak self] in self?.reloadHosts() }
         operation.onFinished = { [weak self] in
             guard let self else { return }
             // Land the cursor on the renamed or created entry before the refresh
@@ -92,9 +112,10 @@ final class PalanaSession {
     /// Loads the host list and restores the remembered workbench.
     ///
     /// This Mac leads the list — always present, always reachable, and
-    /// the go-to bar's safe default.
+    /// the go-to bar's safe default. Hidden aliases are filtered out;
+    /// the filter is a curtain, not a lock.
     func start() async {
-        hosts = [Engine.localHost] + (await field.hosts())
+        reloadHosts()
         guard let snapshot = SessionStore.load(from: SessionStore.defaultURL()) else { return }
         focusedSide = snapshot.focused
         left.restore(snapshot.left)
@@ -105,9 +126,16 @@ final class PalanaSession {
     ///
     /// The config is the only host registry — pālana never keeps its
     /// own. New aliases appear here the moment the file says so.
+    /// `Include` directives are followed, exactly as the Field follows
+    /// them. Hidden aliases (`# palana: hide`) are excluded.
     func reloadHosts() {
         let text = (try? String(contentsOf: sshConfigURL, encoding: .utf8)) ?? ""
-        hosts = [Engine.localHost] + SSHConfigParser.hosts(in: text)
+        let resolve = SSHConfigParser.systemInclude(
+            relativeTo: sshConfigURL.deletingLastPathComponent())
+        let hidden = SSHConfigParser.hiddenHosts(in: text, including: resolve)
+        hosts =
+            [Engine.localHost]
+            + SSHConfigParser.hosts(in: text, including: resolve).filter { !hidden.contains($0) }
     }
 
     /// Opens the operator's ssh config in whatever edits it.
@@ -161,27 +189,19 @@ final class PalanaSession {
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
         guard gotoTarget == nil else { return false }
-        // While any text field is live — the path headers or the naming field —
-        // every key belongs to the field, not the grammar.
-        guard !left.pathEditing, !right.pathEditing, !operation.isNaming else { return false }
+        // While any text field is live — the path headers, the naming field,
+        // or the settings rsync flags field — every key belongs to the field.
+        guard !left.pathEditing, !right.pathEditing, !operation.isNaming, !settingsFieldFocused else { return false }
         guard let token = Grammar.token(for: event) else { return false }
-        if helpVisible {
-            // The card holds the keyboard above everything, panel
-            // included. App chords pass through; everything else waits.
-            handleHelpKey(token)
-            return !token.contains("cmd-")
+        // ⌘, reaches settings even while help or the field view is up.
+        if token == "cmd-," {
+            helpVisible = false
+            fieldVisible = false
+            settingsVisible.toggle()
+            return true
         }
-        if fieldVisible {
-            // The topology card holds the keyboard — j/k/l/h navigate,
-            // r reprobes, Enter points, f and esc dismiss, tab switches
-            // the pane (the pointed target follows the dot). App chords
-            // pass through; everything else is swallowed.
-            handleFieldKey(token)
-            return !token.contains("cmd-")
-        }
-        if operation.panelShowing {
-            return handlePanelKey(token)
-        }
+        let overlay = handleActiveOverlay(token)
+        if overlay.handled { return overlay.consumed }
         if token == "esc" {
             // A pending prefix dies first; a bare Esc clears the selection.
             if pendingPrefix.isEmpty {
@@ -348,9 +368,39 @@ final class PalanaSession {
     }
 }
 
-// MARK: - Help and field overlay keys
+// MARK: - Help, settings, and field overlay keys
 
 extension PalanaSession {
+    /// Routes a token to whichever overlay is currently active.
+    ///
+    /// Returns `(handled: true, consumed: <verdict>)` for each active
+    /// card or panel, or `(handled: false, consumed: false)` when no
+    /// overlay is showing — the caller falls through to the main grammar
+    /// path. Extracting these four branches here keeps `handle(_:)`
+    /// within the cyclomatic limit.
+    private func handleActiveOverlay(_ token: String) -> (handled: Bool, consumed: Bool) {
+        if helpVisible {
+            // The vocabulary card holds the keyboard above everything;
+            // app chords pass through, everything else waits.
+            handleHelpKey(token)
+            return (true, !token.contains("cmd-"))
+        }
+        if settingsVisible {
+            // The settings card holds the keyboard; app chords pass through.
+            handleSettingsKey(token)
+            return (true, !token.contains("cmd-"))
+        }
+        if fieldVisible {
+            // The topology card holds the keyboard; app chords pass through.
+            handleFieldKey(token)
+            return (true, !token.contains("cmd-"))
+        }
+        if operation.panelShowing {
+            return (true, handlePanelKey(token))
+        }
+        return (false, false)
+    }
+
     /// Routes one keystroke while the vocabulary card is up.
     ///
     /// Esc closes; ? trades the card for the floating panel; f trades it
@@ -366,6 +416,13 @@ extension PalanaSession {
             fieldVisible = true
             fieldViewModel.summon(hosts: hosts)
         }
+    }
+
+    /// Routes one keystroke while the settings card is up.
+    ///
+    /// Esc dismisses; all other non-cmd keys are swallowed.
+    private func handleSettingsKey(_ token: String) {
+        if token == "esc" { settingsVisible = false }
     }
 
     /// Routes one keystroke while the topology overlay is up.

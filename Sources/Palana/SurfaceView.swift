@@ -18,6 +18,11 @@ struct SurfaceView: View {
                 }
             }
             .overlay {
+                if session.settingsVisible {
+                    SettingsCard(model: session.settings, session: session)
+                }
+            }
+            .overlay {
                 if session.fieldVisible {
                     FieldOverlay(viewModel: session.fieldViewModel) { pointing in
                         session.point(
@@ -36,10 +41,28 @@ struct SurfaceView: View {
                 KeysPanelController.shared.show()
             }
             .onChange(of: session.helpVisible) { _, visible in
-                // Never both: help summons, the field and panel yield.
+                // Never both: help summons, the field, settings, and panel yield.
                 if visible {
                     KeysPanelController.shared.close()
                     session.fieldVisible = false
+                    session.settingsVisible = false
+                }
+            }
+            .onChange(of: session.settingsVisible) { _, visible in
+                // Settings card and help/field are mutually exclusive.
+                if visible {
+                    session.helpVisible = false
+                    session.fieldVisible = false
+                    session.settings.refreshConfigText()
+                } else {
+                    session.settings.clearNotice()
+                    session.settingsFieldFocused = false
+                }
+            }
+            .onChange(of: session.fieldVisible) { _, visible in
+                // Field view and settings are mutually exclusive.
+                if visible {
+                    session.settingsVisible = false
                 }
             }
             .task {
@@ -69,10 +92,19 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // The vocabulary, reachable by mouse — third hands session's
-            // ask. A settings gear joins it when settings exist.
+            // The settings gear — beside the vocabulary question mark.
+            ToolbarItem(placement: .primaryAction) {
+                paneVerb("gearshape", help: "settings — ⌘,") {
+                    session.helpVisible = false
+                    session.fieldVisible = false
+                    session.settingsVisible.toggle()
+                }
+            }
+            // The vocabulary, reachable by mouse — third hands session's ask.
             ToolbarItem(placement: .primaryAction) {
                 paneVerb("questionmark", help: "the keys — ? on the keyboard") {
+                    session.settingsVisible = false
+                    session.fieldVisible = false
                     session.helpVisible.toggle()
                 }
             }

@@ -68,6 +68,7 @@ final class OperationModel {
 
     private let engine: Engine
     private let configuration: SSHConfiguration
+    private let settings: SettingsModel
     private var gatherTask: Task<Void, Never>?
     private var enactTask: Task<Void, Never>?
     private var probedLocalCapability: HostCapability?
@@ -75,9 +76,10 @@ final class OperationModel {
     private var pendingNamingSource: Locus?
 
     /// An operation flow over the session's engine.
-    init(engine: Engine, configuration: SSHConfiguration) {
+    init(engine: Engine, configuration: SSHConfiguration, settings: SettingsModel) {
         self.engine = engine
         self.configuration = configuration
+        self.settings = settings
     }
 
     // MARK: - Compose
@@ -171,6 +173,8 @@ final class OperationModel {
                 }
             }
             guard !Task.isCancelled else { return }
+            let trimmedFlags = settings.rsyncFlags.trimmingCharacters(in: .whitespaces)
+            facts.rsyncOperatorFlags = trimmedFlags.isEmpty ? nil : trimmedFlags
             let request = PlanRequest(
                 operation: operation,
                 source: source,
