@@ -304,7 +304,9 @@ struct HostSectionView: View {
     @ViewBuilder private var mountRows: some View {
         if !section.mounts.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(section.mounts, id: \.target) { mount in
+                // Index identity, not target — stacked mounts share a target
+                // (two rows on /proc/sys/fs/binfmt_misc in the pool corpus).
+                ForEach(Array(section.mounts.enumerated()), id: \.offset) { _, mount in
                     MountRowView(row: mount)
                 }
             }

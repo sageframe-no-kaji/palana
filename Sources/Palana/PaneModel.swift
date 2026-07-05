@@ -458,14 +458,6 @@ extension PaneModel {
         case mount
     }
 
-    /// True when the entry is a directory whose full path is an exact
-    /// dataset mountpoint in the cached ZFS facts — the boundary mark.
-    func isDatasetMountpoint(_ entry: FileEntry) -> Bool {
-        guard entry.kind == .directory else { return false }
-        let fullPath = Self.childPath(of: state.path, name: entry.name)
-        return datasetMountpoints.contains(fullPath)
-    }
-
     /// Resolves the boundary mark for a directory entry.
     ///
     /// Dataset mountpoint → `.dataset`, plain mount target → `.mount`,

@@ -92,7 +92,8 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // The host map — summoned by F on the keyboard, this glyph, or esc.
+            // The host map — summoned by F on the keyboard or this glyph;
+            // esc puts it away.
             ToolbarItem(placement: .primaryAction) {
                 paneVerb("server.rack", help: "the host map — F") {
                     HostMapPanelController.shared.toggle(
