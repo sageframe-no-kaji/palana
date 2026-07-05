@@ -23,6 +23,7 @@ struct SettingsForm: View {
     var session: PalanaSession
 
     @FocusState private var flagsFocused: Bool
+    @State private var hostHelpShowing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -99,12 +100,46 @@ struct SettingsForm: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.inkFaint)
             }
-            Text("a Host block in the file is a host in the field")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.inkFaint)
+            HStack(spacing: 4) {
+                Text("a Host block in the file is a host in the field")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.inkFaint)
+                Button {
+                    hostHelpShowing.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.inkFaint)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $hostHelpShowing, arrowEdge: .bottom) {
+                    hostHelp
+                }
+            }
         }
         .padding(.horizontal, 8)
         .padding(.top, 2)
+    }
+
+    /// What ~/.ssh/config is and the block that makes a host — for
+    /// operators who haven't met the file (his ask, round 2).
+    private var hostHelp: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("pālana's hosts are your ssh hosts — the same file your terminal uses.")
+                .font(.system(size: 11))
+            Text("Add a block like this to ~/.ssh/config, then reload:")
+                .font(.system(size: 11))
+            Text("Host mybox\n    HostName 192.168.1.50\n    User me")
+                .font(.system(size: 11, design: .monospaced))
+                .padding(6)
+                .background(Theme.groundDeep)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            Text("A guided add-a-host is coming. Hiding never removes — edit the file to truly remove.")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.inkFaint)
+        }
+        .padding(12)
+        .frame(width: 300, alignment: .leading)
     }
 
     // MARK: - Transfers
@@ -133,7 +168,7 @@ struct SettingsForm: View {
                     .focused($flagsFocused)
                     .onExitCommand { flagsFocused = false }
             }
-            Text("prepended before any extra flags on every rsync command")
+            Text("always on: -a, --partial resume · progress when the rsync speaks it")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 8)
