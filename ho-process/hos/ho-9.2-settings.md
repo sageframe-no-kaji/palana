@@ -1,6 +1,6 @@
 ---
 created: 2026-07-05
-status: draft
+status: complete
 type: ho-document
 project: palana
 ho: 9.2
@@ -74,9 +74,15 @@ Implementation on `claude-sonnet-4-6`, review and verification with the session.
 
 ## Phase 3 — Reflect
 
-*To be filled after execution. Prompts: did the hide toggle feel instant? Did the shared-block grain surprise him? What does the settings card want next?*
+**The toggles did just what they should—his words, after his hands checked the writes.** The curtain held: one comment line in, one out, backup first, menus and field updating in the same breath. "Looking good!" is the session's verdict line.
+
+**Three rounds of feedback shaped the card more than the Think phase did.** The default macOS toggles were "HEINOUS"—mini and moss now, and the lesson is that control chrome is design surface, not plumbing. Esc was eaten by the flags field hoarding focus past the monitor's stand-down—the field no longer grabs focus on open and releases through its own exit. The host names grew from 12 to 14 points. The floor got a sentence: what is always on (-a, --partial, progress) is named in the card, because a setting that doesn't exist should be explained, not missing.
+
+**The twice-asked question became an affordance.** "How does a new pointer get put in" — asked once at the field view, again at settings — is a discoverability verdict, and the answer moved to where he was looking: add-a-host and reload in the Hosts footer, an ⓘ popover with the three-line Host block, and the removal truth (hiding never removes—the file is the knife). Installer-written config comments rejected: pālana touches the config only by the operator's explicit act. Guided add AND guided remove queued into ho-9.5's Think, plus the key question—a config host without a working keypair now reads "no usable ssh key — key setup needed" in the field, and ho-9.5 walks the fix. Password auth stays refused by design: ssh without a tty never prompts, his own law.
+
+**Review earned its keep twice.** The delegated write flow would have proceeded on a failed backup (now a hard stop—no backup, no write), and the delegated host reload silently dropped Include-declared hosts from the menus (now follows includes exactly as the Field does).
 
 ---
 
-_Authored: 2026-07-05 (Think phase)._
-_Execution and Reflect: pending._
+_Authored: 2026-07-05 (Think phase). Executed same day—two agent tasks plus three feedback rounds on claude-sonnet-4-6, reviewed by the session._
+_Closed 2026-07-05 from the practitioner's hands. 366 tests, 64 suites, CI green._
