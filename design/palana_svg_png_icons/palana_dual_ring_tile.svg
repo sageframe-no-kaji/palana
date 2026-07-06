@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>pālana dual ring app tile</title>
+  <rect x="48" y="48" width="928" height="928" rx="168" fill="#efe4c8"/>
+
+  <title>pālana dual ring sprout icon</title>
+  <g fill="none" stroke="#14271f" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="512" cy="512" r="334" stroke-width="31"/>
+    <circle cx="512" cy="512" r="283" stroke-width="22"/>
+  </g>
+  <g fill="#14271f">
+    <path d="M506 650 C500 575 463 514 397 475 C351 448 307 441 276 452 C289 501 322 548 369 575 C412 600 459 606 499 593 C507 611 511 630 512 650 Z"/>
+    <path d="M518 650 C524 575 561 514 627 475 C673 448 717 441 748 452 C735 501 702 548 655 575 C612 600 565 606 525 593 C517 611 513 630 512 650 Z"/>
+    <path d="M501 660 C501 600 503 540 508 481 C510 463 514 449 520 440 C526 450 529 465 530 483 C527 541 524 600 524 660 Z"/>
+    <path d="M389 560 C425 544 458 536 491 535 C455 551 425 569 399 592 C393 585 390 575 389 560 Z" opacity=".35"/>
+    <path d="M635 560 C599 544 566 536 533 535 C569 551 599 569 625 592 C631 585 634 575 635 560 Z" opacity=".35"/>
+  </g>
+
+</svg>
