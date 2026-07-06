@@ -92,11 +92,12 @@ struct PlanPanel: View {
 
     private var hint: String {
         switch operation.phase {
-        case .idle, .gathering: return "esc dismiss"
+        case .idle: return "esc hides"
         case .naming: return "⏎ commit · esc cancel"
-        case .ready: return "⏎ enact · esc dismiss"
+        case .gathering: return "esc hides · ⌃c cancels"
+        case .ready: return "⏎ enact · esc hides · a new verb recomposes"
         case .enacting: return "esc hides, keeps running · ⌃c cancels"
-        case .finished, .failed, .cancelled: return "esc closes · y m r R a t go again"
+        case .finished, .failed, .cancelled: return "esc hides · y m r R a t T go again"
         }
     }
 

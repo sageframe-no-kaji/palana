@@ -41,6 +41,7 @@ struct HelpOverlay: View {
         HelpRow(keys: "R", what: "rename cursor entry — plan first"),
         HelpRow(keys: "a", what: "create (name/ = directory) — plan first"),
         HelpRow(keys: "t", what: "touch — update modified · plan first"),
+        HelpRow(keys: "T", what: "touch a new file — names it · plan first"),
         HelpRow(keys: "cc / cd", what: "copy path / directory path"),
         HelpRow(keys: "cf / cn", what: "copy filename / name sans extension"),
         HelpRow(keys: ",n ,s ,m", what: "sort by name, size, modified — again flips"),

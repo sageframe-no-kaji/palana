@@ -208,7 +208,7 @@ struct SurfaceView: View {
         }
         .font(.system(size: 11))
         .foregroundStyle(Theme.inkFaint)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 20)  // 20 clears the window's rounded corners (was 12)
         .padding(.vertical, 5)
         .background(Theme.groundDeep)
     }

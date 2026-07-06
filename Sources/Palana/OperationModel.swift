@@ -69,6 +69,7 @@ final class OperationModel {
     private let engine: Engine
     private let configuration: SSHConfiguration
     private let settings: SettingsModel
+    private let log: OperationLog
     private var gatherTask: Task<Void, Never>?
     private var enactTask: Task<Void, Never>?
     private var probedLocalCapability: HostCapability?
@@ -80,6 +81,7 @@ final class OperationModel {
         self.engine = engine
         self.configuration = configuration
         self.settings = settings
+        self.log = OperationLog()
     }
 
     // MARK: - Compose
@@ -87,17 +89,25 @@ final class OperationModel {
     /// Opens the panel and composes — subjects from the source pane,
     /// destination from the other pane, facts gathered in the open.
     ///
-    /// One operation at a time: a verb during a live one just brings
-    /// the panel back. A finished transcript clears for the next —
-    /// "cleared when opened again."
+    /// One enactment at a time: a new verb during a running enactment
+    /// re-shows the panel and stops there. Any other active phase yields:
+    /// gathering is cancelled and replaced; ready, finished, failed, and
+    /// cancelled clear for a fresh begin.
     func begin(_ operation: PlanOperation, source: PaneModel, destination: PaneModel) {
-        switch phase {
-        case .gathering, .ready, .enacting, .naming:
+        // One enactment at a time — a verb while running re-shows the panel.
+        if phase == .enacting {
             panelShowing = true
             return
-        case .idle, .finished, .failed, .cancelled:
-            break
         }
+        // A verb while composing cancels the gather; the new verb takes over.
+        if phase == .gathering {
+            gatherTask?.cancel()
+            gatherTask = nil
+        }
+        // Naming is unreachable here (isNaming stands the monitor down), but
+        // reset cleanly if somehow reached so the begin proceeds fresh.
+        if phase == .naming { reset() }
+        // .idle, .ready, .finished, .failed, .cancelled fall through to a fresh begin.
         guard let sourceHost = source.state.host, source.status == .ready else { return }
         panelShowing = true
         let subjects = source.operationSubjects
@@ -243,6 +253,9 @@ final class OperationModel {
     func enact() {
         guard phase == .ready, let plan else { return }
         phase = .enacting
+        // Open the log session: blank separator then the run header.
+        log.appendLine("")
+        log.appendLine(OperationLog.headerLine(for: plan))
         let transports = Transports(
             conduit: RoutingConduit(remote: engine.conduit), configuration: configuration)
         enactTask = Task {
@@ -253,7 +266,9 @@ final class OperationModel {
             } catch {
                 guard !Task.isCancelled else { return }
                 echo.flushAll()
-                echo.appendLine(Self.describe(error), kind: .failure)
+                let errorText = Self.describe(error)
+                echo.appendLine(errorText, kind: .failure)
+                log.appendLine("! \(errorText)")
                 progress = nil
                 phase = .failed
                 // A failure never stays off-screen.
@@ -267,22 +282,34 @@ final class OperationModel {
         case .stepBegan(_, let step):
             echo.flushAll()
             echo.appendLine("$ \(step.command)", kind: .command)
+            log.appendLine("$ \(step.command)")
         case .outputChunk(_, let channel, let data):
             echo.append(data, channel: channel)
+            // Log raw decoded output — chunks carry their own newlines.
+            // Lossy decode on purpose: the log shows what arrived, the same
+            // policy EchoBuffer applies for display.
+            // swiftlint:disable:next optional_data_string_conversion
+            let text = String(decoding: data, as: UTF8.self)
+            if !text.isEmpty { log.appendRaw(text) }
         case .progress(let report):
             progress = report
         case .verifying(let host, let command):
             echo.flushAll()
             echo.appendLine("verify on \(host): $ \(command)", kind: .note)
+            log.appendLine("# verify on \(host): $ \(command)")
         case .verified(let report):
-            echo.appendLine(Self.describe(report), kind: .note)
+            let reportText = Self.describe(report)
+            echo.appendLine(reportText, kind: .note)
+            log.appendLine("# \(reportText)")
         case .stepEnded(let index, let exitStatus):
             echo.flushAll()
             progress = nil
             echo.appendLine("step \(index + 1) exited \(exitStatus)", kind: .note)
+            log.appendLine("# step \(index + 1) exited \(exitStatus)")
         case .finished:
             echo.flushAll()
             echo.appendLine("enacted — every step ran, every gate proved", kind: .note)
+            log.appendLine("# enacted — every step ran, every gate proved")
             phase = .finished
             onFinished()
             // A run that finished off-screen closes its own books.
@@ -340,6 +367,21 @@ final class OperationModel {
                 + "partial entries at the destination",
             kind: .failure)
         progress = nil
+        phase = .cancelled
+        panelShowing = true
+    }
+
+    /// ⌃C during composition — stops the in-flight gather and resets.
+    ///
+    /// The cancelled gather's task checks `Task.isCancelled` and returns
+    /// silently; no failure path fires. The panel stays visible with the
+    /// cancellation noted.
+    func cancelGathering() {
+        guard phase == .gathering else { return }
+        gatherTask?.cancel()
+        gatherTask = nil
+        echo.flushAll()
+        echo.appendLine("cancelled — composition stopped", kind: .failure)
         phase = .cancelled
         panelShowing = true
     }
@@ -446,15 +488,17 @@ extension OperationModel {
     /// and the exit status is its verification.
     ///
     /// Subjects follow the same law as the other verbs — the selection
-    /// when non-empty, else the cursor entry.
+    /// when non-empty, else the cursor entry. Phase law mirrors `begin`.
     func beginTouch(source: PaneModel) {
-        switch phase {
-        case .gathering, .ready, .enacting, .naming:
+        if phase == .enacting {
             panelShowing = true
             return
-        case .idle, .finished, .failed, .cancelled:
-            break
         }
+        if phase == .gathering {
+            gatherTask?.cancel()
+            gatherTask = nil
+        }
+        if phase == .naming { reset() }
         guard let sourceHost = source.state.host, source.status == .ready else { return }
         let subjects = source.operationSubjects
         guard !subjects.isEmpty else { return }
@@ -487,14 +531,19 @@ extension OperationModel {
     /// For rename the field prefills with the cursor entry's name and selects
     /// all text. For create the field is empty. While the field is live, the
     /// key monitor stands down — typed letters belong to the field.
-    func beginNaming(_ operation: PlanOperation, source: PaneModel) {
-        switch phase {
-        case .gathering, .ready, .enacting, .naming:
+    /// `labelOverride` replaces the default create label — T uses this to
+    /// give the touch-new entry point its own descriptive prompt.
+    /// Phase law mirrors `begin`.
+    func beginNaming(_ operation: PlanOperation, source: PaneModel, labelOverride: String? = nil) {
+        if phase == .enacting {
             panelShowing = true
             return
-        case .idle, .finished, .failed, .cancelled:
-            break
         }
+        if phase == .gathering {
+            gatherTask?.cancel()
+            gatherTask = nil
+        }
+        if phase == .naming { reset() }
         guard let sourceHost = source.state.host, source.status == .ready else { return }
         if operation == .rename {
             guard let entry = source.cursorEntry else { return }
@@ -504,7 +553,7 @@ extension OperationModel {
         } else {
             pendingNamingEntry = nil
             namingPrefill = ""
-            namingLabel = "create  (trailing / = directory)"
+            namingLabel = labelOverride ?? "create  (trailing / = directory)"
         }
         pendingNamingSource = Locus(host: sourceHost, directory: source.state.path)
         requested = operation

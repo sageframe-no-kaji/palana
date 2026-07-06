@@ -243,61 +243,58 @@ final class PalanaSession {
         }
     }
 
-    /// The panel's keys.
+    /// Panel priority keys — consumed while the panel is visible, regardless of phase.
     ///
-    /// f summons the field card above the panel — the field overlays on top
-    /// and Esc walks back down. F toggles the host map panel — it floats
-    /// independently and stays up when the plan panel closes. Both work in
-    /// every panel phase; the run state does not gate them.
-    /// Backtick (`` ` ``) hides the panel — phase and work are untouched;
-    /// a running enactment keeps going exactly as Esc-hide does.
-    /// Enter enacts, Esc dismisses or hides (a running enactment keeps
-    /// going), ⌃C cancels — terminal muscle — and ? still summons the
-    /// card. After a run ends, the verbs go straight again: y, m, r
-    /// start the next operation without an Esc first. The app's own
-    /// chords pass through untouched.
-    private func handlePanelKey(_ token: String) -> Bool {
-        // f and F are reachable in every panel phase — they do not wait
-        // for the run to finish and they override the runOver grammar below.
-        if token == "f" {
+    /// Grammar flows while the panel is showing: only this small set is
+    /// handled here; all other tokens (navigation, verbs, chords) fall
+    /// through to the main grammar path exactly as when the panel is hidden.
+    /// This means the operator can walk trees, switch panes, and fire new
+    /// verbs without hiding the panel first.
+    ///
+    /// - esc / backtick: pure visibility hide — phase and work untouched.
+    /// - return: enacts only when a plan is ready; otherwise falls through
+    ///   so Enter walks/opens in the pane.
+    /// - ⌃C: cancels an enactment or a composition; not a priority key in
+    ///   other phases.
+    /// - ?: help card. f/F: field card / host map.
+    private func handlePanelPriorityKey(_ token: String) -> Bool {
+        switch token {
+        case "esc":
+            // Pure visibility hide in every phase — work continues untouched.
+            // The Esc that follows (panel now gone) clears the selection.
+            operation.hidePanel()
+            return true
+        case "`":
+            operation.hidePanel()
+            return true
+        case "return":
+            // Arms only when a plan is ready; otherwise Enter walks/opens in the pane.
+            guard operation.phase == .ready else { return false }
+            operation.enact()
+            return true
+        case "ctrl-c":
+            if operation.phase == .enacting {
+                operation.cancelEnactment()
+            } else if operation.phase == .gathering {
+                operation.cancelGathering()
+            } else {
+                return false
+            }
+            return true
+        case "?":
+            helpVisible = true
+            return true
+        case "f":
             helpVisible = false
             fieldVisible = true
             fieldViewModel.summon(hosts: hosts)
             return true
-        }
-        if token == "F" {
+        case "F":
             HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
             return true
+        default:
+            return false
         }
-        // Backtick hides the panel in every phase — phase and work are untouched.
-        if token == "`" {
-            operation.hidePanel()
-            return true
-        }
-        if token == "return" { operation.enact() }
-        if token == "esc" { operation.dismissOrCancel() }
-        if token == "ctrl-c" { operation.cancelEnactment() }
-        if token == "?" { helpVisible = true }
-        let runOver =
-            operation.phase == .finished || operation.phase == .failed
-            || operation.phase == .cancelled
-        if runOver {
-            // The run is over — the grammar flows again; the next verb
-            // clears the transcript and composes fresh.
-            switch recognizer.press(token) {
-            case .matched(let intent):
-                pendingPrefix = ""
-                dispatch(intent)
-                return true
-            case .pending(let prefix):
-                pendingPrefix = prefix.joined()
-                return true
-            case .unmatched:
-                pendingPrefix = ""
-                return !token.contains("cmd-")
-            }
-        }
-        return !token.contains("cmd-")
     }
 
     /// The session's verbs stay here; everything else goes to the pane.
@@ -322,6 +319,14 @@ final class PalanaSession {
             beginNaming(.create)
         case .operationTouch:
             beginOperation(.touch)
+        case .operationTouchNew:
+            // T: names a new file or directory then composes a create plan.
+            // The create engine already handles both files and directories
+            // (trailing / = directory); only the naming prompt differs.
+            operation.beginNaming(
+                .create,
+                source: focusedPane,
+                labelOverride: "touch: new file name  (trailing / = directory)")
         default:
             focusedPane.apply(intent)
         }
@@ -443,6 +448,10 @@ extension PalanaSession {
     /// overlay is showing — the caller falls through to the main grammar
     /// path. Extracting these four branches here keeps `handle(_:)`
     /// within the cyclomatic limit.
+    ///
+    /// The plan panel is not modal: only its priority set is consumed here;
+    /// everything else falls through to the main grammar path so navigation
+    /// and verbs work exactly as when the panel is hidden.
     private func handleActiveOverlay(_ token: String) -> (handled: Bool, consumed: Bool) {
         if helpVisible {
             // The vocabulary card holds the keyboard above everything;
@@ -461,7 +470,9 @@ extension PalanaSession {
             return (true, !token.contains("cmd-"))
         }
         if operation.panelShowing {
-            return (true, handlePanelKey(token))
+            // Grammar flows — only the priority set is consumed here.
+            if handlePanelPriorityKey(token) { return (true, true) }
+            return (false, false)
         }
         return (false, false)
     }

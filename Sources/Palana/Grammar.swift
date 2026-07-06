@@ -51,6 +51,7 @@ enum Grammar {
         ["R"]: .operationRename,
         ["a"]: .operationCreate,
         ["t"]: .operationTouch,
+        ["T"]: .operationTouchNew,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.
