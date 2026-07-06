@@ -106,6 +106,9 @@ final class OperationModel {
         echo = EchoBuffer()
         progress = nil
         plan = nil
+        // A stale name from a prior rename/create must not steer this
+        // run's cursor landing.
+        resultName = nil
         let sourceLocus = Locus(host: sourceHost, directory: source.state.path)
         var destinationLocus: Locus?
         if operation != .delete {

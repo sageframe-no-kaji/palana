@@ -96,7 +96,7 @@ struct PlanPanel: View {
         case .naming: return "⏎ commit · esc cancel"
         case .ready: return "⏎ enact · esc dismiss"
         case .enacting: return "esc hides, keeps running · ⌃c cancels"
-        case .finished, .failed, .cancelled: return "esc closes · y m r R a go again"
+        case .finished, .failed, .cancelled: return "esc closes · y m r R a t go again"
         }
     }
 
