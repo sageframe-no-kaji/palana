@@ -110,6 +110,13 @@ struct PlanPanel: View {
                 .focused($namingFieldFocused)
                 .onSubmit { operation.commitNaming(nameText) }
                 .onExitCommand { operation.dismissOrCancel() }
+                .onChange(of: namingFieldFocused) { _, focused in
+                    // A click elsewhere must not strand the grammar behind
+                    // isNaming — focus loss cancels, the path header's law.
+                    if !focused, operation.isNaming {
+                        operation.dismissOrCancel()
+                    }
+                }
         }
     }
 
