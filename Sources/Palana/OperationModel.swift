@@ -419,6 +419,47 @@ extension OperationModel {
     }
 }
 
+// MARK: - Touch
+
+extension OperationModel {
+    /// t: opens the panel and composes a touch plan immediately — no
+    /// gathering, no naming. touch needs no facts: it stays in place
+    /// and the exit status is its verification.
+    ///
+    /// Subjects follow the same law as the other verbs — the selection
+    /// when non-empty, else the cursor entry.
+    func beginTouch(source: PaneModel) {
+        switch phase {
+        case .gathering, .ready, .enacting, .naming:
+            panelShowing = true
+            return
+        case .idle, .finished, .failed, .cancelled:
+            break
+        }
+        guard let sourceHost = source.state.host, source.status == .ready else { return }
+        let subjects = source.operationSubjects
+        guard !subjects.isEmpty else { return }
+        panelShowing = true
+        requested = .touch
+        echo = EchoBuffer()
+        progress = nil
+        plan = nil
+        resultName = nil
+        let request = PlanRequest(
+            operation: .touch,
+            source: Locus(host: sourceHost, directory: source.state.path),
+            entries: subjects,
+            token: Self.mintToken())
+        do {
+            plan = try PlanEngine.plan(request, facts: PlanFacts())
+            phase = .ready
+        } catch {
+            echo.appendLine(Self.describe(error), kind: .failure)
+            phase = .failed
+        }
+    }
+}
+
 // MARK: - Naming
 
 extension OperationModel {

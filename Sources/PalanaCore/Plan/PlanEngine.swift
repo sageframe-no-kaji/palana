@@ -77,7 +77,7 @@ public enum PlanEngine {
         case .move, .copy:
             guard !request.entries.isEmpty else { throw PlanError.emptySelection }
             guard request.destination != nil else { throw PlanError.missingDestination }
-        case .delete:
+        case .delete, .touch:
             guard !request.entries.isEmpty else { throw PlanError.emptySelection }
         case .rename:
             try validateRename(request)
@@ -124,6 +124,8 @@ public enum PlanEngine {
             return .creation
         case .delete:
             return .deletion
+        case .touch:
+            return .modificationTimeUpdate
         case .move:
             let sameHost = request.source.host == request.destination?.host
             guard sameHost else { return .crossHostTransfer }
@@ -158,7 +160,7 @@ public enum PlanEngine {
     ) -> Transport {
         switch classification {
         case .withinDatasetRename, .crossDatasetCopyPlusDelete, .withinHostCopy, .deletion,
-            .creation:
+            .creation, .modificationTimeUpdate:
             return .local
         case .crossHostTransfer, .crossHostCopy:
             let touchesThisMachine =
@@ -304,6 +306,10 @@ extension PlanEngine {
             return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
         case .creation:
             return composeCreate(request)
+        case .modificationTimeUpdate:
+            // The exit status is the whole verification — unlike rename
+            // and create there is no new state a test step could show.
+            return [PlanStep(runsOn: host, command: "touch -- \(sources)", role: .touch)]
         case .crossHostTransfer, .crossHostCopy:
             return []  // never local — the transport switch routes these away
         }

@@ -50,6 +50,7 @@ enum Grammar {
         ["r"]: .operationDelete,
         ["R"]: .operationRename,
         ["a"]: .operationCreate,
+        ["t"]: .operationTouch,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.

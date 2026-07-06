@@ -293,9 +293,10 @@ struct FieldOverlay: View {
         .opacity(dl.pointable ? 1.0 : 0.6)
         .padding(.vertical, 3)
         .padding(.horizontal, 8)
-        // Depth-based indent: each level adds 14pt; base alignment comes
-        // from the horizontal padding and the 18pt chevron placeholder.
-        .padding(.leading, CGFloat(dl.depth) * 14)
+        // Tree indent: a 36pt base sets every dataset clearly inside its
+        // host (whose chevron column is 18pt), then 16pt per depth level
+        // — the same step the host map's mount rows take.
+        .padding(.leading, 36 + CGFloat(dl.depth) * 16)
         .background(cursorWash(isCursor))
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {

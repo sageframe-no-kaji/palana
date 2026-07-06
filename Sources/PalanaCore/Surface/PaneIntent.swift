@@ -76,4 +76,6 @@ public enum PaneIntent: String, CaseIterable, Sendable {
     case operationRename
     /// Create a new entry in the source directory — plan first, Enter enacts.
     case operationCreate
+    /// Update modified times on this pane's subjects — plan first, Enter enacts.
+    case operationTouch
 }

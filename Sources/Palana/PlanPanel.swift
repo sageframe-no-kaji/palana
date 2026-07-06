@@ -39,10 +39,11 @@ struct PlanPanel: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                 }
-                .onChange(of: operation.echo.lines.last?.id) {
-                    proxy.scrollTo("panel-bottom", anchor: .bottom)
-                }
-                .onChange(of: operation.echo.lines.last?.text) {
+                .onChange(of: operation.echo.revision) {
+                    // The revision moves on every mutation. Watching the
+                    // last line missed most of a live run: commits land
+                    // above a live progress partial, and the tail's id
+                    // and text never change.
                     proxy.scrollTo("panel-bottom", anchor: .bottom)
                 }
             }

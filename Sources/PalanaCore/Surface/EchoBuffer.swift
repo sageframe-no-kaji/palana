@@ -56,6 +56,14 @@ public struct EchoBuffer: Sendable, Equatable {
     public private(set) var transcript: [Line] = []
     /// Lines dropped to honor the cap — zero until the cap bites.
     public private(set) var droppedLines = 0
+    /// Monotonic mutation count — bumped by every append, repaint, and
+    /// committing flush.
+    ///
+    /// The panel watches this one value to follow the tail. No single
+    /// line is a faithful signal that the buffer moved: a CR repaint
+    /// keeps the last line's id, and a line committed above a live
+    /// partial changes nothing at the tail at all.
+    public private(set) var revision = 0
 
     private var partials: [OutputChannel: Partial] = [:]
     private var nextID = 0
@@ -87,6 +95,7 @@ public struct EchoBuffer: Sendable, Equatable {
     /// Output partials stay live; narration never steals a repaint.
     public mutating func appendLine(_ text: String, kind: Line.Kind) {
         commit(Line(id: takeID(), text: text, kind: kind))
+        revision += 1
     }
 
     /// Folds one output chunk into the channel's line assembly.
@@ -115,6 +124,7 @@ public struct EchoBuffer: Sendable, Equatable {
             partial.lineID = takeID()
         }
         partials[channel] = partial
+        revision += 1
     }
 
     /// Commits a channel's live line even without a trailing newline —
@@ -123,6 +133,7 @@ public struct EchoBuffer: Sendable, Equatable {
         guard var partial = partials[channel] else { return }
         if !partial.text.isEmpty || partial.lineID != nil {
             finishLive(&partial, channel: channel)
+            revision += 1
         }
         partials[channel] = partial
     }

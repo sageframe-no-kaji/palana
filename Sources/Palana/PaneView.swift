@@ -246,6 +246,8 @@ struct PaneView: View {
             .keyboardShortcut("m", modifiers: [])
         Button("remove — plan first") { operate(.delete, ids: ids) }
             .keyboardShortcut("r", modifiers: [])
+        Button("touch — update modified") { operate(.touch, ids: ids) }
+            .keyboardShortcut("t", modifiers: [])
         Divider()
         Button("copy path      cc") { model.copyToClipboard(.copyPath, ids: ids) }
         Button("copy filename      cf") { model.copyToClipboard(.copyFilename, ids: ids) }
@@ -293,20 +295,23 @@ struct PaneView: View {
                     .foregroundStyle(Theme.inkFaint)
                     .lineLimit(1)
             }
-            boundaryDiamond(for: entry)
+            driveMark(for: entry)
         }
     }
 
-    /// The ◆ / ◇ filesystem boundary mark — dataset or plain mount, nothing otherwise.
+    /// The drive-glyph filesystem boundary mark — filled dataset,
+    /// outlined plain mount, nothing otherwise.
     @ViewBuilder
-    private func boundaryDiamond(for entry: FileEntry) -> some View {
+    private func driveMark(for entry: FileEntry) -> some View {
         switch model.boundaryMark(for: entry) {
         case .dataset:
-            Text("◆")
-                .foregroundStyle(Theme.inkFaint)
+            Text(Image(systemName: "externaldrive.fill"))
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.accent)
                 .help("dataset mountpoint — a filesystem boundary")
         case .mount:
-            Text("◇")
+            Text(Image(systemName: "externaldrive"))
+                .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .help("mount point — a filesystem boundary")
         case nil:

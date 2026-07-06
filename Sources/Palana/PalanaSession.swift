@@ -322,6 +322,8 @@ final class PalanaSession {
             beginNaming(.rename)
         case .operationCreate:
             beginNaming(.create)
+        case .operationTouch:
+            beginOperation(.touch)
         default:
             focusedPane.apply(intent)
         }
@@ -329,7 +331,14 @@ final class PalanaSession {
 
     /// A verb goes down: the focused pane is the source, the other pane
     /// is the destination, the panel takes it from here.
+    ///
+    /// touch stays in place — no destination, no gathering; the plan
+    /// composes the moment the verb lands.
     func beginOperation(_ operationKind: PlanOperation) {
+        guard operationKind != .touch else {
+            operation.beginTouch(source: focusedPane)
+            return
+        }
         let destination = focusedSide == .left ? right : left
         operation.begin(operationKind, source: focusedPane, destination: destination)
     }

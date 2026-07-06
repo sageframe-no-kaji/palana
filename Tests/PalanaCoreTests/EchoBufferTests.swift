@@ -142,6 +142,29 @@ struct EchoBufferTests {
         #expect(Set(ids).count == ids.count)
     }
 
+    @Test("the revision bumps on every mutation — repaints and commits above the tail included")
+    func revisionCountsMutations() {
+        var buffer = EchoBuffer()
+        #expect(buffer.revision == 0)
+        buffer.appendLine("$ touch a", kind: .command)
+        #expect(buffer.revision == 1)
+        buffer.append(chunk("  2%\r"), channel: .stderr)
+        #expect(buffer.revision == 2)
+        // A repaint changes no line count and no line id — only this moves.
+        buffer.append(chunk(" 25%\r"), channel: .stderr)
+        #expect(buffer.revision == 3)
+        // A commit above the live tail leaves lines.last untouched — the
+        // shape a last-line watch misses entirely.
+        buffer.appendLine("step 1 exited 0", kind: .note)
+        #expect(buffer.revision == 4)
+        #expect(buffer.lines.last?.text == " 25%")
+        buffer.flushAll()
+        #expect(buffer.revision == 5)
+        // Flushing with nothing live commits nothing and claims nothing.
+        buffer.flushAll()
+        #expect(buffer.revision == 5)
+    }
+
     @Test("lines renders transcript then live, stderr nearest the eye")
     func linesOrder() {
         var buffer = EchoBuffer()

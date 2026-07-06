@@ -452,9 +452,9 @@ final class PaneModel {
 extension PaneModel {
     /// The boundary mark for a directory entry — dataset, plain mount, or absent.
     enum BoundaryMark {
-        /// A ZFS dataset mountpoint — ◆.
+        /// A ZFS dataset mountpoint — the filled drive glyph.
         case dataset
-        /// A plain mount target — ◇.
+        /// A plain mount target — the outlined drive glyph.
         case mount
     }
 

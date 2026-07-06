@@ -17,6 +17,8 @@ public enum PlanOperation: String, Codable, Sendable {
     case rename
     /// Create a new entry in the source directory.
     case create
+    /// Update modification times on the selected entries in place.
+    case touch
 }
 
 /// What the operation actually is, named before it runs.
@@ -39,6 +41,8 @@ public enum Classification: String, Codable, Sendable {
     case deletion
     /// An entry created where it stands.
     case creation
+    /// Modification times updated where the entries stand.
+    case modificationTimeUpdate = "modification-time update"
 }
 
 /// How the bytes move, auth path included — the plan names it, the
@@ -119,6 +123,8 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case cleanup
         /// An entry created in the source directory.
         case create
+        /// Modification times updated in place.
+        case touch
         /// The result confirmed after a mutation.
         case verify
     }

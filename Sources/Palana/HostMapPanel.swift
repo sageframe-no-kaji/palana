@@ -201,12 +201,22 @@ struct HostMapContent: View {
     private var panelFooter: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
-            Text("esc closes · probe refreshes a host · ◆ dataset · ◇ mount")
+            legend
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
+    }
+
+    /// The footer line wearing the real marks — the legend shows the
+    /// glyphs the rows carry, not stand-ins.
+    private var legend: Text {
+        Text("esc closes · probe refreshes a host · ")
+            + Text(Image(systemName: "externaldrive.fill")).foregroundStyle(Theme.accent)
+            + Text(" dataset · ")
+            + Text(Image(systemName: "externaldrive"))
+            + Text(" mount")
     }
 }
 
@@ -364,7 +374,7 @@ struct MountRowView: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             mountChevron
-            diamond
+            driveMark
             Text(row.target)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.ink)
@@ -383,13 +393,14 @@ struct MountRowView: View {
             }
             Spacer()
         }
-        // Depth-based indent: each level adds 14pt beyond the section's base indent.
-        .padding(.leading, CGFloat(row.depth) * 14)
+        // Tree indent: 16pt per depth level beyond the section's base —
+        // the same step the field card's dataset rows take.
+        .padding(.leading, CGFloat(row.depth) * 16)
     }
 
     /// Disclosure chevron for rows with children — accent coloured, rotates 90° when expanded.
     ///
-    /// Childless rows carry an invisible placeholder so the ◆/◇ diamond and
+    /// Childless rows carry an invisible placeholder so the drive mark and
     /// target text stay in one column across all depths.
     @ViewBuilder private var mountChevron: some View {
         if row.childCount > 0 {
@@ -401,18 +412,20 @@ struct MountRowView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onToggle() }
         } else {
-            Text("").frame(width: 18)  // leaf — placeholder keeps diamond in column
+            Text("").frame(width: 18)  // leaf — placeholder keeps the drive mark in column
         }
     }
 
-    private var diamond: some View {
+    /// The drive-glyph boundary mark — filled for a dataset mountpoint,
+    /// outlined for a plain mount.
+    private var driveMark: some View {
         Group {
             if row.isDatasetMountpoint {
-                Text("◆").foregroundStyle(Theme.accent)
+                Text(Image(systemName: "externaldrive.fill")).foregroundStyle(Theme.accent)
             } else {
-                Text("◇").foregroundStyle(Theme.inkFaint)
+                Text(Image(systemName: "externaldrive")).foregroundStyle(Theme.inkFaint)
             }
         }
-        .font(.system(size: 11))
+        .font(.system(size: 10))
     }
 }
