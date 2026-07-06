@@ -115,6 +115,9 @@ final class HostMapPanelController: NSObject, NSWindowDelegate {
         made.hasShadow = true
         made.level = .floating
         made.isMovableByWindowBackground = true
+        // A fullscreen main window stranded the panel out of reach — joining
+        // all Spaces and allowing fullscreen auxiliary prevents this.
+        made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         made.minSize = CGSize(width: 360, height: 260)
         made.contentView = NSHostingView(rootView: HostMapContent(model: model))
         made.delegate = self

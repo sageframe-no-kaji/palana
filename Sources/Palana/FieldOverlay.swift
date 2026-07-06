@@ -282,9 +282,9 @@ struct FieldOverlay: View {
 
     private func datasetRow(_ dl: FieldOutline.DatasetLine, index: Int, isCursor: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
+            datasetDisclosureTriangle(dl, index: index)
             Text(dl.name)
                 .foregroundStyle(dl.pointable ? Theme.ink : Theme.inkFaint)
-                .padding(.leading, 20)
             Text(dl.mountpoint)
                 .foregroundStyle(Theme.inkFaint)
             Spacer()
@@ -293,6 +293,9 @@ struct FieldOverlay: View {
         .opacity(dl.pointable ? 1.0 : 0.6)
         .padding(.vertical, 3)
         .padding(.horizontal, 8)
+        // Depth-based indent: each level adds 14pt; base alignment comes
+        // from the horizontal padding and the 18pt chevron placeholder.
+        .padding(.leading, CGFloat(dl.depth) * 14)
         .background(cursorWash(isCursor))
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -301,6 +304,29 @@ struct FieldOverlay: View {
         }
         .onTapGesture(count: 1) {
             viewModel.moveCursor(to: index)
+        }
+    }
+
+    /// The disclosure chevron for a dataset row with children, or an invisible
+    /// placeholder that keeps the name column aligned for leaf rows.
+    ///
+    /// Same accent-colored, rotating treatment as the host row's chevron —
+    /// 18pt frame so the hit target is findable.
+    @ViewBuilder
+    private func datasetDisclosureTriangle(_ dl: FieldOutline.DatasetLine, index: Int) -> some View {
+        if dl.childCount > 0 {
+            Text(Image(systemName: "chevron.right"))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .rotationEffect(.degrees(dl.expanded ? 90 : 0))
+                .frame(width: 18, alignment: .center)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    viewModel.moveCursor(to: index)
+                    viewModel.toggleExpansion()
+                }
+        } else {
+            Text("").frame(width: 18)  // leaf — placeholder keeps name in column
         }
     }
 
@@ -315,7 +341,7 @@ struct FieldOverlay: View {
             Text("↵ / dbl-click point  ·  l toggle  ·  r re-probe  ·  esc dismiss")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
-            Text("~ is the remote user's home")
+            Text("~ is the remote user's home  ·  grey = unmounted, not a place")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
         }

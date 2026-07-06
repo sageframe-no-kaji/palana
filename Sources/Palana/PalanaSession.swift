@@ -254,12 +254,28 @@ final class PalanaSession {
 
     /// The panel's keys.
     ///
+    /// f summons the field card above the panel — the field overlays on top
+    /// and Esc walks back down. F toggles the host map panel — it floats
+    /// independently and stays up when the plan panel closes. Both work in
+    /// every panel phase; the run state does not gate them.
     /// Enter enacts, Esc dismisses or hides (a running enactment keeps
     /// going), ⌃C cancels — terminal muscle — and ? still summons the
     /// card. After a run ends, the verbs go straight again: y, m, r
     /// start the next operation without an Esc first. The app's own
     /// chords pass through untouched.
     private func handlePanelKey(_ token: String) -> Bool {
+        // f and F are reachable in every panel phase — they do not wait
+        // for the run to finish and they override the runOver grammar below.
+        if token == "f" {
+            helpVisible = false
+            fieldVisible = true
+            fieldViewModel.summon(hosts: hosts)
+            return true
+        }
+        if token == "F" {
+            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+            return true
+        }
         if token == "return" { operation.enact() }
         if token == "esc" { operation.dismissOrCancel() }
         if token == "ctrl-c" { operation.cancelEnactment() }
@@ -423,7 +439,7 @@ extension PalanaSession {
     /// Routes one keystroke while the vocabulary card is up.
     ///
     /// Esc closes; ? trades the card for the floating panel; f trades it
-    /// for the field.
+    /// for the field; F closes help and toggles the host map panel.
     private func handleHelpKey(_ token: String) {
         if token == "esc" { helpVisible = false }
         if token == "?" {
@@ -435,13 +451,27 @@ extension PalanaSession {
             fieldVisible = true
             fieldViewModel.summon(hosts: hosts)
         }
+        if token == "F" {
+            helpVisible = false
+            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+        }
     }
 
     /// Routes one keystroke while the settings card is up.
     ///
-    /// Esc dismisses; all other non-cmd keys are swallowed.
+    /// Esc dismisses; f trades settings for the field card; F toggles the
+    /// host map panel (settings stays up — the map floats independent).
+    /// All other non-cmd keys are swallowed.
     private func handleSettingsKey(_ token: String) {
         if token == "esc" { settingsVisible = false }
+        if token == "f" {
+            settingsVisible = false
+            fieldVisible = true
+            fieldViewModel.summon(hosts: hosts)
+        }
+        if token == "F" {
+            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+        }
     }
 
     /// Routes one keystroke while the topology overlay is up.

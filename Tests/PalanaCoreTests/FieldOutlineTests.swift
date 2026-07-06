@@ -136,8 +136,9 @@ struct FieldOutlineLineBuildingTests {
 
 @Suite("FieldOutline — expansion")
 struct FieldOutlineExpansionTests {
-    @Test("expand shows datasets in remembered order below the host row")
+    @Test("expand host shows depth-0 datasets; expanding a dataset shows its children")
     func expandShowsDatasetsInOrder() {
+        // tank is the depth-0 root; tank/media and tank/legacy are its children.
         let datasets = [
             ZFSDataset(name: "tank", mountpoint: "/tank", mounted: true),
             ZFSDataset(name: "tank/media", mountpoint: "/tank/media", mounted: true),
@@ -150,22 +151,41 @@ struct FieldOutlineExpansionTests {
         )
         outline.cursorDown()  // move to jodo at index 1
         outline.expand()
-        #expect(outline.lines.count == 5)  // local + jodo + 3 datasets
-        guard case .dataset(let d0) = outline.lines[2] else {
+
+        // Only tank (depth 0) appears — tank/media and tank/legacy are children
+        // of tank and only appear after tank itself is expanded.
+        #expect(outline.lines.count == 3)  // local + jodo + tank
+        guard case .dataset(let root) = outline.lines[2] else {
             Issue.record("expected dataset at index 2")
             return
         }
-        #expect(d0.name == "tank")
+        #expect(root.name == "tank")
+        #expect(root.depth == 0)
+        #expect(root.childCount == 2)
+        #expect(!root.expanded)
+
+        // Expand tank — its two children appear below it.
+        outline.cursorDown()  // move cursor from jodo(1) to tank(2)
+        outline.expand()  // tank expanded
+        #expect(outline.lines.count == 5)  // local + jodo + tank + tank/media + tank/legacy
+        guard case .dataset(let expandedRoot) = outline.lines[2] else {
+            Issue.record("expected dataset at index 2 after expansion")
+            return
+        }
+        #expect(expandedRoot.expanded)
         guard case .dataset(let d1) = outline.lines[3] else {
             Issue.record("expected dataset at index 3")
             return
         }
         #expect(d1.name == "tank/media")
+        #expect(d1.depth == 1)
+        #expect(d1.childCount == 0)
         guard case .dataset(let d2) = outline.lines[4] else {
             Issue.record("expected dataset at index 4")
             return
         }
         #expect(d2.name == "tank/legacy")
+        #expect(d2.depth == 1)
     }
 
     @Test("collapse from a dataset line lands the cursor on its host row")
@@ -507,63 +527,27 @@ struct FieldOutlineUpdateTests {
         )
         outline.cursorDown()
         outline.expand()
-        #expect(outline.lines.count == 3)
+        #expect(outline.lines.count == 3)  // local + server + tank
 
-        // Update with an additional dataset — expansion set still contains "server"
+        // Update with an additional dataset — tank now has a child.
         let more = [
             ZFSDataset(name: "tank", mountpoint: "/tank", mounted: true),
             ZFSDataset(name: "tank/data", mountpoint: "/tank/data", mounted: true),
         ]
         outline.update(facts: ["server": makeFacts(zfsVersion: "zfs-2.2.2", datasets: more)])
 
-        // Both datasets appear because expansion survived
-        #expect(outline.lines.count == 4)
+        // Host expansion survived; tank appears with childCount 1 but is itself
+        // collapsed (never expanded as a dataset) — so tank/data is not yet visible.
+        #expect(outline.lines.count == 3)  // local + server + tank (collapsed)
+        guard case .dataset(let tankLine) = outline.lines[2] else {
+            Issue.record("expected dataset at index 2")
+            return
+        }
+        #expect(tankLine.childCount == 1)
+        #expect(!tankLine.expanded)
     }
 }
 
 // MARK: - FieldAge
 
-@Suite("FieldAge")
-struct FieldAgeTests {
-    @Test("under 60 seconds reads as just now")
-    func under60Seconds() {
-        let date = Date(timeIntervalSince1970: 1_000)
-        let ref = Date(timeIntervalSince1970: 1_059)
-        #expect(FieldAge.describe(date, now: ref) == "just now")
-    }
-
-    @Test("between 60 seconds and 1 hour reads as Nm ago")
-    func minutesAgo() {
-        let date = Date(timeIntervalSince1970: 0)
-        let ref = Date(timeIntervalSince1970: 300)  // 5 minutes
-        #expect(FieldAge.describe(date, now: ref) == "5m ago")
-    }
-
-    @Test("between 1 hour and 1 day reads as Nh ago")
-    func hoursAgo() {
-        let date = Date(timeIntervalSince1970: 0)
-        let ref = Date(timeIntervalSince1970: 10_800)  // 3 hours
-        #expect(FieldAge.describe(date, now: ref) == "3h ago")
-    }
-
-    @Test("one day or more reads as Nd ago")
-    func daysAgo() {
-        let date = Date(timeIntervalSince1970: 0)
-        let ref = Date(timeIntervalSince1970: 172_800)  // 2 days
-        #expect(FieldAge.describe(date, now: ref) == "2d ago")
-    }
-
-    @Test("a future date reads as just now")
-    func futureDateReadsJustNow() {
-        let date = Date(timeIntervalSince1970: 2_000)
-        let ref = Date(timeIntervalSince1970: 1_000)  // ref is behind date
-        #expect(FieldAge.describe(date, now: ref) == "just now")
-    }
-
-    @Test("integer truncation — 89 seconds reads as 1m ago, not 2m ago")
-    func integerTruncation() {
-        let date = Date(timeIntervalSince1970: 0)
-        let ref = Date(timeIntervalSince1970: 89)
-        #expect(FieldAge.describe(date, now: ref) == "1m ago")
-    }
-}
+// FieldAgeTests moved to FieldAgeTests.swift

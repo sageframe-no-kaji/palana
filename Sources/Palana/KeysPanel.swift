@@ -54,6 +54,9 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         made.hasShadow = true
         made.level = .floating
         made.isMovableByWindowBackground = true
+        // A fullscreen main window stranded the panel out of reach — joining
+        // all Spaces and allowing fullscreen auxiliary prevents this.
+        made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         made.contentAspectRatio = base
         made.minSize = CGSize(
             width: base.width * Self.scaleRange.lowerBound,
