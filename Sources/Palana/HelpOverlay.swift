@@ -48,6 +48,7 @@ struct HelpOverlay: View {
         HelpRow(keys: "⌘R", what: "refresh"),
         HelpRow(keys: "f", what: "field view"),
         HelpRow(keys: "F", what: "host map — floats"),
+        HelpRow(keys: "`", what: "show / hide the terminal panel"),
         HelpRow(keys: "⌘,", what: "settings"),
         HelpRow(keys: "?", what: "this card · ? again floats it"),
     ]

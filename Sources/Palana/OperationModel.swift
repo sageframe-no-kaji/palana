@@ -314,6 +314,22 @@ final class OperationModel {
         }
     }
 
+    /// Backtick from the main grammar — shows the panel without starting an operation.
+    ///
+    /// Phase is never touched. Showing an idle panel is fine — the operator
+    /// sees an empty terminal that says what it is. `hidePanel()` is the partner.
+    func showPanel() {
+        panelShowing = true
+    }
+
+    /// Backtick from within the panel — pure visibility hide, phase untouched.
+    ///
+    /// An enactment in progress keeps running exactly as Esc-hide does today;
+    /// neither the work nor the phase is changed. `dismissOrCancel()` handles Esc.
+    func hidePanel() {
+        panelShowing = false
+    }
+
     /// ⌃C — stops a running enactment where Esc only hides it.
     func cancelEnactment() {
         guard phase == .enacting else { return }

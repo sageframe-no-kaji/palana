@@ -61,6 +61,14 @@ final class HostMapModel {
         hostMap?.toggleMount(host: host, target: target)
     }
 
+    /// Toggles the collapsed state of a ZFS pool for the given host.
+    ///
+    /// Forwarded to `HostMap.togglePool(host:pool:)` — no-op when the pool
+    /// is not found in the host's section.
+    func togglePool(host: String, pool: String) {
+        hostMap?.togglePool(host: host, pool: pool)
+    }
+
     /// Probes a remote host — no-op for local or in-flight hosts.
     ///
     /// The row shows "probing…" while the probe runs, then the fresh
@@ -187,6 +195,7 @@ struct HostMapContent: View {
                             probing: model.probing,
                             probeErrors: model.probeErrors,
                             onToggleMount: { model.toggleMount(host: section.alias, target: $0) },
+                            onTogglePool: { model.togglePool(host: section.alias, pool: $0) },
                             onProbe: { model.probe($0) }
                         )
                         Divider().opacity(0.25)
@@ -232,13 +241,15 @@ struct HostSectionView: View {
     let probeErrors: [String: String]
     /// Called with the mount target when the operator taps a mount chevron.
     let onToggleMount: (String) -> Void
+    /// Called with the pool name when the operator taps a pool chevron.
+    let onTogglePool: (String) -> Void
     /// Called when the operator taps the probe button.
     let onProbe: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             sectionHeader
-            mountRows
+            mountLines
             mountFooter
         }
         .padding(.vertical, 8)
@@ -326,17 +337,27 @@ struct HostSectionView: View {
         }
     }
 
-    @ViewBuilder private var mountRows: some View {
+    @ViewBuilder private var mountLines: some View {
         if !section.mounts.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
                 // Index identity, not target — stacked mounts share a target
                 // (two rows on /proc/sys/fs/binfmt_misc in the pool corpus).
-                ForEach(Array(section.mounts.enumerated()), id: \.offset) { _, mount in
-                    MountRowView(row: mount) { onToggleMount(mount.target) }
+                ForEach(Array(section.mounts.enumerated()), id: \.offset) { _, line in
+                    mountLineView(line)
                 }
             }
             .padding(.leading, 16)
             .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func mountLineView(_ line: HostMap.MountLine) -> some View {
+        switch line {
+        case .pool(let poolLine):
+            PoolLineView(poolLine: poolLine) { onTogglePool(poolLine.name) }
+        case .mount(let mountRow):
+            MountRowView(row: mountRow) { onToggleMount(mountRow.target) }
         }
     }
 
@@ -358,6 +379,53 @@ struct HostSectionView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 16)
+        }
+    }
+}
+
+// MARK: - PoolLineView
+
+/// One ZFS pool header row in a host section.
+///
+/// Pool name at 12pt medium ink, a quiet `zfs pool` tag, the mount count,
+/// and the same chevron treatment as mount rows with children.
+struct PoolLineView: View {
+    /// The pool's display data.
+    let poolLine: HostMap.PoolLine
+    /// Called when the operator taps the disclosure chevron.
+    let onToggle: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            poolChevron
+            Text(poolLine.name)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.ink)
+            Text("zfs pool")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkFaint)
+            Text("\(poolLine.visibleMountCount)")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkFaint)
+            Spacer()
+        }
+    }
+
+    /// Disclosure chevron — accent coloured, rotates 90° when expanded.
+    ///
+    /// A pool with no mounts carries an invisible placeholder to keep
+    /// the name column aligned.
+    @ViewBuilder private var poolChevron: some View {
+        if poolLine.visibleMountCount > 0 {
+            Text(Image(systemName: "chevron.right"))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .rotationEffect(.degrees(poolLine.expanded ? 90 : 0))
+                .frame(width: 18, alignment: .center)
+                .contentShape(Rectangle())
+                .onTapGesture { onToggle() }
+        } else {
+            Text("").frame(width: 18)
         }
     }
 }

@@ -226,18 +226,9 @@ final class PalanaSession {
             }
             return true
         }
-        // f summons the topology card — only from the main grammar path,
-        // only when no chord is pending (c f is copyFilename, not field).
-        if token == "f", pendingPrefix.isEmpty {
-            fieldVisible = true
-            fieldViewModel.summon(hosts: hosts)
-            return true
-        }
-        // F toggles the floating host map panel — same grammar guard.
-        if token == "F", pendingPrefix.isEmpty {
-            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
-            return true
-        }
+        // f, F, and backtick bypass the recognizer — only from the main grammar
+        // path, only when no chord is pending (c f is copyFilename, not field).
+        if handleMainSpecialKey(token) { return true }
         switch recognizer.press(token) {
         case .matched(let intent):
             pendingPrefix = ""
@@ -258,6 +249,8 @@ final class PalanaSession {
     /// and Esc walks back down. F toggles the host map panel — it floats
     /// independently and stays up when the plan panel closes. Both work in
     /// every panel phase; the run state does not gate them.
+    /// Backtick (`` ` ``) hides the panel — phase and work are untouched;
+    /// a running enactment keeps going exactly as Esc-hide does.
     /// Enter enacts, Esc dismisses or hides (a running enactment keeps
     /// going), ⌃C cancels — terminal muscle — and ? still summons the
     /// card. After a run ends, the verbs go straight again: y, m, r
@@ -274,6 +267,11 @@ final class PalanaSession {
         }
         if token == "F" {
             HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+            return true
+        }
+        // Backtick hides the panel in every phase — phase and work are untouched.
+        if token == "`" {
+            operation.hidePanel()
             return true
         }
         if token == "return" { operation.enact() }
@@ -415,6 +413,29 @@ final class PalanaSession {
 // MARK: - Help, settings, and field overlay keys
 
 extension PalanaSession {
+    /// Handles f, F, and backtick — the three tokens that bypass the recognizer.
+    ///
+    /// All three are gated on `pendingPrefix.isEmpty` so multi-key chords
+    /// (`c f` = copyFilename) are not intercepted. Returns true when consumed.
+    /// Backtick (`` ` ``) shows the plan panel; phase and work are untouched.
+    private func handleMainSpecialKey(_ token: String) -> Bool {
+        guard pendingPrefix.isEmpty else { return false }
+        if token == "f" {
+            fieldVisible = true
+            fieldViewModel.summon(hosts: hosts)
+            return true
+        }
+        if token == "F" {
+            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+            return true
+        }
+        if token == "`" {
+            operation.showPanel()
+            return true
+        }
+        return false
+    }
+
     /// Routes a token to whichever overlay is currently active.
     ///
     /// Returns `(handled: true, consumed: <verdict>)` for each active
