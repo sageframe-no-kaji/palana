@@ -196,3 +196,211 @@ struct HostMapTests {
         #expect(mac.mountsRememberedAt == nil)
     }
 }
+
+// MARK: - Mount tree tests
+
+@Suite("HostMap — mount tree")
+struct HostMapMountTreeTests {
+    private static let stamp = Date(timeIntervalSince1970: 1_751_500_800)
+
+    private static func makeMap(mounts: [Mount]) -> HostMap {
+        let facts = HostFacts(
+            reachability: Dated(value: .reachable, discoveredAt: stamp),
+            mounts: Dated(value: mounts, discoveredAt: stamp)
+        )
+        return HostMap(hosts: ["remote"], facts: ["remote": facts], localHost: "local")
+    }
+
+    private static func makeMapWithDatasets(mounts: [Mount], datasets: [ZFSDataset]) -> HostMap {
+        let cap = HostCapability(kernel: "Linux", flavor: .gnu, zfs: "zfs-2.2.2", rsync: nil)
+        let facts = HostFacts(
+            reachability: Dated(value: .reachable, discoveredAt: stamp),
+            capability: Dated(value: cap, discoveredAt: stamp),
+            zfsTopology: Dated(value: datasets, discoveredAt: stamp),
+            mounts: Dated(value: mounts, discoveredAt: stamp)
+        )
+        return HostMap(hosts: ["remote"], facts: ["remote": facts], localHost: "local")
+    }
+
+    // MARK: - Parent resolution at component boundaries
+
+    @Test("false path prefix excluded — /palana/tank does not parent /palana/tankX")
+    func falsePrefixExcluded() {
+        let mounts: [Mount] = [
+            Mount(source: "/dev/sda1", target: "/palana", fstype: "ext4", readOnly: false),
+            Mount(source: "tank", target: "/palana/tank", fstype: "zfs", readOnly: false),
+            Mount(source: "/dev/sdb1", target: "/palana/tankX", fstype: "ext4", readOnly: false),
+            Mount(source: "/dev/sdc1", target: "/palana/tank/data", fstype: "ext4", readOnly: false),
+        ]
+        let map = Self.makeMap(mounts: mounts)
+        let section = map.sections[0]
+
+        let palana = section.mounts.first { $0.target == "/palana" }
+        // /palana parents /palana/tank and /palana/tankX (not /palana/tank/data directly)
+        #expect(palana?.depth == 0)
+        #expect(palana?.childCount == 2, "/palana has two direct children")
+
+        let tank = section.mounts.first { $0.target == "/palana/tank" }
+        #expect(tank?.depth == 1)
+        #expect(tank?.childCount == 1, "/palana/tank has one child: /palana/tank/data")
+
+        let tankX = section.mounts.first { $0.target == "/palana/tankX" }
+        // /palana/tankX's parent must be /palana, not /palana/tank (component boundary rule)
+        #expect(tankX?.depth == 1, "/palana/tankX is depth 1 — child of /palana, not /palana/tank")
+        #expect(tankX?.childCount == 0)
+
+        let tankData = section.mounts.first { $0.target == "/palana/tank/data" }
+        #expect(tankData?.depth == 2, "/palana/tank/data is two levels deep")
+    }
+
+    @Test("/ parents all top-level paths when rendered")
+    func rootAsUniversalParent() {
+        let mounts: [Mount] = [
+            Mount(source: "/dev/sda1", target: "/", fstype: "ext4", readOnly: false),
+            Mount(source: "/dev/sda2", target: "/home", fstype: "ext4", readOnly: false),
+            Mount(source: "/dev/sda3", target: "/opt", fstype: "ext4", readOnly: false),
+        ]
+        let map = Self.makeMap(mounts: mounts)
+        let section = map.sections[0]
+
+        let root = section.mounts.first { $0.target == "/" }
+        #expect(root?.depth == 0)
+        #expect(root?.childCount == 2, "/ parents /home and /opt")
+
+        let home = section.mounts.first { $0.target == "/home" }
+        #expect(home?.depth == 1)
+
+        let opt = section.mounts.first { $0.target == "/opt" }
+        #expect(opt?.depth == 1)
+    }
+
+    // MARK: - System mounts excluded from parent resolution
+
+    @Test("system mounts are invisible to parent resolution")
+    func systemMountsExcludedFromParentResolution() {
+        // /sys and /sys/kernel/debug are both system — they must not act as
+        // parents for rendered mounts, even when their path is a prefix.
+        let mounts: [Mount] = [
+            Mount(source: "sysfs", target: "/sys", fstype: "sysfs", readOnly: false),
+            Mount(source: "debugfs", target: "/sys/kernel/debug", fstype: "debugfs", readOnly: false),
+            Mount(source: "/dev/sda1", target: "/data", fstype: "ext4", readOnly: false),
+            Mount(source: "/dev/sda2", target: "/data/logs", fstype: "ext4", readOnly: false),
+        ]
+        let map = Self.makeMap(mounts: mounts)
+        let section = map.sections[0]
+
+        // Only /data and /data/logs are rendered.
+        #expect(section.mounts.count == 2)
+        #expect(section.systemMountCount == 2)
+
+        let data = section.mounts.first { $0.target == "/data" }
+        // /sys is system and not in the rendered set — /data is a root (depth 0).
+        #expect(data?.depth == 0, "/data has no rendered ancestor")
+        #expect(data?.childCount == 1)
+
+        let dataLogs = section.mounts.first { $0.target == "/data/logs" }
+        #expect(dataLogs?.depth == 1, "/data/logs is a child of /data")
+    }
+
+    // MARK: - Collapse behaviour
+
+    @Test("collapse hides entire subtree, not just direct children")
+    func collapseHidesEntireSubtree() {
+        let mounts: [Mount] = [
+            Mount(source: "tank", target: "/tank", fstype: "zfs", readOnly: false),
+            Mount(source: "/dev/sda1", target: "/tank/data", fstype: "ext4", readOnly: false),
+            Mount(source: "srv:/share", target: "/tank/data/media", fstype: "nfs", readOnly: false),
+        ]
+        var map = Self.makeMap(mounts: mounts)
+        #expect(map.sections[0].mounts.count == 3, "all visible initially")
+
+        // Collapse /tank — both child and grandchild disappear.
+        map.toggleMount(host: "remote", target: "/tank")
+        #expect(map.sections[0].mounts.count == 1, "only /tank visible after collapse")
+        #expect(map.sections[0].mounts[0].target == "/tank")
+        #expect(map.sections[0].mounts[0].expanded == false)
+
+        // Re-expand — all three return.
+        map.toggleMount(host: "remote", target: "/tank")
+        #expect(map.sections[0].mounts.count == 3)
+        #expect(map.sections[0].mounts[0].expanded == true)
+    }
+
+    @Test("toggleMount is a no-op on childless rows")
+    func toggleMountNoOpOnLeaf() {
+        let mounts: [Mount] = [
+            Mount(source: "tank", target: "/tank", fstype: "zfs", readOnly: false),
+            Mount(source: "/dev/sda1", target: "/tank/data", fstype: "ext4", readOnly: false),
+        ]
+        var map = Self.makeMap(mounts: mounts)
+        // /tank/data is a leaf — toggle should not collapse it.
+        map.toggleMount(host: "remote", target: "/tank/data")
+        #expect(map.sections[0].mounts.count == 2, "no-op on leaf: count unchanged")
+    }
+
+    // MARK: - Fold state across rebuilds
+
+    @Test("fold state survives update(facts:) and newly-appearing mounts arrive expanded")
+    func foldStateSurvivesUpdate() {
+        let mounts: [Mount] = [
+            Mount(source: "tank", target: "/tank", fstype: "zfs", readOnly: false),
+            Mount(source: "/dev/sda1", target: "/tank/data", fstype: "ext4", readOnly: false),
+        ]
+        var map = Self.makeMap(mounts: mounts)
+
+        // Collapse /tank.
+        map.toggleMount(host: "remote", target: "/tank")
+        #expect(map.sections[0].mounts.count == 1)
+
+        // Rebuild with a fresh timestamp — same mounts, simulates a reprobe.
+        let stamp2 = Date(timeIntervalSince1970: 1_751_600_000)
+        let updatedFacts = HostFacts(
+            reachability: Dated(value: .reachable, discoveredAt: stamp2),
+            mounts: Dated(value: mounts, discoveredAt: stamp2)
+        )
+        map.update(facts: ["remote": updatedFacts])
+        #expect(map.sections[0].mounts.count == 1, "collapsed /tank persists after update")
+
+        // A new sibling /logs appears — defaults expanded (depth 0, no prior collapse state).
+        var expandedMounts = mounts
+        expandedMounts.append(Mount(source: "/dev/sdb1", target: "/logs", fstype: "ext4", readOnly: false))
+        let expandedFacts = HostFacts(
+            reachability: Dated(value: .reachable, discoveredAt: stamp2),
+            mounts: Dated(value: expandedMounts, discoveredAt: stamp2)
+        )
+        map.update(facts: ["remote": expandedFacts])
+
+        // /tank still collapsed, /logs newly visible.
+        #expect(map.sections[0].mounts.count == 2, "/tank (collapsed) + /logs (new, expanded)")
+        let targets = Set(map.sections[0].mounts.map(\.target))
+        #expect(targets.contains("/tank"))
+        #expect(targets.contains("/logs"))
+    }
+
+    // MARK: - childCount correctness
+
+    @Test("childCount counts direct children only, not grandchildren")
+    func childCountDirectOnly() {
+        let mounts: [Mount] = [
+            Mount(source: "tank", target: "/tank", fstype: "zfs", readOnly: false),
+            Mount(source: "/dev/sda1", target: "/tank/a", fstype: "ext4", readOnly: false),
+            Mount(source: "/dev/sda2", target: "/tank/a/x", fstype: "ext4", readOnly: false),
+            Mount(source: "/dev/sda3", target: "/tank/b", fstype: "ext4", readOnly: false),
+        ]
+        let map = Self.makeMap(mounts: mounts)
+        let section = map.sections[0]
+
+        let tank = section.mounts.first { $0.target == "/tank" }
+        // /tank/a/x is a grandchild of /tank, not a direct child.
+        #expect(tank?.childCount == 2, "/tank has two direct children: /tank/a and /tank/b")
+
+        let tankA = section.mounts.first { $0.target == "/tank/a" }
+        #expect(tankA?.childCount == 1, "/tank/a has one direct child: /tank/a/x")
+
+        let tankB = section.mounts.first { $0.target == "/tank/b" }
+        #expect(tankB?.childCount == 0)
+
+        let tankAX = section.mounts.first { $0.target == "/tank/a/x" }
+        #expect(tankAX?.childCount == 0)
+    }
+}

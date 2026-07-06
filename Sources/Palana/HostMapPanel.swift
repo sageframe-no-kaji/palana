@@ -37,15 +37,28 @@ final class HostMapModel {
     /// Reads `allFacts()` and rebuilds the map — a cache read, no wire.
     ///
     /// Local first, then config order. Calling while visible refreshes
-    /// from the current cache state.
+    /// from the current cache state. Fold state is preserved across calls
+    /// via `update(facts:)`; a fresh `HostMap` is built only on first call.
     func refresh(hosts: [String]) {
         Task {
             let localHost = Engine.localHost
             var ordered = [localHost]
             ordered += hosts.filter { $0 != localHost }
             let facts = await engine.field.allFacts()
-            hostMap = HostMap(hosts: ordered, facts: facts, localHost: localHost)
+            if hostMap != nil {
+                hostMap?.update(facts: facts)
+            } else {
+                hostMap = HostMap(hosts: ordered, facts: facts, localHost: localHost)
+            }
         }
+    }
+
+    /// Toggles the collapsed state of a mount row identified by host alias and target path.
+    ///
+    /// Forwarded to `HostMap.toggleMount(host:target:)` — no-op when the row has
+    /// no children or is not found.
+    func toggleMount(host: String, target: String) {
+        hostMap?.toggleMount(host: host, target: target)
     }
 
     /// Probes a remote host — no-op for local or in-flight hosts.
@@ -65,13 +78,8 @@ final class HostMapModel {
             }
             probing.remove(host)
             let facts = await engine.field.allFacts()
-            if let current = hostMap {
-                hostMap = HostMap(
-                    hosts: current.sections.map(\.alias),
-                    facts: facts,
-                    localHost: Engine.localHost
-                )
-            }
+            // update(facts:) preserves fold state across the post-probe rebuild.
+            hostMap?.update(facts: facts)
         }
     }
 
@@ -177,8 +185,10 @@ struct HostMapContent: View {
                         HostSectionView(
                             section: section,
                             probing: model.probing,
-                            probeErrors: model.probeErrors
-                        ) { model.probe($0) }
+                            probeErrors: model.probeErrors,
+                            onToggleMount: { model.toggleMount(host: section.alias, target: $0) },
+                            onProbe: { model.probe($0) }
+                        )
                         Divider().opacity(0.25)
                     }
                 }
@@ -210,6 +220,8 @@ struct HostSectionView: View {
     let probing: Set<String>
     /// Error detail per host from a thrown probe.
     let probeErrors: [String: String]
+    /// Called with the mount target when the operator taps a mount chevron.
+    let onToggleMount: (String) -> Void
     /// Called when the operator taps the probe button.
     let onProbe: (String) -> Void
 
@@ -310,7 +322,7 @@ struct HostSectionView: View {
                 // Index identity, not target — stacked mounts share a target
                 // (two rows on /proc/sys/fs/binfmt_misc in the pool corpus).
                 ForEach(Array(section.mounts.enumerated()), id: \.offset) { _, mount in
-                    MountRowView(row: mount)
+                    MountRowView(row: mount) { onToggleMount(mount.target) }
                 }
             }
             .padding(.leading, 16)
@@ -346,9 +358,12 @@ struct HostSectionView: View {
 struct MountRowView: View {
     /// The mount's display data.
     let row: HostMap.MountRow
+    /// Called when the operator taps the disclosure chevron.
+    let onToggle: () -> Void
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
+            mountChevron
             diamond
             Text(row.target)
                 .font(.system(size: 12, weight: .medium))
@@ -367,6 +382,26 @@ struct MountRowView: View {
                     .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
+        }
+        // Depth-based indent: each level adds 14pt beyond the section's base indent.
+        .padding(.leading, CGFloat(row.depth) * 14)
+    }
+
+    /// Disclosure chevron for rows with children — accent coloured, rotates 90° when expanded.
+    ///
+    /// Childless rows carry an invisible placeholder so the ◆/◇ diamond and
+    /// target text stay in one column across all depths.
+    @ViewBuilder private var mountChevron: some View {
+        if row.childCount > 0 {
+            Text(Image(systemName: "chevron.right"))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .rotationEffect(.degrees(row.expanded ? 90 : 0))
+                .frame(width: 18, alignment: .center)
+                .contentShape(Rectangle())
+                .onTapGesture { onToggle() }
+        } else {
+            Text("").frame(width: 18)  // leaf — placeholder keeps diamond in column
         }
     }
 
