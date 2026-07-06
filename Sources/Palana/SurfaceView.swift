@@ -194,7 +194,7 @@ struct SurfaceView: View {
             }
             if session.operation.phase == .enacting, !session.operation.panelShowing {
                 // The hidden terminal's heartbeat — the work continues.
-                Text("transfer running — y, m, or r brings the panel back")
+                Text("transfer running — ` brings the panel back")
                     .foregroundStyle(Theme.accent)
             }
             Spacer()
