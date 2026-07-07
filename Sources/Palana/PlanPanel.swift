@@ -69,7 +69,7 @@ struct PlanPanel: View {
                 .fontWeight(.semibold)
             Spacer()
             Text(hint)
-                .foregroundStyle(Theme.inkFaint)
+                .foregroundStyle(hintColor)
         }
         .font(monoSmall)
         .padding(.horizontal, 14)
@@ -87,6 +87,19 @@ struct PlanPanel: View {
         case .finished: return "\(verb)done"
         case .failed: return "\(verb)failed"
         case .cancelled: return "\(verb)cancelled"
+        }
+    }
+
+    /// The hint's color signals whether Return is live.
+    ///
+    /// Moss when a keystroke will fire—the plan is ready to enact, or the
+    /// naming field is waiting for its name. Quiet ink while the panel is
+    /// composing or running (waiting for a response) or resting, so "go"
+    /// and "hold" never wear the same color.
+    private var hintColor: Color {
+        switch operation.phase {
+        case .ready, .naming: return Theme.accent
+        default: return Theme.inkFaint
         }
     }
 
