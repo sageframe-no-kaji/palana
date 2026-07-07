@@ -65,6 +65,8 @@ struct PaneView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(Theme.groundDeep)
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded { onFocus() })
     }
 
     /// The whole address — text until clicked, one typeable field after.

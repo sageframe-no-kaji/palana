@@ -351,6 +351,18 @@ final class PalanaSession {
         operation.beginNaming(operationKind, source: focusedPane)
     }
 
+    /// ⌘⇧L: points the focused pane at the operations log's directory and
+    /// seats the cursor on operations.log — the run record, one keystroke away.
+    ///
+    /// The log lives on this Mac. If no run has written it yet the file is
+    /// absent, the landing simply misses, and the pane shows the directory —
+    /// nothing is fabricated to make the cursor land.
+    func revealOperationsLog() {
+        let logURL = OperationLog.defaultURL()
+        focusedPane.setLandOn(logURL.lastPathComponent)
+        focusedPane.point(host: Engine.localHost, path: logURL.deletingLastPathComponent().path)
+    }
+
     /// The pane the focused one would send toward.
     var otherPane: PaneModel {
         focusedSide == .left ? right : left
@@ -436,6 +448,10 @@ extension PalanaSession {
         }
         if token == "`" {
             operation.showPanel()
+            return true
+        }
+        if token == "cmd-shift-l" {
+            revealOperationsLog()
             return true
         }
         return false
