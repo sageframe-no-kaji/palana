@@ -1,6 +1,6 @@
 ---
 created: 2026-07-05
-status: draft
+status: closed
 type: ho-document
 project: palana
 ho: 9.3
@@ -16,6 +16,7 @@ builds-on:
 agent-tasks:
   - Ho-9.3-AT-01.md
   - Ho-9.3-AT-02.md
+  - Ho-9.3-AT-03.md
 ---
 
 # ho-9.3 — The Mounts Fact and the Host Map
@@ -80,15 +81,17 @@ Implementation on `claude-sonnet-4-6`, review and verification with the session�
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+**The design held, and the question that worried the Think phase dissolved.** The mount table is the kernel's truth, not the userland's. `cat /proc/mounts` served kanyo-class ext4 and zencat's vendor BusyBox at one fidelity, and the flag roulette ho-07.5 warned about never entered the game—`cat` was the whole dependency. koan's real table came back forty mounts where a fabricated corpus had imagined ten: virtiofs, efivarfs, iso9660, the overlay noise of a host that does real work. efivarfs classified system as intended, the unknown fstypes classified storage, and the unfamiliar showed rather than hid—the classifier's one law paid off. The map rendered koan's one hundred fifty-nine datasets grouped by pool, citadel-rex and mediapool and mu-karuna and rpool standing apart, `/` inside rpool where it lives.
 
-- **Did the design hold?** Did the kernel-keyed read survive contact with zencat's vendor BusyBox and kanyo's Docker overlay noise?
-- **Decision review.** Was the pinned panel the right reading of "like ??"—or do his hands want the field view grown instead?
-- **What did the real mount tables look like?** System-mount counts, unexpected fstypes, anything the classifier misfiled.
-- **What broke that the tests didn't catch?**
-- **Followups.** Capacity fact, local mounts in the map, pointing from map rows—did any of these get asked for?
+**The pinned panel was the right reading of "like ??".** He summoned it, probed a cold host in place, drove the panes while it floated—reference, not modal, the ask exactly. The f/F split held under his hands: `f` points the panes, `F` is the reference map, and "those work" ratified keeping them apart. The one confusion was never the model—round 2's fold landed in the `f` card and he looked for it in `F`. The fix was to land the tree in both, everywhere the shape repeats.
+
+**What the tests could not catch, the review and the hands did.** Four review catches on the delegated core. The corpus recorder never learned discover's third exchange, and a recapture would have broken the replay test—the law is written now, when the exchange-set changes, grep the recorder. The agent fabricated a corpus entry with the VM down (the imagined ten), replaced by a live re-record. `ForEach(id: \.target)` collapsed stacked mounts—binfmt_misc rides twice—corrected to index identity. `isDatasetMountpoint` was orphaned by the new `boundaryMark` and removed. Then the hands found the wedge: the naming field exited only by Enter or Esc-while-focused, so a click elsewhere left `isNaming` standing and killed the entire grammar—he had to quit. Focus loss cancels naming now, and the law generalizes: every flag in `handle`'s stand-down guard must release on focus loss, or it strands the keyboard. Two more surfaced in the rounds—the transcript's CR-repaint pinned `lines.last` so the scroll never followed (a monotonic `revision` counter is the fix), and fullscreen stranded the floating panels (collectionBehavior). Round 6 closed on his notes: `⌘⇧L` points the focused pane at the operations log with the cursor already seated on it, and a click anywhere in the address header focuses its pane, not only a click on the text.
+
+**Followups, and what the map taught about the next ho.** Capacity (the `df` fact), local mounts in the map, and pointing from a map row stayed queued and unpressed—out of scope held. The map exposed its own edge: the pool's drives, its vdevs, are in no fact pālana gathers, because they live in `zpool status`, not the mount table or the dataset list. That is not a new fact to chase here. It is the first tenant of his sealed tools idea—the read-only command strip beside the terminal that ho-10 builds: run `zpool status`, show the raw output, parse into a fact only if the map later earns it. Queued to ho-9.8 from the round work: header-click sort, a Finder-style column picker, and type-to-jump—the last owes a Think phase, because the letters are already verbs and the jump likely wants a `/` search.
+
+**Delegation.** Both Think-phase agent tasks and every feedback round ran on `claude-sonnet-4-6` and came back spec-faithful. Top-tier review caught the four core breaks and the wedge, none of which the battery would have surfaced. The ho-09 verdict stands unchanged—delegate the implementation, review at the top.
 
 ---
 
 _Authored: 2026-07-05 (Think phase)._
-_Execution and Reflect: pending._
+_Closed: 2026-07-06—six feedback rounds driven live, the practitioner's word "those work." 425 tests, 71 suites, core 97.67, CI green (ede493c)._
