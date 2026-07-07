@@ -57,6 +57,13 @@ final class PalanaSession {
     /// The settings model — rsync flags and host-hide controls.
     let settings: SettingsModel
 
+    /// The tool coordinator — aimed at each host via the routing conduit.
+    let workbench: Workbench
+    /// The built-in system reads tool — stateless, shared with the strip.
+    let readsTool: SystemReadsTool
+    /// True while the keyboard points into the terminal strip.
+    var terminalFocused = false
+
     private let conduit: SSHConduit
     private let field: Field
     private let engine: Engine
@@ -84,6 +91,8 @@ final class PalanaSession {
         self.conduit = conduit
         self.settings = settingsModel
         self.field = Field(conduit: conduit, sshConfigText: configText, cache: FieldCache())
+        self.workbench = Workbench(conduit: RoutingConduit(remote: conduit), field: field)
+        self.readsTool = SystemReadsTool()
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
         self.engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
         self.fieldViewModel = FieldViewModel(engine: self.engine)
@@ -216,6 +225,7 @@ final class PalanaSession {
         }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
+        guard !terminalFocused else { return handleTerminalFocusKey(token) }
         if token == "esc" {
             // A pending prefix dies first; a bare Esc clears the selection.
             if pendingPrefix.isEmpty {
@@ -262,9 +272,11 @@ final class PalanaSession {
         case "esc":
             // Pure visibility hide in every phase — work continues untouched.
             // The Esc that follows (panel now gone) clears the selection.
+            terminalFocused = false
             operation.hidePanel()
             return true
         case "`":
+            terminalFocused = false
             operation.hidePanel()
             return true
         case "return":
@@ -454,6 +466,11 @@ extension PalanaSession {
             revealOperationsLog()
             return true
         }
+        if token == "shift-tab" {
+            if !operation.panelShowing { operation.showPanel() }
+            terminalFocused = true
+            return true
+        }
         return false
     }
 
@@ -553,6 +570,52 @@ extension PalanaSession {
             point(focusedSide, host: pointing.host, path: pointing.path)
             fieldVisible = false
         default: break
+        }
+    }
+}
+
+// MARK: - Workbench and terminal focus
+
+extension PalanaSession {
+    /// Routes a key press while the keyboard points into the terminal strip.
+    ///
+    /// Panel priority keys (esc, backtick) are handled earlier and clear
+    /// `terminalFocused` — this path covers tab, shift-tab, the tool key
+    /// hints, and everything else while the strip holds focus.
+    func handleTerminalFocusKey(_ token: String) -> Bool {
+        switch token {
+        case "tab", "shift-tab", "esc":
+            terminalFocused = false
+        default:
+            // A key hint fires the matching verb; all other keys are swallowed
+            // so the pane grammar stays suspended while the strip holds focus.
+            if let verb = readsTool.verbs.first(where: { $0.keyHint == token }) {
+                runWorkbenchVerb(verb)
+            }
+        }
+        return true
+    }
+
+    /// Runs a Workbench read verb against the focused host.
+    ///
+    /// Checks availability, starts the read, and drains raw output into the
+    /// transcript. Phase is never touched — a read is not an operation.
+    func runWorkbenchVerb(_ verb: WorkbenchVerb) {
+        guard !operation.active else { return }
+        guard let host = focusedPane.state.host else { return }
+        // Local honesty: zfs verbs are not applicable on this Mac.
+        guard !(verb.requirement == .zfs && host == PalanaCore.localHostName) else { return }
+        Task {
+            let avail = await workbench.availability(of: verb, on: host)
+            guard case .available = avail else { return }
+            guard !operation.active else { return }
+            do {
+                let stream = try await workbench.run(verb, of: readsTool, on: host)
+                let cmd = readsTool.command(for: verb, on: host)
+                await operation.runToolRead(header: "\(cmd) · \(host)", stream: stream)
+            } catch {
+                operation.appendToolError("read failed: \(error)")
+            }
         }
     }
 }

@@ -79,6 +79,10 @@ enum Grammar {
         if flags.contains(.command) { mods.append("cmd") }
         if flags.contains(.control) { mods.append("ctrl") }
         if let base = specialKeys[event.keyCode] {
+            // Shift-tab without cmd or ctrl is a distinct token for terminal focus.
+            if base == "tab", flags.contains(.shift), mods.isEmpty {
+                return "shift-tab"
+            }
             return assemble(mods, base)
         }
         guard let chars = event.charactersIgnoringModifiers, !chars.isEmpty else { return nil }

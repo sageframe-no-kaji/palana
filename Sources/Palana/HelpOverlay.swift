@@ -30,6 +30,7 @@ struct HelpOverlay: View {
         HelpRow(keys: "⌃d / ⌃u", what: "half page down / up"),
         HelpRow(keys: "pgup / pgdn", what: "page up / down"),
         HelpRow(keys: "tab", what: "switch pane"),
+        HelpRow(keys: "⇧tab", what: "into the terminal · tool reads"),
         HelpRow(keys: "⇧⌘G", what: "go to host : path"),
     ]
 

@@ -480,6 +480,32 @@ extension OperationModel {
     }
 }
 
+// MARK: - Tool reads
+
+extension OperationModel {
+    /// Writes a Workbench read into the transcript without changing phase.
+    ///
+    /// The strip's scrollback — successive reads accumulate; `begin` resets
+    /// `echo` when a real operation starts so the plan's claim is never blurred.
+    func runToolRead(header: String, stream: RunningCommand) async {
+        showPanel()
+        echo.appendLine("── \(header)", kind: .note)
+        for await chunk in stream.stdout {
+            echo.append(chunk, channel: .stdout)
+        }
+        for await chunk in stream.stderr {
+            echo.append(chunk, channel: .stderr)
+        }
+        echo.flushAll()
+    }
+
+    /// Writes a tool-level failure into the transcript without changing phase.
+    func appendToolError(_ text: String) {
+        showPanel()
+        echo.appendLine(text, kind: .failure)
+    }
+}
+
 // MARK: - Touch
 
 extension OperationModel {
