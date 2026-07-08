@@ -601,14 +601,17 @@ extension PalanaSession {
     /// Checks availability, starts the read, and drains raw output into the
     /// transcript. Phase is never touched — a read is not an operation.
     func runWorkbenchVerb(_ verb: WorkbenchVerb) {
-        guard !operation.active else { return }
-        guard let host = focusedPane.state.host else { return }
+        guard !operation.terminalBusy else { return }
+        guard let host = focusedPane.state.host else {
+            operation.appendToolError("point a pane at a host first")
+            return
+        }
         // Local honesty: zfs verbs are not applicable on this Mac.
         guard !(verb.requirement == .zfs && host == PalanaCore.localHostName) else { return }
         Task {
             let avail = await workbench.availability(of: verb, on: host)
             guard case .available = avail else { return }
-            guard !operation.active else { return }
+            guard !operation.terminalBusy else { return }
             do {
                 let stream = try await workbench.run(verb, of: readsTool, on: host)
                 let cmd = readsTool.command(for: verb, on: host)

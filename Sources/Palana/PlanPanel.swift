@@ -11,6 +11,8 @@ import SwiftUI
 struct PlanPanel: View {
     /// The operation flow this panel renders.
     var operation: OperationModel
+    /// The session — drives the tools strip on the trailing edge.
+    var session: PalanaSession
 
     @FocusState private var namingFieldFocused: Bool
     @State private var nameText = ""
@@ -22,29 +24,35 @@ struct PlanPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        if operation.phase == .naming {
-                            namingFieldView
-                        } else {
-                            if let plan = operation.plan {
-                                planBlock(plan)
+            HStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 2) {
+                            if operation.phase == .naming {
+                                namingFieldView
+                            } else {
+                                if let plan = operation.plan {
+                                    planBlock(plan)
+                                }
+                                transcript
                             }
-                            transcript
+                            Color.clear.frame(height: 1).id("panel-bottom")
                         }
-                        Color.clear.frame(height: 1).id("panel-bottom")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .onChange(of: operation.echo.revision) {
+                        // The revision moves on every mutation. Watching the
+                        // last line missed most of a live run: commits land
+                        // above a live progress partial, and the tail's id
+                        // and text never change.
+                        proxy.scrollTo("panel-bottom", anchor: .bottom)
+                    }
                 }
-                .onChange(of: operation.echo.revision) {
-                    // The revision moves on every mutation. Watching the
-                    // last line missed most of a live run: commits land
-                    // above a live progress partial, and the tail's id
-                    // and text never change.
-                    proxy.scrollTo("panel-bottom", anchor: .bottom)
+                // Strip beside the plan/transcript only — not over the naming field.
+                if operation.phase != .naming {
+                    WorkbenchStrip(session: session)
                 }
             }
             if let progress = operation.progress {

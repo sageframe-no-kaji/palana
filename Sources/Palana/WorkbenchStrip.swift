@@ -16,7 +16,7 @@ struct WorkbenchStrip: View {
     @State private var availabilities: [String: VerbAvailability] = [:]
 
     private var focusedHost: String? { session.focusedPane.state.host }
-    private var isActive: Bool { session.operation.active }
+    private var terminalBusy: Bool { session.operation.terminalBusy }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +24,7 @@ struct WorkbenchStrip: View {
                 verbButton(verb)
             }
         }
-        .frame(width: 52)
+        .frame(width: 100)
         .padding(.vertical, 4)
         .background(Theme.panelGround)
         .overlay(alignment: .leading) {
@@ -43,21 +43,17 @@ struct WorkbenchStrip: View {
     @ViewBuilder
     private func verbButton(_ verb: WorkbenchVerb) -> some View {
         let avail = resolvedAvailability(for: verb)
-        let enabled = !isActive && avail == .available
+        let enabled = !terminalBusy && avail == .available
         Button {
             session.runWorkbenchVerb(verb)
         } label: {
-            VStack(spacing: 2) {
-                Text(verb.label)
-                    .font(.system(size: 9, weight: .semibold))
-                Text(verb.keyHint)
-                    .font(.system(size: 8))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
+            Text(verb.label)
+                .font(.system(size: 9, weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
@@ -76,7 +72,7 @@ struct WorkbenchStrip: View {
     }
 
     private func helpText(for verb: WorkbenchVerb, avail: VerbAvailability) -> String {
-        guard !isActive else { return "\(verb.label) — terminal busy" }
+        guard !terminalBusy else { return "\(verb.label) — terminal busy" }
         if case .unmet(let reason) = avail { return reason }
         return "\(verb.label) on \(focusedHost ?? "—")"
     }

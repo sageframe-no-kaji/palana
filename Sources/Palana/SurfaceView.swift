@@ -77,11 +77,8 @@ struct SurfaceView: View {
                 paneArea
                     .frame(minHeight: 220)
                 if session.operation.panelShowing {
-                    HStack(spacing: 0) {
-                        PlanPanel(operation: session.operation)
-                        WorkbenchStrip(session: session)
-                    }
-                    .frame(minHeight: 130, idealHeight: 280)
+                    PlanPanel(operation: session.operation, session: session)
+                        .frame(minHeight: 130, idealHeight: 280)
                 }
             }
             Divider()

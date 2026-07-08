@@ -52,6 +52,12 @@ final class OperationModel {
     /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
 
+    /// True while the terminal is occupied — composing a plan or running a transfer.
+    ///
+    /// Read buttons are live during idle, ready, finished, failed, and cancelled;
+    /// they dim only while the gather is in flight or the enactment is running.
+    var terminalBusy: Bool { phase == .gathering || phase == .enacting }
+
     /// True while the naming field is live — the key monitor stands down.
     var isNaming: Bool { phase == .naming }
 
