@@ -142,10 +142,12 @@ extension PalanaSession {
         }
     }
 
-    /// Jumps the focused pane to a favorite and closes the panel.
+    /// Jumps the focused pane to a favorite, leaving the panel open.
+    ///
+    /// The column stays up so the operator can jump again — same as a
+    /// mouse-click jump. Esc, `*`, or the titlebar star closes it.
     func favPanelJump(_ fav: Favorite) {
         focusedPane.point(host: fav.host, path: fav.path)
-        FavoritesPanelController.shared.close()
     }
 
     /// Resolves the group key that owns a given favorite.
