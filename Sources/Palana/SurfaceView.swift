@@ -171,6 +171,9 @@ struct SurfaceView: View {
         }
         .background(Capsule().fill(Theme.groundDeep))
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+        // Pull the bubble in off the corner so its right edge lines up with
+        // the footer's "? keys" (20pt inset) instead of sliding into the fillet.
+        .padding(.trailing, 8)
     }
 
     private func paneVerb(
