@@ -21,14 +21,14 @@ struct WorkbenchStrip: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(session.readsTool.verbs, id: \.id) { verb in
-                verbButton(verb)
+                chip(verb)
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
             }
             Spacer(minLength: 0)
         }
-        .frame(width: 100)
+        .frame(width: 108)
         .frame(maxHeight: .infinity)
         .background(Theme.ground)
         .overlay(alignment: .leading) {
@@ -44,34 +44,15 @@ struct WorkbenchStrip: View {
         }
     }
 
-    @ViewBuilder
-    private func verbButton(_ verb: WorkbenchVerb) -> some View {
+    private func chip(_ verb: WorkbenchVerb) -> some View {
         let avail = resolvedAvailability(for: verb)
-        let enabled = !terminalBusy && avail == .available
-        Button {
-            session.runWorkbenchVerb(verb)
-        } label: {
-            Text(verb.label)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, minHeight: 34)
-                .overlay(alignment: .trailing) {
-                    // The key hint appears only while the terminal is engaged —
-                    // a letter that does nothing yet is a lie (the round-1 lesson).
-                    if session.terminalFocused {
-                        Text(verb.keyHint)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.trailing, 6)
-                    }
-                }
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
-        .opacity(enabled ? 1 : 0.5)
-        .help(helpText(for: verb, avail: avail))
-        .disabled(!enabled)
+        return StripChip(
+            label: verb.label,
+            keyHint: verb.keyHint,
+            enabled: !terminalBusy && avail == .available,
+            showKey: session.terminalFocused,
+            help: helpText(for: verb, avail: avail)
+        ) { session.runWorkbenchVerb(verb) }
     }
 
     private func resolvedAvailability(for verb: WorkbenchVerb) -> VerbAvailability {
@@ -95,5 +76,42 @@ struct WorkbenchStrip: View {
         for verb in session.readsTool.verbs {
             availabilities[verb.id] = await session.workbench.availability(of: verb, on: host)
         }
+    }
+}
+
+/// One read chip — a uniform cell that highlights on hover, its key hint set
+/// bigger and spaced like a menu shortcut, shown only while engaged.
+private struct StripChip: View {
+    let label: String
+    let keyHint: String
+    let enabled: Bool
+    let showKey: Bool
+    let help: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .overlay(alignment: .trailing) {
+                    if showKey {
+                        Text(keyHint)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 10)
+                    }
+                }
+                .background(hovering && enabled ? Theme.accent.opacity(0.10) : Color.clear)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
+        .opacity(enabled ? 1 : 0.5)
+        .onHover { hovering = $0 }
+        .help(help)
+        .disabled(!enabled)
     }
 }
