@@ -108,6 +108,20 @@ struct FieldOverlay: View {
     let viewModel: FieldViewModel
     /// Called when the operator double-clicks a row that resolves a pointing.
     let onPoint: (FieldOutline.Pointing) -> Void
+    /// Called when the operator taps the ✕ close button.
+    ///
+    /// Set via the `.onDismiss(_:)` modifier — keeps the primary init
+    /// to a single closure so trailing-closure syntax remains valid at
+    /// the call site. Default nil; callers use `.onDismiss { }`.
+    var dismissAction: (() -> Void)?
+
+    /// Attaches a dismiss action to the overlay — wired by the caller
+    /// to the same path that esc and the `f` key already use.
+    func onDismiss(_ action: @escaping () -> Void) -> Self {
+        var copy = self
+        copy.dismissAction = action
+        return copy
+    }
 
     var body: some View {
         ZStack {
@@ -129,6 +143,12 @@ struct FieldOverlay: View {
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
+        .overlay(alignment: .topLeading) {
+            if let dismissAction {
+                OverlayCloseButton(action: dismissAction)
+                    .padding(10)
+            }
+        }
     }
 
     private var cardHeader: some View {

@@ -189,6 +189,10 @@ struct FavoritesContent: View {
             panelFooter
         }
         .background(Theme.ground)
+        .overlay(alignment: .topLeading) {
+            OverlayCloseButton { FavoritesPanelController.shared.close() }
+                .padding(10)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 

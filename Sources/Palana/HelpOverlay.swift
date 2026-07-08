@@ -29,6 +29,21 @@ struct HelpOverlay: View {
     var scale = 1.0
     /// The quiet last line — the card and the window say different things.
     var footer = "? floats this card · esc closes"
+    /// Called when the operator taps the ✕ close button.
+    ///
+    /// Set via the `.onDismiss(_:)` modifier — keeps the primary properties
+    /// clean and avoids trailing-closure ambiguity at the call site.
+    /// The card caller wires this to `session.helpVisible = false`.
+    /// The floating panel leaves it nil — the panel manages its own lifecycle.
+    var dismissAction: (() -> Void)?
+
+    /// Attaches a dismiss action to the overlay — wired by the card caller
+    /// to the same path that esc and `?` already use.
+    func onDismiss(_ action: @escaping () -> Void) -> Self {
+        var copy = self
+        copy.dismissAction = action
+        return copy
+    }
 
     private static let leftColumn = [
         HelpSection(
@@ -119,6 +134,12 @@ struct HelpOverlay: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
         .fixedSize()
+        .overlay(alignment: .topLeading) {
+            if let dismissAction {
+                OverlayCloseButton(action: dismissAction)
+                    .padding(10)
+            }
+        }
     }
 
     /// The pane's drive glyphs, explained — filled is a dataset, hollow a plain mount.

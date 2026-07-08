@@ -136,6 +136,10 @@ struct KeysPanelContent: View {
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.ground)
+        .overlay(alignment: .topLeading) {
+            OverlayCloseButton { KeysPanelController.shared.close() }
+                .padding(10)
+        }
         .overlay(alignment: .topTrailing) {
             HStack(spacing: 2) {
                 icon("minus.circle", delta: -0.1)

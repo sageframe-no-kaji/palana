@@ -386,6 +386,10 @@ struct SettingsCard: View {
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
+        .overlay(alignment: .topLeading) {
+            OverlayCloseButton { session.settingsVisible = false }
+                .padding(10)
+        }
     }
 
     private var cardHeader: some View {

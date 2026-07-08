@@ -15,6 +15,7 @@ struct SurfaceView: View {
             .overlay {
                 if session.helpVisible {
                     HelpOverlay()
+                        .onDismiss { session.helpVisible = false }
                 }
             }
             .overlay {
@@ -31,6 +32,7 @@ struct SurfaceView: View {
                             path: pointing.path)
                         session.fieldVisible = false
                     }
+                    .onDismiss { session.fieldVisible = false }
                 }
             }
             .sheet(item: $session.gotoTarget) { side in

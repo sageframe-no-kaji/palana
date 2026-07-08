@@ -182,6 +182,10 @@ struct HostMapContent: View {
             panelFooter
         }
         .background(Theme.ground)
+        .overlay(alignment: .topLeading) {
+            OverlayCloseButton { HostMapPanelController.shared.close() }
+                .padding(10)
+        }
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
