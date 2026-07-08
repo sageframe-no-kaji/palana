@@ -92,13 +92,14 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // pālana — its own platter, filled and stroked in the titlebar's
-            // own color so the capsule vanishes into the bar and the name
-            // reads as free text (its opaque fill still hides the OS glass).
+            // pālana — its own item, and a spacer splits it from the glyphs so
+            // macOS gives each its OWN platter instead of grouping them.
             ToolbarItem(placement: .primaryAction) {
                 nameMark
             }
-            // The three glyphs in the swap cluster's groundDeep capsule.
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .primaryAction)
+            }
             ToolbarItem(placement: .primaryAction) {
                 glyphCluster
             }
@@ -128,6 +129,8 @@ struct SurfaceView: View {
             }
             .disabled(session.left.state.host == nil)
         }
+        .background(Capsule().fill(Theme.groundDeep))
+        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
     /// pālana — its own toolbar item, on its own clean platter.
@@ -139,6 +142,10 @@ struct SurfaceView: View {
         Text("पालन")
             .font(.system(size: 15, weight: .regular))
             .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Theme.groundDeep))
+            .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
             .help("pālana")
     }
 
@@ -162,6 +169,8 @@ struct SurfaceView: View {
                 session.helpVisible.toggle()
             }
         }
+        .background(Capsule().fill(Theme.groundDeep))
+        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
     private func paneVerb(
