@@ -28,8 +28,10 @@ struct WorkbenchStrip: View {
                 }
                 verbButton(verb)
             }
+            Spacer(minLength: 0)
         }
         .frame(width: 96)
+        .frame(maxHeight: .infinity)
         .background(Theme.ground)
         .overlay(alignment: .leading) {
             // The shared left separator — a hairline against the transcript,

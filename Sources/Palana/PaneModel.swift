@@ -349,6 +349,26 @@ final class PaneModel {
         throw PointingError.unreachable("no capability fact")
     }
 
+    /// Sets the sort from a Table header click.
+    ///
+    /// The Table reports the tapped column and its direction through its
+    /// `sortOrder` binding; this maps that to the pane's own `Sort` and
+    /// re-sorts through the listing's natural comparators — the same path
+    /// the sort-key grammar (`,n` / `,s` / `,m`) takes.
+    func applySort(from comparator: KeyPathComparator<FileEntry>) {
+        let key: PaneState.SortKey
+        if comparator.keyPath == \FileEntry.size {
+            key = .size
+        } else if comparator.keyPath == \FileEntry.modified {
+            key = .modified
+        } else {
+            key = .name
+        }
+        state.sort = PaneState.Sort(key: key, ascending: comparator.order == .forward)
+        refreshRows()
+        onDisplayChange()
+    }
+
     /// A display-changing move: mutate, recompute rows, persist.
     private func applyDisplayChange(_ change: (inout PaneState) -> Void) {
         change(&state)

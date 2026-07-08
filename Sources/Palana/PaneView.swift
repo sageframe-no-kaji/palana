@@ -29,6 +29,9 @@ struct PaneView: View {
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
+    @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
+        KeyPathComparator(\.name, order: .forward)
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -178,26 +181,31 @@ struct PaneView: View {
     }
 
     private var innerTable: some View {
-        Table(model.rows, selection: cursorBinding) {
-            TableColumn("name") { entry in
+        Table(model.rows, selection: cursorBinding, sortOrder: $sortOrder) {
+            TableColumn("name", value: \.name) { entry in
                 nameCell(entry)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cursorWash(entry))
             }
-            TableColumn("size") { entry in
+            TableColumn("size", value: \.size) { entry in
                 Text(entry.kind == .directory ? "—" : Self.sizeText(entry.size))
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .background(cursorWash(entry))
             }
             .width(min: 60, ideal: 80, max: 110)
-            TableColumn("modified") { entry in
+            TableColumn("modified", value: \.modified) { entry in
                 Text(entry.modified.formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cursorWash(entry))
             }
             .width(min: 110, ideal: 150, max: 190)
+        }
+        .onChange(of: sortOrder) { _, order in
+            // A header click re-sorts through the pane's own model — the
+            // Table reports the column, the listing keeps its comparators.
+            if let first = order.first { model.applySort(from: first) }
         }
         .tableStyle(.inset)
         .alternatingRowBackgrounds(.disabled)

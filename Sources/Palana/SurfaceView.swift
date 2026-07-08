@@ -92,6 +92,13 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
+            // The name in its own script — a quiet mark left of the glyphs.
+            ToolbarItem(placement: .primaryAction) {
+                Text("पालन")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Theme.inkFaint)
+                    .help("pālana")
+            }
             // The host map — summoned by F on the keyboard or this glyph;
             // esc puts it away.
             ToolbarItem(placement: .primaryAction) {
