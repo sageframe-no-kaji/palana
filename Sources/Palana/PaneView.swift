@@ -26,6 +26,8 @@ struct PaneView: View {
     /// Starts an operation with this pane as the source — the session
     /// owns the panel.
     let onOperation: (PlanOperation) -> Void
+    /// Text zoom for the pane's rows — ⌘+ / ⌘- / ⌘0.
+    let fontScale: CGFloat
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -208,6 +210,7 @@ struct PaneView: View {
             if let first = order.first { model.applySort(from: first) }
         }
         .tableStyle(.inset)
+        .font(.system(size: 13 * fontScale))
         .alternatingRowBackgrounds(.disabled)
         .scrollContentBackground(.hidden)
         .background(Theme.ground)

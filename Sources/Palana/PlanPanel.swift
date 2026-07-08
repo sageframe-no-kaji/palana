@@ -17,8 +17,8 @@ struct PlanPanel: View {
     @FocusState private var namingFieldFocused: Bool
     @State private var nameText = ""
 
-    private let mono = Font.system(size: 12, design: .monospaced)
-    private let monoSmall = Font.system(size: 11, design: .monospaced)
+    private var mono: Font { .system(size: 12 * session.fontScale, design: .monospaced) }
+    private var monoSmall: Font { .system(size: 11 * session.fontScale, design: .monospaced) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

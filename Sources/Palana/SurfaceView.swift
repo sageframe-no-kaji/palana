@@ -193,7 +193,8 @@ struct SurfaceView: View {
             onOperation: { operation in
                 session.focusedSide = side
                 session.beginOperation(operation)
-            }
+            },
+            fontScale: session.fontScale
         )
         .frame(minWidth: 320)
     }

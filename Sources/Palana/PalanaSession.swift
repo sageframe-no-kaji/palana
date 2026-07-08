@@ -63,6 +63,8 @@ final class PalanaSession {
     let readsTool: SystemReadsTool
     /// True while the keyboard points into the terminal strip.
     var terminalFocused = false
+    /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
+    var fontScale: CGFloat = 1.0
 
     private let conduit: SSHConduit
     private let field: Field
@@ -217,12 +219,7 @@ final class PalanaSession {
         guard !left.pathEditing, !right.pathEditing, !operation.isNaming, !settingsFieldFocused else { return false }
         guard let token = Grammar.token(for: event) else { return false }
         // ⌘, reaches settings even while help or the field view is up.
-        if token == "cmd-," {
-            helpVisible = false
-            fieldVisible = false
-            settingsVisible.toggle()
-            return true
-        }
+        if handleGlobalChord(token) { return true }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
         // While the terminal holds focus, a tool hint fires its read — but every
@@ -453,6 +450,33 @@ final class PalanaSession {
 // MARK: - Help, settings, and field overlay keys
 
 extension PalanaSession {
+    /// Global chords — settings and the text zoom.
+    ///
+    /// Fired regardless of overlay or focus, and extracted from `handle` to
+    /// keep that method within the complexity limit.
+    private func handleGlobalChord(_ token: String) -> Bool {
+        switch token {
+        case "cmd-,":
+            helpVisible = false
+            fieldVisible = false
+            settingsVisible.toggle()
+        case "cmd-=", "cmd-+":
+            adjustFontScale(by: 0.1)
+        case "cmd--":
+            adjustFontScale(by: -0.1)
+        case "cmd-0":
+            fontScale = 1.0
+        default:
+            return false
+        }
+        return true
+    }
+
+    /// Nudges the text zoom, clamped to a legible range.
+    private func adjustFontScale(by delta: CGFloat) {
+        fontScale = min(max(fontScale + delta, 0.75), 1.8)
+    }
+
     /// Handles f, F, and backtick — the three tokens that bypass the recognizer.
     ///
     /// All three are gated on `pendingPrefix.isEmpty` so multi-key chords
