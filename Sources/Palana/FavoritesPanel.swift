@@ -25,6 +25,13 @@ final class FavoritesPanelModel {
     /// host's group is open on first sight.
     private(set) var collapsed: Set<String> = []
 
+    /// The keyboard cursor's stable id — `"hdr:<groupKey>"` or `"fav:<id>"`.
+    ///
+    /// `nil` until the operator first uses keyboard nav; the session
+    /// clamps it to the first row on first use. Survives list changes
+    /// by id — the session re-resolves the index each keypress.
+    var cursor: String?
+
     /// Toggles the collapsed state of the given group key.
     ///
     /// A key absent from `collapsed` is added (section closes); a key present
@@ -35,6 +42,16 @@ final class FavoritesPanelModel {
         } else {
             collapsed.insert(key)
         }
+    }
+
+    /// Removes a key from the collapsed set (expands that group).
+    func expand(key: String) {
+        collapsed.remove(key)
+    }
+
+    /// Inserts a key into the collapsed set (collapses that group).
+    func collapse(key: String) {
+        collapsed.insert(key)
     }
 }
 
@@ -157,27 +174,37 @@ struct FavoritesContent: View {
     }
 
     private var scrollArea: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                let groups = FavoritesOutline.groups(
-                    from: favoritesModel.all,
-                    collapsed: panelModel.collapsed)
-                if groups.isEmpty {
-                    emptyState
-                } else {
-                    ForEach(groups) { group in
-                        FavoritesGroupView(
-                            group: group,
-                            onToggle: { panelModel.toggle(key: group.key) },
-                            onJump: onJump,
-                            onUnstar: onUnstar,
-                            onSetScope: onSetScope)
-                        Divider().opacity(0.25)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    let groups = FavoritesOutline.groups(
+                        from: favoritesModel.all,
+                        collapsed: panelModel.collapsed)
+                    if groups.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach(groups) { group in
+                            FavoritesGroupView(
+                                group: group,
+                                cursor: panelModel.cursor,
+                                onToggle: { panelModel.toggle(key: group.key) },
+                                onJump: onJump,
+                                onUnstar: onUnstar,
+                                onSetScope: onSetScope)
+                            Divider().opacity(0.25)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .onChange(of: panelModel.cursor) { _, newCursor in
+                if let id = newCursor {
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        proxy.scrollTo(id, anchor: .center)
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
         }
     }
 
@@ -215,6 +242,8 @@ struct FavoritesContent: View {
 struct FavoritesGroupView: View {
     /// The group's display data.
     let group: FavoritesOutline.Group
+    /// The keyboard cursor's stable id — used to highlight the selected row.
+    let cursor: String?
     /// Called when the operator taps the disclosure chevron.
     let onToggle: () -> Void
     /// Called when the operator jumps to a favorite.
@@ -234,6 +263,9 @@ struct FavoritesGroupView: View {
         .padding(.vertical, 8)
     }
 
+    private var headerCursorID: String { "hdr:\(group.key)" }
+    private var isHeaderSelected: Bool { cursor == headerCursorID }
+
     private var groupHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             groupChevron
@@ -245,6 +277,13 @@ struct FavoritesGroupView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.inkFaint)
         }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(Theme.accent.opacity(isHeaderSelected ? 0.18 : 0))
+        )
+        .id(headerCursorID)
         .contentShape(Rectangle())
         .onTapGesture { onToggle() }
     }
@@ -263,6 +302,7 @@ struct FavoritesGroupView: View {
         ForEach(group.favorites) { fav in
             FavoriteRowView(
                 favorite: fav,
+                isSelected: cursor == "fav:\(fav.id)",
                 onJump: { onJump(fav.host, fav.path) },
                 onUnstar: { onUnstar(fav.id) },
                 onSetScope: { newScope in onSetScope(fav.id, newScope) })
@@ -276,6 +316,8 @@ struct FavoritesGroupView: View {
 struct FavoriteRowView: View {
     /// The favorite to display.
     let favorite: Favorite
+    /// True when this row is the keyboard cursor's current position.
+    let isSelected: Bool
     /// Called when the operator jumps to this favorite.
     let onJump: () -> Void
     /// Called when the operator unstars this favorite.
@@ -298,13 +340,18 @@ struct FavoriteRowView: View {
             .buttonStyle(.plain)
             .help("jump here — \(favorite.host):\(favorite.path)")
 
-            if hovering {
+            if hovering || isSelected {
                 scopeToggleButton
                 unstarButton
             }
         }
         .padding(.leading, 24)
         .padding(.vertical, 2)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(Theme.accent.opacity(isSelected ? 0.18 : 0))
+        )
+        .id("fav:\(favorite.id)")
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
     }

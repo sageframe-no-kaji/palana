@@ -373,7 +373,7 @@ extension PaneView {
         if let entry = directoryEntry {
             let entryPath = PaneModel.childPath(of: model.state.path, name: entry.name)
             let isStarred = favorites.isFavorited(host: model.state.host ?? "", path: entryPath)
-            Button(isStarred ? "unstar this location" : "star this location") {
+            Button(isStarred ? "unstar this location" : "star this location    ⇧⌘8") {
                 onStarEntry(entryPath)
             }
         }

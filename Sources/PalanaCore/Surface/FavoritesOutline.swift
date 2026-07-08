@@ -44,6 +44,53 @@ public enum FavoritesOutline {
         public var id: String { key }
     }
 
+    // MARK: - Navigable rows
+
+    /// A single keyboard-navigable row in the favorites panel.
+    ///
+    /// Headers have an id of the form `"hdr:<groupKey>"`; favorites use
+    /// `"fav:<favorite.id>"`. The stable id string lets the cursor survive
+    /// list mutations: the caller recomputes the row list, looks up the
+    /// cursor's id, and moves the cursor only when the id is gone.
+    public enum Row: Sendable, Equatable {
+        /// A group header row.
+        case header(groupKey: String)
+        /// A favorite row.
+        case favorite(Favorite)
+
+        /// The stable cursor identity string.
+        public var cursorID: String {
+            switch self {
+            case .header(let key): return "hdr:\(key)"
+            case .favorite(let fav): return "fav:\(fav.id)"
+            }
+        }
+    }
+
+    /// Flattens the display-ready groups into a single ordered list of
+    /// keyboard-navigable rows.
+    ///
+    /// Each group contributes one `header` row followed by zero or more
+    /// `favorite` rows (only when the group is expanded). The ordering
+    /// mirrors ``groups(from:collapsed:)`` exactly.
+    ///
+    /// - Parameters:
+    ///   - favorites: The flat, insertion-ordered favorites list.
+    ///   - collapsed: Keys of sections the operator has closed.
+    /// - Returns: The navigable rows in canonical display order.
+    public static func flatRows(from favorites: [Favorite], collapsed: Set<String>) -> [Row] {
+        var rows: [Row] = []
+        for group in groups(from: favorites, collapsed: collapsed) {
+            rows.append(.header(groupKey: group.key))
+            if group.expanded {
+                for fav in group.favorites {
+                    rows.append(.favorite(fav))
+                }
+            }
+        }
+        return rows
+    }
+
     // MARK: - Builder
 
     /// Builds the display-ready groups for the favorites column.

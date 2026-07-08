@@ -209,11 +209,10 @@ final class PalanaSession {
                 return consumed ? nil : event
             }
             if event.window?.identifier?.rawValue == FavoritesPanelController.identifier {
-                if event.keyCode == 53 {
-                    MainActor.assumeIsolated { FavoritesPanelController.shared.close() }
-                    return nil
+                let consumed = MainActor.assumeIsolated {
+                    self?.handleFavoritesPanelKey(event) == true
                 }
-                return event
+                return consumed ? nil : event
             }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
@@ -545,7 +544,7 @@ extension PalanaSession {
             fontScale = 1.0
         case "cmd-k":
             operation.clearTranscript()
-        case "cmd-shift-8":
+        case "cmd-shift-8", "cmd-shift-*":
             starHighlightedEntry()
         default:
             return false

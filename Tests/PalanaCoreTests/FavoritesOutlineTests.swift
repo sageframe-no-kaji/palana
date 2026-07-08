@@ -218,3 +218,106 @@ struct FavoritesOutlineTests {
         #expect(groups.count == 2)
     }
 }
+
+// MARK: - FavoritesOutlineFlatRowsTests
+
+@Suite("FavoritesOutline.flatRows")
+struct FavoritesOutlineFlatRowsTests {
+    // MARK: Empty input
+
+    @Test("empty favorites produce no rows")
+    func emptyInput() {
+        let rows = FavoritesOutline.flatRows(from: [], collapsed: [])
+        #expect(rows.isEmpty)
+    }
+
+    // MARK: Row structure
+
+    @Test("header row appears for each group")
+    func headerRowsPresent() {
+        let favs: [Favorite] = [
+            fav(host: "koan", path: "/tank"),
+            fav(host: "zencat", path: "/etc"),
+        ]
+        let rows = FavoritesOutline.flatRows(from: favs, collapsed: [])
+        let headerCount = rows.filter {
+            if case .header = $0 { return true }
+            return false
+        }.count
+        #expect(headerCount == 2)
+    }
+
+    @Test("favorite rows appear under their group when expanded")
+    func favoriteRowsUnderGroup() {
+        let favs: [Favorite] = [
+            fav(host: "koan", path: "/tank"),
+            fav(host: "koan", path: "/home"),
+        ]
+        let rows = FavoritesOutline.flatRows(from: favs, collapsed: [])
+        // Expect: header for koan, then two favorites.
+        #expect(rows.count == 3)
+        if case .header(let key) = rows[0] { #expect(key == "koan") }
+        if case .favorite(let fav1) = rows[1] { #expect(fav1.path == "/tank") }
+        if case .favorite(let fav2) = rows[2] { #expect(fav2.path == "/home") }
+    }
+
+    @Test("favorites are hidden under a collapsed group")
+    func favoritesHiddenWhenCollapsed() {
+        let favs: [Favorite] = [
+            fav(host: "koan", path: "/tank"),
+            fav(host: "koan", path: "/home"),
+        ]
+        let rows = FavoritesOutline.flatRows(from: favs, collapsed: ["koan"])
+        // Only the header survives; favorites are tucked away.
+        #expect(rows.count == 1)
+        if case .header(let key) = rows[0] { #expect(key == "koan") }
+    }
+
+    @Test("global header appears first when global favorites exist")
+    func globalHeaderFirst() {
+        let favs: [Favorite] = [
+            fav(host: "koan", path: "/tank", scope: .global),
+            fav(host: "koan", path: "/home"),
+        ]
+        let rows = FavoritesOutline.flatRows(from: favs, collapsed: [])
+        if case .header(let key) = rows[0] { #expect(key == "global") }
+    }
+
+    // MARK: cursorID
+
+    @Test("header cursorID is 'hdr:<key>'")
+    func headerCursorID() {
+        let row = FavoritesOutline.Row.header(groupKey: "koan")
+        #expect(row.cursorID == "hdr:koan")
+    }
+
+    @Test("favorite cursorID is 'fav:<host>:<path>'")
+    func favoriteCursorID() {
+        let entry = fav(host: "koan", path: "/tank")
+        let row = FavoritesOutline.Row.favorite(entry)
+        #expect(row.cursorID == "fav:koan:/tank")
+    }
+
+    @Test("global group header cursorID is 'hdr:global'")
+    func globalHeaderCursorID() {
+        let row = FavoritesOutline.Row.header(groupKey: "global")
+        #expect(row.cursorID == "hdr:global")
+    }
+
+    // MARK: Mixed
+
+    @Test("mixed scopes produce correct row ordering")
+    func mixedScopesRows() {
+        let favs: [Favorite] = [
+            fav(host: "koan", path: "/tank", scope: .global),
+            fav(host: "zencat", path: "/etc"),
+        ]
+        let rows = FavoritesOutline.flatRows(from: favs, collapsed: [])
+        // global header, global fav, zencat header, zencat fav
+        #expect(rows.count == 4)
+        if case .header(let key0) = rows[0] { #expect(key0 == "global") }
+        if case .favorite(let fav1) = rows[1] { #expect(fav1.path == "/tank") }
+        if case .header(let key2) = rows[2] { #expect(key2 == "zencat") }
+        if case .favorite(let fav3) = rows[3] { #expect(fav3.path == "/etc") }
+    }
+}

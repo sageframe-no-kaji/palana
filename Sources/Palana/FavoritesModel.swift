@@ -16,6 +16,10 @@ import PalanaCore
 final class FavoritesModel {
     private var list: FavoritesList
     private let url: URL
+    /// Undo snapshots — each entry is the full `.all` list before a mutation.
+    ///
+    /// Capped at 25. The oldest snapshot is dropped when the cap is hit.
+    private var undoStack: [[Favorite]] = []
 
     /// Loads from `url` (missing or corrupt reads as an empty list).
     init(url: URL = FavoritesStore.defaultURL()) {
@@ -45,25 +49,40 @@ final class FavoritesModel {
 
     /// Removes a favorite if present (any scope); adds it host-bound if absent.
     func toggle(host: String, path: String) {
+        snapshot()
         list.toggle(host: host, path: path)
         persist()
     }
 
     /// Adds a favorite at the given scope (a no-op if already present).
     func add(host: String, path: String, scope: FavoriteScope) {
+        snapshot()
         list.add(host: host, path: path, scope: scope)
         persist()
     }
 
     /// Removes the favorite with the given id.
     func remove(id: String) {
+        snapshot()
         list.remove(id: id)
         persist()
     }
 
     /// Promotes or demotes a favorite by flipping its scope in place.
     func setScope(id: String, _ scope: FavoriteScope) {
+        snapshot()
         list.setScope(id: id, scope)
+        persist()
+    }
+
+    // MARK: - Undo
+
+    /// Pops the last pre-mutation snapshot and restores it.
+    ///
+    /// A no-op when the stack is empty.
+    func undo() {
+        guard let previous = undoStack.popLast() else { return }
+        list = FavoritesList(previous)
         persist()
     }
 
@@ -71,5 +90,11 @@ final class FavoritesModel {
 
     private func persist() {
         try? FavoritesStore.save(list.all, to: url)
+    }
+
+    /// Pushes the current list state onto the undo stack, trimming to 25 entries.
+    private func snapshot() {
+        if undoStack.count >= 25 { undoStack.removeFirst() }
+        undoStack.append(list.all)
     }
 }
