@@ -34,6 +34,7 @@ struct PaneView: View {
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
+    @State private var hoveredRow: FileEntry.ID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -188,12 +189,14 @@ struct PaneView: View {
                 nameCell(entry)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cursorWash(entry))
+                    .onHover { rowHover(entry.id, $0) }
             }
             TableColumn("size", value: \.size) { entry in
                 Text(entry.kind == .directory ? "—" : Self.sizeText(entry.size))
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .background(cursorWash(entry))
+                    .onHover { rowHover(entry.id, $0) }
             }
             .width(min: 60, ideal: 80, max: 110)
             TableColumn("modified", value: \.modified) { entry in
@@ -201,6 +204,7 @@ struct PaneView: View {
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cursorWash(entry))
+                    .onHover { rowHover(entry.id, $0) }
             }
             .width(min: 110, ideal: 150, max: 190)
         }
@@ -336,13 +340,6 @@ struct PaneView: View {
         entry.kind == .directory ? "\(entry.name)/" : entry.name
     }
 
-    /// The cursor row's own paint — moss wash, not the system accent.
-    private func cursorWash(_ entry: FileEntry) -> some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Theme.accent.opacity(model.state.cursor == entry.id ? 0.18 : 0))
-            .padding(.horizontal, -6)
-    }
-
     private var cursorBinding: Binding<FileEntry.ID?> {
         Binding(
             get: { model.state.cursor },
@@ -379,5 +376,28 @@ struct PaneView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Row wash and hover
+
+extension PaneView {
+    /// The cursor row's own paint — moss wash, not the system accent.
+    ///
+    /// The cursor sits at full wash, a hovered row at a light version of it.
+    private func cursorWash(_ entry: FileEntry) -> some View {
+        let opacity = model.state.cursor == entry.id ? 0.18 : (hoveredRow == entry.id ? 0.06 : 0)
+        return RoundedRectangle(cornerRadius: 3)
+            .fill(Theme.accent.opacity(opacity))
+            .padding(.horizontal, -6)
+    }
+
+    /// Tracks which row the mouse is over — the light hover wash follows it.
+    private func rowHover(_ id: FileEntry.ID, _ hovering: Bool) {
+        if hovering {
+            hoveredRow = id
+        } else if hoveredRow == id {
+            hoveredRow = nil
+        }
     }
 }

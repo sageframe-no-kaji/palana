@@ -529,6 +529,11 @@ extension OperationModel {
         showPanel()
         echo.appendLine(text, kind: .failure)
     }
+
+    /// ⌘K — clears the terminal transcript, phase untouched.
+    func clearTranscript() {
+        echo = EchoBuffer()
+    }
 }
 
 // MARK: - Touch

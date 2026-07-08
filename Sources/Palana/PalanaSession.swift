@@ -466,6 +466,8 @@ extension PalanaSession {
             adjustFontScale(by: -0.1)
         case "cmd-0":
             fontScale = 1.0
+        case "cmd-k":
+            operation.clearTranscript()
         default:
             return false
         }

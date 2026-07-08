@@ -30,6 +30,7 @@ struct WorkbenchStrip: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.top, 10)
         .frame(width: 96)
         .frame(maxHeight: .infinity)
         .background(Theme.ground)
