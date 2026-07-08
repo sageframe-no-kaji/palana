@@ -105,6 +105,7 @@ struct HelpOverlay: View {
                 column(Self.leftColumn)
                 column(Self.rightColumn)
             }
+            marksLegend
             Text("the terminal — a plan before Enter, its live output after; the tool reads land here too")
                 .font(.system(size: 10 * scale))
                 .foregroundStyle(Theme.inkFaint)
@@ -118,6 +119,24 @@ struct HelpOverlay: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
         .fixedSize()
+    }
+
+    /// The pane's drive glyphs, explained — filled is a dataset, hollow a plain mount.
+    private var marksLegend: some View {
+        HStack(spacing: 18 * scale) {
+            HStack(spacing: 5 * scale) {
+                Image(systemName: "externaldrive.fill")
+                    .foregroundStyle(Theme.accent)
+                Text("zfs dataset")
+            }
+            HStack(spacing: 5 * scale) {
+                Image(systemName: "externaldrive")
+                    .foregroundStyle(Theme.inkFaint)
+                Text("plain mount — a filesystem boundary")
+            }
+        }
+        .font(.system(size: 10 * scale))
+        .foregroundStyle(Theme.inkFaint)
     }
 
     private func column(_ sections: [HelpSection]) -> some View {
