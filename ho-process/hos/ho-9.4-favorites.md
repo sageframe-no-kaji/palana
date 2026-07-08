@@ -97,8 +97,16 @@ The value types and the persistence store in `PalanaCore`, silent-fail load and 
 
 ## Phase 3 — Reflect
 
-_Pending execution and the practitioner's hands._
+**The truth-in-core discipline paid, and the review caught where it slipped.** The engine tasks landed the value types and the store where they belonged, but the surface task hit the SwiftPM wall—an executable target can't be imported by a test target—and papered over it with a reference implementation, tests that exercised a copy of the logic instead of the model itself. The review caught it: the fix was to relocate the list logic into a pure `FavoritesList` in the core, tested for real, with `FavoritesModel` a thin shell over it. The same shape held for the column: `FavoritesOutline` (grouping) and its `flatRows` (keyboard order) are pure and tested; the panel and the fold state are surface. Every piece of favorites truth ended up in `PalanaCore` where the floor bites, exactly as the system design promises.
+
+**The v1 surface was the star and the host menu; the hands session grew the column the ho anticipated.** The Think phase deferred "a dedicated favorites summon key or overlay card" to the practitioner's hands, and that is what arrived—a floating column on the host-map lineage, opened with `*` and a titlebar star, organized by machine with expanders, keyboard-navigable like a single pane of the main program (arrows and hjkl, dig and climb, Enter jumps, shift-arrows promote and demote), with a one-level-plus undo stack. The two scopes the slate named held all the way through: host-bound under each machine, global on top, promote and demote in place.
+
+**A platform trap worth keeping: `charactersIgnoringModifiers` applies Shift.** `cmd-shift-8` beeped because the token builder produced `cmd-shift-*` (shift-8 is `*`), not the literal the handler checked. The same builder drops Shift entirely for arrow keys, so the panel reads the raw `NSEvent` to tell shift-up from up. Any future shifted-number or shift-arrow binding inherits both facts.
+
+**The jump-target question converged through the practitioner's hands into the cleanest form.** It moved from "which pane does Enter target?" (the focused one) through a live text strip naming the destination, to a three-arrow selector—left, both, right—defaulting to the pane he was on, one mechanism for mouse and keyboard both. His word on it: "a hot fucking solution." Shift-Enter, added a round earlier for the opposite pane, was superseded and removed—the arrow said it better.
+
+**Deferred, named:** a "starred" column in the column picker—marking favorited directories in the pane table—waits for ho-9.8, which builds the picker it rides on.
 
 ---
 
-_Authored: 2026-07-08 (Think phase, Opus). To execute: two agent tasks on claude-sonnet-4-6, reviewed by the session, then a hands session for the scope-feel (star default, menu vs card, a summon key)._
+_Authored: 2026-07-08 (Think phase, Opus). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session; three hands rounds grew the column, the keyboard navigation, and the arrow selector. Closed 2026-07-08. Favorites truth is core-resident and tested; the surface is thin. CI green._
