@@ -11,7 +11,7 @@ next: per-ho dandori specs authored via ho-kamae-5
 
 # pālana — Ho Overview
 
-Twelve hos across five phases (v1.0 target). Phase 1 stands the project up and answers its one genuine go/no-go. Phase 2 builds the entire engine headless — everything below the Surface, tested against fixtures, with no UI in existence. Phase 3 builds the app on the finished engine, one surface at a time. Phase 4 proves the plugin API with the ZFS tool. Phase 5 signs, notarizes, and releases v1.0.
+The build runs six phases (v1.0 target). Phase 1 stands the project up and answers its one genuine go/no-go. Phase 2 builds the entire engine headless — everything below the Surface, tested against fixtures, with no UI in existence. Phase 3 builds the app on the finished engine, one surface at a time (and grew the ho-9 insertion run at Checkpoint 3). Phase 4 proves the plugin API — read-only first, then the mutating ZFS tool. Phase 5 builds the interactive terminal, its own animal. Phase 6 signs, notarizes, and releases v1.0.
 
 This is the autonomous build the seed committed to. The agent authors and executes every ho — the per-ho dandori specs, the code, the tests, the commits. The practitioner is interrupted for exactly three sessions: ho-07, ho-08, and ho-09, hands on the running app, feel feedback, pinged via the project's ntfy channel (topic recorded in `prompts/ntfy-topic.txt`, gitignored) when the app is ready for hands. Everything else runs without interruption, with two standing rules. An architecture-reshaping surprise halts the session and surfaces to the practitioner — the agent does not silently make the call. And the hard limit has no exceptions: no mutating operations against live homelab hosts, ever. Development runs against fixtures only — a localhost sshd container and a file-backed throwaway ZFS pool in a Linux VM. The practitioner's machines become targets only when the practitioner is driving.
 
@@ -34,8 +34,9 @@ This is not a contract. It is the map. Per-ho dandori specs are the territory.
 | 1. Foundation | ho-00, ho-01 | Verified scaffold, primed concepts, the go/no-go answered with evidence |
 | 2. The Engine | ho-02 – ho-06 | PalanaCore complete and headless — Conduit, Field, Listing, Plan Engine, Transports |
 | 3. The Surface | ho-07, ho-08, ho-09 | The app — panes, plan → enact, field view. Three UI/UX sessions |
-| 4. The Workbench | ho-10 | Plugin API proven by the ZFS tool, core unmodified |
-| 5. The Ship | ho-11 | Signed, notarized .dmg on GitHub Releases, docs current, v1.0 tagged |
+| 4. The Workbench | ho-10, ho-10.1 | Plugin API proven read-only (done), then the mutating ZFS tool, core unmodified |
+| 5. The Terminal | ho-11 | A live interactive shell, per host, over the Conduit |
+| 6. The Ship | ho-12 | Signed, notarized .dmg on GitHub Releases, docs current, v1.0 tagged |
 
 ---
 
@@ -292,7 +293,7 @@ The API is the commitment, and its first consumer proves it by use, not by specu
 
 **Possible split:** ho-10.1 (the Workbench protocol and its harness) and ho-10.2 (the ZFS tool built on it). The API and its first consumer are different work, and the split line is exactly the boundary the ho exists to prove.
 
-**The split happened, and differently than guessed.** ho-10 shipped the protocol proven by a *read-only* consumer (the system-reads tool), on the practitioner's sealed direction — the boundary is proven, mutation deferred. The mutating ZFS tool the overview named is not dropped; it becomes **ho-10.1** below. And the interactive terminal kamae-2 held at "later" gets its slot, **ho-10.2**. The Workbench is three hos, not one: the boundary (ho-10, done), the mutating tool that proves it in anger (ho-10.1), and the shell (ho-10.2).
+**The split happened, and differently than guessed.** ho-10 shipped the protocol proven by a *read-only* consumer (the system-reads tool), on the practitioner's sealed direction — the boundary is proven, mutation deferred. The mutating ZFS tool the overview named is not dropped; it becomes **ho-10.1** below. And the interactive terminal kamae-2 held at "later" gets its slot, **ho-11**. The Workbench is three hos, not one: the boundary (ho-10, done), the mutating tool that proves it in anger (ho-10.1), and the shell (ho-11).
 
 ---
 
@@ -312,11 +313,17 @@ The Workbench's mutating proof — the tool the overview's ho-10 always named, n
 - The ZFS tool mutates against the throwaway pool only, through the Workbench API alone, and a diff of PalanaCore shows the API growing deliberately or not at all — never a plugin reaching inside
 - Every mutation reads as a plan before Enter arms — the trust placement holds for writes as it does for transfers
 
-**What's out of scope:** The interactive terminal (ho-10.2). Dynamically loaded bundles.
+**What's out of scope:** The interactive terminal — it is its own phase now (ho-11). Dynamically loaded bundles.
 
 ---
 
-### ho-10.2 — The Interactive Terminal
+## Phase 5 — The Terminal
+
+Its own phase because it is its own animal. Not a plugin on the Workbench pattern — a live, interactive, type-into-it terminal, per host, over the same Conduit door every read and transfer already uses. The v1 commitment was the echo, not the shell. This phase makes good on the shell.
+
+*Release on phase complete: v0.5*
+
+### ho-11 — The Interactive Terminal
 
 The Workbench tool kamae-2 held at "later" — a real type-into-it terminal, per host, over the Conduit. The v1 commitment was the echo, not the shell, and ho-08's `EchoBuffer` was purpose-built for that one-way echo. An interactive shell wants a real terminal emulator and a PTY. The Think phase decides whether that is SwiftTerm (the dependency ho-08 weighed and set aside for the echo) or a purpose-built emulator, and how a typed session sits beside the plan panel's one-monospace claim — a second terminal surface, or the plan panel grown a third mode.
 
@@ -333,17 +340,17 @@ The Workbench tool kamae-2 held at "later" — a real type-into-it terminal, per
 
 ---
 
-## Phase 5 — The Ship
+## Phase 6 — The Ship
 
 Release. The Sharibako signing and notarization pipeline is reused, not rebuilt — the existing Developer ID cert, `notarytool` and `stapler`, a `.dmg` through GitHub Releases on `sageframe-no-kaji/palana`. The `.app` bundles nothing but itself, which makes this a simpler notarization than Sharibako's. Docs get their final pass against shipped behavior. At the end of the phase a signed, notarized `.dmg` sits on GitHub Releases, the documentation is current, and v1.0 is tagged.
 
 *Release on phase complete: v1.0*
 
-### ho-11 — The Ship
+### ho-12 — The Ship
 
 Signing, notarization, docs, release. The pipeline exists and has shipped a real app — this ho adapts it, verifies the notarized build on a clean machine, brings the README and the build record current against what actually shipped, and tags v1.0. No App Store, no sandbox, no auto-update — the Sparkle slot stays named and empty.
 
-**Depends on:** ho-07, ho-08, ho-09, ho-10 (the app is complete before signing matters)
+**Depends on:** ho-07, ho-08, ho-09, ho-10 and ho-10.1 (the Workbench), ho-11 (the terminal), and the ho-9 remainder — the app is complete before signing matters
 
 **What's in scope:**
 - Developer ID signing and notarization via the Sharibako pipeline, scripts under `scripts/`, credentials never in the repository
@@ -447,11 +454,21 @@ Phase 3 — The Surface (three UI/UX sessions)
         ▲
         │  ◆ Checkpoint 3 — UI/UX findings consolidated ────── v0.3
 
-Phase 4 — The Workbench
-└── ho-10 (Plugin API + ZFS tool) ──────────────────────────── v0.4
+Phase 3.5 — The Surface remainder (ho-9 insertion run, Checkpoint 3)
+├── ho-9.1 (Rename + Create) · done    ho-9.2 (Settings) · done
+├── ho-9.3 (Mounts + Host Map) · done
+└── ho-9.4 … ho-9.10 (Favorites, Onboarding, Drag-drop, Polish,
+        Columns, Collision Facts, Remote Editing) · remaining
 
-Phase 5 — The Ship
-└── ho-11 (Signing, notarization, docs, release) ───────────── v1.0
+Phase 4 — The Workbench
+├── ho-10   (the boundary, proven read-only) · done ─────────── v0.3+
+└── ho-10.1 (the ZFS tool — the mutating plugin) ───────────── v0.5
+
+Phase 5 — The Terminal
+└── ho-11 (the interactive shell, per host) ───────────────── v0.6
+
+Phase 6 — The Ship
+└── ho-12 (signing, notarization, docs, release) ──────────── v1.0
 ```
 
 The cross-phase dependencies live in each ho's **Depends on** field above. The load-bearing ones: ho-04 waits on ho-03's probe, ho-05 draws on ho-03 and ho-04 and touches no wire, ho-07 builds on ho-01's verdict and ho-04's pane state, and ho-10 consumes exactly what the Workbench hands in — ho-02, ho-03, and ho-07's surface slot.
@@ -495,4 +512,4 @@ Update this overview as the build proceeds. A ho that splits gets its successors
 - **ho-9.1 closed 2026-07-05 — R renames, a creates, and the operator's hands paid for three truths.** The engine grew targetName and two operations composing as POSIX guards (no vendor flags — ho-07.5's lesson held), verification rides as visible steps, and the panel gained its first text input on the pathEditing stand-down with the cursor landing on the result. His hands then found what the battery couldn't: the open path was eating edits (every open fetched into one shared temp path — local now opens in place, remote gets a fresh directory per open), the guard refused illegibly (it speaks now), and copy overwrites without the plan saying so (ho-9.9 queued). Implementation delegated to claude-sonnet-4-6 across two tasks, reviewed by the session. 345 tests, 61 suites, CI green. **Next: ho-9.2 Settings.**
 - **ho-9.2 closed 2026-07-05 — the settings stand, the curtain works, and the card learned to explain itself.** One SettingsModel under three summons (⌘, · the titlebar gear · Apple's Settings scene): hide toggles writing single `# palana: hide` comments through the core transform (backup required before every write—no backup, no write), the rsync extras (two exclude checkboxes + free flags) composing visibly into every plan, the visible-hosts curtain through the session (typed addresses exempt). Three live feedback rounds: the heinous blue died into mini moss toggles, Esc got its exit back from the focus-hoarding field, host names grew, the floor got named in the card, the hosts footer answers "how does a host get in" with an ⓘ and the three-line block, and key-shaped refusals speak plainly in the field. Review caught the delegated backup-optional write and an Include regression. Queued into ho-9.5's Think: guided add, guided remove, key setup. His verdicts: "looking good!"—"toggles are doing just what they should." 366 tests, 64 suites, CI green. **Next: ho-9.3 — the mounts fact and the host map.**
 - **ho-9.3 closed 2026-07-06—the Field's third topology question has an answer and a surface, and the practitioner has driven the map.** The mounts fact keys on the kernel, not the userland: `cat /proc/mounts` reads kanyo-class ext4 and zencat's BusyBox at one fidelity, `mount` parsed on the BSDs, and the degradation the Think phase braced for never came—`cat` was the whole dependency. `Mount`/`MountKind` join the fact vocabulary, mounts ride discover as the third exchange (exit-0 gated, cached, aged by their own timestamp), and `HostMap` is a pure core value the panel only renders. The surface is the pinned sibling he asked for—a floating KeysPanel-lineage NSPanel summoned by `F` and a titlebar glyph, per-host probe buttons, the system-mount count named and never silent, floating while the panes work. Pane rows wear the drive glyph at every filesystem boundary, filled for a dataset and hollow for a plain mount. Six feedback rounds drove it live: the field card and the map both grew folding trees (datasets nested by pool—citadel-rex, mediapool, mu-karuna, rpool standing apart on koan's one hundred fifty-nine datasets), the diamonds became drive glyphs, `t` and `T` joined as touch and touch-new, the panel became a pane the grammar flows through—walk, switch, and fire a verb with it open, where esc and backtick hide it without cancelling the work—every enacted run writes `operations.log`, and round 6 put that log one `⌘⇧L` away and made the whole address header a focus target. The review caught what the battery could not—a corpus recorder blind to the new exchange, a fabricated corpus entry (the real koan table is forty mounts, not the imagined ten), stacked mounts collapsing on `\.target` identity—and the hands caught the wedge: a naming field that stranded the keyboard on a click away, released on focus loss now, the law generalized to every stand-down flag. Implementation delegated to claude-sonnet-4-6 across three tasks and six rounds, reviewed at the top. Queued forward: the `df` capacity fact, local mounts in the map, and pointing from a map row—all unpressed, out of scope held. The pool's vdevs live in `zpool status`, not the mount table, and become the first tenant of ho-10's tools strip. And to ho-9.8: header-click sort, a Finder-style column picker, and type-to-jump—a Think phase owed, because the letters are already verbs. 425 tests, 71 suites, core 97.67, CI green. **Next: ho-10 — the Workbench (the read-only tools strip beside the terminal, his sealed v1).**
-- **ho-10 closed 2026-07-08 — the Workbench boundary stands, proven read-only, and the practitioner has driven it hard.** The plugin API kamae-2 committed to is real: a `WorkbenchTool` protocol holds nothing and composes its verbs, the coordinator gates each against the Field's cached facts and runs a read verb's command raw through the Conduit, and the mutation seam (`VerbKind.mutation`, the `planRequest` hook) is named and tested-as-refused — a diff of PalanaCore shows the API added and nothing opened. The first consumer is the system-reads tool — `df -h`, `zfs list`, `zpool status`, `zpool list` — aimed at the focused pane's host (local off the wire), gated with plain refusals, raw output into the terminal transcript, no parsing. **This is a split, not a shrink of the overview's ho-10.** The practitioner sealed a read-only first cut to prove the boundary; the mutating ZFS tool the overview named (dataset CRUD, snapshots, mountpoint set/clear) splits forward to **ho-10.1**, and the interactive terminal kamae-2 held at "later" to **ho-10.2** — both now on the forward plan above. Delegated across two agent tasks on claude-sonnet-4-6, reviewed at the top, then a long UI/UX hands session (~30 commits) settled the feel: the strip's fire-the-reads gating, grid cells, hover, the engage mode (backtick focuses the terminal, tool letters fire, every other key still reaches the panes), the reversed enact call-out, two-stage esc that drops into terminal focus, `⌘K` clear, `⌘+`/`⌘-`/`⌘0` zoom, and the sizing floor that makes the smallest terminal hug the four chips. The session pulled design-polish forward — the titlebar mark and the macOS 26 glass-platter fight (unwinnable, embraced), font zoom, and header-click sort are **9.7 and 9.8 fragments that landed inside ho-10's commits, named here so those hos know what is already done.** Platform truths banked: the toolbar glass platter cannot be removed per item; SwiftUI's `Table` swallows per-row hover (killed, needs `NSTableView` if ever wanted). His word on the whole of it: "TIGHT." 444 tests, 75 suites, CI green. **Next: the Workbench continues — ho-10.1 (the ZFS mutating tool, the seam's real test) and ho-10.2 (the interactive terminal) — or the ho-9 remainder (9.4 Favorites, 9.5 Host Onboarding, 9.6 Drag-and-Drop, 9.7 Design Polish, 9.8 Columns, 9.9 Collision Facts, 9.10 Remote Round-Trip Editing) between the Workbench and the ship. The practitioner's ordering call decides.**
+- **ho-10 closed 2026-07-08 — the Workbench boundary stands, proven read-only, and the practitioner has driven it hard.** The plugin API kamae-2 committed to is real: a `WorkbenchTool` protocol holds nothing and composes its verbs, the coordinator gates each against the Field's cached facts and runs a read verb's command raw through the Conduit, and the mutation seam (`VerbKind.mutation`, the `planRequest` hook) is named and tested-as-refused — a diff of PalanaCore shows the API added and nothing opened. The first consumer is the system-reads tool — `df -h`, `zfs list`, `zpool status`, `zpool list` — aimed at the focused pane's host (local off the wire), gated with plain refusals, raw output into the terminal transcript, no parsing. **This is a split, not a shrink of the overview's ho-10.** The practitioner sealed a read-only first cut to prove the boundary; the mutating ZFS tool the overview named (dataset CRUD, snapshots, mountpoint set/clear) splits forward to **ho-10.1**, and the interactive terminal kamae-2 held at "later" to **ho-11** — both now on the forward plan above. Delegated across two agent tasks on claude-sonnet-4-6, reviewed at the top, then a long UI/UX hands session (~30 commits) settled the feel: the strip's fire-the-reads gating, grid cells, hover, the engage mode (backtick focuses the terminal, tool letters fire, every other key still reaches the panes), the reversed enact call-out, two-stage esc that drops into terminal focus, `⌘K` clear, `⌘+`/`⌘-`/`⌘0` zoom, and the sizing floor that makes the smallest terminal hug the four chips. The session pulled design-polish forward — the titlebar mark and the macOS 26 glass-platter fight (unwinnable, embraced), font zoom, and header-click sort are **9.7 and 9.8 fragments that landed inside ho-10's commits, named here so those hos know what is already done.** Platform truths banked: the toolbar glass platter cannot be removed per item; SwiftUI's `Table` swallows per-row hover (killed, needs `NSTableView` if ever wanted). His word on the whole of it: "TIGHT." 444 tests, 75 suites, CI green. **Next: the Workbench continues — ho-10.1 (the ZFS mutating tool, the seam's real test) and ho-11 (the interactive terminal) — or the ho-9 remainder (9.4 Favorites, 9.5 Host Onboarding, 9.6 Drag-and-Drop, 9.7 Design Polish, 9.8 Columns, 9.9 Collision Facts, 9.10 Remote Round-Trip Editing) between the Workbench and the ship. The practitioner's ordering call decides.**
