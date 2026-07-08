@@ -18,7 +18,8 @@ struct PlanPanel: View {
     @State private var nameText = ""
 
     private var mono: Font { .system(size: 13 * session.fontScale, design: .monospaced) }
-    private var monoSmall: Font { .system(size: 12 * session.fontScale, design: .monospaced) }
+    // The header chrome stays fixed — only the transcript zooms with ⌘+/⌘-.
+    private let monoSmall = Font.system(size: 12, design: .monospaced)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

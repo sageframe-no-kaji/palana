@@ -32,18 +32,18 @@ struct WorkbenchStrip: View {
                     .frame(height: 1)
             }
             .background(Theme.ground)
+            .overlay(alignment: .leading) {
+                // The left separator rides the chip block only — no bar below
+                // it. A hairline against the transcript, accent when engaged.
+                Rectangle()
+                    .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
+                    .frame(width: session.terminalFocused ? 2 : 1)
+                    .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
+            }
             Spacer(minLength: 0)
         }
         .frame(width: 108)
         .frame(maxHeight: .infinity)
-        .overlay(alignment: .leading) {
-            // The shared left separator — a hairline against the transcript,
-            // and the accent focus cue when the terminal holds the keyboard.
-            Rectangle()
-                .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
-                .frame(width: session.terminalFocused ? 2 : 1)
-                .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
-        }
         .task(id: focusedHost ?? "") {
             await refreshAvailabilities()
         }

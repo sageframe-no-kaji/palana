@@ -75,7 +75,9 @@ struct SurfaceView: View {
         VStack(spacing: 0) {
             VSplitView {
                 paneArea
-                    .frame(minHeight: 220)
+                    // Low enough that the panes shrink to make room for the
+                    // panel + footer at a small window — no lampshade overflow.
+                    .frame(minHeight: 150)
                 if session.operation.panelShowing {
                     // The floor fits the header (~31) plus the whole tool strip
                     // (four 28pt chips + five 1pt borders ≈ 117) so the smallest
