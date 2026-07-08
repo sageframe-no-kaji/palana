@@ -79,8 +79,8 @@ struct PlanPanel: View {
             hintView
         }
         .font(monoSmall)
+        .frame(height: 30)
         .padding(.horizontal, 14)
-        .padding(.vertical, 6)
     }
 
     private var phaseWord: String {
@@ -122,21 +122,23 @@ struct PlanPanel: View {
         }
     }
 
-    /// The header hint—a reversed accent chip calls out the live Return
-    /// action (moss ground, light letters), the rest stays quiet.
+    /// The header hint—a full-height accent block calls out the live Return
+    /// action (moss ground, light letters, square to the header lines), the
+    /// rest stays quiet beside it.
     @ViewBuilder private var hintView: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             if let callout = enactCallout {
                 Text(callout)
                     .fontWeight(.semibold)
                     .foregroundStyle(Theme.ground)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 4))
+                    .padding(.horizontal, 8)
+                    .frame(maxHeight: .infinity)
+                    .background(Theme.accent)
             }
             Text(hintRest)
                 .foregroundStyle(Theme.inkFaint)
         }
+        .frame(maxHeight: .infinity)
     }
 
     // MARK: - The naming field

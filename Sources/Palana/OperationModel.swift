@@ -395,12 +395,12 @@ final class OperationModel {
         panelShowing = true
     }
 
-    /// Esc out of the terminal while a command is in process — cancel it and leave.
+    /// First Esc on a command in process — cancel it, but stay open.
     ///
     /// A composing or armed plan resets to idle; a running transfer is cancelled
     /// (⌃C's path, with its partial-transfer warning left in the transcript). The
-    /// safety: escaping the terminal never leaves a command hanging. The panel
-    /// closes on the way out.
+    /// panel stays open showing the cancelled state, so the *second* Esc is what
+    /// closes the terminal — one keystroke is never both acts at once (too abrupt).
     func cancelCommand() {
         switch phase {
         case .gathering: cancelGathering()
@@ -408,7 +408,7 @@ final class OperationModel {
         case .ready: reset()
         default: break
         }
-        panelShowing = false
+        panelShowing = true
     }
 
     private func reset() {

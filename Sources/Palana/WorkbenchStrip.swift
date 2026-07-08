@@ -19,20 +19,24 @@ struct WorkbenchStrip: View {
     private var terminalBusy: Bool { session.operation.terminalBusy }
 
     var body: some View {
-        VStack(spacing: 6) {
-            ForEach(session.readsTool.verbs, id: \.id) { verb in
+        VStack(spacing: 0) {
+            ForEach(Array(session.readsTool.verbs.enumerated()), id: \.element.id) { index, verb in
+                if index > 0 {
+                    Rectangle()
+                        .fill(Theme.inkFaint.opacity(0.18))
+                        .frame(height: 1)
+                }
                 verbButton(verb)
             }
         }
-        .padding(8)
-        .frame(width: 100)
-        .background(Theme.panelGround)
+        .frame(width: 96)
+        .background(Theme.ground)
         .overlay(alignment: .leading) {
-            // Accent bar on the leading edge — the quiet focus cue.
+            // The shared left separator — a hairline against the transcript,
+            // and the accent focus cue when the terminal holds the keyboard.
             Rectangle()
-                .fill(Theme.accent)
-                .frame(width: 2)
-                .opacity(session.terminalFocused ? 0.65 : 0)
+                .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
+                .frame(width: session.terminalFocused ? 2 : 1)
                 .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
         }
         .task(id: focusedHost ?? "") {
@@ -51,14 +55,8 @@ struct WorkbenchStrip: View {
                 .font(.system(size: 9, weight: .semibold))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Theme.ground, in: RoundedRectangle(cornerRadius: 5))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(Theme.inkFaint.opacity(0.12), lineWidth: 1)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 5))
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
