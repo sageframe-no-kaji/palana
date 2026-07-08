@@ -179,16 +179,7 @@ struct SurfaceView: View {
     private func paneVerb(
         _ systemName: String, help: String, action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 5)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
+        ToolbarGlyphButton(systemName, help: help, action: action)
     }
 
     private func pane(_ model: PaneModel, side: SessionSnapshot.Side) -> some View {
@@ -270,4 +261,33 @@ struct SurfaceView: View {
 extension SessionSnapshot.Side: Identifiable {
     /// The raw name identifies the side for sheet presentation.
     public var id: String { rawValue }
+}
+
+/// A toolbar glyph that lights up on hover — a light moss wash, the VS Code feel.
+private struct ToolbarGlyphButton: View {
+    let systemName: String
+    let help: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    init(_ systemName: String, help: String, action: @escaping () -> Void) {
+        self.systemName = systemName
+        self.help = help
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Theme.accent.opacity(hovering ? 0.14 : 0)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(help)
+    }
 }
