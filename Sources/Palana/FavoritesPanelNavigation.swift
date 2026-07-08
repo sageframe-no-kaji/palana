@@ -86,10 +86,10 @@ extension PalanaSession {
         case 123:  // left — collapse
             favPanelCollapse(currentRow)
             return true
-        case 36:  // return — toggle header / jump favorite
+        case 36:  // return — toggle header / jump favorite (shift jumps the other pane)
             switch currentRow {
             case .header(let key): favoritesPanelModel.toggle(key: key)
-            case .favorite(let fav): favPanelJump(fav)
+            case .favorite(let fav): favPanelJump(fav, toOpposite: hasShift)
             }
             return true
         default:
@@ -142,12 +142,17 @@ extension PalanaSession {
         }
     }
 
-    /// Jumps the focused pane to a favorite, leaving the panel open.
+    /// Jumps a pane to a favorite, leaving the panel open.
     ///
-    /// The column stays up so the operator can jump again — same as a
-    /// mouse-click jump. Esc, `*`, or the titlebar star closes it.
-    func favPanelJump(_ fav: Favorite) {
-        focusedPane.point(host: fav.host, path: fav.path)
+    /// Targets the focused pane by default, or the opposite pane when
+    /// `toOpposite` is true (shift-Enter). The column stays up so the operator
+    /// can jump again — same as a mouse-click jump. Esc, `*`, or the titlebar
+    /// star closes it.
+    func favPanelJump(_ fav: Favorite, toOpposite: Bool = false) {
+        let side: SessionSnapshot.Side =
+            toOpposite ? (focusedSide == .left ? .right : .left) : focusedSide
+        let pane = side == .left ? left : right
+        pane.point(host: fav.host, path: fav.path)
     }
 
     /// Resolves the group key that owns a given favorite.

@@ -32,6 +32,13 @@ final class FavoritesPanelModel {
     /// by id — the session re-resolves the index each keypress.
     var cursor: String?
 
+    /// The pane a jump lands in — mirrors the session's focused side, live.
+    ///
+    /// Shown in the panel so the destination is never a guess. The session
+    /// keeps it in sync as focus moves (including focus-follows-click while
+    /// the column floats).
+    var targetSide: SessionSnapshot.Side = .left
+
     /// Toggles the collapsed state of the given group key.
     ///
     /// A key absent from `collapsed` is added (section closes); a key present
@@ -166,11 +173,29 @@ struct FavoritesContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            panelHeader
             scrollArea
             panelFooter
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// The live destination strip — names the pane a jump lands in.
+    private var panelHeader: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 4) {
+                Text("jumps to")
+                    .foregroundStyle(Theme.inkFaint)
+                Text("→ \(panelModel.targetSide == .left ? "left" : "right") pane")
+                    .foregroundStyle(Theme.accent)
+                Spacer()
+            }
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            Divider().opacity(0.35)
+        }
     }
 
     private var scrollArea: some View {

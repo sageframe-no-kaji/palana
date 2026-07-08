@@ -21,7 +21,9 @@ final class PalanaSession {
     /// The right pane.
     let right: PaneModel
     /// Which pane the keyboard drives.
-    var focusedSide = SessionSnapshot.Side.left
+    var focusedSide = SessionSnapshot.Side.left {
+        didSet { favoritesPanelModel.targetSide = focusedSide }
+    }
     /// Non-nil while the go-to bar is up, naming the pane it points.
     var gotoTarget: SessionSnapshot.Side?
     /// Whether the vocabulary card is up.
@@ -490,6 +492,7 @@ extension PalanaSession {
 
     /// Toggles the favorites column panel.
     func toggleFavoritesPanel() {
+        favoritesPanelModel.targetSide = focusedSide
         FavoritesPanelController.shared.toggle(
             favoritesModel: favorites,
             panelModel: favoritesPanelModel,
