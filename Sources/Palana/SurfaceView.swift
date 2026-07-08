@@ -92,39 +92,11 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // The name in its own script — a quiet mark left of the glyphs,
-            // sized to the window title "pālana", no button chrome.
+            // The trailing cluster — the name and the three glyphs in one
+            // bubble wearing the center swap cluster's groundDeep capsule.
+            // The opaque fill overrides the toolbar's own system glass.
             ToolbarItem(placement: .primaryAction) {
-                Text("पालन")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Theme.inkFaint)
-                    .help("pālana")
-            }
-            // The host map — summoned by F on the keyboard or this glyph;
-            // esc puts it away.
-            ToolbarItem(placement: .primaryAction) {
-                paneVerb("server.rack", help: "the host map — F") {
-                    HostMapPanelController.shared.toggle(
-                        model: session.hostMapModel,
-                        hosts: session.hosts
-                    )
-                }
-            }
-            // The settings gear — beside the vocabulary question mark.
-            ToolbarItem(placement: .primaryAction) {
-                paneVerb("gearshape", help: "settings — ⌘,") {
-                    session.helpVisible = false
-                    session.fieldVisible = false
-                    session.settingsVisible.toggle()
-                }
-            }
-            // The vocabulary, reachable by mouse — third hands session's ask.
-            ToolbarItem(placement: .primaryAction) {
-                paneVerb("questionmark", help: "the keys — ? on the keyboard") {
-                    session.settingsVisible = false
-                    session.fieldVisible = false
-                    session.helpVisible.toggle()
-                }
+                trailingCluster
             }
         }
     }
@@ -151,6 +123,36 @@ struct SurfaceView: View {
                 session.mirror(to: .right)
             }
             .disabled(session.left.state.host == nil)
+        }
+        .background(Capsule().fill(Theme.groundDeep))
+        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+    }
+
+    /// The trailing cluster — pālana in its script, then the host-map,
+    /// settings, and keys glyphs, all in the swap cluster's groundDeep capsule.
+    private var trailingCluster: some View {
+        HStack(spacing: 0) {
+            Text("पालन")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(Theme.inkFaint)
+                .padding(.horizontal, 8)
+                .help("pālana")
+            paneVerb("server.rack", help: "the host map — F") {
+                HostMapPanelController.shared.toggle(
+                    model: session.hostMapModel,
+                    hosts: session.hosts
+                )
+            }
+            paneVerb("gearshape", help: "settings — ⌘,") {
+                session.helpVisible = false
+                session.fieldVisible = false
+                session.settingsVisible.toggle()
+            }
+            paneVerb("questionmark", help: "the keys — ? on the keyboard") {
+                session.settingsVisible = false
+                session.fieldVisible = false
+                session.helpVisible.toggle()
+            }
         }
         .background(Capsule().fill(Theme.groundDeep))
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
