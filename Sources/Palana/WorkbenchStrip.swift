@@ -20,30 +20,28 @@ struct WorkbenchStrip: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                ForEach(session.readsTool.verbs, id: \.id) { verb in
-                    Rectangle()
-                        .fill(Theme.inkFaint.opacity(0.18))
-                        .frame(height: 1)
-                    chip(verb)
-                }
+            ForEach(session.readsTool.verbs, id: \.id) { verb in
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
+                chip(verb)
             }
-            .background(Theme.ground)
-            .overlay(alignment: .leading) {
-                // The left separator rides the chip block only — no bar below
-                // it. A hairline against the transcript, accent when engaged.
-                Rectangle()
-                    .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
-                    .frame(width: session.terminalFocused ? 2 : 1)
-                    .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
-            }
+            Rectangle()
+                .fill(Theme.inkFaint.opacity(0.18))
+                .frame(height: 1)
             Spacer(minLength: 0)
         }
         .frame(width: 108)
         .frame(maxHeight: .infinity)
+        .background(Theme.ground)
+        .overlay(alignment: .leading) {
+            // The left separator and the cream ground carry all the way down —
+            // a hairline against the transcript, accent when engaged.
+            Rectangle()
+                .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
+                .frame(width: session.terminalFocused ? 2 : 1)
+                .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
+        }
         .task(id: focusedHost ?? "") {
             await refreshAvailabilities()
         }

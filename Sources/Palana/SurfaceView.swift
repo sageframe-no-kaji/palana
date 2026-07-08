@@ -79,11 +79,11 @@ struct SurfaceView: View {
                     // panel + footer at a small window — no lampshade overflow.
                     .frame(minHeight: 150)
                 if session.operation.panelShowing {
-                    // The floor fits the header (~31) plus the whole tool strip
-                    // (four 28pt chips + five 1pt borders ≈ 117) so the smallest
-                    // drag never clips a chip top or bottom.
+                    // Floor hugs the header (~31) + the four chips + their
+                    // borders (~117) so the smallest terminal is just the strip
+                    // — no clip, no gap under the last chip.
                     PlanPanel(operation: session.operation, session: session)
-                        .frame(minHeight: 156, idealHeight: 280)
+                        .frame(minHeight: 150, idealHeight: 280)
                 }
             }
             Divider()
