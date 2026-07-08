@@ -112,34 +112,28 @@ struct HelpOverlay: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14 * scale) {
-            Text("the keys")
-                .font(.system(size: 12 * scale, weight: .semibold))
-                .foregroundStyle(Theme.inkFaint)
-            HStack(alignment: .top, spacing: 32 * scale) {
-                column(Self.leftColumn)
-                column(Self.rightColumn)
+        VStack(alignment: .leading, spacing: 0) {
+            OverlayHeader(title: "the keys", onClose: dismissAction)
+            VStack(alignment: .leading, spacing: 14 * scale) {
+                HStack(alignment: .top, spacing: 32 * scale) {
+                    column(Self.leftColumn)
+                    column(Self.rightColumn)
+                }
+                marksLegend
+                Text("the terminal — a plan before Enter, its live output after; the tool reads land here too")
+                    .font(.system(size: 10 * scale))
+                    .foregroundStyle(Theme.inkFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(footer)
+                    .font(.system(size: 10 * scale))
+                    .foregroundStyle(Theme.inkFaint)
             }
-            marksLegend
-            Text("the terminal — a plan before Enter, its live output after; the tool reads land here too")
-                .font(.system(size: 10 * scale))
-                .foregroundStyle(Theme.inkFaint)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(footer)
-                .font(.system(size: 10 * scale))
-                .foregroundStyle(Theme.inkFaint)
+            .padding(24 * scale)
         }
-        .padding(24 * scale)
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
         .fixedSize()
-        .overlay(alignment: .topLeading) {
-            if let dismissAction {
-                OverlayCloseButton(action: dismissAction)
-                    .padding(10)
-            }
-        }
     }
 
     /// The pane's drive glyphs, explained — filled is a dataset, hollow a plain mount.

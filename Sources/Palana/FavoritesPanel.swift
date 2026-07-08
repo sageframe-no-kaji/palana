@@ -184,15 +184,12 @@ struct FavoritesContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            OverlayHeader(title: "favorites") { FavoritesPanelController.shared.close() }
             panelHeader
             scrollArea
             panelFooter
         }
         .background(Theme.ground)
-        .overlay(alignment: .topLeading) {
-            OverlayCloseButton { FavoritesPanelController.shared.close() }
-                .padding(10)
-        }
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 

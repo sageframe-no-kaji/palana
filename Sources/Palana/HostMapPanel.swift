@@ -178,14 +178,11 @@ struct HostMapContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            OverlayHeader(title: "the host map") { HostMapPanelController.shared.close() }
             scrollArea
             panelFooter
         }
         .background(Theme.ground)
-        .overlay(alignment: .topLeading) {
-            OverlayCloseButton { HostMapPanelController.shared.close() }
-                .padding(10)
-        }
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 

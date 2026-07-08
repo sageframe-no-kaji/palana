@@ -374,28 +374,19 @@ struct SettingsCard: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            cardHeader
-            Divider().opacity(0.35)
-            SettingsForm(model: model, session: session)
-            Divider().opacity(0.35)
-            cardFooter
+        VStack(alignment: .leading, spacing: 0) {
+            OverlayHeader(title: "settings") { session.settingsVisible = false }
+            VStack(alignment: .leading, spacing: 14) {
+                SettingsForm(model: model, session: session)
+                Divider().opacity(0.35)
+                cardFooter
+            }
+            .padding(24)
         }
-        .padding(24)
         .frame(width: 400)
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
-        .overlay(alignment: .topLeading) {
-            OverlayCloseButton { session.settingsVisible = false }
-                .padding(10)
-        }
-    }
-
-    private var cardHeader: some View {
-        Text("settings")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Theme.inkFaint)
     }
 
     private var cardFooter: some View {

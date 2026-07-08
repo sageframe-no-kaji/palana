@@ -131,30 +131,19 @@ struct FieldOverlay: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            cardHeader
-            Divider().opacity(0.35)
-            linesArea
-            Divider().opacity(0.35)
-            cardFooter
+        VStack(alignment: .leading, spacing: 0) {
+            OverlayHeader(title: "the field", onClose: dismissAction)
+            VStack(alignment: .leading, spacing: 14) {
+                linesArea
+                Divider().opacity(0.35)
+                cardFooter
+            }
+            .padding(24)
         }
-        .padding(24)
         .frame(width: 520)
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
-        .overlay(alignment: .topLeading) {
-            if let dismissAction {
-                OverlayCloseButton(action: dismissAction)
-                    .padding(10)
-            }
-        }
-    }
-
-    private var cardHeader: some View {
-        Text("the field")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Theme.inkFaint)
     }
 
     private var linesArea: some View {
