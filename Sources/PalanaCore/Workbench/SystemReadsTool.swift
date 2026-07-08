@@ -28,7 +28,7 @@ public struct SystemReadsTool: WorkbenchTool {
         WorkbenchVerb(
             id: "zfs-list",
             label: "zfs list",
-            keyHint: "l",
+            keyHint: "z",
             requirement: .zfs,
             kind: .read
         ),
@@ -42,7 +42,7 @@ public struct SystemReadsTool: WorkbenchTool {
         WorkbenchVerb(
             id: "zpool-list",
             label: "zpool list",
-            keyHint: "z",
+            keyHint: "p",
             requirement: .zfs,
             kind: .read
         ),

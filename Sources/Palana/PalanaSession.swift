@@ -225,7 +225,12 @@ final class PalanaSession {
         }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
-        guard !terminalFocused else { return handleTerminalFocusKey(token) }
+        // While the terminal holds focus, a tool hint fires its read — but every
+        // other key still flows to the panes, so the operator keeps acting there.
+        if terminalFocused, let verb = readsTool.verbs.first(where: { $0.keyHint == token }) {
+            runWorkbenchVerb(verb)
+            return true
+        }
         if token == "esc" {
             // A pending prefix dies first; a bare Esc clears the selection.
             if pendingPrefix.isEmpty {
@@ -465,7 +470,9 @@ extension PalanaSession {
             return true
         }
         if token == "`" {
+            // Entering the terminal engages it — the tool letters light up at once.
             operation.showPanel()
+            terminalFocused = true
             return true
         }
         if token == "cmd-shift-l" {
@@ -474,7 +481,7 @@ extension PalanaSession {
         }
         if token == "shift-tab" {
             if !operation.panelShowing { operation.showPanel() }
-            terminalFocused = true
+            terminalFocused.toggle()
             return true
         }
         return false
@@ -583,25 +590,6 @@ extension PalanaSession {
 // MARK: - Workbench and terminal focus
 
 extension PalanaSession {
-    /// Routes a key press while the keyboard points into the terminal strip.
-    ///
-    /// Panel priority keys (esc, backtick) are handled earlier and clear
-    /// `terminalFocused` — this path covers tab, shift-tab, the tool key
-    /// hints, and everything else while the strip holds focus.
-    func handleTerminalFocusKey(_ token: String) -> Bool {
-        switch token {
-        case "tab", "shift-tab", "esc":
-            terminalFocused = false
-        default:
-            // A key hint fires the matching verb; all other keys are swallowed
-            // so the pane grammar stays suspended while the strip holds focus.
-            if let verb = readsTool.verbs.first(where: { $0.keyHint == token }) {
-                runWorkbenchVerb(verb)
-            }
-        }
-        return true
-    }
-
     /// Runs a Workbench read verb against the focused host.
     ///
     /// Checks availability, starts the read, and drains raw output into the

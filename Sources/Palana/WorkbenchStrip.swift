@@ -56,6 +56,16 @@ struct WorkbenchStrip: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
+                .overlay(alignment: .trailing) {
+                    // The key hint appears only while the terminal is engaged —
+                    // a letter that does nothing yet is a lie (the round-1 lesson).
+                    if session.terminalFocused {
+                        Text(verb.keyHint)
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.trailing, 6)
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
