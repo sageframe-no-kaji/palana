@@ -2,7 +2,6 @@
 // go-to sheet. The key monitor installs here and the session restore
 // runs here, once, when the surface appears.
 
-import AppKit
 import PalanaCore
 import SwiftUI
 
@@ -70,7 +69,6 @@ struct SurfaceView: View {
                 session.installKeyMonitor()
                 await session.start()
             }
-            .background(trailingAccessory)
     }
 
     private var panes: some View {
@@ -94,9 +92,12 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // The trailing cluster (pālana + the glyphs) is NOT a toolbar item
-            // — it lives in a titlebar accessory (installTrailingAccessory) so
-            // it escapes the toolbar's glass platter. The name wears no bubble.
+            // The trailing cluster — the name and the three glyphs in one
+            // bubble wearing the center swap cluster's groundDeep capsule.
+            // The opaque fill overrides the toolbar's own system glass.
+            ToolbarItem(placement: .primaryAction) {
+                trailingCluster
+            }
         }
     }
 
@@ -127,12 +128,41 @@ struct SurfaceView: View {
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
-    /// Installs the titlebar accessory holding pālana and the glyph capsule.
+    /// The trailing cluster — the name, then the glyphs in a capsule.
     ///
-    /// A zero-size probe that reaches its window and adds the accessory once —
-    /// the accessory renders custom AppKit content with no toolbar glass.
-    private var trailingAccessory: some View {
-        TitlebarAccessoryInstaller(session: session)
+    /// pālana stands free to the left in its own script; the three glyphs
+    /// wear the swap cluster's groundDeep capsule. It is one toolbar item so
+    /// macOS adds no grouping glass — the name wears no bubble.
+    private var trailingCluster: some View {
+        HStack(spacing: 12) {
+            Text("पालन")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(Theme.inkFaint)
+                .help("pālana")
+            HStack(spacing: 0) {
+                paneVerb("server.rack", help: "the host map — F") {
+                    HostMapPanelController.shared.toggle(
+                        model: session.hostMapModel,
+                        hosts: session.hosts
+                    )
+                }
+                paneVerb("gearshape", help: "settings — ⌘,") {
+                    session.helpVisible = false
+                    session.fieldVisible = false
+                    session.settingsVisible.toggle()
+                }
+                paneVerb("questionmark", help: "the keys — ? on the keyboard") {
+                    session.settingsVisible = false
+                    session.fieldVisible = false
+                    session.helpVisible.toggle()
+                }
+            }
+            .background(Capsule().fill(Theme.groundDeep))
+            .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+        }
+        // Nudge the cluster left off the window's rounded corner, its right
+        // edge landing near the footer text's own inset.
+        .padding(.trailing, 8)
     }
 
     private func paneVerb(
@@ -229,95 +259,4 @@ struct SurfaceView: View {
 extension SessionSnapshot.Side: Identifiable {
     /// The raw name identifies the side for sheet presentation.
     public var id: String { rawValue }
-}
-
-// MARK: - The titlebar's trailing cluster (out of the toolbar's glass)
-
-/// pālana and the three glyphs, rendered for a titlebar accessory.
-///
-/// Living in an accessory rather than a toolbar item keeps the name out of
-/// the toolbar's glass platter — the accessory renders exactly this content.
-/// pālana stands free to the left; the glyphs wear the swap cluster's
-/// groundDeep capsule.
-private struct TrailingClusterView: View {
-    var session: PalanaSession
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("पालन")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(Theme.inkFaint)
-                .help("pālana")
-            HStack(spacing: 0) {
-                glyph("server.rack", help: "the host map — F") {
-                    HostMapPanelController.shared.toggle(
-                        model: session.hostMapModel, hosts: session.hosts)
-                }
-                glyph("gearshape", help: "settings — ⌘,") {
-                    session.helpVisible = false
-                    session.fieldVisible = false
-                    session.settingsVisible.toggle()
-                }
-                glyph("questionmark", help: "the keys — ?") {
-                    session.settingsVisible = false
-                    session.fieldVisible = false
-                    session.helpVisible.toggle()
-                }
-            }
-            .background(Capsule().fill(Theme.groundDeep))
-            .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 5)
-    }
-
-    private func glyph(
-        _ systemName: String, help: String, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 5)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-    }
-}
-
-/// A zero-size probe that installs the trailing titlebar accessory once its
-/// window exists.
-private struct TitlebarAccessoryInstaller: NSViewRepresentable {
-    let session: PalanaSession
-
-    func makeNSView(context: Context) -> NSView {
-        let probe = AccessoryProbe()
-        probe.session = session
-        return probe
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
-/// The probe — on attaching to a window, adds the accessory once.
-private final class AccessoryProbe: NSView {
-    var session: PalanaSession?
-    private static let identifier = NSUserInterfaceItemIdentifier("palana-trailing")
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        guard let window, let session else { return }
-        let already = window.titlebarAccessoryViewControllers.contains {
-            $0.view.identifier == Self.identifier
-        }
-        guard !already else { return }
-        let hosting = NSHostingView(rootView: TrailingClusterView(session: session))
-        hosting.identifier = Self.identifier
-        let controller = NSTitlebarAccessoryViewController()
-        controller.layoutAttribute = .trailing
-        controller.view = hosting
-        window.addTitlebarAccessoryViewController(controller)
-    }
 }
