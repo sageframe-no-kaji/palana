@@ -76,8 +76,7 @@ struct PlanPanel: View {
                 .foregroundStyle(Theme.ink)
                 .fontWeight(.semibold)
             Spacer()
-            Text(hint)
-                .foregroundStyle(hintColor)
+            hintView
         }
         .font(monoSmall)
         .padding(.horizontal, 14)
@@ -98,27 +97,45 @@ struct PlanPanel: View {
         }
     }
 
-    /// The hint's color signals whether Return is live.
+    /// The Return action, called out as a filled chip.
     ///
-    /// Moss when a keystroke will fire—the plan is ready to enact, or the
-    /// naming field is waiting for its name. Quiet ink while the panel is
-    /// composing or running (waiting for a response) or resting, so "go"
-    /// and "hold" never wear the same color.
-    private var hintColor: Color {
+    /// Present when a keystroke will fire—the plan ready to enact, or the
+    /// naming field awaiting its name. Nil in every resting or in-flight
+    /// phase, where nothing is armed.
+    private var enactCallout: String? {
         switch operation.phase {
-        case .ready, .naming: return Theme.accent
-        default: return Theme.inkFaint
+        case .ready: return "⏎ enact"
+        case .naming: return "⏎ commit"
+        default: return nil
         }
     }
 
-    private var hint: String {
+    /// The quiet remainder of the hint—the escape and follow-on keys.
+    private var hintRest: String {
         switch operation.phase {
         case .idle: return "esc hides"
-        case .naming: return "⏎ commit · esc cancel"
+        case .naming: return "esc cancel"
         case .gathering: return "esc hides · ⌃c cancels"
-        case .ready: return "⏎ enact · esc hides · a new verb recomposes"
+        case .ready: return "esc hides · a new verb recomposes"
         case .enacting: return "esc hides, keeps running · ⌃c cancels"
         case .finished, .failed, .cancelled: return "esc hides · y m r R a t T go again"
+        }
+    }
+
+    /// The header hint—a reversed accent chip calls out the live Return
+    /// action (moss ground, light letters), the rest stays quiet.
+    @ViewBuilder private var hintView: some View {
+        HStack(spacing: 8) {
+            if let callout = enactCallout {
+                Text(callout)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.ground)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 4))
+            }
+            Text(hintRest)
+                .foregroundStyle(Theme.inkFaint)
         }
     }
 

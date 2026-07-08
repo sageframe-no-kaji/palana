@@ -52,11 +52,14 @@ final class OperationModel {
     /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
 
-    /// True while the terminal is occupied — composing a plan or running a transfer.
+    /// True while a command occupies the terminal — being composed, armed and
+    /// awaiting Enter, or running.
     ///
-    /// Read buttons are live during idle, ready, finished, failed, and cancelled;
-    /// they dim only while the gather is in flight or the enactment is running.
-    var terminalBusy: Bool { phase == .gathering || phase == .enacting }
+    /// The tools strip greys out through all of it: no read may land while a
+    /// plan is in process (the safety), and the emboldened enact chip is what
+    /// the eye should reach for instead. Read buttons are live only in the
+    /// resting phases — idle, finished, failed, cancelled.
+    var terminalBusy: Bool { phase == .gathering || phase == .ready || phase == .enacting }
 
     /// True while the naming field is live — the key monitor stands down.
     var isNaming: Bool { phase == .naming }
@@ -390,6 +393,22 @@ final class OperationModel {
         echo.appendLine("cancelled — composition stopped", kind: .failure)
         phase = .cancelled
         panelShowing = true
+    }
+
+    /// Esc out of the terminal while a command is in process — cancel it and leave.
+    ///
+    /// A composing or armed plan resets to idle; a running transfer is cancelled
+    /// (⌃C's path, with its partial-transfer warning left in the transcript). The
+    /// safety: escaping the terminal never leaves a command hanging. The panel
+    /// closes on the way out.
+    func cancelCommand() {
+        switch phase {
+        case .gathering: cancelGathering()
+        case .enacting: cancelEnactment()
+        case .ready: reset()
+        default: break
+        }
+        panelShowing = false
     }
 
     private func reset() {

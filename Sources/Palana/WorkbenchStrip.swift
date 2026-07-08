@@ -19,13 +19,13 @@ struct WorkbenchStrip: View {
     private var terminalBusy: Bool { session.operation.terminalBusy }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 6) {
             ForEach(session.readsTool.verbs, id: \.id) { verb in
                 verbButton(verb)
             }
         }
+        .padding(8)
         .frame(width: 100)
-        .padding(.vertical, 4)
         .background(Theme.panelGround)
         .overlay(alignment: .leading) {
             // Accent bar on the leading edge — the quiet focus cue.
@@ -50,13 +50,19 @@ struct WorkbenchStrip: View {
             Text(verb.label)
                 .font(.system(size: 9, weight: .semibold))
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 6)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .contentShape(Rectangle())
+                .background(Theme.ground, in: RoundedRectangle(cornerRadius: 5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Theme.inkFaint.opacity(0.12), lineWidth: 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 5))
         }
         .buttonStyle(.plain)
         .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
+        .opacity(enabled ? 1 : 0.5)
         .help(helpText(for: verb, avail: avail))
         .disabled(!enabled)
     }
