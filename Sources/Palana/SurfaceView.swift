@@ -128,34 +128,41 @@ struct SurfaceView: View {
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
-    /// The trailing cluster — pālana in its script, then the host-map,
-    /// settings, and keys glyphs, all in the swap cluster's groundDeep capsule.
+    /// The trailing cluster — the name, then the glyphs in a capsule.
+    ///
+    /// pālana stands free to the left in its own script; the three glyphs
+    /// wear the swap cluster's groundDeep capsule. It is one toolbar item so
+    /// macOS adds no grouping glass — the name wears no bubble.
     private var trailingCluster: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 12) {
             Text("पालन")
                 .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(Theme.inkFaint)
-                .padding(.horizontal, 8)
                 .help("pālana")
-            paneVerb("server.rack", help: "the host map — F") {
-                HostMapPanelController.shared.toggle(
-                    model: session.hostMapModel,
-                    hosts: session.hosts
-                )
+            HStack(spacing: 0) {
+                paneVerb("server.rack", help: "the host map — F") {
+                    HostMapPanelController.shared.toggle(
+                        model: session.hostMapModel,
+                        hosts: session.hosts
+                    )
+                }
+                paneVerb("gearshape", help: "settings — ⌘,") {
+                    session.helpVisible = false
+                    session.fieldVisible = false
+                    session.settingsVisible.toggle()
+                }
+                paneVerb("questionmark", help: "the keys — ? on the keyboard") {
+                    session.settingsVisible = false
+                    session.fieldVisible = false
+                    session.helpVisible.toggle()
+                }
             }
-            paneVerb("gearshape", help: "settings — ⌘,") {
-                session.helpVisible = false
-                session.fieldVisible = false
-                session.settingsVisible.toggle()
-            }
-            paneVerb("questionmark", help: "the keys — ? on the keyboard") {
-                session.settingsVisible = false
-                session.fieldVisible = false
-                session.helpVisible.toggle()
-            }
+            .background(Capsule().fill(Theme.groundDeep))
+            .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
         }
-        .background(Capsule().fill(Theme.groundDeep))
-        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+        // Nudge the cluster left off the window's rounded corner, its right
+        // edge landing near the footer text's own inset.
+        .padding(.trailing, 8)
     }
 
     private func paneVerb(
