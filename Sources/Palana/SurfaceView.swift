@@ -128,33 +128,21 @@ struct SurfaceView: View {
             }
             .disabled(session.left.state.host == nil)
         }
-        .background(Capsule().fill(Theme.groundDeep))
-        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
-    /// pālana on its own platter, colored to vanish into the titlebar.
+    /// pālana — its own toolbar item, on its own clean platter.
     ///
-    /// The opaque capsule covers the toolbar's system glass (the swap cluster
-    /// proves an opaque fill hides it); filled and stroked in the titlebar's
-    /// own ground, the capsule itself disappears and the name reads as free
-    /// text. Nudged a little left, a size larger than the glyphs.
+    /// No custom background: the OS platter is the pill, distinct from the
+    /// glyphs and consistent with every other item (the Supacode read — don't
+    /// fight the glass, let it be the design).
     private var nameMark: some View {
         Text("पालन")
-            .font(.system(size: 16, weight: .regular))
+            .font(.system(size: 15, weight: .regular))
             .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
-            .overlay(Capsule().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1))
-            .padding(.trailing, 6)
             .help("pālana")
     }
 
-    /// The three glyphs in the swap cluster's groundDeep capsule.
-    ///
-    /// A blended `Theme.ground` capsule sits underneath, sized past the bubble
-    /// to cover the OS glass platter — the platter's white is hidden by the
-    /// blended layer, and the groundDeep bubble floats on top of the bar.
+    /// The three glyphs — their own platter, no custom capsule.
     private var glyphCluster: some View {
         HStack(spacing: 0) {
             paneVerb("server.rack", help: "the host map — F") {
@@ -174,10 +162,6 @@ struct SurfaceView: View {
                 session.helpVisible.toggle()
             }
         }
-        .background(Capsule().fill(Theme.groundDeep))
-        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
-        .padding(6)
-        .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
     }
 
     private func paneVerb(
