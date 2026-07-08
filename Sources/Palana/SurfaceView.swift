@@ -226,7 +226,7 @@ struct SurfaceView: View {
             Text(sortLine)
             Text("? keys")
         }
-        .font(.system(size: 11))
+        .font(.system(size: 12))
         .foregroundStyle(Theme.inkFaint)
         .padding(.horizontal, 20)  // 20 clears the window's rounded corners (was 12)
         .padding(.vertical, 5)

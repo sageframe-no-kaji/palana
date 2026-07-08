@@ -20,18 +20,15 @@ struct WorkbenchStrip: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(session.readsTool.verbs.enumerated()), id: \.element.id) { index, verb in
-                if index > 0 {
-                    Rectangle()
-                        .fill(Theme.inkFaint.opacity(0.18))
-                        .frame(height: 1)
-                }
+            ForEach(session.readsTool.verbs, id: \.id) { verb in
                 verbButton(verb)
+                Rectangle()
+                    .fill(Theme.inkFaint.opacity(0.18))
+                    .frame(height: 1)
             }
             Spacer(minLength: 0)
         }
-        .padding(.top, 10)
-        .frame(width: 96)
+        .frame(width: 100)
         .frame(maxHeight: .infinity)
         .background(Theme.ground)
         .overlay(alignment: .leading) {
@@ -55,16 +52,15 @@ struct WorkbenchStrip: View {
             session.runWorkbenchVerb(verb)
         } label: {
             Text(verb.label)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 34)
                 .overlay(alignment: .trailing) {
                     // The key hint appears only while the terminal is engaged —
                     // a letter that does nothing yet is a lie (the round-1 lesson).
                     if session.terminalFocused {
                         Text(verb.keyHint)
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(Theme.accent)
                             .padding(.trailing, 6)
                     }

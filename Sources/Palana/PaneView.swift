@@ -189,14 +189,16 @@ struct PaneView: View {
                 nameCell(entry)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cursorWash(entry))
-                    .onHover { rowHover(entry.id, $0) }
+                    .contentShape(Rectangle())
+                    .onContinuousHover { rowHover(entry.id, $0) }
             }
             TableColumn("size", value: \.size) { entry in
                 Text(entry.kind == .directory ? "—" : Self.sizeText(entry.size))
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .background(cursorWash(entry))
-                    .onHover { rowHover(entry.id, $0) }
+                    .contentShape(Rectangle())
+                    .onContinuousHover { rowHover(entry.id, $0) }
             }
             .width(min: 60, ideal: 80, max: 110)
             TableColumn("modified", value: \.modified) { entry in
@@ -204,7 +206,8 @@ struct PaneView: View {
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(cursorWash(entry))
-                    .onHover { rowHover(entry.id, $0) }
+                    .contentShape(Rectangle())
+                    .onContinuousHover { rowHover(entry.id, $0) }
             }
             .width(min: 110, ideal: 150, max: 190)
         }
@@ -393,11 +396,15 @@ extension PaneView {
     }
 
     /// Tracks which row the mouse is over — the light hover wash follows it.
-    private func rowHover(_ id: FileEntry.ID, _ hovering: Bool) {
-        if hovering {
+    ///
+    /// `onContinuousHover` rather than `onHover`: a plain `onHover` does not
+    /// fire from inside a `Table` cell on macOS, the continuous variant does.
+    private func rowHover(_ id: FileEntry.ID, _ phase: HoverPhase) {
+        switch phase {
+        case .active:
             hoveredRow = id
-        } else if hoveredRow == id {
-            hoveredRow = nil
+        case .ended:
+            if hoveredRow == id { hoveredRow = nil }
         }
     }
 }
