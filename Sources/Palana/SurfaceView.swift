@@ -151,6 +151,10 @@ struct SurfaceView: View {
     }
 
     /// The three glyphs in the swap cluster's groundDeep capsule.
+    ///
+    /// A blended `Theme.ground` capsule sits underneath, sized past the bubble
+    /// to cover the OS glass platter — the platter's white is hidden by the
+    /// blended layer, and the groundDeep bubble floats on top of the bar.
     private var glyphCluster: some View {
         HStack(spacing: 0) {
             paneVerb("server.rack", help: "the host map — F") {
@@ -172,6 +176,8 @@ struct SurfaceView: View {
         }
         .background(Capsule().fill(Theme.groundDeep))
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+        .padding(6)
+        .background(Capsule().fill(Theme.ground))
     }
 
     private func paneVerb(
