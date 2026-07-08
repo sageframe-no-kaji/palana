@@ -20,20 +20,22 @@ struct WorkbenchStrip: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(session.readsTool.verbs, id: \.id) { verb in
+            VStack(spacing: 0) {
+                ForEach(session.readsTool.verbs, id: \.id) { verb in
+                    Rectangle()
+                        .fill(Theme.inkFaint.opacity(0.18))
+                        .frame(height: 1)
+                    chip(verb)
+                }
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
-                chip(verb)
             }
-            Rectangle()
-                .fill(Theme.inkFaint.opacity(0.18))
-                .frame(height: 1)
+            .background(Theme.ground)
             Spacer(minLength: 0)
         }
         .frame(width: 108)
         .frame(maxHeight: .infinity)
-        .background(Theme.ground)
         .overlay(alignment: .leading) {
             // The shared left separator — a hairline against the transcript,
             // and the accent focus cue when the terminal holds the keyboard.
@@ -102,7 +104,7 @@ private struct StripChip: View {
                 .overlay(alignment: .trailing) {
                     if showKey {
                         Text(keyHint)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 12, weight: .regular))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 10)
                     }
