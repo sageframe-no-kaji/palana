@@ -25,9 +25,9 @@ struct OverlayCloseButton: View {
                             ? Theme.alarm
                             : Theme.alarm.opacity(0.25)
                     )
-                    .frame(width: 17, height: 17)
+                    .frame(width: 12, height: 12)
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 6, weight: .bold))
                     .foregroundStyle(
                         hovering
                             ? Color.white

@@ -41,6 +41,6 @@ struct OverlayHeader: View {
         .padding(.leading, 10)
         .padding(.trailing, 10)
         .padding(.top, 10)
-        .padding(.bottom, 4)
+        .padding(.bottom, 3)
     }
 }
