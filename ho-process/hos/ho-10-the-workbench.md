@@ -1,6 +1,6 @@
 ---
 created: 2026-07-06
-status: draft
+status: closed
 type: ho-document
 project: palana
 ho: 10
@@ -101,16 +101,19 @@ Per-task verification is the standing rhythm—`swift-format lint --strict`, `sw
 
 ## Phase 3 — Reflect
 
-*To be filled in after execution. Prompts:*
+**The boundary held, and the read-only exercise was the right first proof.** The reads tool registered through the Workbench API and ran `df`, `zfs list`, `zpool status`, `zpool list` without reaching into PalanaCore—a diff of the core across execution shows the protocol added and nothing opened. The mutation seam (`VerbKind.mutation`, the `planRequest` hook) is named and tested-as-refused, but read-only exercise left the write path unexercised by design. ho-10.1 (the ZFS tool) is where the seam meets a real mutating consumer and either holds or shows its gaps.
 
-- **Did the boundary hold?** Did the read tool register and run through the Workbench API without reaching into PalanaCore—and did the mutation seam survive first contact when the routing was written, or did the read-only exercise leave the write path underspecified?
-- **Decision review.** Was the terminal-grows-the-strip reading right, or did the hands want a separate Workbench surface after driving it? Did aiming at the focused pane's host feel like the tool following attention, or did it want its own target?
-- **What did the raw output look like?** `zpool status` across his real pools, `zfs list` at koan's dataset count, `df` on BusyBox—did any of it want structure the "no parsing" ruling now has to hold against?
-- **The focus story.** Did shift-tab into the terminal read as natural, and did the plan-owns-it-or-tools-own-it rule ever surprise the operator by disabling the strip?
-- **What broke that the tests didn't catch?**
-- **Followups.** The ZFS mutating tool's ho and its kamae-4 slot, the `zpool status` drives as a parsed fact for the map, a dedicated strip host selector, the fuller Workbench surface—which of these did the hands actually ask for?
+**The reshape, named plainly—this ho is a split, not a shrink.** The overview's ho-10 was the plugin API *plus* the mutating ZFS tool (dataset CRUD, snapshots, pool visualization) as the proof. The practitioner sealed a smaller first cut: the protocol proven by a read-only consumer, mutation deferred. So ho-10 shipped the boundary and the reads tool. Nothing in the Workbench vision is dropped—it is sequenced along the split the overview already allowed. **ho-10.1 — The ZFS Tool** carries the mutating consumer the overview named. **ho-10.2 — The Interactive Terminal** carries the type-into-it shell kamae-2 held at "later." Both are on the forward plan now (kamae-4 amended); the plugin infrastructure they build on is done and proven.
+
+**Decision review—terminal-grows-the-strip held under a hard hands session.** The strip lives on the plan panel's trailing edge, and across a long UI/UX session it earned its shape: fire-the-reads gating (dim only while a plan owns the terminal), the grid cells, hover-highlight, the key hints under an engage mode (backtick focuses the terminal, tool letters fire, every other key still reaches the panes), the reversed enact call-out, and a sizing floor that makes the smallest terminal hug the four chips. Aiming at the focused pane's host felt like the tool following attention—no host picker wanted. The grows-the-strip-versus-own-surface decision resolved by use: the strip is right, and the fuller Workbench surface waits for a tool that needs chrome beyond a button—ho-10.1's ZFS tool may be the one that asks.
+
+**The focus story got reworked live.** shift-tab and backtick both engage the terminal, tool hints fire while the panes stay live, and esc out of a command now cancels it *and* drops into terminal focus with the tool keys hot. `⌘K` clears the transcript. `⌘+`/`⌘-`/`⌘0` zooms the panes and transcript together while the header chrome stays fixed.
+
+**What broke that the tests could not catch—a night of layout and platform truth.** The macOS 26 toolbar glass platter cannot be removed per item—fought it a dozen rounds, then embraced it (each item wears its own clean platter, pālana split off with `ToolbarSpacer`). SwiftUI's `Table` swallows clean per-row hover (both `onHover` and `onContinuousHover` fired at random)—row hover was killed, and it needs the underlying `NSTableView` if ever wanted. Chip sizing, top-and-bottom clipping, and the "lampshade" (the panel overflowing the footer) were all layout math: the panel's floor must fit the whole strip, and the panes' floor must yield so the footer survives a small window.
+
+**Followups.** ho-10.1 (the ZFS mutating tool—the seam's real test), ho-10.2 (the interactive terminal), a popout icon to open the terminal, the go-again verb keys (Y M R T) styled as menu glyphs in the hint line, the `zpool status` drives as a parsed fact for the map, and the design-polish this session pulled forward—the titlebar mark and platters, font zoom, header-click sort are 9.7/9.8 fragments that landed inside ho-10's commits, and the build-record entry names them so those hos know what is already done.
 
 ---
 
 _Authored: 2026-07-06 (Think phase)._
-_Execution and Reflect: pending._
+_Closed: 2026-07-08—driven through a long UI/UX hands session, the practitioner's word "TIGHT." The Workbench boundary stands, proven read-only; the ZFS tool and the interactive terminal split forward to ho-10.1 and ho-10.2. 444 tests, 75 suites, CI green._
