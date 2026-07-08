@@ -144,8 +144,8 @@ struct SurfaceView: View {
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 10)
             .padding(.vertical, 3)
-            .background(Capsule().fill(Theme.ground))
-            .overlay(Capsule().stroke(Theme.ground, lineWidth: 1))
+            .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
+            .overlay(Capsule().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1))
             .padding(.trailing, 6)
             .help("pālana")
     }
@@ -177,7 +177,7 @@ struct SurfaceView: View {
         .background(Capsule().fill(Theme.groundDeep))
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
         .padding(6)
-        .background(Capsule().fill(Theme.ground))
+        .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
     }
 
     private func paneVerb(
