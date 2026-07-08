@@ -86,10 +86,10 @@ extension PalanaSession {
         case 123:  // left — collapse
             favPanelCollapse(currentRow)
             return true
-        case 36:  // return — toggle header / jump favorite (shift jumps the other pane)
+        case 36:  // return — toggle header / jump favorite
             switch currentRow {
             case .header(let key): favoritesPanelModel.toggle(key: key)
-            case .favorite(let fav): favPanelJump(fav, toOpposite: hasShift)
+            case .favorite(let fav): favPanelJump(fav)
             }
             return true
         default:
@@ -142,17 +142,26 @@ extension PalanaSession {
         }
     }
 
-    /// Jumps a pane to a favorite, leaving the panel open.
+    /// Jumps to a favorite through the column's selected target, panel open.
     ///
-    /// Targets the focused pane by default, or the opposite pane when
-    /// `toOpposite` is true (shift-Enter). The column stays up so the operator
-    /// can jump again — same as a mouse-click jump. Esc, `*`, or the titlebar
-    /// star closes it.
-    func favPanelJump(_ fav: Favorite, toOpposite: Bool = false) {
-        let side: SessionSnapshot.Side =
-            toOpposite ? (focusedSide == .left ? .right : .left) : focusedSide
-        let pane = side == .left ? left : right
-        pane.point(host: fav.host, path: fav.path)
+    /// The arrow cluster decides left, right, or both. The column stays up so
+    /// the operator can jump again — same as a mouse-click jump. Esc, `*`, or
+    /// the titlebar star closes it.
+    func favPanelJump(_ fav: Favorite) {
+        jumpFavorite(host: fav.host, path: fav.path)
+    }
+
+    /// Points the selected pane(s) at a favorite's location.
+    ///
+    /// The arrow cluster in the column chooses left, right, or both.
+    func jumpFavorite(host: String, path: String) {
+        switch favoritesPanelModel.jumpTarget {
+        case .left: left.point(host: host, path: path)
+        case .right: right.point(host: host, path: path)
+        case .both:
+            left.point(host: host, path: path)
+            right.point(host: host, path: path)
+        }
     }
 
     /// Resolves the group key that owns a given favorite.

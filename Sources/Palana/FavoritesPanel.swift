@@ -9,6 +9,18 @@ import AppKit
 import PalanaCore
 import SwiftUI
 
+// MARK: - FavoritesJumpTarget
+
+/// Which pane(s) a favorite jump lands in.
+enum FavoritesJumpTarget: Equatable {
+    /// The left pane only.
+    case left
+    /// The right pane only.
+    case right
+    /// Both panes at once.
+    case both
+}
+
 // MARK: - FavoritesPanelModel
 
 /// The favorites panel's fold-state model.
@@ -32,12 +44,11 @@ final class FavoritesPanelModel {
     /// by id — the session re-resolves the index each keypress.
     var cursor: String?
 
-    /// The pane a jump lands in — mirrors the session's focused side, live.
+    /// Where a jump lands — the arrow cluster selects it, the panel shows it.
     ///
-    /// Shown in the panel so the destination is never a guess. The session
-    /// keeps it in sync as focus moves (including focus-follows-click while
-    /// the column floats).
-    var targetSide: SessionSnapshot.Side = .left
+    /// Defaults to the focused pane's side when the column opens (the session
+    /// sets it); the operator can then click for the other pane or for both.
+    var jumpTarget: FavoritesJumpTarget = .left
 
     /// Toggles the collapsed state of the given group key.
     ///
@@ -181,21 +192,39 @@ struct FavoritesContent: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
-    /// The live destination strip — names the pane a jump lands in.
+    /// The destination selector — three arrows choose where a jump lands.
     private var panelHeader: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 4) {
-                Text("jumps to")
-                    .foregroundStyle(Theme.inkFaint)
-                Text("→ \(panelModel.targetSide == .left ? "left" : "right") pane")
-                    .foregroundStyle(Theme.accent)
-                Spacer()
+            HStack(spacing: 2) {
+                targetArrow("arrow.left", .left, "left pane")
+                targetArrow("arrow.left.arrow.right", .both, "both panes")
+                targetArrow("arrow.right", .right, "right pane")
             }
-            .font(.system(size: 11, weight: .medium))
+            .padding(4)
+            .background(Capsule().fill(Theme.groundDeep))
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             Divider().opacity(0.35)
         }
+    }
+
+    /// One arrow in the destination selector — filled when it is the target.
+    private func targetArrow(
+        _ systemName: String, _ target: FavoritesJumpTarget, _ help: String
+    ) -> some View {
+        let active = panelModel.jumpTarget == target
+        return Button(
+            action: { panelModel.jumpTarget = target },
+            label: {
+                Image(systemName: systemName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(active ? Theme.ground : Theme.accent)
+                    .frame(width: 30, height: 22)
+                    .background(Capsule().fill(active ? Theme.accent : Color.clear))
+            }
+        )
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     private var scrollArea: some View {
