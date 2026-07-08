@@ -6,6 +6,7 @@
 // chrome, one accent, directories by weight and a trailing slash. The
 // unfocused pane sits a shade dimmer — the eye finds the live one.
 
+import AppKit
 import PalanaCore
 import SwiftUI
 
@@ -28,9 +29,18 @@ struct PaneView: View {
     let onOperation: (PlanOperation) -> Void
     /// Text zoom for the pane's rows — ⌘+ / ⌘- / ⌘0.
     let fontScale: CGFloat
+    /// The favorites model — drives the star and the host menu's favorites section.
+    let favorites: FavoritesModel
+    /// Toggle this pane's location in favorites.
+    let onToggleFavorite: () -> Void
+    /// A favorite was chosen from the host menu — point the pane.
+    let onChooseFavorite: (HostMenuButton.FavoriteEntry) -> Void
+    /// Flip a favorite's scope by id.
+    let onToggleFavoriteScope: (String) -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
+    @State private var starHovering = false
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
@@ -64,6 +74,7 @@ struct PaneView: View {
                     .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
+            starButton
             hostMenu
         }
         .font(.system(size: 12))
@@ -108,6 +119,25 @@ struct PaneView: View {
         }
     }
 
+    /// A star that reflects whether this pane's location is favorited.
+    ///
+    /// Visible only when the pane has a host. Accent when favorited (or on hover),
+    /// inkFaint otherwise. Clicking toggles the favorite for this pane's location.
+    @ViewBuilder private var starButton: some View {
+        if let host = model.state.host {
+            let isFav = favorites.isFavorited(host: host, path: model.state.path)
+            let filled = isFav || starHovering
+            Button(action: onToggleFavorite) {
+                Image(systemName: filled ? "star.fill" : "star")
+                    .font(.system(size: 11))
+                    .foregroundStyle(filled ? Theme.accent : Theme.inkFaint)
+            }
+            .buttonStyle(.plain)
+            .onHover { starHovering = $0 }
+            .help(isFav ? "remove from favorites" : "add to favorites")
+        }
+    }
+
     /// The bar's list — every host the config names, then the ways in.
     ///
     /// Right-pinned so it never crosses the pane's edge.
@@ -117,9 +147,42 @@ struct PaneView: View {
             onChoose: { model.pointAddress("\($0):~") },
             onType: { beginAddressEditing() },
             onEditConfig: onEditConfig,
-            onReload: onReloadHosts
+            onReload: onReloadHosts,
+            favorites: favoriteEntries(for: model.state.host),
+            onChooseFavorite: onChooseFavorite,
+            onToggleFavoriteScope: onToggleFavoriteScope
         )
         .fixedSize()
+    }
+
+    /// Builds the flat entries passed to `HostMenuButton`.
+    ///
+    /// Global favorites always; host-bound favorites for the pane's current host.
+    private func favoriteEntries(for host: String?) -> [HostMenuButton.FavoriteEntry] {
+        var entries: [HostMenuButton.FavoriteEntry] = []
+        for fav in favorites.global {
+            entries.append(
+                HostMenuButton.FavoriteEntry(
+                    id: fav.id,
+                    host: fav.host,
+                    path: fav.path,
+                    label: fav.label,
+                    scope: fav.scope,
+                    isGlobal: true))
+        }
+        if let host {
+            for fav in favorites.hostBound(for: host) {
+                entries.append(
+                    HostMenuButton.FavoriteEntry(
+                        id: fav.id,
+                        host: fav.host,
+                        path: fav.path,
+                        label: fav.label,
+                        scope: fav.scope,
+                        isGlobal: false))
+            }
+        }
+        return entries
     }
 
     private func beginAddressEditing() {
@@ -169,7 +232,24 @@ struct PaneView: View {
             .allowsHitTesting(false)
     }
 
-    private var table: some View {
+    private func quietLine(_ text: String) -> some View {
+        VStack {
+            Spacer()
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.inkFaint)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Table
+
+extension PaneView {
+    var table: some View {
         ScrollViewReader { proxy in
             innerTable
                 .onChange(of: model.state.cursor) { _, cursor in
@@ -182,7 +262,7 @@ struct PaneView: View {
         }
     }
 
-    private var innerTable: some View {
+    var innerTable: some View {
         Table(model.rows, selection: cursorBinding, sortOrder: $sortOrder) {
             TableColumn("name", value: \.name) { entry in
                 nameCell(entry)
@@ -243,7 +323,7 @@ struct PaneView: View {
     /// clicked rows, then the panel takes over exactly as if the key
     /// had gone down.
     @ViewBuilder
-    private func contextMenuItems(for ids: Set<FileEntry.ID>) -> some View {
+    func contextMenuItems(for ids: Set<FileEntry.ID>) -> some View {
         Button("open / enter") {
             onFocus()
             if let id = ids.first { model.activate(id) }
@@ -284,7 +364,7 @@ struct PaneView: View {
     ///
     /// Rows already inside the selection keep the whole selection —
     /// Finder's manners.
-    private func operate(_ operation: PlanOperation, ids: Set<FileEntry.ID>) {
+    func operate(_ operation: PlanOperation, ids: Set<FileEntry.ID>) {
         onFocus()
         if !ids.isEmpty, !ids.isSubset(of: model.state.selection) {
             model.state.selection = ids.count > 1 ? ids : []
@@ -293,7 +373,7 @@ struct PaneView: View {
         onOperation(operation)
     }
 
-    private func nameCell(_ entry: FileEntry) -> some View {
+    func nameCell(_ entry: FileEntry) -> some View {
         HStack(spacing: 6) {
             Capsule()
                 .fill(Theme.accent)
@@ -315,7 +395,7 @@ struct PaneView: View {
     /// The drive-glyph filesystem boundary mark — filled dataset,
     /// outlined plain mount, nothing otherwise.
     @ViewBuilder
-    private func driveMark(for entry: FileEntry) -> some View {
+    func driveMark(for entry: FileEntry) -> some View {
         switch model.boundaryMark(for: entry) {
         case .dataset:
             Text(Image(systemName: "externaldrive.fill"))
@@ -332,11 +412,11 @@ struct PaneView: View {
         }
     }
 
-    private func displayName(_ entry: FileEntry) -> String {
+    func displayName(_ entry: FileEntry) -> String {
         entry.kind == .directory ? "\(entry.name)/" : entry.name
     }
 
-    private var cursorBinding: Binding<FileEntry.ID?> {
+    var cursorBinding: Binding<FileEntry.ID?> {
         Binding(
             get: { model.state.cursor },
             set: { clicked in
@@ -357,29 +437,16 @@ struct PaneView: View {
     }
 
     /// Sizes as facts — `0 bytes`, never `Zero kB`.
-    private static func sizeText(_ size: Int64) -> String {
+    static func sizeText(_ size: Int64) -> String {
         size.formatted(.byteCount(style: .file, spellsOutZero: false))
-    }
-
-    private func quietLine(_ text: String) -> some View {
-        VStack {
-            Spacer()
-            Text(text)
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.inkFaint)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
-// MARK: - Row wash and hover
+// MARK: - Row wash
 
 extension PaneView {
     /// The cursor row's own paint — moss wash, not the system accent.
-    private func cursorWash(_ entry: FileEntry) -> some View {
+    func cursorWash(_ entry: FileEntry) -> some View {
         RoundedRectangle(cornerRadius: 3)
             .fill(Theme.accent.opacity(model.state.cursor == entry.id ? 0.18 : 0))
             .padding(.horizontal, -6)

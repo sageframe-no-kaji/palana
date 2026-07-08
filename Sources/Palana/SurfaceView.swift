@@ -199,7 +199,19 @@ struct SurfaceView: View {
                 session.focusedSide = side
                 session.beginOperation(operation)
             },
-            fontScale: session.fontScale
+            fontScale: session.fontScale,
+            favorites: session.favorites,
+            onToggleFavorite: { session.toggleFavorite(forFocusedPaneOr: model) },
+            onChooseFavorite: { entry in
+                let fav = Favorite(
+                    host: entry.host, path: entry.path, scope: entry.scope, label: entry.label)
+                session.chooseFavorite(fav, for: side)
+            },
+            onToggleFavoriteScope: { id in
+                let current = session.favorites.all.first { $0.id == id }
+                let newScope: FavoriteScope = current?.scope == .global ? .host : .global
+                session.promoteFavorite(id: id, to: newScope)
+            }
         )
         .frame(minWidth: 320)
     }

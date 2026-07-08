@@ -56,6 +56,8 @@ final class PalanaSession {
     private(set) var hosts: [String] = []
     /// The settings model — rsync flags and host-hide controls.
     let settings: SettingsModel
+    /// The favorites — the star and the host menu both read and write here.
+    let favorites = FavoritesModel()
 
     /// The tool coordinator — aimed at each host via the routing conduit.
     let workbench: Workbench
@@ -445,6 +447,35 @@ final class PalanaSession {
     /// Closes every ControlMaster — the quit path owns this.
     func closeDoors() async {
         await conduit.closeAll()
+    }
+}
+
+// MARK: - Favorites
+
+extension PalanaSession {
+    /// Toggles the given pane's location in the favorites list.
+    ///
+    /// A second toggle on a favorited location removes it, whatever its scope.
+    /// Removes if present, adds host-bound if absent — matches the star's contract.
+    /// `model` is the pane to toggle; when nil the focused pane is used.
+    func toggleFavorite(forFocusedPaneOr model: PaneModel?) {
+        let pane = model ?? focusedPane
+        guard let host = pane.state.host else { return }
+        favorites.toggle(host: host, path: pane.state.path)
+    }
+
+    /// Points the given side's pane at the chosen favorite.
+    ///
+    /// A global favorite may re-point to a different host — the existing
+    /// `point(host:path:)` path handles that without a special case.
+    func chooseFavorite(_ favorite: Favorite, for side: SessionSnapshot.Side) {
+        let pane = side == .left ? left : right
+        pane.point(host: favorite.host, path: favorite.path)
+    }
+
+    /// Promotes or demotes a favorite's scope in place.
+    func promoteFavorite(id: String, to scope: FavoriteScope) {
+        favorites.setScope(id: id, scope)
     }
 }
 
