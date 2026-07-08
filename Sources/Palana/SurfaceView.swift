@@ -154,9 +154,12 @@ struct SurfaceView: View {
             .help("pālana")
     }
 
-    /// The three glyphs — their own platter, no custom capsule.
+    /// The four glyphs — their own platter, no custom capsule.
     private var glyphCluster: some View {
         HStack(spacing: 0) {
+            paneVerb("star", help: "favorites — *") {
+                session.toggleFavoritesPanel()
+            }
             paneVerb("server.rack", help: "the host map — F") {
                 HostMapPanelController.shared.toggle(
                     model: session.hostMapModel,
@@ -211,6 +214,10 @@ struct SurfaceView: View {
                 let current = session.favorites.all.first { $0.id == id }
                 let newScope: FavoriteScope = current?.scope == .global ? .host : .global
                 session.promoteFavorite(id: id, to: newScope)
+            },
+            onStarEntry: { path in
+                guard let host = model.state.host else { return }
+                session.favorites.toggle(host: host, path: path)
             }
         )
         .frame(minWidth: 320)

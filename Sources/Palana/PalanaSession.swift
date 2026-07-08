@@ -58,6 +58,8 @@ final class PalanaSession {
     let settings: SettingsModel
     /// The favorites — the star and the host menu both read and write here.
     let favorites = FavoritesModel()
+    /// The favorites column panel's fold state.
+    let favoritesPanelModel = FavoritesPanelModel()
 
     /// The tool coordinator — aimed at each host via the routing conduit.
     let workbench: Workbench
@@ -205,6 +207,13 @@ final class PalanaSession {
                     return false
                 }
                 return consumed ? nil : event
+            }
+            if event.window?.identifier?.rawValue == FavoritesPanelController.identifier {
+                if event.keyCode == 53 {
+                    MainActor.assumeIsolated { FavoritesPanelController.shared.close() }
+                    return nil
+                }
+                return event
             }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
@@ -477,6 +486,42 @@ extension PalanaSession {
     func promoteFavorite(id: String, to scope: FavoriteScope) {
         favorites.setScope(id: id, scope)
     }
+
+    // MARK: - Favorites panel
+
+    /// Toggles the favorites column panel.
+    func toggleFavoritesPanel() {
+        FavoritesPanelController.shared.toggle(
+            favoritesModel: favorites,
+            panelModel: favoritesPanelModel,
+            onJump: { [weak self] host, path in
+                guard let self else { return }
+                focusedPane.point(host: host, path: path)
+            },
+            onUnstar: { [weak self] id in self?.favorites.remove(id: id) },
+            onSetScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) })
+    }
+
+    /// Stars or unstars the focused pane's current directory.
+    ///
+    /// A guard on `state.host` ensures the pane is pointed somewhere.
+    /// The toggle removes if already favorited, adds host-bound if not.
+    func starFocusedDirectory() {
+        guard let host = focusedPane.state.host else { return }
+        favorites.toggle(host: host, path: focusedPane.state.path)
+    }
+
+    /// Stars or unstars the highlighted entry when it is a directory.
+    ///
+    /// If the cursor entry is absent or is not a directory, this is a no-op —
+    /// favorites are directories in v1.
+    func starHighlightedEntry() {
+        guard let entry = focusedPane.cursorEntry else { return }
+        guard entry.kind == .directory else { return }
+        guard let host = focusedPane.state.host else { return }
+        let path = PaneModel.childPath(of: focusedPane.state.path, name: entry.name)
+        favorites.toggle(host: host, path: path)
+    }
 }
 
 // MARK: - Help, settings, and field overlay keys
@@ -500,6 +545,8 @@ extension PalanaSession {
             fontScale = 1.0
         case "cmd-k":
             operation.clearTranscript()
+        case "cmd-shift-8":
+            starHighlightedEntry()
         default:
             return false
         }
@@ -531,6 +578,14 @@ extension PalanaSession {
             // Entering the terminal engages it — the tool letters light up at once.
             operation.showPanel()
             terminalFocused = true
+            return true
+        }
+        if token == "*" {
+            toggleFavoritesPanel()
+            return true
+        }
+        if token == "8" {
+            starFocusedDirectory()
             return true
         }
         if token == "cmd-shift-l" {
@@ -600,6 +655,10 @@ extension PalanaSession {
             helpVisible = false
             HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
         }
+        if token == "*" {
+            helpVisible = false
+            toggleFavoritesPanel()
+        }
     }
 
     /// Routes one keystroke while the settings card is up.
@@ -616,6 +675,9 @@ extension PalanaSession {
         }
         if token == "F" {
             HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+        }
+        if token == "*" {
+            toggleFavoritesPanel()
         }
     }
 

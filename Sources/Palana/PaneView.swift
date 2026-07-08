@@ -37,6 +37,8 @@ struct PaneView: View {
     let onChooseFavorite: (HostMenuButton.FavoriteEntry) -> Void
     /// Flip a favorite's scope by id.
     let onToggleFavoriteScope: (String) -> Void
+    /// Star or unstar a directory entry by its full path on this pane's host.
+    let onStarEntry: (String) -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -351,12 +353,30 @@ extension PaneView {
             model.copyToClipboard(.copyDirectory, ids: ids)
         }
         Divider()
+        starContextItem(for: ids)
         Button(model.state.showHidden ? "hide hidden files" : "show hidden files") {
             model.apply(.toggleHidden)
         }
         .keyboardShortcut(".", modifiers: [])
         Button("refresh") { model.apply(.refresh) }
             .keyboardShortcut("r", modifiers: .command)
+    }
+
+    /// A "star this location" / "unstar this location" menu item when the
+    /// first right-clicked entry is a directory.
+    ///
+    /// Returns an `EmptyView` when no eligible directory entry is found.
+    @ViewBuilder
+    func starContextItem(for ids: Set<FileEntry.ID>) -> some View {
+        let directoryEntry = ids.first.flatMap { id in model.rows.first { $0.id == id } }
+            .flatMap { $0.kind == .directory ? $0 : nil }
+        if let entry = directoryEntry {
+            let entryPath = PaneModel.childPath(of: model.state.path, name: entry.name)
+            let isStarred = favorites.isFavorited(host: model.state.host ?? "", path: entryPath)
+            Button(isStarred ? "unstar this location" : "star this location") {
+                onStarEntry(entryPath)
+            }
+        }
     }
 
     /// Aims the pane's subjects at the clicked rows, then starts the
