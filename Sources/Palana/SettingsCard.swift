@@ -24,8 +24,37 @@ struct SettingsForm: View {
 
     @FocusState private var flagsFocused: Bool
     @State private var hostHelpShowing = false
+    @State private var configViewShowing = false
     @State private var addFormShowing = false
     @State private var removingAlias: String?
+
+    /// The alias just successfully added — used to scroll-to and flash it.
+    @State private var flashAlias: String?
+    /// Controls the highlight wash opacity for the newly added host.
+    @State private var flashOpacity: Double = 0
+
+    /// Brief "Added ✓ alias" confirmation shown in the footer after a write.
+    @State private var addedConfirmation: String?
+
+    /// Probe state — persists after the form closes so the result is visible.
+    @State private var probeAlias: String?
+    @State private var probeState: ProbeState = .idle
+
+    private enum ProbeState {
+        case idle
+        case probing
+        case done(OnboardingProbeOutcome)
+    }
+
+    /// Hosts sorted: visible hosts keep ssh-config order; hidden hosts sink to the bottom.
+    ///
+    /// The scroll-to and flash rely on this stable ordering.
+    private var sortedHostEntries: [(alias: String, isHidden: Bool)] {
+        let all = model.allHostEntries
+        let visible = all.filter { !$0.isHidden }
+        let hidden = all.filter { $0.isHidden }
+        return visible + hidden
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -45,24 +74,45 @@ struct SettingsForm: View {
             Text("Hosts")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(model.allHostEntries, id: \.alias) { entry in
-                        hostRow(entry)
-                        if removingAlias == entry.alias {
-                            HostRemoveConfirmation(
-                                model: model,
-                                alias: entry.alias
-                            ) {
-                                removingAlias = nil
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(sortedHostEntries, id: \.alias) { entry in
+                            hostRow(entry)
+                                .background(
+                                    // Flash highlight — accent wash that fades
+                                    flashAlias == entry.alias
+                                        ? Theme.accent.opacity(flashOpacity * 0.18)
+                                        : Color.clear
+                                )
+                                .id(entry.alias)
+                            if removingAlias == entry.alias {
+                                HostRemoveConfirmation(
+                                    model: model,
+                                    alias: entry.alias
+                                ) {
+                                    removingAlias = nil
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, 4)
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.bottom, 4)
                         }
                     }
                 }
+                .frame(maxHeight: 200)
+                .onChange(of: flashAlias) { _, alias in
+                    guard let alias else { return }
+                    // Scroll to the new host and trigger the flash.
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(alias, anchor: .center)
+                    }
+                    // Fade the accent wash in then out.
+                    flashOpacity = 1.0
+                    withAnimation(.easeOut(duration: 1.2).delay(0.3)) {
+                        flashOpacity = 0
+                    }
+                }
             }
-            .frame(maxHeight: 200)
             if let notice = model.includedFileNotice {
                 Text(notice)
                     .font(.system(size: 11))
@@ -70,11 +120,40 @@ struct SettingsForm: View {
                     .padding(.leading, 8)
             }
             if addFormShowing {
-                HostAddForm(model: model, session: session)
-                    .padding(.horizontal, 8)
-                    .padding(.top, 4)
+                HostAddForm(
+                    model: model,
+                    session: session,
+                    onAdded: { alias in
+                        addFormShowing = false
+                        addedConfirmation = "Added ✓ \(alias)"
+                        flashAlias = alias
+                        // Clear confirmation after a beat.
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_500_000_000)
+                            addedConfirmation = nil
+                        }
+                        // Clear flash alias so repeated adds re-trigger the flash.
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            flashAlias = nil
+                        }
+                        // First-reach probe.
+                        probeAlias = alias
+                        probeState = .probing
+                        Task {
+                            let outcome = await session.probeHost(alias: alias)
+                            probeState = .done(outcome)
+                        }
+                    },
+                    onCancel: {
+                        addFormShowing = false
+                    }
+                )
+                .padding(.horizontal, 8)
+                .padding(.top, 4)
             }
             hostsFooter
+            probeSection
         }
     }
 
@@ -113,53 +192,111 @@ struct SettingsForm: View {
         .padding(.horizontal, 8)
     }
 
+    // MARK: - Footer
+
     private var hostsFooter: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 12) {
-                Button(addFormShowing ? "cancel add" : "add a host") {
-                    addFormShowing.toggle()
-                    if !addFormShowing {
+        VStack(alignment: .leading, spacing: 6) {
+            // Added confirmation — shown briefly after a successful write.
+            if let confirmation = addedConfirmation {
+                Text(confirmation)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 8)
+            }
+            // Base footer — only shown when the add form is closed.
+            if !addFormShowing {
+                HStack(spacing: 10) {
+                    Button("Add a host") {
+                        addFormShowing = true
                         removingAlias = nil
+                        probeState = .idle
+                        probeAlias = nil
+                        addedConfirmation = nil
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .font(.system(size: 12, weight: .medium))
+                    .controlSize(.regular)
+                    Button("View config") {
+                        configViewShowing.toggle()
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 11))
+                    .controlSize(.small)
+                    .popover(isPresented: $configViewShowing, arrowEdge: .bottom) {
+                        SSHConfigViewer(configText: model.configText)
+                    }
+                    Button("Reload hosts") {
+                        session.reloadHosts()
+                        model.refreshConfigText()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.inkFaint)
+                    .controlSize(.small)
+                    Button {
+                        hostHelpShowing.toggle()
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.inkFaint)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $hostHelpShowing, arrowEdge: .bottom) {
+                        hostHelp
                     }
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(addFormShowing ? Theme.inkFaint : Theme.accent)
-                Button("reload hosts") {
-                    session.reloadHosts()
-                    model.refreshConfigText()
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.inkFaint)
-            }
-            HStack(spacing: 4) {
-                Text("a Host block in the file is a host in the field")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Theme.inkFaint)
-                Button {
-                    hostHelpShowing.toggle()
-                } label: {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Theme.inkFaint)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $hostHelpShowing, arrowEdge: .bottom) {
-                    hostHelp
-                }
+                .padding(.horizontal, 8)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 2)
     }
+
+    /// Probe section — shown after a successful add (below the footer).
+    @ViewBuilder private var probeSection: some View {
+        switch probeState {
+        case .idle:
+            EmptyView()
+        case .probing:
+            Text("probing \(probeAlias ?? "")…")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkFaint)
+                .padding(.horizontal, 8)
+        case .done(let outcome):
+            probeResult(outcome)
+                .padding(.horizontal, 8)
+        }
+    }
+
+    @ViewBuilder
+    private func probeResult(_ outcome: OnboardingProbeOutcome) -> some View {
+        let name = probeAlias ?? ""
+        switch outcome {
+        case .connected:
+            Text("\(name) is reachable — key works")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkFaint)
+        case .unreachable(let detail):
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(name) is not reachable — \(detail)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.alarm)
+                Text("the host may be down or the address may be wrong")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.inkFaint)
+            }
+        case .authDenied:
+            KeySetupGuidanceView(alias: name)
+        }
+    }
+
+    // MARK: - Help popover
 
     /// What ~/.ssh/config is and the block that makes a host.
     private var hostHelp: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("pālana's hosts are your ssh hosts — the same file your terminal uses.")
                 .font(.system(size: 11))
-            Text("Use \"add a host\" above, or add a block directly to ~/.ssh/config:")
+            Text("Use \"Add a host\" above, or add a block directly to ~/.ssh/config:")
                 .font(.system(size: 11))
             Text("Host mybox\n    HostName 192.168.1.50\n    User me")
                 .font(.system(size: 11, design: .monospaced))
@@ -169,6 +306,15 @@ struct SettingsForm: View {
             Text("The − button removes a host's block from the file. The toggle hides it without removing.")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
+            Divider().opacity(0.3)
+            Button("Edit ~/.ssh/config externally") {
+                let configPath = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".ssh/config")
+                NSWorkspace.shared.open(configPath)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 10))
+            .foregroundStyle(Theme.accent)
         }
         .padding(12)
         .frame(width: 300, alignment: .leading)
@@ -252,5 +398,34 @@ struct SettingsCard: View {
         Text("esc closes")
             .font(.system(size: 10))
             .foregroundStyle(Theme.inkFaint)
+    }
+}
+
+/// A read-only popover showing the current `~/.ssh/config` contents.
+///
+/// Monospaced and scrollable, text-selectable but not editable — the
+/// external editor (the ⓘ popover's link) is the way to change the file.
+struct SSHConfigViewer: View {
+    /// The config text to display.
+    let configText: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("~/.ssh/config")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
+            Divider().opacity(0.4)
+            ScrollView([.vertical, .horizontal]) {
+                Text(configText.isEmpty ? "(empty)" : configText)
+                    .font(.system(size: 11, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(width: 380, height: 260)
+            .background(Theme.groundDeep)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .padding(14)
+        .frame(width: 410)
     }
 }
