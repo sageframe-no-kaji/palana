@@ -92,10 +92,11 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // The name in its own script — a quiet mark left of the glyphs.
+            // The name in its own script — a quiet mark left of the glyphs,
+            // sized to the window title "pālana", no button chrome.
             ToolbarItem(placement: .primaryAction) {
                 Text("पालन")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(Theme.inkFaint)
                     .help("pālana")
             }
