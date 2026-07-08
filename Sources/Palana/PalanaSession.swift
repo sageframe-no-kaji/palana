@@ -148,12 +148,9 @@ final class PalanaSession {
     /// them. Hidden aliases (`# palana: hide`) are excluded.
     func reloadHosts() {
         let text = (try? String(contentsOf: sshConfigURL, encoding: .utf8)) ?? ""
-        let resolve = SSHConfigParser.systemInclude(
-            relativeTo: sshConfigURL.deletingLastPathComponent())
+        let resolve = SSHConfigParser.systemInclude(relativeTo: sshConfigURL.deletingLastPathComponent())
         let hidden = SSHConfigParser.hiddenHosts(in: text, including: resolve)
-        hosts =
-            [Engine.localHost]
-            + SSHConfigParser.hosts(in: text, including: resolve).filter { !hidden.contains($0) }
+        hosts = [Engine.localHost] + SSHConfigParser.hosts(in: text, including: resolve).filter { !hidden.contains($0) }
     }
 
     /// Opens the operator's ssh config in whatever edits it.
@@ -731,5 +728,20 @@ extension PalanaSession {
                 operation.appendToolError("read failed: \(error)")
             }
         }
+    }
+}
+
+// MARK: - Host onboarding probe
+
+extension PalanaSession {
+    /// First-reach probe offered after a guided add.
+    func probeHost(alias: String) async -> OnboardingProbeOutcome {
+        guard alias != Engine.localHost else { return .connected }
+        guard let facts = try? await engine.field.discover(alias),
+            case .unreachable(let detail) = facts.reachability?.value
+        else { return .connected }
+        let low = detail.lowercased()
+        let denied = low.contains("authentication denied") || low.contains("permission denied")
+        return denied ? .authDenied(detail: detail) : .unreachable(detail: detail)
     }
 }

@@ -24,6 +24,8 @@ struct SettingsForm: View {
 
     @FocusState private var flagsFocused: Bool
     @State private var hostHelpShowing = false
+    @State private var addFormShowing = false
+    @State private var removingAlias: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -47,15 +49,30 @@ struct SettingsForm: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(model.allHostEntries, id: \.alias) { entry in
                         hostRow(entry)
+                        if removingAlias == entry.alias {
+                            HostRemoveConfirmation(
+                                model: model,
+                                alias: entry.alias
+                            ) {
+                                removingAlias = nil
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 4)
+                        }
                     }
                 }
             }
-            .frame(maxHeight: 180)
+            .frame(maxHeight: 200)
             if let notice = model.includedFileNotice {
                 Text(notice)
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.alarm)
                     .padding(.leading, 8)
+            }
+            if addFormShowing {
+                HostAddForm(model: model, session: session)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 4)
             }
             hostsFooter
         }
@@ -67,6 +84,19 @@ struct SettingsForm: View {
                 .font(.system(size: 14))
                 .foregroundStyle(entry.isHidden ? Theme.inkFaint : Theme.ink)
             Spacer()
+            // Remove affordance — distinct from the hide toggle.
+            // Shows the block it will strip and confirms before writing.
+            Button {
+                removingAlias = removingAlias == entry.alias ? nil : entry.alias
+            } label: {
+                Image(systemName: "minus.circle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(
+                        removingAlias == entry.alias ? Theme.alarm : Theme.inkFaint.opacity(0.5)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("remove this host from ~/.ssh/config")
             Toggle(
                 "",
                 isOn: Binding(
@@ -86,12 +116,15 @@ struct SettingsForm: View {
     private var hostsFooter: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
-                Button("add a host — edit ~/.ssh/config…") {
-                    session.editSSHConfig()
+                Button(addFormShowing ? "cancel add" : "add a host") {
+                    addFormShowing.toggle()
+                    if !addFormShowing {
+                        removingAlias = nil
+                    }
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11))
-                .foregroundStyle(Theme.inkFaint)
+                .foregroundStyle(addFormShowing ? Theme.inkFaint : Theme.accent)
                 Button("reload hosts") {
                     session.reloadHosts()
                     model.refreshConfigText()
@@ -121,20 +154,19 @@ struct SettingsForm: View {
         .padding(.top, 2)
     }
 
-    /// What ~/.ssh/config is and the block that makes a host — for
-    /// operators who haven't met the file (his ask, round 2).
+    /// What ~/.ssh/config is and the block that makes a host.
     private var hostHelp: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("pālana's hosts are your ssh hosts — the same file your terminal uses.")
                 .font(.system(size: 11))
-            Text("Add a block like this to ~/.ssh/config, then reload:")
+            Text("Use \"add a host\" above, or add a block directly to ~/.ssh/config:")
                 .font(.system(size: 11))
             Text("Host mybox\n    HostName 192.168.1.50\n    User me")
                 .font(.system(size: 11, design: .monospaced))
                 .padding(6)
                 .background(Theme.groundDeep)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-            Text("A guided add-a-host is coming. Hiding never removes — edit the file to truly remove.")
+            Text("The − button removes a host's block from the file. The toggle hides it without removing.")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
         }

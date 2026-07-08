@@ -190,6 +190,63 @@ final class SettingsModel {
         includedFileNotice = nil
     }
 
+    // MARK: - Add and remove
+
+    /// Appends a validated ``HostBlock`` to the config and reloads.
+    ///
+    /// Mirrors the backup-then-write-then-reload path in ``setHidden(_:alias:)``.
+    /// Returns `nil` on success, or a short reason string when no write happened:
+    /// - "alias already exists" — ``SSHConfigParser.adding`` refused a duplicate.
+    /// - "backup failed" / "write failed" — filesystem trouble; config untouched.
+    ///
+    /// The caller is responsible for running ``HostBlock/validate()`` before
+    /// calling this — composing an invalid block is refused by the surface, not here.
+    @discardableResult
+    func addHost(_ block: HostBlock) -> String? {
+        let text = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        guard let newText = SSHConfigParser.adding(block, to: text) else {
+            return "alias already exists — choose a different alias or remove the existing one first"
+        }
+        return commitWrite(from: text, to: newText)
+    }
+
+    /// Strips the named alias's ``Host`` block from the config and reloads.
+    ///
+    /// Same backup-then-write-then-reload path as ``setHidden(_:alias:)`` and
+    /// ``addHost(_:)``. Returns `nil` on success, or a short reason string when
+    /// no write happened:
+    /// - "alias not found" — the alias isn't in the top-level config text.
+    /// - "backup failed" / "write failed" — filesystem trouble; config untouched.
+    @discardableResult
+    func removeHost(alias: String) -> String? {
+        let text = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        guard let newText = SSHConfigParser.removing(alias: alias, from: text) else {
+            return "alias not found in the top-level config"
+        }
+        return commitWrite(from: text, to: newText)
+    }
+
+    /// Backs up, writes atomically, updates ``configText``, and fires ``onConfigChanged``.
+    ///
+    /// Returns `nil` on success or a short reason string on failure so the surface can
+    /// surface it — config is untouched on any error.
+    private func commitWrite(from original: String, to newText: String) -> String? {
+        let backupURL = configURL.appendingPathExtension("palana-backup")
+        do {
+            try original.write(to: backupURL, atomically: false, encoding: .utf8)
+        } catch {
+            return "backup failed — config untouched: \(error.localizedDescription)"
+        }
+        do {
+            try newText.write(to: configURL, atomically: true, encoding: .utf8)
+        } catch {
+            return "write failed: \(error.localizedDescription)"
+        }
+        configText = newText
+        onConfigChanged()
+        return nil
+    }
+
     // MARK: - Persistence
 
     private func loadPersisted() {
