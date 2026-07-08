@@ -1,15 +1,14 @@
 // The in-flow title bar shared by every summonable surface —
-// ✕ on the left, surface title beside it, a faint divider below.
-// In-flow means it is the first element of the surface's VStack,
-// so content starts below it with no overlap.
+// ✕ on the left, surface title beside it. In-flow means it is the
+// first element of the surface's VStack, so content starts below it
+// with no overlap.
 
 import SwiftUI
 
 /// The quasi-title-bar row at the top of every summonable surface.
 ///
 /// An HStack: `OverlayCloseButton` on the left (shown only when
-/// `onClose` is supplied), the surface title beside it, then a
-/// spacer. A faint `Divider` below separates it from the content.
+/// `onClose` is supplied), the surface title beside it, then a spacer.
 ///
 /// Usage:
 /// ```swift
@@ -30,21 +29,18 @@ struct OverlayHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                if let onClose {
-                    OverlayCloseButton(action: onClose)
-                }
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Theme.inkFaint)
-                Spacer()
+        HStack(spacing: 8) {
+            if let onClose {
+                OverlayCloseButton(action: onClose)
             }
-            .padding(.leading, 10)
-            .padding(.trailing, 10)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-            Divider().opacity(0.35)
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
+            Spacer()
         }
+        .padding(.leading, 10)
+        .padding(.trailing, 10)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
     }
 }
