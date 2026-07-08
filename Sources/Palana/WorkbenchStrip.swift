@@ -21,11 +21,14 @@ struct WorkbenchStrip: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(session.readsTool.verbs, id: \.id) { verb in
-                chip(verb)
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
+                chip(verb)
             }
+            Rectangle()
+                .fill(Theme.inkFaint.opacity(0.18))
+                .frame(height: 1)
             Spacer(minLength: 0)
         }
         .frame(width: 108)

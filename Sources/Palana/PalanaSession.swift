@@ -272,13 +272,14 @@ final class PalanaSession {
     private func handlePanelPriorityKey(_ token: String) -> Bool {
         switch token {
         case "esc":
-            // Esc out of a command cancels it — never left hanging (the safety).
-            // On a resting terminal it is a pure hide; the Esc that follows
-            // (panel now gone) clears the selection.
-            terminalFocused = false
+            // Esc out of a command cancels it and drops into terminal focus —
+            // the tool keys are live for the next move. On a resting terminal
+            // it is a pure hide; the Esc that follows clears the selection.
             if operation.terminalBusy {
                 operation.cancelCommand()
+                terminalFocused = true
             } else {
+                terminalFocused = false
                 operation.hidePanel()
             }
             return true
