@@ -92,11 +92,15 @@ struct SurfaceView: View {
             ToolbarItem(placement: .principal) {
                 paneVerbs
             }
-            // The trailing cluster — the name and the three glyphs in one
-            // bubble wearing the center swap cluster's groundDeep capsule.
-            // The opaque fill overrides the toolbar's own system glass.
+            // pālana — its own platter, filled and stroked in the titlebar's
+            // own color so the capsule vanishes into the bar and the name
+            // reads as free text (its opaque fill still hides the OS glass).
             ToolbarItem(placement: .primaryAction) {
-                trailingCluster
+                nameMark
+            }
+            // The three glyphs in the swap cluster's groundDeep capsule.
+            ToolbarItem(placement: .primaryAction) {
+                glyphCluster
             }
         }
     }
@@ -128,41 +132,46 @@ struct SurfaceView: View {
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
-    /// The trailing cluster — the name, then the glyphs in a capsule.
+    /// pālana on its own platter, colored to vanish into the titlebar.
     ///
-    /// pālana stands free to the left in its own script; the three glyphs
-    /// wear the swap cluster's groundDeep capsule. It is one toolbar item so
-    /// macOS adds no grouping glass — the name wears no bubble.
-    private var trailingCluster: some View {
-        HStack(spacing: 12) {
-            Text("पालन")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(Theme.inkFaint)
-                .help("pālana")
-            HStack(spacing: 0) {
-                paneVerb("server.rack", help: "the host map — F") {
-                    HostMapPanelController.shared.toggle(
-                        model: session.hostMapModel,
-                        hosts: session.hosts
-                    )
-                }
-                paneVerb("gearshape", help: "settings — ⌘,") {
-                    session.helpVisible = false
-                    session.fieldVisible = false
-                    session.settingsVisible.toggle()
-                }
-                paneVerb("questionmark", help: "the keys — ? on the keyboard") {
-                    session.settingsVisible = false
-                    session.fieldVisible = false
-                    session.helpVisible.toggle()
-                }
+    /// The opaque capsule covers the toolbar's system glass (the swap cluster
+    /// proves an opaque fill hides it); filled and stroked in the titlebar's
+    /// own ground, the capsule itself disappears and the name reads as free
+    /// text. Nudged a little left, a size larger than the glyphs.
+    private var nameMark: some View {
+        Text("पालन")
+            .font(.system(size: 16, weight: .regular))
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Theme.ground))
+            .overlay(Capsule().stroke(Theme.ground, lineWidth: 1))
+            .padding(.trailing, 6)
+            .help("pālana")
+    }
+
+    /// The three glyphs in the swap cluster's groundDeep capsule.
+    private var glyphCluster: some View {
+        HStack(spacing: 0) {
+            paneVerb("server.rack", help: "the host map — F") {
+                HostMapPanelController.shared.toggle(
+                    model: session.hostMapModel,
+                    hosts: session.hosts
+                )
             }
-            .background(Capsule().fill(Theme.groundDeep))
-            .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
+            paneVerb("gearshape", help: "settings — ⌘,") {
+                session.helpVisible = false
+                session.fieldVisible = false
+                session.settingsVisible.toggle()
+            }
+            paneVerb("questionmark", help: "the keys — ? on the keyboard") {
+                session.settingsVisible = false
+                session.fieldVisible = false
+                session.helpVisible.toggle()
+            }
         }
-        // Nudge the cluster left off the window's rounded corner, its right
-        // edge landing near the footer text's own inset.
-        .padding(.trailing, 8)
+        .background(Capsule().fill(Theme.groundDeep))
+        .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
 
     private func paneVerb(
