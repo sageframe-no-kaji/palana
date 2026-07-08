@@ -174,8 +174,11 @@ public enum SSHConfigParser {
         }
     }
 
-    /// A token names a host when it carries no matching machinery.
-    private static func isAlias(_ token: String) -> Bool {
+    /// True when a token is a real host alias, not `Host`-pattern machinery.
+    ///
+    /// A wildcard (`*`, `?`) or negation (`!`) is matching machinery, not a
+    /// name. Internal so `HostBlock` validation shares the one rule.
+    static func isAlias(_ token: String) -> Bool {
         !token.isEmpty && !token.hasPrefix("!")
             && !token.contains("*") && !token.contains("?")
     }
@@ -361,5 +364,75 @@ public enum SSHConfigParser {
             return indent.isEmpty ? "    " : indent
         }
         return "    "
+    }
+
+    // MARK: - Add and remove transforms
+
+    /// Returns new config text with ``block`` appended as a top-level `Host`
+    /// block, or `nil` when the alias already exists in ``text``.
+    ///
+    /// The composed block is separated from any preceding content by exactly
+    /// one blank line. An empty or whitespace-only ``text`` receives the block
+    /// with no leading blank line. Adding a duplicate alias is a refusal so
+    /// the surface can route the operator to remove-first or choose a
+    /// different alias — it is not a silent second block.
+    ///
+    /// Validation is the caller's gate: the block is composed and appended
+    /// regardless of whether it passes ``HostBlock/validate()``. Write only
+    /// validated blocks.
+    public static func adding(_ block: HostBlock, to text: String) -> String? {
+        let lines = text.components(separatedBy: "\n")
+        // Refuse to add a duplicate alias.
+        if findBlock(for: block.alias, in: lines) != nil { return nil }
+
+        let composed = block.compose()
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return composed
+        }
+        // Preserve the input's line endings; append after one blank separator.
+        let stripped = text.hasSuffix("\n") ? String(text.dropLast()) : text
+        return stripped + "\n\n" + composed
+    }
+
+    /// Returns new config text with the named alias's `Host` block stripped,
+    /// or `nil` when the alias is not present in ``text``.
+    ///
+    /// Block boundaries are found via the same ``findBlock``/``findBlockEnd``
+    /// machinery used by ``hiding(alias:in:)`` and ``showing(alias:in:)``.
+    /// Surrounding blocks and `Include` lines are left intact. The double
+    /// blank line that would otherwise appear where the block was is
+    /// collapsed to a single blank line.
+    ///
+    /// Returns `nil` when the alias is absent — the surface can distinguish
+    /// "already gone" from "written" rather than silently succeeding.
+    public static func removing(alias: String, from text: String) -> String? {
+        var lines = text.components(separatedBy: "\n")
+        guard let block = findBlock(for: alias, in: lines) else { return nil }
+
+        // Remove the block's lines (half-open: hostLine..<end).
+        lines.removeSubrange(block.hostLine..<block.end)
+
+        // Collapse any double blank lines left by the removal.
+        // A run of two or more consecutive empty lines becomes one.
+        var result: [String] = []
+        var consecutiveBlanks = 0
+        for line in lines {
+            if line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                consecutiveBlanks += 1
+                if consecutiveBlanks <= 1 { result.append(line) }
+            } else {
+                consecutiveBlanks = 0
+                result.append(line)
+            }
+        }
+
+        // Strip a leading blank line that would appear when the removed block
+        // was the first entry in the file.
+        while result.first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+            result.removeFirst()
+        }
+
+        return result.joined(separator: "\n")
     }
 }
