@@ -77,8 +77,11 @@ struct SurfaceView: View {
                 paneArea
                     .frame(minHeight: 220)
                 if session.operation.panelShowing {
+                    // The floor fits the header (~31) plus the whole tool strip
+                    // (four 28pt chips + five 1pt borders ≈ 117) so the smallest
+                    // drag never clips a chip top or bottom.
                     PlanPanel(operation: session.operation, session: session)
-                        .frame(minHeight: 130, idealHeight: 280)
+                        .frame(minHeight: 156, idealHeight: 280)
                 }
             }
             Divider()
