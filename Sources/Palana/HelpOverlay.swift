@@ -128,7 +128,9 @@ struct HelpOverlay: View {
                     .font(.system(size: 10 * scale))
                     .foregroundStyle(Theme.inkFaint)
             }
-            .padding(24 * scale)
+            .padding(.horizontal, 24 * scale)
+            .padding(.bottom, 24 * scale)
+            .padding(.top, 16 * scale)
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))

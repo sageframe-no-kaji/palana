@@ -381,7 +381,9 @@ struct SettingsCard: View {
                 Divider().opacity(0.35)
                 cardFooter
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+            .padding(.top, 16)
         }
         .frame(width: 400)
         .background(Theme.ground)
