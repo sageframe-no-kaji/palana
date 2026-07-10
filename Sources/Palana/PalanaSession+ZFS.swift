@@ -166,6 +166,7 @@ extension PalanaSession {
     func runWorkbenchMutation(_ verb: WorkbenchVerb, on host: String, dataset: String) {
         Task {
             guard await zfsMutationGuard(verb: verb, on: host) else { return }
+            guard !refusesPoolRoot(verb, dataset: dataset) else { return }
             operation.beginZFSMutation(verb, tool: zfsTool, host: host, dataset: dataset)
         }
     }
@@ -186,8 +187,23 @@ extension PalanaSession {
                 operation.appendToolError("no dataset holds \(path) on \(host)")
                 return
             }
+            guard !refusesPoolRoot(verb, dataset: dataset.name) else { return }
             operation.beginZFSMutation(verb, tool: zfsTool, host: host, dataset: dataset.name)
         }
+    }
+
+    /// Refuses destroy and rename aimed at a pool root with a plain sentence.
+    ///
+    /// A dataset name with no "/" is the pool root. The Plan Engine holds
+    /// the same invariant (`zfsPoolRootRefused`); this is the early surface
+    /// so the operator never types into a doomed gather.
+    private func refusesPoolRoot(_ verb: WorkbenchVerb, dataset: String) -> Bool {
+        guard verb.id == "zfs-destroy" || verb.id == "zfs-rename" else { return false }
+        guard !dataset.contains("/") else { return false }
+        operation.appendToolError(
+            "\(verb.label) refuses \(dataset) — that is the pool root; pālana manages datasets, never the pool itself"
+        )
+        return true
     }
 
     /// Shared availability and busy guard for all mutation routes.

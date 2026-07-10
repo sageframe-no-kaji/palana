@@ -260,6 +260,33 @@ struct ZFSMutationValidationTests {
         }
     }
 
+    @Test("destroyDataset refuses the pool root")
+    func destroyPoolRoot() {
+        #expect(throws: PlanError.zfsPoolRootRefused) {
+            _ = try planZfs(.destroyDataset(name: "tank", recursive: false))
+        }
+    }
+
+    @Test("destroyDataset refuses the pool root even recursive")
+    func destroyPoolRootRecursive() {
+        #expect(throws: PlanError.zfsPoolRootRefused) {
+            _ = try planZfs(.destroyDataset(name: "tank", recursive: true))
+        }
+    }
+
+    @Test("renameDataset refuses the pool root as source")
+    func renamePoolRoot() {
+        #expect(throws: PlanError.zfsPoolRootRefused) {
+            _ = try planZfs(.renameDataset(from: "tank", to: "lake"))
+        }
+    }
+
+    @Test("snapshot composes on the pool root — only destroy and rename refuse it")
+    func snapshotPoolRootAllowed() throws {
+        let plan = try planZfs(.snapshot(dataset: "tank", name: "nightly", recursive: false))
+        #expect(plan.steps[0].command == "zfs snapshot tank@nightly")
+    }
+
     @Test("snapshot refuses empty dataset name")
     func snapshotEmptyDataset() {
         #expect(throws: PlanError.zfsNameEmpty) {

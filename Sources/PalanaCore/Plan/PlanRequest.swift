@@ -153,4 +153,8 @@ public enum PlanError: Error, Equatable, Sendable {
     case zfsSnapshotNameContainsAt
     /// A rename requires distinct `from` and `to` names.
     case zfsRenameNamesIdentical
+    /// Destroy and rename refuse the pool root dataset (a name with no
+    /// `/`). Pools are physical — pālana manages datasets, never the
+    /// pool itself (ho-10.1 keeps pool create/destroy out of scope).
+    case zfsPoolRootRefused
 }

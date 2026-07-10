@@ -491,6 +491,8 @@ extension OperationModel {
             return "create needs an empty selection — deselect first"
         case PlanError.destinationForbidden:
             return "rename and create stay in the source directory — no destination"
+        case PlanError.zfsPoolRootRefused:
+            return "that is the pool root — pālana manages datasets, never the pool itself"
         default:
             return nil
         }

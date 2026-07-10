@@ -8,7 +8,8 @@ extension PlanEngine {
     // MARK: - Validation
 
     /// Validates a `.zfs` request — payload required, names non-empty,
-    /// snapshot name must not carry `@`, rename names must differ.
+    /// snapshot name must not carry `@`, rename names must differ, and
+    /// destroy/rename refuse the pool root (a name with no `/`).
     static func validateZfs(_ request: PlanRequest) throws {
         guard let mutation = request.zfs else {
             throw PlanError.zfsMutationPayloadRequired
@@ -18,10 +19,12 @@ extension PlanEngine {
             try requireNonEmpty(name)
         case .destroyDataset(let name, _):
             try requireNonEmpty(name)
+            try refusePoolRoot(name)
         case .renameDataset(let from, let to):
             try requireNonEmpty(from)
             try requireNonEmpty(to)
             guard from != to else { throw PlanError.zfsRenameNamesIdentical }
+            try refusePoolRoot(from)
         case .snapshot(let dataset, let name, _):
             try requireNonEmpty(dataset)
             try requireNonEmpty(name)
@@ -42,6 +45,12 @@ extension PlanEngine {
 
     private static func requireNonEmpty(_ value: String) throws {
         guard !value.isEmpty else { throw PlanError.zfsNameEmpty }
+    }
+
+    /// A dataset name with no `/` is the pool root — destroy and rename
+    /// must not compose on it (pools are physical; ho-10.1 out of scope).
+    private static func refusePoolRoot(_ name: String) throws {
+        guard name.contains("/") else { throw PlanError.zfsPoolRootRefused }
     }
 
     // MARK: - Composition
