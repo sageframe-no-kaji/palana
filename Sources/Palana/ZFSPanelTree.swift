@@ -200,14 +200,22 @@ struct ZFSDatasetTree: View {
         let sorted = topology.sorted { $0.name < $1.name }
         datasets = sorted
 
-        // Pre-select: prefer the dataset containing the current path.
+        // Pre-select, cursor first: when the pane's cursor sits on a
+        // directory that IS a mounted dataset's mountpoint, that dataset is
+        // what the operator is aiming at — not the one merely containing the
+        // directory they stand in (the two-cursor failure, fifth block).
+        // Falls back to the containing dataset, then the first root.
+        guard selectionIsStale(in: sorted) else { return }
         let path = focusedPath
-        if let containing = ZFSTopology.datasetContaining(path, in: topology) {
-            // Only change selection when it is nil or no longer valid.
-            if selectionIsStale(in: sorted) {
-                selection.select(fullDataset: containing)
-            }
-        } else if selectionIsStale(in: sorted) {
+        let cursorAimed = session.focusedPane.cursorEntry.flatMap { entry in
+            ZFSTopology.wholeDatasetSelection(
+                entries: [entry], sourceDirectory: path, datasets: topology)
+        }
+        if let aimed = cursorAimed {
+            selection.select(fullDataset: aimed)
+        } else if let containing = ZFSTopology.datasetContaining(path, in: topology) {
+            selection.select(fullDataset: containing)
+        } else {
             selection.select(fullDataset: sorted.first)
         }
     }
