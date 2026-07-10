@@ -16,6 +16,48 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10, second block (the hands session + the grammar)
+
+**COMPLETED**
+- **He drove the whole BIG PUSH live — nine fix/build rounds answered in
+  session.** Columns sort (review-missed comparators fixed, ★ sorts via a
+  routing token), drag-and-drop WORKS (third attempt: a bundle-less binary
+  can't declare pasteboard types — payload moved to public.json; his word:
+  "its working"), per-pane history (⌘←/⌘→ + chevrons, PaneHistory in core),
+  one-Enter rename/create, loud prompts (accent naming field, the shouted
+  send-back callout), the auto-send toggle (conflict always asks), the verb
+  chips as a permanent rail (dimmed while a plan runs).
+- **The language sweep** — six message-grammar rules installed at
+  Collision.swift's header and applied across core + app + tests: plans
+  speak future, runs speak past with proof, refusals name thing and reason,
+  unknowns named, no jargon (enact/gather/compose are dead words),
+  classification/transport render plain, raw values frozen. His wording
+  verbatim in the collision note.
+- **ho-9.11 THE GRAMMAR — proposed, ratified, executed in one day.**
+  grammar-proposal.md (119-binding audit → five rules) → his marks → one
+  atomic commit: d deletes, r renames, R/T unbound, 8 stars the entry,
+  ⌘8 the directory, ⇧⌘8 dead, ? card teaches the rules, README keybindings
+  table. 696 tests, 114 suites, CI green through the day.
+
+**NEXT**
+- His remaining feel verdicts: the round-trip loop end-to-end in his
+  editor, the columns picker, the r/d retrain, the wash weight. Then close
+  entries for 9.6–9.11 (and 9.5, still pending from before the push) →
+  ho-10.1 resumes (AT-02 tool, AT-03 surface) → ho-11 → ho-12.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. App running his real config with the full day's work.
+- Noted in 9.11's Reflect: no test pins the binding table — a snapshot
+  test is cheap insurance before the next rename.
+- Deferred stack unchanged (drag-out, width persistence, /-jump,
+  verb-time re-choice, gather-the-starred).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; the ho-9 remainder + grammar executed toward
+  the ho-9 close; ho-10.1 next toward v0.5.
+
+---
+
 ## State summary — 2026-07-10 (the BIG PUSH — ho-9 remainder)
 
 **COMPLETED**
