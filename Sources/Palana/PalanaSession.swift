@@ -313,6 +313,12 @@ extension PalanaSession {
                 }
                 return consumed ? nil : event
             }
+            if event.window?.identifier?.rawValue == ZFSPanelController.identifier {
+                let consumed = MainActor.assumeIsolated {
+                    self?.handleZFSPanelKey(event) == true
+                }
+                return consumed ? nil : event
+            }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
         }
@@ -533,11 +539,13 @@ extension PalanaSession {
         fontScale = min(max(fontScale + delta, 0.75), 1.8)
     }
 
-    /// Handles f, F, and backtick — the three tokens that bypass the recognizer.
+    /// Handles f, F, backtick, Z, and other tokens that bypass the recognizer.
     ///
-    /// All three are gated on `pendingPrefix.isEmpty` so multi-key chords
+    /// All are gated on `pendingPrefix.isEmpty` so multi-key chords
     /// (`c f` = copyFilename) are not intercepted. Returns true when consumed.
     /// Backtick (`` ` ``) shows the plan panel; phase and work are untouched.
+    /// Z toggles the ZFS panel — only fires while the terminal holds focus,
+    /// where it acts as a launcher not a WorkbenchVerb.
     private func handleMainSpecialKey(_ token: String) -> Bool {
         guard pendingPrefix.isEmpty else { return false }
         if token == "f" {
@@ -570,6 +578,12 @@ extension PalanaSession {
         if token == "shift-tab" {
             if !operation.panelShowing { operation.showPanel() }
             terminalFocused.toggle()
+            return true
+        }
+        // Z — ZFS panel launcher. Active only while the terminal holds focus so
+        // the key does not collide with pane navigation in the main flow.
+        if token == "Z", terminalFocused {
+            ZFSPanelController.shared.toggle(session: self)
             return true
         }
         return false

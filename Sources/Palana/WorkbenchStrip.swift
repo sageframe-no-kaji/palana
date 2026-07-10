@@ -3,6 +3,10 @@
 // drop raw output into the transcript; mutation verbs open a gather.
 // Dims while an operation owns the terminal; a subtle accent bar
 // brightens while the terminal holds keyboard focus.
+//
+// The ZFS chips now live in ZFSPanel — the strip keeps only a launcher.
+// All chips are wrapped in a ScrollView so they can never be silently
+// clipped by a short plan panel.
 
 import PalanaCore
 import SwiftUI
@@ -10,9 +14,9 @@ import SwiftUI
 /// A narrow vertical column of Workbench verbs pinned to the plan
 /// panel's trailing edge.
 ///
-/// Two sections: the system reads tool above a divider, the ZFS
-/// mutation tool below it. Both share the same chip shape, the same
-/// availability refresh, and the same local-honesty guard.
+/// The system reads tool chips sit above a divider. Below it, one
+/// launcher chip opens the ZFS panel — the eight mutation verbs have
+/// moved there so they are never silently clipped by a short panel.
 struct WorkbenchStrip: View {
     /// The root session — verbs, focus flag, operation state.
     var session: PalanaSession
@@ -24,34 +28,23 @@ struct WorkbenchStrip: View {
     private var terminalBusy: Bool { session.operation.terminalBusy }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(session.readsTool.verbs, id: \.id) { verb in
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(session.readsTool.verbs, id: \.id) { verb in
+                    Rectangle()
+                        .fill(Theme.inkFaint.opacity(0.18))
+                        .frame(height: 1)
+                    chip(verb)
+                }
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
-                chip(verb)
-            }
-            Rectangle()
-                .fill(Theme.inkFaint.opacity(0.18))
-                .frame(height: 1)
-            // ZFS section — a small section caption then one chip per mutation verb.
-            Text("zfs")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Theme.inkFaint)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.top, 6)
-                .padding(.bottom, 2)
-            ForEach(session.zfsTool.verbs, id: \.id) { verb in
+                // ZFS launcher — opens the pop-out panel.
+                zfsLauncher
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
-                chip(verb)
             }
-            Rectangle()
-                .fill(Theme.inkFaint.opacity(0.18))
-                .frame(height: 1)
-            Spacer(minLength: 0)
         }
         .frame(width: 108)
         .frame(maxHeight: .infinity)
@@ -66,6 +59,19 @@ struct WorkbenchStrip: View {
         }
         .task(id: focusedHost ?? "") {
             await refreshAvailabilities()
+        }
+    }
+
+    /// The ZFS panel launcher — one chip, key hint "Z", toggles the panel.
+    private var zfsLauncher: some View {
+        StripChip(
+            label: "zfs…",
+            keyHint: "Z",
+            enabled: !terminalBusy,
+            showKey: session.terminalFocused,
+            help: "open the zfs panel"
+        ) {
+            ZFSPanelController.shared.toggle(session: session)
         }
     }
 
@@ -98,8 +104,8 @@ struct WorkbenchStrip: View {
 
     private func refreshAvailabilities() async {
         guard let host = focusedHost else { return }
-        // Refresh both tools' verbs — availability is per-verb, per-host.
-        for verb in session.readsTool.verbs + session.zfsTool.verbs {
+        // Refresh only the reads tool verbs — ZFS availability lives in ZFSPanel.
+        for verb in session.readsTool.verbs {
             availabilities[verb.id] = await session.workbench.availability(of: verb, on: host)
         }
     }

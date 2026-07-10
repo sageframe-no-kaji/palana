@@ -1,9 +1,43 @@
-// PalanaSession+ZFS — the mutation route and the field-less gather key
-// handler, extracted from PalanaSession.swift to keep that file within
-// the line-length budget.
+// PalanaSession+ZFS — the mutation route, the ZFS panel key handler, and
+// the field-less gather key handler, extracted from PalanaSession.swift
+// to keep that file within the line-length budget.
 
 import AppKit
 import PalanaCore
+
+// MARK: - ZFS panel key handling
+
+extension PalanaSession {
+    /// Routes a key event while the ZFS panel is the key window.
+    ///
+    /// Esc closes. A plain letter matching a ZFS verb's `keyHint` fires that
+    /// verb — panel closes first so focus returns to the main window before
+    /// the gather opens. Everything else passes through untouched.
+    func handleZFSPanelKey(_ event: NSEvent) -> Bool {
+        let keyCode = event.keyCode
+        let hasCommand = event.modifierFlags.contains(.command)
+        let hasShift = event.modifierFlags.contains(.shift)
+        // Esc — close the panel; pass nothing further.
+        if keyCode == 53 {
+            ZFSPanelController.shared.close()
+            return true
+        }
+        // Plain letters only — modifiers would step on menu shortcuts.
+        guard !hasCommand, !hasShift,
+            let ch = event.charactersIgnoringModifiers,
+            ch.count == 1
+        else { return false }
+        // Match against a ZFS verb's keyHint.
+        if let verb = zfsTool.verbs.first(where: { $0.keyHint == ch }) {
+            ZFSPanelController.shared.close()
+            runWorkbenchVerb(verb)
+            return true
+        }
+        return false
+    }
+}
+
+// MARK: - ZFS gather keys
 
 extension PalanaSession {
     /// Handles keys during a field-less ZFS gather (e.g. destroy).
