@@ -11,11 +11,15 @@ extension PalanaSession {
     /// Routes a key event while the ZFS panel is the key window.
     ///
     /// Esc closes. ↑↓ (keyCodes 126/125) move the dataset tree selection
-    /// without rebuilding the hosting view. ⌘1–⌘5 jump to a size; ⌘+/= and
-    /// ⌘− step — mirroring `handleKeysPanelKey` exactly. A plain letter
-    /// matching a ZFS verb's `keyHint` fires that verb on the currently
-    /// selected dataset — panel closes first so focus returns to the main
-    /// window before the gather opens. Everything else passes through.
+    /// without rebuilding the hosting view. ⇧⌘← (keyCode 123) points the
+    /// left pane at the selected dataset's mountpoint; ⇧⌘→ (keyCode 124)
+    /// the right pane — mounted datasets only, silent no-op otherwise.
+    /// ⌘1–⌘5 jump to a size; ⌘+/= and ⌘− step — mirroring
+    /// `handleKeysPanelKey` exactly. A plain letter matching a ZFS verb's
+    /// `keyHint` fires that verb on the currently selected dataset —
+    /// the panel stays open and keyboard focus returns to the main window
+    /// so the gather field receives input immediately. Everything else
+    /// passes through.
     func handleZFSPanelKey(_ event: NSEvent) -> Bool {
         let keyCode = event.keyCode
         let chars = event.charactersIgnoringModifiers
@@ -25,6 +29,13 @@ extension PalanaSession {
         if keyCode == 53 {
             ZFSPanelController.shared.close()
             return true
+        }
+        // ⇧⌘← / ⇧⌘→ — point left or right pane at the selected dataset.
+        if hasCommand, hasShift {
+            if keyCode == 123 || keyCode == 124 {
+                pointPaneAtSelectedDataset(keyCode == 123 ? left : right)
+                return true
+            }
         }
         // ↑ / ↓ — move tree selection (no modifiers).
         if !hasCommand, !hasShift {
@@ -56,16 +67,33 @@ extension PalanaSession {
             ch.count == 1
         else { return false }
         // Match against a ZFS verb's keyHint — fires on the selected dataset.
+        // Panel stays open — Esc or ✕ closes it. Focus returns to the main
+        // window so the gather field (PlanPanel .naming phase) receives input.
         if let verb = zfsTool.verbs.first(where: { $0.keyHint == ch }) {
             let sel = ZFSPanelController.shared.selection
             guard let host = focusedPane.state.host,
                 let dataset = sel.selectedDataset
             else { return true }
-            ZFSPanelController.shared.close()
             runWorkbenchMutation(verb, on: host, dataset: dataset)
+            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
             return true
         }
         return false
+    }
+
+    /// Points a pane at the selected dataset's mountpoint.
+    ///
+    /// Silent no-op when no dataset is selected, the dataset is not
+    /// effectively mounted (mounted == false or mountpoint not a "/"-path),
+    /// or no host is focused.
+    private func pointPaneAtSelectedDataset(_ pane: PaneModel) {
+        let sel = ZFSPanelController.shared.selection
+        guard let dataset = sel.selectedFullDataset,
+            dataset.mounted,
+            dataset.mountpoint.hasPrefix("/"),
+            let host = focusedPane.state.host
+        else { return }
+        pane.point(host: host, path: dataset.mountpoint)
     }
 
     /// Asks the tree selection to move one step up, re-reading cached datasets.

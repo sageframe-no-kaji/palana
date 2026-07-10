@@ -4,10 +4,11 @@
 // Dims while an operation owns the terminal; a subtle accent bar
 // brightens while the terminal holds keyboard focus.
 //
-// The strip is now TWO COLUMNS side by side: a reads column (accent)
-// and a plugins column (ochre/amber). Each column scrolls independently,
-// so the plugin launcher is always visible even when the plan panel is
-// at minimum height. A 1pt hairline separates them.
+// The strip is now TWO COLUMNS side by side: a plugins column (burnt
+// umber/light orange, solid chips) on the left, then a reads column
+// (accent) on the right. Each column scrolls independently, so the
+// plugin launcher is always visible even when the plan panel is at
+// minimum height. A 1pt hairline separates them.
 
 import PalanaCore
 import SwiftUI
@@ -15,9 +16,10 @@ import SwiftUI
 /// A narrow two-column strip of Workbench verbs pinned to the plan
 /// panel's trailing edge.
 ///
-/// Left column: system reads chips (accent styling). Right column:
-/// plugin launchers (plugin tint), starting with the ZFS panel opener.
-/// Each column scrolls independently. A 1pt hairline divides them.
+/// Left column: plugin launchers (burnt umber / light orange, solid
+/// chips with cream text), starting with the ZFS panel opener. Right
+/// column: system reads chips (accent styling). Each column scrolls
+/// independently. A 1pt hairline divides them.
 struct WorkbenchStrip: View {
     /// The root session — verbs, focus flag, operation state.
     var session: PalanaSession
@@ -30,6 +32,28 @@ struct WorkbenchStrip: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // MARK: Plugins column — solid burnt-umber chips, cream text
+            ScrollView {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Theme.plugin.opacity(0.18))
+                        .frame(height: 1)
+                    zfsLauncher
+                    Rectangle()
+                        .fill(Theme.plugin.opacity(0.18))
+                        .frame(height: 1)
+                }
+            }
+            .frame(width: 88)
+            .frame(maxHeight: .infinity)
+            .background(Theme.plugin.opacity(0.05))
+
+            // MARK: Column separator
+            Rectangle()
+                .fill(Theme.inkFaint.opacity(0.18))
+                .frame(width: 1)
+                .frame(maxHeight: .infinity)
+
             // MARK: Reads column
             ScrollView {
                 VStack(spacing: 0) {
@@ -47,28 +71,6 @@ struct WorkbenchStrip: View {
             .frame(width: 88)
             .frame(maxHeight: .infinity)
             .background(Theme.ground)
-
-            // MARK: Column separator
-            Rectangle()
-                .fill(Theme.inkFaint.opacity(0.18))
-                .frame(width: 1)
-                .frame(maxHeight: .infinity)
-
-            // MARK: Plugins column
-            ScrollView {
-                VStack(spacing: 0) {
-                    Rectangle()
-                        .fill(Theme.plugin.opacity(0.18))
-                        .frame(height: 1)
-                    zfsLauncher
-                    Rectangle()
-                        .fill(Theme.plugin.opacity(0.18))
-                        .frame(height: 1)
-                }
-            }
-            .frame(width: 88)
-            .frame(maxHeight: .infinity)
-            .background(Theme.plugin.opacity(0.05))
         }
         .overlay(alignment: .leading) {
             // The left separator and the cream ground carry all the way down —
@@ -85,7 +87,8 @@ struct WorkbenchStrip: View {
 
     /// The ZFS panel launcher — one chip, key hint "Z", toggles the panel.
     ///
-    /// Plugin-tinted: key hint in plugin color, hover wash plugin-tinted.
+    /// Solid plugin chip: burnt-umber ground, cream text and key hint,
+    /// hover slightly lighter.
     private var zfsLauncher: some View {
         PluginChip(
             label: "zfs…",
@@ -170,9 +173,12 @@ private struct StripChip: View {
     }
 }
 
-/// One plugin chip — plugin (ochre/amber) styling, key hint shown while engaged.
+/// One plugin chip — solid burnt-umber ground, cream text and key hint.
 ///
-/// Matches `StripChip`'s shape; tinted with `Theme.plugin` throughout.
+/// Solid chips: the label and key hint render in `Theme.ground` (cream)
+/// over a `Theme.plugin` fill. Hover brightens the fill slightly via an
+/// opacity blend. Disabled chips dim to 0.5. Matches `StripChip`'s
+/// shape and dimensions.
 private struct PluginChip: View {
     let label: String
     let keyHint: String
@@ -192,15 +198,19 @@ private struct PluginChip: View {
                     if showKey {
                         Text(keyHint)
                             .font(.system(size: 12, weight: .regular))
-                            .foregroundStyle(Theme.plugin)
+                            .foregroundStyle(Theme.ground)
                             .padding(.horizontal, 10)
                     }
                 }
-                .background(hovering && enabled ? Theme.plugin.opacity(0.10) : Color.clear)
+                // Solid burnt-umber fill; hover adds a white sheen.
+                .background(
+                    Theme.plugin
+                        .overlay(hovering && enabled ? Color.white.opacity(0.12) : Color.clear)
+                )
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
+        .foregroundStyle(Theme.ground)
         .opacity(enabled ? 1 : 0.5)
         .onHover { hovering = $0 }
         .help(help)

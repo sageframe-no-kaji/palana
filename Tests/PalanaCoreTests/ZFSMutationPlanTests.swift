@@ -30,7 +30,7 @@ struct ZFSCreateDatasetComposeTests {
         #expect(
             plan.steps.map(\.command) == [
                 "zfs create tank/data",
-                "zfs list -H -o name -- tank/data",
+                "zfs list -H -o name,mounted -- tank/data",
             ])
         #expect(plan.steps.map(\.role) == [.create, .verify])
         #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo")])
@@ -41,14 +41,14 @@ struct ZFSCreateDatasetComposeTests {
     func createWithMountpoint() throws {
         let plan = try planZfs(.createDataset(name: "tank/data", mountpoint: "/mnt/data"))
         #expect(plan.steps[0].command == "zfs create -o mountpoint=/mnt/data tank/data")
-        #expect(plan.steps[1].command == "zfs list -H -o name -- tank/data")
+        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- tank/data")
     }
 
     @Test("createDataset quotes names with spaces")
     func createSpacedName() throws {
         let plan = try planZfs(.createDataset(name: "tank/my data", mountpoint: "/mnt/my data"))
         #expect(plan.steps[0].command == "zfs create -o mountpoint='/mnt/my data' 'tank/my data'")
-        #expect(plan.steps[1].command == "zfs list -H -o name -- 'tank/my data'")
+        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- 'tank/my data'")
     }
 
     @Test("createDataset classifies as zfsMutation, transports local")

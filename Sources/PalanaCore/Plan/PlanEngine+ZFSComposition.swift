@@ -70,8 +70,13 @@ extension PlanEngine {
             return [
                 PlanStep(
                     runsOn: host, command: "zfs create\(mountPart) \(namePart)", role: .create),
+                // name,mounted — on delegated Linux creates, mounting is root's job
+                // (ho-06.2 law): the transcript shows 'palana/x  no' rather than
+                // implying the dataset is mounted when it may not be.
                 PlanStep(
-                    runsOn: host, command: "zfs list -H -o name -- \(namePart)", role: .verify),
+                    runsOn: host,
+                    command: "zfs list -H -o name,mounted -- \(namePart)",
+                    role: .verify),
             ]
         case .destroyDataset(let name, let recursive):
             let namePart = ShellQuote.quote(name)

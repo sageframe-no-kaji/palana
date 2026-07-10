@@ -250,6 +250,12 @@ struct ZFSPanelView: View {
     ///
     /// Verbs fire on the selected dataset from the tree. Mutation verbs are
     /// additionally disabled when there is no tree selection (no-topology host).
+    /// The panel does NOT close when a verb fires — it closes only via Esc or ✕.
+    /// After firing, keyboard focus returns to the main window so the gather
+    /// field (which appears at `.naming` phase in PlanPanel) becomes key
+    /// immediately: `NSApp.mainWindow?.makeKeyAndOrderFront(nil)` re-asserts
+    /// the main window — PlanPanel's `.task(id: operation.phase)` then sets
+    /// `namingFieldFocused = true` via the SwiftUI focus system.
     private func verbRow(_ verb: WorkbenchVerb) -> some View {
         let avail = resolvedAvailability(for: verb)
         let enabled = !terminalBusy && avail == .available && !(verb.kind == .mutation && noSelection)
@@ -260,8 +266,10 @@ struct ZFSPanelView: View {
             help: helpText(for: verb, avail: avail)
         ) {
             guard let host = focusedHost, let dataset = selection.selectedDataset else { return }
-            ZFSPanelController.shared.close()
+            // Panel stays open — Esc or ✕ closes it.
             session.runWorkbenchMutation(verb, on: host, dataset: dataset)
+            // Return focus to the main window so the gather field receives input.
+            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
         }
     }
 
@@ -286,7 +294,7 @@ struct ZFSPanelView: View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
             Text(
-                "↑↓ choose a dataset · esc closes · letter fires verb · Z opens · ⌘1–⌘5 pick a size · ⌘+/− step"
+                "↑↓ choose · letter fires verb · ⇧⌘←/→ opens in pane · esc closes · Z opens · ⌘1–⌘5 size · ⌘+/− step"
             )
             .font(.system(size: 10))
             .foregroundStyle(Theme.inkFaint)

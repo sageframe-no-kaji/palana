@@ -51,6 +51,22 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   clear `.fixtures/zfs.env` if suites later dial a dead port.
 
 **ACTION ITEMS / BLOCKS**
+- **SEALED (his word, 2026-07-10, mid-hands): the mount capability —
+  ho-10.2.** Delegated creates land unmounted on Linux (mounting is
+  root's; `zfs allow mount` is a dead letter there — proven live on the
+  fixture with `palana/angrybird`, `mounted: no`). The no-sudo law gains
+  ONE narrow exception: `sudo -n zfs mount/unmount`, capability-probed
+  per host, composed only where the host grants NOPASSWD, always a
+  visible plan step. Never prompts (sudo -n; the ssh channel has no TTY
+  and pālana handles no secrets). Where ungranted: truthful refusal +
+  the exact root command. Settings grows a helper showing the narrow
+  sudoers line to copy ("counsel people to do that, if they want this
+  feature" — his words). Unlocks mount/unmount verbs; heals
+  set-mountpoint's remount. Root-helper daemon REJECTED (standing root,
+  no per-action gate).
+- **SEALED same day: the ZFS pane mode — ho-10.3** (per-pane dataset
+  view, not hardcoded left; verb-grammar Think required — what does d
+  mean on a dataset; dataset-y-equals-send convergence with ho-06.2).
 - No blocks. Fixture VM `palana-zfs` UP and app running against it —
   both deliberately left up for his hands session (departure from the
   VM-stopped default, on purpose).
