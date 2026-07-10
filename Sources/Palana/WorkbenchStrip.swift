@@ -1,13 +1,18 @@
-// The tools strip — read-only buttons on the plan panel's trailing edge.
-// One button per verb, aimed at the focused pane's host, dropping raw
-// output into the transcript. Dims while an operation owns the terminal;
-// a subtle accent bar brightens while the terminal holds keyboard focus.
+// The tools strip — verb buttons on the plan panel's trailing edge.
+// One button per verb, aimed at the focused pane's host. Read verbs
+// drop raw output into the transcript; mutation verbs open a gather.
+// Dims while an operation owns the terminal; a subtle accent bar
+// brightens while the terminal holds keyboard focus.
 
 import PalanaCore
 import SwiftUI
 
-/// A narrow vertical column of Workbench read verbs pinned to the plan
+/// A narrow vertical column of Workbench verbs pinned to the plan
 /// panel's trailing edge.
+///
+/// Two sections: the system reads tool above a divider, the ZFS
+/// mutation tool below it. Both share the same chip shape, the same
+/// availability refresh, and the same local-honesty guard.
 struct WorkbenchStrip: View {
     /// The root session — verbs, focus flag, operation state.
     var session: PalanaSession
@@ -21,6 +26,23 @@ struct WorkbenchStrip: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(session.readsTool.verbs, id: \.id) { verb in
+                Rectangle()
+                    .fill(Theme.inkFaint.opacity(0.18))
+                    .frame(height: 1)
+                chip(verb)
+            }
+            Rectangle()
+                .fill(Theme.inkFaint.opacity(0.18))
+                .frame(height: 1)
+            // ZFS section — a small section caption then one chip per mutation verb.
+            Text("zfs")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+                .padding(.bottom, 2)
+            ForEach(session.zfsTool.verbs, id: \.id) { verb in
                 Rectangle()
                     .fill(Theme.inkFaint.opacity(0.18))
                     .frame(height: 1)
@@ -76,7 +98,8 @@ struct WorkbenchStrip: View {
 
     private func refreshAvailabilities() async {
         guard let host = focusedHost else { return }
-        for verb in session.readsTool.verbs {
+        // Refresh both tools' verbs — availability is per-verb, per-host.
+        for verb in session.readsTool.verbs + session.zfsTool.verbs {
             availabilities[verb.id] = await session.workbench.availability(of: verb, on: host)
         }
     }

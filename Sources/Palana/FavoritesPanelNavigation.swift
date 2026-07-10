@@ -171,3 +171,43 @@ extension PalanaSession {
             ?? fav.host
     }
 }
+
+// MARK: - Favorites verbs (moved from PalanaSession.swift for file-length budget)
+
+extension PalanaSession {
+    /// Toggles the given pane's location in the favorites list.
+    ///
+    /// A second toggle on a favorited location removes it, whatever its scope.
+    /// Removes if present, adds host-bound if absent — matches the star's contract.
+    /// `model` is the pane to toggle; when nil the focused pane is used.
+    func toggleFavorite(forFocusedPaneOr model: PaneModel?) {
+        let pane = model ?? focusedPane
+        guard let host = pane.state.host else { return }
+        favorites.toggle(host: host, path: pane.state.path)
+    }
+
+    /// Points the given side's pane at the chosen favorite.
+    ///
+    /// A global favorite may re-point to a different host — the existing
+    /// `point(host:path:)` path handles that without a special case.
+    func chooseFavorite(_ favorite: Favorite, for side: SessionSnapshot.Side) {
+        let pane = side == .left ? left : right
+        pane.point(host: favorite.host, path: favorite.path)
+    }
+
+    /// Promotes or demotes a favorite's scope in place.
+    func promoteFavorite(id: String, to scope: FavoriteScope) {
+        favorites.setScope(id: id, scope)
+    }
+
+    /// Toggles the favorites column panel.
+    func toggleFavoritesPanel() {
+        favoritesPanelModel.jumpTarget = focusedSide == .left ? .left : .right
+        FavoritesPanelController.shared.toggle(
+            favoritesModel: favorites,
+            panelModel: favoritesPanelModel,
+            onJump: { [weak self] host, path in self?.jumpFavorite(host: host, path: path) },
+            onUnstar: { [weak self] id in self?.favorites.remove(id: id) },
+            onSetScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) })
+    }
+}

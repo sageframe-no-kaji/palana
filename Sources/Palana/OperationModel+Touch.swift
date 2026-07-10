@@ -24,6 +24,8 @@ extension OperationModel {
         let subjects = source.operationSubjects
         guard !subjects.isEmpty else { return }
         panelShowing = true
+        // A stale ZFS gather must not misroute a later naming.
+        clearZFSGatherState()
         requested = .touch
         echo = EchoBuffer()
         progress = nil

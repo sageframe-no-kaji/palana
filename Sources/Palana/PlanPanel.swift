@@ -178,23 +178,48 @@ struct PlanPanel: View {
             Text(operation.namingLabel)
                 .foregroundStyle(Theme.accent)
                 .fontWeight(.semibold)
-            TextField("", text: $nameText)
-                .textFieldStyle(.plain)
-                .focused($namingFieldFocused)
-                .onSubmit { operation.commitNaming(nameText) }
-                .onExitCommand { operation.dismissOrCancel() }
-                .onChange(of: namingFieldFocused) { _, focused in
-                    // A click elsewhere must not strand the grammar behind
-                    // isNaming — focus loss cancels, the path header's law.
-                    if !focused, operation.isNaming {
-                        operation.dismissOrCancel()
+            let zfsNeedsTextField =
+                operation.pendingZFSVerb == nil
+                || operation.pendingZFSVerb?.gather?.needsText == true
+            if zfsNeedsTextField {
+                // Standard file ops and ZFS text verbs both show the field.
+                TextField("", text: $nameText)
+                    .textFieldStyle(.plain)
+                    .focused($namingFieldFocused)
+                    .onSubmit { operation.commitNaming(nameText) }
+                    .onExitCommand { operation.dismissOrCancel() }
+                    .onChange(of: namingFieldFocused) { _, focused in
+                        // A click elsewhere must not strand the grammar behind
+                        // isNaming — focus loss cancels, the path header's law.
+                        if !focused, operation.isNaming {
+                            operation.dismissOrCancel()
+                        }
                     }
+                    .padding(4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 3)
+                            .stroke(Theme.accent, lineWidth: 2)
+                    )
+            } else {
+                // Field-less gather (destroy): no text field. The key monitor
+                // stands down (isNaming) so typed keys never reach the panes;
+                // Return and Esc are routed through the monitor's field-less
+                // branch in PalanaSession.handle(_:). Nothing to render here.
+                EmptyView()
+            }
+            if operation.pendingZFSVerb?.gather?.offersRecursive == true {
+                Toggle(
+                    isOn: Binding(
+                        get: { operation.zfsRecursive },
+                        set: { operation.zfsRecursive = $0 }
+                    )
+                ) {
+                    Text("recursive — includes everything beneath")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.ink)
                 }
-                .padding(4)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 3)
-                        .stroke(Theme.accent, lineWidth: 2)
-                )
+                .toggleStyle(.checkbox)
+            }
         }
     }
 
@@ -205,8 +230,12 @@ struct PlanPanel: View {
         Text("\(plan.operation.rawValue) · \(plan.classification.plainName)")
             .foregroundStyle(Theme.ink)
             .fontWeight(.semibold)
-        Text(sizeLine(plan))
-            .foregroundStyle(plan.totalSizeComplete ? Theme.inkFaint : Theme.alarm)
+        // The size line is noise beside a ZFS dataset mutation — a dataset
+        // command acts on the dataset, not on a counted file selection.
+        if plan.operation != .zfs {
+            Text(sizeLine(plan))
+                .foregroundStyle(plan.totalSizeComplete ? Theme.inkFaint : Theme.alarm)
+        }
         if let sentence = plan.collisions?.sentence() {
             Text(sentence)
                 .foregroundStyle(Theme.alarm)

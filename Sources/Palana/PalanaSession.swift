@@ -71,6 +71,8 @@ final class PalanaSession {
     let workbench: Workbench
     /// The built-in system reads tool — stateless, shared with the strip.
     let readsTool: SystemReadsTool
+    /// The ZFS mutation tool — stateless, shared with the strip and the gather.
+    let zfsTool = ZFSMutationTool()
     /// True while the keyboard points into the terminal strip.
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
@@ -117,6 +119,12 @@ final class PalanaSession {
         settingsModel.onConfigChanged = { [weak self] in self?.reloadHosts() }
         operation.onFinished = { [weak self] in
             guard let self else { return }
+            // ZFS plans: refresh panes on the affected host and re-discover
+            // its facts so topology reflects the new state.
+            if operation.plan?.operation == .zfs, let zfsHost = operation.plan?.source.host {
+                operation.afterZFSFinished(host: zfsHost, left: left, right: right)
+                return
+            }
             // Land the cursor on the renamed or created entry before the refresh
             // fires — both panes get it; only the one that holds the entry matches.
             if let name = operation.resultName {
@@ -172,8 +180,105 @@ final class PalanaSession {
         NSWorkspace.shared.open(sshConfigURL)
     }
 
-    // MARK: - Keyboard
+    /// A verb goes down: the focused pane is the source, the other pane
+    /// is the destination, the panel takes it from here.
+    ///
+    /// touch stays in place — no destination, no gathering; the plan
+    /// composes the moment the verb lands.
+    func beginOperation(_ operationKind: PlanOperation) {
+        guard operationKind != .touch else {
+            operation.beginTouch(source: focusedPane)
+            return
+        }
+        let destination = focusedSide == .left ? right : left
+        operation.begin(operationKind, source: focusedPane, destination: destination)
+    }
 
+    /// r or a: opens the naming field on the focused pane — no destination needed.
+    func beginNaming(_ operationKind: PlanOperation) {
+        operation.beginNaming(operationKind, source: focusedPane)
+    }
+
+    /// ⌘⇧L: points the focused pane at the operations log's directory and
+    /// seats the cursor on operations.log — the run record, one keystroke away.
+    ///
+    /// The log lives on this Mac. If no run has written it yet the file is
+    /// absent, the landing simply misses, and the pane shows the directory —
+    /// nothing is fabricated to make the cursor land.
+    func revealOperationsLog() {
+        let logURL = OperationLog.defaultURL()
+        focusedPane.setLandOn(logURL.lastPathComponent)
+        focusedPane.point(host: Engine.localHost, path: logURL.deletingLastPathComponent().path)
+    }
+
+    /// The pane the focused one would send toward.
+    var otherPane: PaneModel {
+        focusedSide == .left ? right : left
+    }
+
+    /// The footer's send line.
+    ///
+    /// Where y and m would send, visible before any verb goes down —
+    /// nil when there is nothing to say.
+    var sendLine: String? {
+        guard !operation.active, gotoTarget == nil, !helpVisible else { return nil }
+        guard focusedPane.status == .ready, !focusedPane.operationSubjects.isEmpty else {
+            return nil
+        }
+        guard otherPane.status == .ready, let host = otherPane.state.host else { return nil }
+        return "sends → \(host):\(otherPane.state.path)"
+    }
+
+    // MARK: - Pane verbs (the divider cluster)
+
+    /// Exchanges the two pointings — both panes re-read, ho-04's budget.
+    func swapPanes() {
+        guard let leftHost = left.state.host, let rightHost = right.state.host else { return }
+        let leftPath = left.state.path
+        let rightPath = right.state.path
+        left.point(host: rightHost, path: rightPath)
+        right.point(host: leftHost, path: leftPath)
+    }
+
+    /// Points one side where the other points — the mirror verb.
+    func mirror(to side: SessionSnapshot.Side) {
+        let source = side == .left ? right : left
+        let target = side == .left ? left : right
+        guard let host = source.state.host else { return }
+        target.point(host: host, path: source.state.path)
+    }
+
+    /// Points a pane from the go-to bar.
+    func point(_ side: SessionSnapshot.Side, host: String, path: String) {
+        let pane = side == .left ? left : right
+        let cleaned = path.isEmpty ? "/" : path
+        pane.point(host: host, path: cleaned)
+        gotoTarget = nil
+    }
+
+    // MARK: - Persistence and shutdown
+
+    /// Writes the workbench as it stands.
+    ///
+    /// Failure is not worth a dialog — the next change tries again.
+    func persist() {
+        let snapshot = SessionSnapshot(
+            left: SessionSnapshot.Pane(of: left.state),
+            right: SessionSnapshot.Pane(of: right.state),
+            focused: focusedSide)
+        try? SessionStore.save(snapshot, to: SessionStore.defaultURL())
+        columnStore.persist()
+    }
+
+    /// Closes every ControlMaster — the quit path owns this.
+    func closeDoors() async {
+        await conduit.closeAll()
+    }
+}
+
+// MARK: - Keyboard
+
+extension PalanaSession {
     /// Installs the window-level key monitor.
     ///
     /// Consumed keys return nil to AppKit; everything else passes
@@ -186,27 +291,8 @@ final class PalanaSession {
             // size, ⌘ + / − step — deterministically, no responder
             // chain to lose.
             if event.window?.identifier?.rawValue == KeysPanelController.identifier {
-                let keyCode = event.keyCode
-                let chars = event.charactersIgnoringModifiers
-                let hasCommand = event.modifierFlags.contains(.command)
-                let consumed = MainActor.assumeIsolated { () -> Bool in
-                    if keyCode == 53 {
-                        KeysPanelController.shared.close()
-                        return true
-                    }
-                    if hasCommand, chars == "=" || chars == "+" {
-                        KeysPanelController.shared.step(by: 1)
-                        return true
-                    }
-                    if hasCommand, chars == "-" {
-                        KeysPanelController.shared.step(by: -1)
-                        return true
-                    }
-                    if hasCommand, let chars, let digit = Int(chars), (1...5).contains(digit) {
-                        KeysPanelController.shared.select(step: digit - 1)
-                        return true
-                    }
-                    return false
+                let consumed = MainActor.assumeIsolated {
+                    self?.handleKeysPanelKey(event) == true
                 }
                 return consumed ? nil : event
             }
@@ -237,28 +323,31 @@ final class PalanaSession {
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
         guard gotoTarget == nil else { return false }
-        // While any text field is live — the path headers, the naming field,
-        // or the settings rsync flags field — every key belongs to the field.
-        guard !left.pathEditing, !right.pathEditing, !operation.isNaming, !settingsFieldFocused else { return false }
+        // Field-less ZFS gather (destroy): isNaming stands the monitor down so
+        // typed keys never reach the panes. Return and Esc are handled here,
+        // extracted to keep cyclomatic complexity in budget.
+        if operation.isNaming, operation.pendingZFSVerb?.gather?.needsText == false {
+            return handleFieldlessZFSGatherKey(event)
+        }
+        // While any text field is live, every key belongs to the field.
+        guard !left.pathEditing, !right.pathEditing, !operation.isNaming,
+            !settingsFieldFocused
+        else { return false }
         guard let token = Grammar.token(for: event) else { return false }
         // ⌘, reaches settings even while help or the field view is up.
         if handleGlobalChord(token) { return true }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
-        // While the terminal holds focus, a tool hint fires its read — but every
+        // While the terminal holds focus, a tool hint fires its verb — but every
         // other key still flows to the panes, so the operator keeps acting there.
-        if terminalFocused, let verb = readsTool.verbs.first(where: { $0.keyHint == token }) {
+        // Key hints are disjoint by construction; first-match over both tools.
+        let allVerbs = readsTool.verbs + zfsTool.verbs
+        if terminalFocused, let verb = allVerbs.first(where: { $0.keyHint == token }) {
             runWorkbenchVerb(verb)
             return true
         }
         if token == "esc" {
-            // A pending prefix dies first; a bare Esc clears the selection.
-            if pendingPrefix.isEmpty {
-                focusedPane.apply(.clearSelection)
-            } else {
-                recognizer.reset()
-                pendingPrefix = ""
-            }
+            handleEscInMainPath()
             return true
         }
         // f, F, and backtick bypass the recognizer — only from the main grammar
@@ -368,141 +457,41 @@ final class PalanaSession {
         }
     }
 
-    /// A verb goes down: the focused pane is the source, the other pane
-    /// is the destination, the panel takes it from here.
-    ///
-    /// touch stays in place — no destination, no gathering; the plan
-    /// composes the moment the verb lands.
-    func beginOperation(_ operationKind: PlanOperation) {
-        guard operationKind != .touch else {
-            operation.beginTouch(source: focusedPane)
-            return
+    /// Handles Esc in the main grammar path — a pending prefix dies first;
+    /// a bare Esc clears the selection.
+    private func handleEscInMainPath() {
+        if pendingPrefix.isEmpty {
+            focusedPane.apply(.clearSelection)
+        } else {
+            recognizer.reset()
+            pendingPrefix = ""
         }
-        let destination = focusedSide == .left ? right : left
-        operation.begin(operationKind, source: focusedPane, destination: destination)
     }
 
-    /// r or a: opens the naming field on the focused pane — no destination needed.
-    func beginNaming(_ operationKind: PlanOperation) {
-        operation.beginNaming(operationKind, source: focusedPane)
-    }
-
-    /// ⌘⇧L: points the focused pane at the operations log's directory and
-    /// seats the cursor on operations.log — the run record, one keystroke away.
+    /// Routes a key event while the keys panel is active.
     ///
-    /// The log lives on this Mac. If no run has written it yet the file is
-    /// absent, the landing simply misses, and the pane shows the directory —
-    /// nothing is fabricated to make the cursor land.
-    func revealOperationsLog() {
-        let logURL = OperationLog.defaultURL()
-        focusedPane.setLandOn(logURL.lastPathComponent)
-        focusedPane.point(host: Engine.localHost, path: logURL.deletingLastPathComponent().path)
-    }
-
-    /// The pane the focused one would send toward.
-    var otherPane: PaneModel {
-        focusedSide == .left ? right : left
-    }
-
-    /// The footer's send line.
-    ///
-    /// Where y and m would send, visible before any verb goes down —
-    /// nil when there is nothing to say.
-    var sendLine: String? {
-        guard !operation.active, gotoTarget == nil, !helpVisible else { return nil }
-        guard focusedPane.status == .ready, !focusedPane.operationSubjects.isEmpty else {
-            return nil
+    /// The keys panel has Esc, ⌘1–5, and ⌘+/−. Everything else is untouched.
+    private func handleKeysPanelKey(_ event: NSEvent) -> Bool {
+        let keyCode = event.keyCode
+        let chars = event.charactersIgnoringModifiers
+        let hasCommand = event.modifierFlags.contains(.command)
+        if keyCode == 53 {
+            KeysPanelController.shared.close()
+            return true
         }
-        guard otherPane.status == .ready, let host = otherPane.state.host else { return nil }
-        return "sends → \(host):\(otherPane.state.path)"
-    }
-
-    // MARK: - Pane verbs (the divider cluster)
-
-    /// Exchanges the two pointings — both panes re-read, ho-04's budget.
-    func swapPanes() {
-        guard let leftHost = left.state.host, let rightHost = right.state.host else { return }
-        let leftPath = left.state.path
-        let rightPath = right.state.path
-        left.point(host: rightHost, path: rightPath)
-        right.point(host: leftHost, path: leftPath)
-    }
-
-    /// Points one side where the other points — the mirror verb.
-    func mirror(to side: SessionSnapshot.Side) {
-        let source = side == .left ? right : left
-        let target = side == .left ? left : right
-        guard let host = source.state.host else { return }
-        target.point(host: host, path: source.state.path)
-    }
-
-    /// Points a pane from the go-to bar.
-    func point(_ side: SessionSnapshot.Side, host: String, path: String) {
-        let pane = side == .left ? left : right
-        let cleaned = path.isEmpty ? "/" : path
-        pane.point(host: host, path: cleaned)
-        gotoTarget = nil
-    }
-
-    // MARK: - Persistence and shutdown
-
-    /// Writes the workbench as it stands.
-    ///
-    /// Failure is not worth a dialog — the next change tries again.
-    func persist() {
-        let snapshot = SessionSnapshot(
-            left: SessionSnapshot.Pane(of: left.state),
-            right: SessionSnapshot.Pane(of: right.state),
-            focused: focusedSide)
-        try? SessionStore.save(snapshot, to: SessionStore.defaultURL())
-        columnStore.persist()
-    }
-
-    /// Closes every ControlMaster — the quit path owns this.
-    func closeDoors() async {
-        await conduit.closeAll()
-    }
-}
-
-// MARK: - Favorites
-
-extension PalanaSession {
-    /// Toggles the given pane's location in the favorites list.
-    ///
-    /// A second toggle on a favorited location removes it, whatever its scope.
-    /// Removes if present, adds host-bound if absent — matches the star's contract.
-    /// `model` is the pane to toggle; when nil the focused pane is used.
-    func toggleFavorite(forFocusedPaneOr model: PaneModel?) {
-        let pane = model ?? focusedPane
-        guard let host = pane.state.host else { return }
-        favorites.toggle(host: host, path: pane.state.path)
-    }
-
-    /// Points the given side's pane at the chosen favorite.
-    ///
-    /// A global favorite may re-point to a different host — the existing
-    /// `point(host:path:)` path handles that without a special case.
-    func chooseFavorite(_ favorite: Favorite, for side: SessionSnapshot.Side) {
-        let pane = side == .left ? left : right
-        pane.point(host: favorite.host, path: favorite.path)
-    }
-
-    /// Promotes or demotes a favorite's scope in place.
-    func promoteFavorite(id: String, to scope: FavoriteScope) {
-        favorites.setScope(id: id, scope)
-    }
-
-    // MARK: - Favorites panel
-
-    /// Toggles the favorites column panel.
-    func toggleFavoritesPanel() {
-        favoritesPanelModel.jumpTarget = focusedSide == .left ? .left : .right
-        FavoritesPanelController.shared.toggle(
-            favoritesModel: favorites,
-            panelModel: favoritesPanelModel,
-            onJump: { [weak self] host, path in self?.jumpFavorite(host: host, path: path) },
-            onUnstar: { [weak self] id in self?.favorites.remove(id: id) },
-            onSetScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) })
+        if hasCommand, chars == "=" || chars == "+" {
+            KeysPanelController.shared.step(by: 1)
+            return true
+        }
+        if hasCommand, chars == "-" {
+            KeysPanelController.shared.step(by: -1)
+            return true
+        }
+        if hasCommand, let chars, let digit = Int(chars), (1...5).contains(digit) {
+            KeysPanelController.shared.select(step: digit - 1)
+            return true
+        }
+        return false
     }
 }
 
@@ -696,10 +685,15 @@ extension PalanaSession {
 // MARK: - Workbench and terminal focus
 
 extension PalanaSession {
-    /// Runs a Workbench read verb against the focused host.
+    /// Runs a Workbench verb against the focused host.
     ///
-    /// Checks availability, starts the read, and drains raw output into the
-    /// transcript. Phase is never touched — a read is not an operation.
+    /// Read verbs: checks availability, starts the read, drains raw output into
+    /// the transcript. Phase is never touched — a read is not an operation.
+    ///
+    /// Mutation verbs: resolves the target dataset from the focused pane's path,
+    /// checks availability, then hands off to the operation gather.
+    ///
+    /// The read and mutation helpers live in `PalanaSession+ZFS.swift`.
     func runWorkbenchVerb(_ verb: WorkbenchVerb) {
         guard !operation.terminalBusy else { return }
         guard let host = focusedPane.state.host else {
@@ -708,17 +702,11 @@ extension PalanaSession {
         }
         // Local honesty: zfs verbs are not applicable on this Mac.
         guard !(verb.requirement == .zfs && host == PalanaCore.localHostName) else { return }
-        Task {
-            let avail = await workbench.availability(of: verb, on: host)
-            guard case .available = avail else { return }
-            guard !operation.terminalBusy else { return }
-            do {
-                let stream = try await workbench.run(verb, of: readsTool, on: host)
-                let cmd = readsTool.command(for: verb, on: host)
-                await operation.runToolRead(header: "\(cmd) · \(host)", stream: stream)
-            } catch {
-                operation.appendToolError("read failed: \(error)")
-            }
+        switch verb.kind {
+        case .read:
+            runWorkbenchRead(verb, on: host)
+        case .mutation:
+            runWorkbenchMutation(verb, on: host)
         }
     }
 }
