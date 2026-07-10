@@ -16,6 +16,59 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10, fourth block — ho-10.1 BUILT, HIS HANDS NEXT
+
+**COMPLETED**
+- **ho-10.1 AT-02 + AT-03 authored, built, committed, CI green by exit
+  code** (1e80c10, 0d34e28). The Workbench mutation seam is FILLED:
+  `planRequest(for:on:input:)` carries the gather (`MutationInput`:
+  target dataset, text, recursive; `GatherSpec` on the verb), and
+  `ZFSMutationTool` speaks the eight mutations. The app path stands:
+  zfs section in the strip → dataset from where the focused pane stands
+  → gather through the naming machinery (rename prefills the full name,
+  destroy is a field-less toggle row, clear-mountpoint composes with no
+  gather) → plan renders → **Enter enacts, nothing else** (Decision 4
+  held structurally — no auto-enact anywhere in the zfs path). Finished
+  runs refresh panes on the host and re-discover its facts.
+- Review catches banked: stale zfs gather state would have misrouted the
+  next file rename into the zfs path (cleared at every non-zfs begin);
+  the field-less gather leaked plain keys to the Table's native
+  selection (swallowed; ⌘-chords pass, ho-9.7's law); extraction-dropped
+  law comments restored. 735 tests, 120 suites.
+- Reflect filled in the ho doc (execution truths + hands-pending list).
+
+**NEXT**
+- **HIS HANDS — the mutation feel, fixture only.** The app is RUNNING on
+  the fixture config (`PALANA_SSH_CONFIG=.fixtures/zfs-ssh-config`) —
+  his real hosts are deliberately invisible; the only host is
+  `zfs-self` (the Lima VM, pool `palana`). Point a pane at
+  `zfs-self:/palana/tank`, probe (`r` in the field), and the zfs chips
+  light. Two stale test datasets (`palana/t62-prx-*`) remain in the
+  pool — good destroy targets. Verdicts → fill the close entry → close
+  ho-10.1 → ho-11 (terminal), ho-12 (ship, v1.0).
+- To get his real config back afterward: quit the app, relaunch plain
+  (`swift run Palana`); stop the VM (`scripts/zfs-fixture.sh stop`) and
+  clear `.fixtures/zfs.env` if suites later dial a dead port.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. Fixture VM `palana-zfs` UP and app running against it —
+  both deliberately left up for his hands session (departure from the
+  VM-stopped default, on purpose).
+- Feel questions queued in the Reflect: twelve-chip strip weight,
+  gather prompt wording, recursive-toggle keyboard reach, the destroy
+  double-Enter rhythm, snapshot-name picker (v-next if hands ask).
+- Debts carried: binding-table snapshot test before any key rename;
+  light text editor as future Workbench plugin idea.
+- Deferred stack unchanged (drag-out, width persistence, /-jump,
+  verb-time re-choice, gather-the-starred, modal-sheet onboarding,
+  ssh-actually deep link).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public. ho-10.1 built, close pending his hands;
+  the road to v0.5. Then ho-11, ho-12 to v1.0.
+
+---
+
 ## State summary — 2026-07-10, third block — THE HO-9 SERIES IS CLOSED
 
 **COMPLETED**
