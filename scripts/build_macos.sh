@@ -142,8 +142,23 @@ else
     codesign --force --sign - "$APP_PATH"
 fi
 
-# ── DMG ───────────────────────────────────────────────────────────────────────
+# ── DMG (+ notarization) ──────────────────────────────────────────────────────
+# Correct order: notarize + staple the APP first, then build the dmg from the
+# stapled app, then notarize + staple the dmg. This way the app the user drags
+# to /Applications carries its own ticket and validates offline — not just the
+# dmg. Two notarytool round-trips; each keyed to its own cdhash.
 if $BUILD_DMG; then
+    if [[ -n "${NOTARIZE_KEYCHAIN_PROFILE:-}" ]]; then
+        echo "==> Notarizing the app bundle (profile: $NOTARIZE_KEYCHAIN_PROFILE)…"
+        APP_ZIP_DIR="$(mktemp -d)"
+        ditto -c -k --keepParent "$APP_PATH" "$APP_ZIP_DIR/${APP_NAME}.zip"
+        xcrun notarytool submit "$APP_ZIP_DIR/${APP_NAME}.zip" \
+            --keychain-profile "$NOTARIZE_KEYCHAIN_PROFILE" --wait
+        xcrun stapler staple "$APP_PATH"
+        rm -rf "$APP_ZIP_DIR"
+        echo "    App notarized and stapled."
+    fi
+
     echo "==> Creating $DMG_NAME"
     STAGING="$(mktemp -d)"
     # ditto, not cp -r — preserves bundle structure and code signatures.
@@ -157,16 +172,13 @@ if $BUILD_DMG; then
     rm -rf "$STAGING"
     echo "==> DMG: dist/$DMG_NAME"
 
-    # ── Notarize (only if a keychain profile is configured) ────────────────────
     if [[ -n "${NOTARIZE_KEYCHAIN_PROFILE:-}" ]]; then
-        echo "==> Submitting for notarization (keychain profile: $NOTARIZE_KEYCHAIN_PROFILE)…"
+        echo "==> Notarizing the dmg…"
         xcrun notarytool submit "dist/$DMG_NAME" \
-            --keychain-profile "$NOTARIZE_KEYCHAIN_PROFILE" \
-            --wait
+            --keychain-profile "$NOTARIZE_KEYCHAIN_PROFILE" --wait
         xcrun stapler staple "dist/$DMG_NAME"
-        echo "==> Notarization complete and stapled."
-        echo "==> Gatekeeper assessment:"
-        spctl --assess --type open --context context:primary-signature --verbose=2 "dist/$DMG_NAME" || true
+        echo "==> Notarization complete and stapled (app + dmg)."
+        xcrun stapler validate "dist/$DMG_NAME"
     else
         echo "==> NOTE: NOTARIZE_KEYCHAIN_PROFILE unset — .dmg is signed but NOT notarized."
         echo "          It will hit Gatekeeper on other Macs until notarized."
