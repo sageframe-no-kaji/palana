@@ -75,7 +75,7 @@ final class OperationModel {
     /// Set once, right after construction.
     var onFinished: @MainActor () -> Void = {}
 
-    private let engine: Engine
+    let engine: Engine
     private let configuration: SSHConfiguration
     private let settings: SettingsModel
     private let log: OperationLog
@@ -194,6 +194,7 @@ final class OperationModel {
                     facts.recursiveSizes[directory.id] = size
                 }
             }
+            await gatherCollisionsIfNeeded(destination: destination, subjects: subjects, into: &facts)
             guard !Task.isCancelled else { return }
             facts.rsyncOperatorFlags = settings.effectiveRsyncFlags
             let request = PlanRequest(
@@ -244,7 +245,7 @@ final class OperationModel {
 
     /// The flavor fact — this Mac is BSD, remotes answer from memory or
     /// one discovery round trip.
-    private func resolveFlavor(_ host: String) async throws -> UserlandFlavor {
+    func resolveFlavor(_ host: String) async throws -> UserlandFlavor {
         if engine.isLocal(host) { return .bsd }
         if let flavor = await engine.field.facts(for: host)?.capability?.value.flavor {
             return flavor
@@ -429,7 +430,7 @@ final class OperationModel {
 // MARK: - Lines
 
 extension OperationModel {
-    private func note(_ text: String) {
+    func note(_ text: String) {
         echo.appendLine(text, kind: .note)
     }
 

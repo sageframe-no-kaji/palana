@@ -172,6 +172,10 @@ struct PlanPanel: View {
             .fontWeight(.semibold)
         Text(sizeLine(plan))
             .foregroundStyle(plan.totalSizeComplete ? Theme.inkFaint : Theme.alarm)
+        if let sentence = plan.collisions?.sentence() {
+            Text(sentence)
+                .foregroundStyle(Theme.alarm)
+        }
         Text(routeLine(plan))
             .foregroundStyle(Theme.inkFaint)
         Text("transport: \(plan.transport.rawValue)")
