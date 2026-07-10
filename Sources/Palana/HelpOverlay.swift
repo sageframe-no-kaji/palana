@@ -130,7 +130,7 @@ struct HelpOverlay: View {
             }
             .padding(.horizontal, 24 * scale)
             .padding(.bottom, 24 * scale)
-            .padding(.top, 16 * scale)
+            .padding(.top, 6 * scale)
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 10))

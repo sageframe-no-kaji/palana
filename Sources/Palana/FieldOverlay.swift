@@ -140,7 +140,7 @@ struct FieldOverlay: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
-            .padding(.top, 16)
+            .padding(.top, 6)
         }
         .frame(width: 520)
         .background(Theme.ground)

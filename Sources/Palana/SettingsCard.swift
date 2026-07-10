@@ -383,7 +383,7 @@ struct SettingsCard: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
-            .padding(.top, 16)
+            .padding(.top, 6)
         }
         .frame(width: 400)
         .background(Theme.ground)
