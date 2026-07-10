@@ -8,9 +8,73 @@
 //
 // The star cell helper lives here too because it is an implementation detail
 // of the ★ column.
+//
+// Sorting notes for the extended columns:
+//   permissions, owner, group — String is Comparable; use value: keyPath directly.
+//   created, changed          — Date? is not Comparable; use OptionalDateComparator
+//                               so the Table header emits a valid sortOrder entry.
+//   ★                         — not a FileEntry fact; uses StarMarkerComparator over
+//                               \.kind as a routing token. PaneModel.applySort maps
+//                               the \.kind keypath to a starred-first partition when
+//                               it arrives from the ★ column (see ROUTING TOKEN note).
 
 import PalanaCore
 import SwiftUI
+
+// MARK: - Custom comparators for extended columns
+
+/// A `SortComparator` for `Date?` fields.
+///
+/// Nils sort last in **both** directions — a column of dashes never
+/// shuffles when the direction flips. This mirrors `PaneState.sortedEntries`'s
+/// own `compareOptionalNilsLast` semantics.
+///
+/// The comparator exists primarily to give the Table a typed sort descriptor
+/// so header clicks emit a `KeyPathComparator<FileEntry>` that `applySort`
+/// can route. The actual ordering is always done by `PaneModel.applySort`
+/// → `PaneState.sortedEntries`.
+struct OptionalDateComparator: SortComparator {
+    typealias Compared = Date?
+
+    var order: SortOrder = .forward
+
+    /// Compares two optional dates with nils last in both directions.
+    func compare(_ lhs: Date?, _ rhs: Date?) -> ComparisonResult {
+        switch (lhs, rhs) {
+        case (nil, nil): return .orderedSame
+        case (nil, _): return .orderedDescending  // nil is always last
+        case (_, nil): return .orderedAscending  // non-nil before nil
+        case (let lv?, let rv?):
+            if lv < rv { return order == .forward ? .orderedAscending : .orderedDescending }
+            if lv > rv { return order == .forward ? .orderedDescending : .orderedAscending }
+            return .orderedSame
+        }
+    }
+}
+
+/// A routing-token comparator for the ★ column.
+///
+/// The ★ column cannot carry a real `FileEntry` fact (starred is an
+/// app-side registry, not a `FileEntry` property). To give the Table
+/// a sortable column — so header clicks emit a `KeyPathComparator<FileEntry>`
+/// that `applySort` can intercept — the column uses `\.kind` as its keypath
+/// with this marker comparator. `PaneModel.applySort` recognises the `\.kind`
+/// keypath as the ★ routing token and performs the starred-first partition.
+///
+/// The `compare` implementation is intentionally a no-op identity: the
+/// Table's sort machinery is never the authority for ★ order. The session's
+/// `applySort` reorders `rows` directly after the header click fires.
+struct StarMarkerComparator: SortComparator {
+    typealias Compared = FileEntry.Kind
+
+    var order: SortOrder = .forward
+
+    func compare(_ lhs: FileEntry.Kind, _ rhs: FileEntry.Kind) -> ComparisonResult {
+        // No actual ordering — ★ sort is app-side (starred partition).
+        // `applySort` rewrites `rows` when it receives the \.kind token.
+        .orderedSame
+    }
+}
 
 // MARK: - Column extensions
 
@@ -60,27 +124,13 @@ extension PaneView {
         favorites: FavoritesModel,
         model: PaneModel
     ) -> some TableColumnContent<FileEntry, KeyPathComparator<FileEntry>> {
-        TableColumn("created") { (entry: FileEntry) in
-            Text(PaneColumns.dateText(entry.created))
-                .foregroundStyle(entry.created == nil ? Theme.inkFaint.opacity(0.5) : Theme.inkFaint)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(cursorWash(entry))
-        }
-        .width(min: 110, ideal: 150, max: 190)
-        .customizationID(PaneColumns.idCreated)
-        .defaultVisibility(.hidden)
+        // Date? columns: not Comparable, so use explicit comparator so the
+        // header emits a KeyPathComparator<FileEntry> that applySort can route.
+        createdColumn()
+        changedColumn()
 
-        TableColumn("changed") { (entry: FileEntry) in
-            Text(PaneColumns.dateText(entry.changed))
-                .foregroundStyle(entry.changed == nil ? Theme.inkFaint.opacity(0.5) : Theme.inkFaint)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(cursorWash(entry))
-        }
-        .width(min: 110, ideal: 150, max: 190)
-        .customizationID(PaneColumns.idChanged)
-        .defaultVisibility(.hidden)
-
-        TableColumn("permissions") { (entry: FileEntry) in
+        // String columns: Comparable, plain value: keypath form.
+        TableColumn("permissions", value: \.permissions) { entry in
             Text(entry.permissions)
                 .foregroundStyle(Theme.inkFaint)
                 .font(.system(size: 12 * fontScale, design: .monospaced))
@@ -91,7 +141,7 @@ extension PaneView {
         .customizationID(PaneColumns.idPermissions)
         .defaultVisibility(.hidden)
 
-        TableColumn("owner") { (entry: FileEntry) in
+        TableColumn("owner", value: \.owner) { entry in
             Text(entry.owner)
                 .foregroundStyle(Theme.inkFaint)
                 .font(.system(size: 12 * fontScale, design: .monospaced))
@@ -102,7 +152,7 @@ extension PaneView {
         .customizationID(PaneColumns.idOwner)
         .defaultVisibility(.hidden)
 
-        TableColumn("group") { (entry: FileEntry) in
+        TableColumn("group", value: \.group) { entry in
             Text(entry.group)
                 .foregroundStyle(Theme.inkFaint)
                 .font(.system(size: 12 * fontScale, design: .monospaced))
@@ -115,9 +165,60 @@ extension PaneView {
 
         // ★ column — header is the glyph, narrow fixed width.
         // Click toggles favorites via the same path as the `8` key.
-        // Sortable: starred directories gather at the top; the comparator
-        // is app-side (starred is not a core SortKey) and lives in PaneModel.
-        TableColumn("★") { (entry: FileEntry) in
+        //
+        // ROUTING TOKEN: ★ is not a FileEntry fact (favorites are app-side).
+        // We use \.kind with StarMarkerComparator as a routing token so the
+        // Table header can emit a KeyPathComparator<FileEntry>. The comparator
+        // itself is a no-op identity; PaneModel.applySort recognises \.kind
+        // arriving from this column and performs the starred partition instead
+        // of a normal sort. \.kind is safe here — no other column uses it as
+        // a comparator keypath.
+        starColumn(favorites: favorites, model: model)
+    }
+
+    // MARK: Optional-date columns
+
+    /// The `created` column — `Date?`, not Comparable; sorts via `OptionalDateComparator`.
+    ///
+    /// Extracted into its own helper so the trailing closure's explicit parameter
+    /// type annotation `(entry: FileEntry) in` sits on the same line as `{`, which
+    /// satisfies the `closure_parameter_position` rule.
+    func createdColumn() -> some TableColumnContent<FileEntry, KeyPathComparator<FileEntry>> {
+        TableColumn("created", value: \.created, comparator: OptionalDateComparator()) { entry in
+            Text(PaneColumns.dateText(entry.created))
+                .foregroundStyle(entry.created == nil ? Theme.inkFaint.opacity(0.5) : Theme.inkFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cursorWash(entry))
+        }
+        .width(min: 110, ideal: 150, max: 190)
+        .customizationID(PaneColumns.idCreated)
+        .defaultVisibility(.hidden)
+    }
+
+    /// The `changed` column — `Date?`, not Comparable; sorts via `OptionalDateComparator`.
+    func changedColumn() -> some TableColumnContent<FileEntry, KeyPathComparator<FileEntry>> {
+        TableColumn("changed", value: \.changed, comparator: OptionalDateComparator()) { entry in
+            Text(PaneColumns.dateText(entry.changed))
+                .foregroundStyle(entry.changed == nil ? Theme.inkFaint.opacity(0.5) : Theme.inkFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cursorWash(entry))
+        }
+        .width(min: 110, ideal: 150, max: 190)
+        .customizationID(PaneColumns.idChanged)
+        .defaultVisibility(.hidden)
+    }
+
+    // MARK: Star column
+
+    /// The `★` column — routing-token sort via `StarMarkerComparator` on `\.kind`.
+    ///
+    /// See `ROUTING TOKEN` comment in `extendedColumns` for the design rationale.
+    /// Extracted here so the closure parameter sits on the same line as `{`.
+    func starColumn(
+        favorites: FavoritesModel,
+        model: PaneModel
+    ) -> some TableColumnContent<FileEntry, KeyPathComparator<FileEntry>> {
+        TableColumn("★", value: \.kind, comparator: StarMarkerComparator()) { entry in
             starCell(entry, favorites: favorites, model: model)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .background(cursorWash(entry))

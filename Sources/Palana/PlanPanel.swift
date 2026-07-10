@@ -13,6 +13,10 @@ struct PlanPanel: View {
     var operation: OperationModel
     /// The session — drives the tools strip on the trailing edge.
     var session: PalanaSession
+    /// Called when a go-again chip is clicked — the key string is the same
+    /// token the keyboard grammar produces for that key, so the session can
+    /// route it through the same dispatch path the physical key takes.
+    var onVerbKey: (String) -> Void = { _ in }
 
     @FocusState private var namingFieldFocused: Bool
     @State private var nameText = ""
@@ -148,7 +152,7 @@ struct PlanPanel: View {
                     .background(Theme.accent)
             }
             if showGoAgainLine {
-                GoAgainHintLine(fontSize: 12)
+                GoAgainHintLine(fontSize: 12, onVerbKey: onVerbKey)
             } else if let rest = hintRest {
                 Text(rest)
                     .foregroundStyle(Theme.inkFaint)

@@ -466,11 +466,47 @@ extension PaneModel {
     /// re-sorts through the listing's natural comparators — the same path
     /// the sort-key grammar (`,n` / `,s` / `,m`) takes.
     ///
-    /// The `★` column does not sort: the Table's comparator type is
-    /// `KeyPathComparator<FileEntry>` and starred is deliberately not a
-    /// `FileEntry` fact (favorites are the one registry, app-side), so the
-    /// header can never emit a ★ comparator. ★ is display and toggle.
-    func applySort(from comparator: KeyPathComparator<FileEntry>) {
+    /// `★` uses `\.kind` as a routing token (see `StarMarkerComparator` in
+    /// `PaneView+Columns.swift`). When `\.kind` arrives here, `favorites`
+    /// drives a starred-first partition rather than a normal sort — starred
+    /// directories gather at top/bottom without mutating `state.sort`, so the
+    /// rest of the sort order is preserved when the ★ column is toggled off.
+    ///
+    /// - Parameters:
+    ///   - comparator: The `KeyPathComparator<FileEntry>` the Table emitted.
+    ///   - favorites: The favorites registry — required for the ★ routing branch.
+    ///                Callers that cannot reach `FavoritesModel` may pass `nil`;
+    ///                the ★ branch then silently no-ops.
+    func applySort(
+        from comparator: KeyPathComparator<FileEntry>,
+        favorites: FavoritesModel? = nil
+    ) {
+        // ★ routing token: \.kind is the sentinel keypath emitted by the ★ column
+        // (see StarMarkerComparator in PaneView+Columns.swift). Perform a
+        // starred-first partition rather than touching state.sort — ★ order is
+        // transient/app-side, not a PaneState fact. Starred directories gather at
+        // the top (ascending) or bottom (descending); non-directory entries are
+        // never starred and always go to the plain bucket.
+        if comparator.keyPath == \FileEntry.kind {
+            guard let host = state.host, let favorites else { return }
+            // Determine star status via isFavorited — the single truth about what
+            // the operator has bookmarked. Never derive from FileEntry itself.
+            let isStarred: (FileEntry) -> Bool = { entry in
+                guard entry.kind == .directory else { return false }
+                let childPath = Self.childPath(of: self.state.path, name: entry.name)
+                return favorites.isFavorited(host: host, path: childPath)
+            }
+            // Explicit filter-and-concatenate — never rely on sort stability.
+            let starredRows = rows.filter { isStarred($0) }
+            let plainRows = rows.filter { !isStarred($0) }
+            rows =
+                comparator.order == .forward
+                ? starredRows + plainRows  // ascending: starred first
+                : plainRows + starredRows  // descending: starred last
+            onDisplayChange()
+            return
+        }
+
         let key: PaneState.SortKey
         switch comparator.keyPath {
         case \FileEntry.size: key = .size

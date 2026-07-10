@@ -9,6 +9,7 @@
 import AppKit
 import PalanaCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// One pane of the two.
 struct PaneView: View {
@@ -89,31 +90,28 @@ struct PaneView: View {
                     .allowsHitTesting(false)
             }
         }
-        // Pane-level drop surface — DraggedSelection first, Finder URLs second.
-        // isTargeted drives the wash; the pane must be ready to show a wash.
-        .dropDestination(for: DraggedSelection.self) { items, _ in
-            guard let payload = items.first,
-                model.state.host != nil,
-                model.status == .ready
-            else { return false }
-            let optionHeld = NSEvent.modifierFlags.contains(.option)
-            onDropSelection(payload, optionHeld)
-            return true
-        } isTargeted: { targeted in
-            // Only show the wash when the pane is a valid destination.
-            dropTargeted = targeted && model.status == .ready
-        }
-        .dropDestination(for: URL.self) { items, _ in
-            guard model.status == .ready else { return false }
-            let optionHeld = NSEvent.modifierFlags.contains(.option)
-            onFinderDrop(items, optionHeld)
-            return true
-        } isTargeted: { targeted in
-            if targeted, model.status == .ready {
-                dropTargeted = true
-            } else if !targeted {
-                dropTargeted = false
-            }
+        // Pane-level drop surface — unified .onDrop handles both DraggedSelection
+        // (pane-to-pane) and file URLs (Finder). A single modifier avoids the
+        // SwiftUI single-drop-destination limit; see DragDrop.swift for the RC2
+        // fix rationale. isTargeted drives the wash.
+        .onDrop(
+            of: [
+                UTType(selectionPasteboardType) ?? .data,
+                .fileURL,
+            ],
+            isTargeted: Binding(
+                get: { dropTargeted },
+                set: { targeted in
+                    dropTargeted = targeted && model.status == .ready
+                }
+            )
+        ) { providers in
+            handleUnifiedDrop(
+                providers: providers,
+                model: model,
+                onDropSelection: onDropSelection,
+                onFinderDrop: onFinderDrop
+            )
         }
         .simultaneousGesture(TapGesture().onEnded { onFocus() })
     }
@@ -370,14 +368,23 @@ extension PaneView {
                 .filter { model.state.selection.contains($0.id) }
                 .map(\.nameData)
             ForEach(model.rows) { entry in
+                // itemProvider replaces .draggable — carries the DraggedSelection
+                // as JSON under selectionPasteboardType via NSItemProvider so that
+                // the drag pasteboard write succeeds even when running as a bare
+                // SwiftPM binary without a bundle (RC1 fix; see DragDrop.swift).
                 TableRow(entry)
-                    .draggable(dragPayload(for: entry, selectedNames: selectedNames))
+                    .itemProvider {
+                        let payload = dragPayload(for: entry, selectedNames: selectedNames)
+                        // Qualify the global to resolve the name collision with the
+                        // .itemProvider(_:) modifier method on TableRow.
+                        return Palana.itemProvider(for: payload)
+                    }
             }
         }
         .onChange(of: sortOrder) { _, order in
             // A header click re-sorts through the pane's own model — the
             // Table reports the column, the listing keeps its comparators.
-            if let first = order.first { model.applySort(from: first) }
+            if let first = order.first { model.applySort(from: first, favorites: favorites) }
         }
         .onChange(of: store.customization) { _, _ in
             // Persist hidden-column set whenever the operator changes visibility.

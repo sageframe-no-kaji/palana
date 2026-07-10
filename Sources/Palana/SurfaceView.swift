@@ -84,8 +84,10 @@ struct SurfaceView: View {
                     // Floor hugs the header (~31) + the four chips + their
                     // borders (~117) so the smallest terminal is just the strip
                     // — no clip, no gap under the last chip.
-                    PlanPanel(operation: session.operation, session: session)
-                        .frame(minHeight: 150, idealHeight: 280)
+                    PlanPanel(operation: session.operation, session: session) { key in
+                        session.handleVerbKey(key)
+                    }
+                    .frame(minHeight: 150, idealHeight: 280)
                 }
             }
             Divider()

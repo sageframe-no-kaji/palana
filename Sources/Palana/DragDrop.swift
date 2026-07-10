@@ -1,6 +1,17 @@
-// Drag-and-drop wiring for the Surface: Transferable conformance for
-// DraggedSelection, Finder-URL-drop resolution helpers, and the glue
-// that routes a DropDecision through the standing begin/gather path.
+// Drag-and-drop wiring for the Surface: pasteboard type constant,
+// NSItemProvider drag helpers, unified onDrop handler, Finder-URL-drop
+// resolution helpers, and the glue that routes a DropDecision through
+// the standing begin/gather path.
+//
+// ho-9.6 rework — root-cause fix:
+//   RC1: UTType(exportedAs:) requires an app-bundle Info.plist
+//        registration; a bare SwiftPM binary has none, so the Transferable
+//        CodableRepresentation write silently fails. We now use a plain
+//        UTI string and registerDataRepresentation — in-process drags work
+//        with unregistered identifiers.
+//   RC2: Two stacked .dropDestination modifiers — SwiftUI honours only one
+//        per view; the second replaced the first, so DraggedSelection drops
+//        were never caught. We now use a single .onDrop that handles both.
 // PaneView's diff stays thin — all non-trivial logic lives here.
 
 import AppKit
@@ -8,29 +19,39 @@ import PalanaCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - Custom content type
+// MARK: - Custom pasteboard type
 
-extension UTType {
-    /// The custom pasteboard type for a ``DraggedSelection`` payload.
-    ///
-    /// Exported by the app and used to distinguish pālana-internal drags
-    /// from Finder URL drops. Declared plain here — no bundle identifier
-    /// needed; the string is the type identity.
-    static let draggedSelection = UTType(exportedAs: "com.sageframe.palana.selection")
-}
+/// The raw UTI string for a ``DraggedSelection`` pasteboard payload.
+///
+/// Used as the type identifier for ``NSItemProvider/registerDataRepresentation``
+/// and ``NSItemProvider/loadDataRepresentation``. In-process drags work with
+/// this identifier without LaunchServices registration. Finder URL drops use
+/// ``UTType.fileURL`` instead and are handled by the same unified drop handler.
+let selectionPasteboardType = "com.sageframe.palana.selection"
 
-// MARK: - Transferable conformance
+// MARK: - Drag payload builder
 
-/// Retroactive conformance to `Transferable` — declared in the app target,
-/// not in PalanaCore, per Decision 1 and ho-07's same-package finding.
-extension DraggedSelection: Transferable {
-    /// The representation uses the custom UTType and Codable serialisation.
-    ///
-    /// JSON is the wire format: ``DraggedSelection`` is `Codable`, and
-    /// `JSONEncoder` base64-encodes the `names` byte arrays losslessly.
-    public static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .draggedSelection)
+/// Builds an ``NSItemProvider`` carrying a ``DraggedSelection`` encoded as JSON.
+///
+/// Registered under ``selectionPasteboardType``. The provider is synchronous —
+/// the JSON is serialised on the calling thread and handed back immediately.
+/// Returns `nil` when encoding fails (programming error; logged to stderr).
+@MainActor
+func itemProvider(for selection: DraggedSelection) -> NSItemProvider? {
+    let encoder = JSONEncoder()
+    guard let data = try? encoder.encode(selection) else {
+        fputs("palana drag: failed to encode DraggedSelection\n", stderr)
+        return nil
     }
+    let provider = NSItemProvider()
+    provider.registerDataRepresentation(
+        forTypeIdentifier: selectionPasteboardType,
+        visibility: .all
+    ) { completion in
+        completion(data, nil)
+        return nil
+    }
+    return provider
 }
 
 // MARK: - Drop routing
@@ -94,6 +115,138 @@ func routeDropDecision(
             operation.note("drop refused — source pane not found")
         }
     }
+}
+
+// MARK: - Unified drop handler support
+
+/// The resolved outcome of a unified drop, delivered asynchronously to the pane's `.onDrop` handler.
+///
+/// Value-typed and `Sendable`; safe to hop across actor boundaries.
+enum DropResult: Sendable {
+    /// A ``DraggedSelection`` was decoded from the custom pasteboard type.
+    case selection(DraggedSelection, optionHeld: Bool)
+    /// File URLs were collected from a Finder drop.
+    case urls([URL], optionHeld: Bool)
+}
+
+/// Resolves providers from `.onDrop` to a ``DropResult`` asynchronously.
+///
+/// Tries the custom pasteboard type first (pane-to-pane drag); falls back to
+/// collecting ``URL``s. Returns `nil` when no recognisable content is found.
+/// The result is `Sendable` so the caller can freely dispatch it on `MainActor`.
+///
+/// - Parameters:
+///   - providers: The `NSItemProvider` array from the `.onDrop` closure.
+///   - optionHeld: Whether Option was held at drop time (captured before the
+///     async hops to avoid checking modifier state off-thread).
+/// - Returns: A ``DropResult`` or `nil` when the providers carry nothing usable.
+func resolveDropProviders(
+    providers: [NSItemProvider],
+    optionHeld: Bool
+) async -> DropResult? {
+    // Try our custom type first — pane-to-pane drag.
+    if let provider = providers.first(where: {
+        $0.hasItemConformingToTypeIdentifier(selectionPasteboardType)
+    }) {
+        let result = await withCheckedContinuation { (cont: CheckedContinuation<DraggedSelection?, Never>) in
+            provider.loadDataRepresentation(forTypeIdentifier: selectionPasteboardType) { data, error in
+                guard let data, error == nil,
+                    let payload = try? JSONDecoder().decode(DraggedSelection.self, from: data)
+                else {
+                    cont.resume(returning: nil)
+                    return
+                }
+                cont.resume(returning: payload)
+            }
+        }
+        if let payload = result {
+            return .selection(payload, optionHeld: optionHeld)
+        }
+    }
+
+    // Fall back to file URLs — Finder drop.
+    let fileURLProviders = providers.filter {
+        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+    }
+    guard !fileURLProviders.isEmpty else { return nil }
+
+    var urls: [URL] = []
+    for provider in fileURLProviders {
+        let url = await withCheckedContinuation { (cont: CheckedContinuation<URL?, Never>) in
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    cont.resume(returning: url)
+                } else if let url = item as? URL {
+                    cont.resume(returning: url)
+                } else {
+                    cont.resume(returning: nil)
+                }
+            }
+        }
+        if let url { urls.append(url) }
+    }
+    return urls.isEmpty ? nil : .urls(urls, optionHeld: optionHeld)
+}
+
+// MARK: - Unified drop handler
+
+/// Unified `.onDrop` handler — dispatches provider resolution and routes the
+/// result to the appropriate callback on `MainActor`.
+///
+/// Returns `true` immediately when the pane is ready and providers look
+/// promising — the actual dispatch happens asynchronously. Returns `false`
+/// when the pane is not ready or no usable content is found.
+///
+/// Callbacks are dispatched via `DispatchQueue.main.async` after provider
+/// resolution so they require no `@Sendable` annotation — the callers are
+/// always `@MainActor`-isolated SwiftUI closure literals.
+///
+/// - Parameters:
+///   - providers: The `NSItemProvider` array from the `.onDrop` closure.
+///   - model: The pane that is the drop target.
+///   - onDropSelection: Called on the main queue with the decoded payload +
+///     option-held flag.
+///   - onFinderDrop: Called on the main queue with the resolved URLs +
+///     option-held flag.
+/// - Returns: `true` when a drop is attempted; `false` on refusal or empty providers.
+@MainActor
+func handleUnifiedDrop(
+    providers: [NSItemProvider],
+    model: PaneModel,
+    onDropSelection: @escaping (DraggedSelection, Bool) -> Void,
+    onFinderDrop: @escaping ([URL], Bool) -> Void
+) -> Bool {
+    guard model.status == .ready, model.state.host != nil else { return false }
+    let optionHeld = NSEvent.modifierFlags.contains(.option)
+
+    // Quick check — bail before async work when nothing looks right.
+    let hasOurs = providers.contains {
+        $0.hasItemConformingToTypeIdentifier(selectionPasteboardType)
+    }
+    let hasURLs = providers.contains {
+        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+    }
+    guard hasOurs || hasURLs else { return false }
+
+    // Provider loads are async. resolveDropProviders returns a Sendable
+    // DropResult; once we have it we hop to the main queue via DispatchQueue
+    // (no @Sendable requirement on the dispatch block) to call the callbacks.
+    Task {
+        let result = await resolveDropProviders(
+            providers: providers,
+            optionHeld: optionHeld
+        )
+        guard let result else { return }
+        DispatchQueue.main.async {
+            switch result {
+            case .selection(let payload, let held):
+                onDropSelection(payload, held)
+            case .urls(let urls, let held):
+                onFinderDrop(urls, held)
+            }
+        }
+    }
+    return true
 }
 
 // MARK: - Finder URL resolution
