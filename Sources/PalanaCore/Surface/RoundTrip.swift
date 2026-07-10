@@ -339,7 +339,7 @@ public enum RoundTrip {
     /// Composes the one-line note for a remote that moved since the fetch.
     ///
     /// Returns a sentence of the form
-    /// `"remote changed since fetch — <size> · <date> now stands there"`.
+    /// `"the remote copy changed since you opened it — <size> · <date> now stands there"`.
     /// Pure — no I/O, no side effects. Lives in core so the unit battery
     /// can pin the sentence format directly.
     ///
@@ -348,6 +348,6 @@ public enum RoundTrip {
     public static func changedSinceFetchNote(current: FileEntry) -> String {
         let size = current.size.formatted(.byteCount(style: .file))
         let date = current.modified.formatted(date: .abbreviated, time: .shortened)
-        return "remote changed since fetch — \(size) · \(date) now stands there"
+        return "the remote copy changed since you opened it — \(size) · \(date) now stands there"
     }
 }

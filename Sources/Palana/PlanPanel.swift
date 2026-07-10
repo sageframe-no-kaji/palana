@@ -99,9 +99,9 @@ struct PlanPanel: View {
         switch operation.phase {
         case .idle: return ""
         case .naming: return "\(verb)naming"
-        case .gathering: return "\(verb)composing…"
+        case .gathering: return "\(verb)checking…"
         case .ready: return "\(verb)the plan"
-        case .enacting: return "\(verb)running"
+        case .enacting: return "\(verb)running…"
         case .finished: return "\(verb)done"
         case .failed: return "\(verb)failed"
         case .cancelled: return "\(verb)cancelled"
@@ -115,7 +115,7 @@ struct PlanPanel: View {
     /// phase, where nothing is armed.
     private var enactCallout: String? {
         switch operation.phase {
-        case .ready: return "⏎ enact"
+        case .ready: return "⏎ run"
         case .naming: return "⏎ commit"
         default: return nil
         }
@@ -130,7 +130,7 @@ struct PlanPanel: View {
         case .idle: return nil
         case .naming: return "esc cancel"
         case .gathering: return "⌃c cancels"
-        case .ready: return "a new verb recomposes"
+        case .ready: return "a new verb rebuilds the plan"
         case .enacting: return "keeps running · ⌃c cancels"
         case .finished, .failed, .cancelled: return nil
         }
@@ -202,7 +202,7 @@ struct PlanPanel: View {
 
     @ViewBuilder
     private func planBlock(_ plan: Plan) -> some View {
-        Text("\(plan.operation.rawValue) · \(plan.classification.rawValue)")
+        Text("\(plan.operation.rawValue) · \(plan.classification.plainName)")
             .foregroundStyle(Theme.ink)
             .fontWeight(.semibold)
         Text(sizeLine(plan))
@@ -213,7 +213,7 @@ struct PlanPanel: View {
         }
         Text(routeLine(plan))
             .foregroundStyle(Theme.inkFaint)
-        Text("transport: \(plan.transport.rawValue)")
+        Text(plan.transport.plainDescription)
             .foregroundStyle(Theme.inkFaint)
         Spacer().frame(height: 8)
         ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, step in
@@ -227,7 +227,7 @@ struct PlanPanel: View {
     private func sizeLine(_ plan: Plan) -> String {
         let count = plan.entries.count
         let bytes = plan.totalSize.formatted(.byteCount(style: .file))
-        let floor = plan.totalSizeComplete ? "" : " · a floor — a subtree refused its walk"
+        let floor = plan.totalSizeComplete ? "" : " · this is a floor — a folder couldn't be measured"
         return "\(count) \(count == 1 ? "entry" : "entries") · \(bytes)\(floor)"
     }
 
@@ -239,7 +239,7 @@ struct PlanPanel: View {
 
     private func stepLine(_ step: PlanStep) -> String {
         step.gatedOnVerification
-            ? "  gated on verification: $ \(step.command)"
+            ? "  runs only after the copy above is verified: $ \(step.command)"
             : "$ \(step.command)"
     }
 

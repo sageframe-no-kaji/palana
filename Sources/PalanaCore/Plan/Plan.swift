@@ -50,6 +50,60 @@ public enum Classification: String, Codable, Sendable {
     case zfsMutation = "zfs mutation"
 }
 
+extension Classification {
+    /// Display name in plain English — what the operator sees in the plan header.
+    ///
+    /// Raw values are the on-disk vocabulary and are frozen. This var provides
+    /// plain-language equivalents for every case without touching rawValues.
+    public var plainName: String {
+        switch self {
+        case .withinDatasetRename:
+            return "move on the same disk (instant)"
+        case .crossDatasetCopyPlusDelete:
+            return "copy then delete the original"
+        case .crossHostTransfer:
+            return "move to another machine"
+        case .withinHostCopy:
+            return "copy"
+        case .crossHostCopy:
+            return "copy to another machine"
+        case .deletion:
+            return "delete"
+        case .creation:
+            return "create"
+        case .modificationTimeUpdate:
+            return "update timestamps"
+        case .zfsMutation:
+            return "zfs change"
+        }
+    }
+}
+
+extension Transport {
+    /// Display string in plain English — what the operator sees in the plan body.
+    ///
+    /// Raw values are the on-disk vocabulary and are frozen. This var provides
+    /// plain-language equivalents for every case without touching rawValues.
+    public var plainDescription: String {
+        switch self {
+        case .local:
+            return "how: runs locally on the one host involved"
+        case .rsyncAgentForwarded:
+            return "how: rsync, run host-to-host · using the forwarded ssh key"
+        case .rsyncDirect:
+            return "how: rsync, run from this Mac · using this Mac's ssh keys"
+        case .tarStreamProxied:
+            return "how: tar stream, proxied through this Mac · no rsync at one end"
+        case .tarStreamDirect:
+            return "how: tar stream, run from this Mac · using this Mac's ssh keys"
+        case .zfsSendReceiveForwarded:
+            return "how: zfs send/receive, run host-to-host · using the forwarded ssh key"
+        case .zfsSendReceiveProxied:
+            return "how: zfs send/receive, proxied through this Mac"
+        }
+    }
+}
+
 /// How the bytes move, auth path included — the plan names it, the
 /// operator never chooses.
 public enum Transport: String, Codable, Sendable {

@@ -244,7 +244,7 @@ struct CollisionReportSentenceTests {
     func ungatheredString() {
         let report = CollisionReport(items: [], gathered: false)
         let result = report.sentence()
-        #expect(result == "destination unread — what this replaces is unknown")
+        #expect(result == "couldn't check the destination — this may overwrite files there")
     }
 
     @Test("gathered and clean — nil")
@@ -265,7 +265,7 @@ struct CollisionReportSentenceTests {
             ],
             gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "replaces notes.txt (1 kB)")
+        #expect(result == "will replace notes.txt (1 kB)")
     }
 
     @Test("single merge names the directory")
@@ -279,11 +279,11 @@ struct CollisionReportSentenceTests {
             ],
             gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "merges into media")
+        #expect(result == "will merge into media")
     }
 
-    @Test("single kind clash names the entry")
-    func singleKindClash() throws {
+    @Test("single kind clash — folder here, file there")
+    func singleKindClashFolderHere() throws {
         let report = CollisionReport(
             items: [
                 makeCollision(
@@ -293,7 +293,21 @@ struct CollisionReportSentenceTests {
             ],
             gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "kind clash — tool will refuse: notes")
+        #expect(result == "won't work — notes is a folder here and a file there")
+    }
+
+    @Test("single kind clash — file here, folder there")
+    func singleKindClashFileHere() throws {
+        let report = CollisionReport(
+            items: [
+                makeCollision(
+                    name: "notes",
+                    standingKind: .file,
+                    arrivingKind: .directory)
+            ],
+            gathered: true)
+        let result = try #require(report.sentence())
+        #expect(result == "won't work — notes is a file here and a folder there")
     }
 
     @Test("replace total size sums across all replaced entries")
@@ -305,7 +319,7 @@ struct CollisionReportSentenceTests {
             ],
             gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "replaces a.txt, b.txt (1 kB)")
+        #expect(result == "will replace a.txt, b.txt (1 kB)")
     }
 
     @Test("mixed natures produce clauses joined by the middle dot")
@@ -321,9 +335,10 @@ struct CollisionReportSentenceTests {
             ],
             gathered: true)
         let result = try #require(report.sentence())
+        // single kind-clash item names the exact direction
         #expect(
             result
-                == "replaces a.txt (1 kB) · merges into media · kind clash — tool will refuse: clash"
+                == "will replace a.txt (1 kB) · will merge into media · won't work — clash is a folder here and a file there"
         )
     }
 
@@ -334,7 +349,7 @@ struct CollisionReportSentenceTests {
         }
         let report = CollisionReport(items: items, gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "replaces a.txt, b.txt, c.txt, d.txt, and 1 more (500 bytes)")
+        #expect(result == "will replace a.txt, b.txt, c.txt, d.txt, and 1 more (500 bytes)")
     }
 
     @Test("cap at four names with 'and N more' for many extras")
@@ -344,7 +359,7 @@ struct CollisionReportSentenceTests {
         }
         let report = CollisionReport(items: items, gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "replaces a.txt, b.txt, c.txt, d.txt, and 3 more (Zero kB)")
+        #expect(result == "will replace a.txt, b.txt, c.txt, d.txt, and 3 more (Zero kB)")
     }
 
     @Test("exactly four names — no 'and N more'")
@@ -354,6 +369,6 @@ struct CollisionReportSentenceTests {
         }
         let report = CollisionReport(items: items, gathered: true)
         let result = try #require(report.sentence())
-        #expect(result == "replaces a.txt, b.txt, c.txt, d.txt (4 kB)")
+        #expect(result == "will replace a.txt, b.txt, c.txt, d.txt (4 kB)")
     }
 }

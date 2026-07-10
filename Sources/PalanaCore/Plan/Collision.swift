@@ -2,6 +2,39 @@
 // Pure PalanaCore: no I/O, no gather. Detection is a pure function over
 // source entries and a destination listing; the report rides the Plan.
 
+// ── MESSAGE GRAMMAR ───────────────────────────────────────────────────────────
+//
+// All operator-facing text in pālana follows six rules:
+//
+// 1. A plan speaks in the future:
+//      "will replace notes.txt (3 kB)"
+//      "will merge into media"
+//      "will delete the source after the copy is verified"
+//
+// 2. A running step speaks through its command — the $ line IS the narration;
+//    surrounding text stays minimal and present-tense:
+//      "check on koan: $ find …"
+//
+// 3. A finished run speaks in the past with its proof:
+//      "done — copied 3, checked 3"
+//      "done — every step ran and checked out"
+//
+// 4. A refusal names the thing and the reason in one line:
+//      "won't run — <thing>: <reason>"
+//      "won't work — notes is a folder here and a file there"
+//
+// 5. Anything unknown is named unknown:
+//      "couldn't check the destination — this may overwrite files there"
+//
+// 6. No jargon in operator-facing text: run / check / build / send, never
+//    enact / gather / compose / classification / transport-as-a-word.
+//    Lowercase voice · middle dots (·) join clauses · no semicolons · no !
+//    Commands, paths, host names stay verbatim.
+//    Domain nouns that ARE the thing (rsync, zfs, ssh, dataset, mountpoint,
+//    snapshot) are kept — the rule bans arcana, not precision.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
 import Foundation
 
 /// One name that a planned transfer will strike at the destination.
@@ -129,7 +162,7 @@ public struct CollisionReport: Codable, Sendable, Equatable {
     /// names capped at four per clause with an honest "and N more."
     public func sentence() -> String? {
         guard gathered else {
-            return "destination unread — what this replaces is unknown"
+            return "couldn't check the destination — this may overwrite files there"
         }
         guard !items.isEmpty else { return nil }
 
@@ -159,17 +192,27 @@ public struct CollisionReport: Codable, Sendable, Equatable {
         let totalSize = items.map(\.standingSize).reduce(0, +)
         let bytes = totalSize.formatted(.byteCount(style: .file))
         let names = cappedNames(items)
-        return "replaces \(names) (\(bytes))"
+        return "will replace \(names) (\(bytes))"
     }
 
     private func mergeClause(_ items: [Collision]) -> String {
         let names = cappedNames(items)
-        return "merges into \(names)"
+        return "will merge into \(names)"
     }
 
     private func clashClause(_ items: [Collision]) -> String {
+        // Report which way the clash goes — folder-here or file-here.
+        // When there is one item, name the exact direction. When there
+        // are multiple, each may differ; fall back to "kind mismatch".
+        if items.count == 1, let first = items.first {
+            let name = first.name
+            guard first.standingKind == .directory else {
+                return "won't work — \(name) is a file here and a folder there"
+            }
+            return "won't work — \(name) is a folder here and a file there"
+        }
         let names = cappedNames(items)
-        return "kind clash — tool will refuse: \(names)"
+        return "won't work — kind mismatch: \(names)"
     }
 
     /// Renders up to four names joined by commas, with "and N more" when

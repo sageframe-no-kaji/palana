@@ -432,7 +432,7 @@ struct ChangedSinceFetchTests {
         // not the middle.
         let current = entry(size: 2048, mtime: Date(timeIntervalSince1970: 1_000_000))
         let note = RoundTrip.changedSinceFetchNote(current: current)
-        #expect(note.hasPrefix("remote changed since fetch — "))
+        #expect(note.hasPrefix("the remote copy changed since you opened it — "))
         #expect(note.hasSuffix(" now stands there"))
         #expect(note.contains(" · "))
     }

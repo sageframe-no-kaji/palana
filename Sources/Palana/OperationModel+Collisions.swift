@@ -39,11 +39,11 @@ extension OperationModel {
             if !collisions.isEmpty {
                 let count = collisions.count
                 note(
-                    "\(count) \(count == 1 ? "collision" : "collisions") at destination")
+                    "\(count) \(count == 1 ? "file already exists" : "files already exist") at destination")
             }
         } catch {
             facts.collisions = nil
-            note("destination unread — collisions unknown")
+            note("couldn't check the destination — this may overwrite files there")
         }
     }
 }

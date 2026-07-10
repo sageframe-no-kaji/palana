@@ -309,8 +309,8 @@ final class OperationModel {
             progress = report
         case .verifying(let host, let command):
             echo.flushAll()
-            echo.appendLine("verify on \(host): $ \(command)", kind: .note)
-            log.appendLine("# verify on \(host): $ \(command)")
+            echo.appendLine("check on \(host): $ \(command)", kind: .note)
+            log.appendLine("# check on \(host): $ \(command)")
         case .verified(let report):
             let reportText = Self.describe(report)
             echo.appendLine(reportText, kind: .note)
@@ -318,12 +318,12 @@ final class OperationModel {
         case .stepEnded(let index, let exitStatus):
             echo.flushAll()
             progress = nil
-            echo.appendLine("step \(index + 1) exited \(exitStatus)", kind: .note)
-            log.appendLine("# step \(index + 1) exited \(exitStatus)")
+            echo.appendLine("step \(index + 1) finished (exit \(exitStatus))", kind: .note)
+            log.appendLine("# step \(index + 1) finished (exit \(exitStatus))")
         case .finished:
             echo.flushAll()
-            echo.appendLine("enacted — every step ran, every gate proved", kind: .note)
-            log.appendLine("# enacted — every step ran, every gate proved")
+            echo.appendLine("done — every step ran and checked out", kind: .note)
+            log.appendLine("# done — every step ran and checked out")
             phase = .finished
             onFinished()
             // A run that finished off-screen closes its own books.
@@ -377,7 +377,7 @@ final class OperationModel {
         enactTask?.cancel()
         echo.flushAll()
         echo.appendLine(
-            "cancelled — gated steps never ran; an interrupted transfer can leave "
+            "cancelled — steps that needed verification never ran · an interrupted transfer can leave "
                 + "partial entries at the destination",
             kind: .failure)
         progress = nil
@@ -395,7 +395,7 @@ final class OperationModel {
         gatherTask?.cancel()
         gatherTask = nil
         echo.flushAll()
-        echo.appendLine("cancelled — composition stopped", kind: .failure)
+        echo.appendLine("cancelled — the plan check stopped", kind: .failure)
         phase = .cancelled
         panelShowing = true
     }
