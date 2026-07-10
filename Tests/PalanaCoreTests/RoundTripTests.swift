@@ -208,18 +208,24 @@ struct RoundTripWatcherTests {
         let record = makeRecord(fileURL: fileURL)
         let count = LockProtected(value: 0)
 
-        let watcher = RoundTripWatcher(record: record, debounceInterval: debounce) {
+        // This test's OWN debounce is a generous full second — a loaded CI
+        // runner spaced 50ms-window writes wider than the window and saw
+        // three callbacks (run 29071523768). With back-to-back writes and a
+        // one-second window, only a >1s stall between two in-process writes
+        // could split the burst.
+        let burstDebounce: TimeInterval = 1.0
+        let watcher = RoundTripWatcher(record: record, debounceInterval: burstDebounce) {
             count.withLock { $0 += 1 }
         }
         watcher.start()
 
         try await Task.sleep(nanoseconds: 100_000_000)  // 100 ms — enough for source to arm under load
 
-        // Fire five rapid in-place writes. The size changes so each event
-        // passes the stat-compare gate; the debounce should coalesce them.
+        // Fire five back-to-back in-place writes — no inter-write sleep.
+        // The size changes so each event passes the stat-compare gate; the
+        // debounce should coalesce them.
         for index in 1...5 {
             try Data("burst \(index)".utf8).write(to: fileURL)
-            try await Task.sleep(nanoseconds: 5_000_000)  // 5 ms — well inside 50 ms window
         }
 
         // Wait for the debounce to settle and one callback to fire.
@@ -227,9 +233,8 @@ struct RoundTripWatcherTests {
             count.withLock { $0 >= 1 }
         }
 
-        // Wait an additional debounce period to confirm no second callback fires.
-        let debounceNs = UInt64(debounce * 3 * 1_000_000_000)
-        try await Task.sleep(nanoseconds: debounceNs)
+        // Hold half a window more to confirm no second callback fires.
+        try await Task.sleep(nanoseconds: 500_000_000)
 
         let finalCount = count.withLock { $0 }
         #expect(finalCount == 1, "burst should coalesce to exactly one callback, got \(finalCount)")
