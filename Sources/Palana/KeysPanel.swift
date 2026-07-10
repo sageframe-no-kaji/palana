@@ -103,11 +103,23 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
 
     /// An edge drag lands here — the frame is the truth, the scale
     /// follows it, the content refits.
+    ///
+    /// The root-view swap is DEFERRED out of the resize call stack:
+    /// windowDidResize fires inside setFrame's layout transaction, and
+    /// rebuilding the SwiftUI tree mid-pass raised constraint exceptions
+    /// (crash reports 2026-07-10-081511 and -083141 — both died in a
+    /// constraint pass walking a tree we were mutating). The swap also
+    /// skips when the scale hasn't meaningfully changed.
     func windowDidResize(_ notification: Notification) {
         guard let panel else { return }
         let next = clamp(panel.frame.width / base.width)
+        guard abs(next - scale) > 0.001 else { return }
         scale = next
-        (panel.contentView as? NSHostingView<KeysPanelContent>)?.rootView = content(scale: next)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let panel = self.panel else { return }
+            (panel.contentView as? NSHostingView<KeysPanelContent>)?.rootView =
+                self.content(scale: next)
+        }
     }
 
     func windowWillClose(_ notification: Notification) {
