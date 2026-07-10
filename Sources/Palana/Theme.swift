@@ -36,4 +36,10 @@ enum Theme {
     /// Reserved for typed failures and incomplete-size floors; a
     /// placeholder value like the rest, pruned by the hands sessions.
     static let alarm = Color(red: 0.596, green: 0.302, blue: 0.235)
+
+    /// The plugin category tint — muted ochre/amber beside the moss accent.
+    ///
+    /// Distinguishes the plugins column and its chips from system reads
+    /// without competing with accent or alarm; same saturation family.
+    static let plugin = Color(red: 0.62, green: 0.48, blue: 0.22)
 }

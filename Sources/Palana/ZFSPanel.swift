@@ -8,6 +8,13 @@
 // to find the dataset the focused pane stands in. Recomputes when the panel
 // opens and when the focused pane's host or path changes (.task(id:) on a
 // combined identity key). No wire contact.
+//
+// SIZING IS STEPPED, NOT CONTINUOUS (mirrors the keys panel ruling,
+// 2026-07-10): five fixed sizes — ⌘1–⌘5 jump to one, ⌘+/− step —
+// edges do not drag. One sizing authority: apply(step:) on the
+// controller. Never from a delegate resize callback; never rebuild the
+// SwiftUI tree inside a resize or layout pass — the crash history on
+// the keys panel encodes why.
 
 import AppKit
 import PalanaCore
@@ -24,7 +31,26 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     /// The name the key monitor recognizes.
     static let identifier = "palana-zfs-window"
 
+    /// The five sizes — window scales from the base at each step.
+    static let steps: [Double] = [0.7, 0.85, 1.0, 1.2, 1.4]
+
     private var panel: NSPanel?
+
+    /// The base size at scale 1.0 (step index 2) — 300 × 480.
+    private let base = CGSize(width: 300, height: 480)
+
+    private static let stepKey = "palana.zfsPanelStep"
+
+    /// The persisted step index, clamped on read — persisted state that
+    /// crashes must never crash twice (the crash-loop lesson from the keys panel).
+    private var stepIndex: Int {
+        get {
+            guard UserDefaults.standard.object(forKey: Self.stepKey) != nil else { return 2 }
+            let stored = UserDefaults.standard.integer(forKey: Self.stepKey)
+            return min(max(stored, 0), Self.steps.count - 1)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: Self.stepKey) }
+    }
 
     /// Shows the panel, rebuilding only when it is not yet up.
     ///
@@ -35,9 +61,11 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
             panel.makeKeyAndOrderFront(nil)
             return
         }
+        let scale = Self.steps[stepIndex]
+        let size = CGSize(width: base.width * scale, height: base.height * scale)
         let made = ZFSFloatingPanel(
-            contentRect: CGRect(origin: .zero, size: CGSize(width: 300, height: 480)),
-            styleMask: [.borderless, .resizable, .nonactivatingPanel],
+            contentRect: CGRect(origin: .zero, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -50,11 +78,15 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         // A fullscreen main window stranded the panel out of reach — joining
         // all Spaces and allowing fullscreen auxiliary prevents this.
         made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        made.minSize = CGSize(width: 240, height: 260)
-        made.contentView = NSHostingView(rootView: ZFSPanelContent(session: session))
+        let hosting = NSHostingView(rootView: ZFSPanelContent(session: session))
+        // The panel's frame is the one truth — the hosting view must not
+        // push content size into the window's constraint system.
+        hosting.sizingOptions = []
+        made.contentView = hosting
         made.delegate = self
+        // setFrameAutosaveName persists position only; size is step-authored.
+        made.setFrameAutosaveName("palana-zfs-position")
         made.center()
-        made.setFrameAutosaveName("palana-zfs-frame")
         panel = made
         made.makeKeyAndOrderFront(nil)
     }
@@ -71,6 +103,35 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     /// Closes the panel if it is up.
     func close() {
         panel?.close()
+    }
+
+    /// Jumps to one of the five sizes — ⌘1 through ⌘5.
+    func select(step: Int) {
+        apply(step: step)
+    }
+
+    /// One size step up or down — ⌘ + / − land here.
+    func step(by delta: Int) {
+        apply(step: stepIndex + delta)
+    }
+
+    /// The one place size changes: window frame from the stepped scale,
+    /// top-left corner held.
+    ///
+    /// Never called from a delegate or layout pass.
+    private func apply(step: Int) {
+        guard let panel else { return }
+        let clamped = min(max(step, 0), Self.steps.count - 1)
+        guard clamped != stepIndex || panel.frame.width != base.width * Self.steps[clamped] else {
+            return
+        }
+        stepIndex = clamped
+        let scale = Self.steps[clamped]
+        var frame = panel.frame
+        let size = CGSize(width: base.width * scale, height: base.height * scale)
+        frame.origin.y += frame.height - size.height
+        frame.size = size
+        panel.setFrame(frame, display: true, animate: false)
     }
 
     // MARK: - NSWindowDelegate
@@ -218,7 +279,7 @@ struct ZFSPanelView: View {
     private var panelFooter: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
-            Text("esc closes · letter fires verb · Z opens")
+            Text("esc closes · letter fires verb · Z opens · ⌘1–⌘5 pick a size · ⌘+/− step")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.horizontal, 16)

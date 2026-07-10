@@ -10,16 +10,31 @@ import PalanaCore
 extension PalanaSession {
     /// Routes a key event while the ZFS panel is the key window.
     ///
-    /// Esc closes. A plain letter matching a ZFS verb's `keyHint` fires that
-    /// verb — panel closes first so focus returns to the main window before
-    /// the gather opens. Everything else passes through untouched.
+    /// Esc closes. ⌘1–⌘5 jump to a size; ⌘+/= and ⌘− step — mirroring
+    /// `handleKeysPanelKey` exactly. A plain letter matching a ZFS verb's
+    /// `keyHint` fires that verb — panel closes first so focus returns to
+    /// the main window before the gather opens. Everything else passes through.
     func handleZFSPanelKey(_ event: NSEvent) -> Bool {
         let keyCode = event.keyCode
+        let chars = event.charactersIgnoringModifiers
         let hasCommand = event.modifierFlags.contains(.command)
         let hasShift = event.modifierFlags.contains(.shift)
         // Esc — close the panel; pass nothing further.
         if keyCode == 53 {
             ZFSPanelController.shared.close()
+            return true
+        }
+        // Sizing keys — ⌘+/= step up, ⌘− step down, ⌘1–⌘5 jump.
+        if hasCommand, chars == "=" || chars == "+" {
+            ZFSPanelController.shared.step(by: 1)
+            return true
+        }
+        if hasCommand, chars == "-" {
+            ZFSPanelController.shared.step(by: -1)
+            return true
+        }
+        if hasCommand, let chars, let digit = Int(chars), (1...5).contains(digit) {
+            ZFSPanelController.shared.select(step: digit - 1)
             return true
         }
         // Plain letters only — modifiers would step on menu shortcuts.
