@@ -89,6 +89,13 @@ public struct PlanFacts: Sendable, Equatable {
     /// the exact command; a bad flag fails at enactment, which is the
     /// system's honesty working.
     public var rsyncOperatorFlags: String?
+    /// The collision facts for a destination-ful plan, gathered fresh per
+    /// plan by the app (the same pattern as `recursiveSizes`).
+    ///
+    /// `nil` means ungathered — the gather did not run or failed. An
+    /// empty array means gathered and clean. The engine carries this
+    /// value into `CollisionReport.gathered` on destination-ful plans.
+    public var collisions: [Collision]?
 
     /// Assembles a facts bundle — everything defaults to unknown.
     public init(
@@ -99,7 +106,8 @@ public struct PlanFacts: Sendable, Equatable {
         destinationCapability: HostCapability? = nil,
         agentForwarding: ForwardingFact = .unprobed,
         recursiveSizes: [FileEntry.ID: RecursiveSize] = [:],
-        rsyncOperatorFlags: String? = nil
+        rsyncOperatorFlags: String? = nil,
+        collisions: [Collision]? = nil
     ) {
         self.sourceDataset = sourceDataset
         self.destinationDataset = destinationDataset
@@ -109,6 +117,7 @@ public struct PlanFacts: Sendable, Equatable {
         self.agentForwarding = agentForwarding
         self.recursiveSizes = recursiveSizes
         self.rsyncOperatorFlags = rsyncOperatorFlags
+        self.collisions = collisions
     }
 }
 

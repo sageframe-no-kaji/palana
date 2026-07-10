@@ -28,8 +28,27 @@ public enum PlanEngine {
             destination: request.destination,
             transport: transport,
             steps: steps,
-            receivedDataset: zfsChild(request: request, facts: facts, transport: transport)
+            receivedDataset: zfsChild(request: request, facts: facts, transport: transport),
+            collisions: collisionReport(for: request, facts: facts)
         )
+    }
+
+    /// Builds the collision report for destination-ful requests.
+    ///
+    /// Keys on the destination directory, not the classification —
+    /// `.withinDatasetRename` serves both the guarded rename (no
+    /// destination, `test ! -e` already refuses collisions) and the
+    /// mv-based move into another directory, which overwrites and must
+    /// be named. Returns `nil` for plans with no destination directory —
+    /// rename, create, touch, delete, and zfs mutations.
+    private static func collisionReport(
+        for request: PlanRequest,
+        facts: PlanFacts
+    ) -> CollisionReport? {
+        guard request.destination != nil else { return nil }
+        return CollisionReport(
+            items: facts.collisions ?? [],
+            gathered: facts.collisions != nil)
     }
 
     /// The selection's byte truth (ho-06.5): recursive facts for

@@ -208,6 +208,13 @@ public struct Plan: Codable, Sendable, Equatable {
     /// The dataset a zfs transport will create at the destination —
     /// what verification asks for by name. nil on file transports.
     public var receivedDataset: String?
+    /// The collision report for this plan.
+    ///
+    /// Nil on plans with no destination directory (rename, create, touch,
+    /// delete, zfs mutations). Present on every destination-ful
+    /// classification; `gathered` reflects whether the destination
+    /// listing was read.
+    public var collisions: CollisionReport?
 
     /// Assembles a plan.
     public init(
@@ -220,7 +227,8 @@ public struct Plan: Codable, Sendable, Equatable {
         destination: Locus?,
         transport: Transport,
         steps: [PlanStep],
-        receivedDataset: String? = nil
+        receivedDataset: String? = nil,
+        collisions: CollisionReport? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -232,5 +240,6 @@ public struct Plan: Codable, Sendable, Equatable {
         self.transport = transport
         self.steps = steps
         self.receivedDataset = receivedDataset
+        self.collisions = collisions
     }
 }
