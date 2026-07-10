@@ -528,10 +528,12 @@ extension PaneView {
     }
 
     func nameCell(_ entry: FileEntry) -> some View {
-        let selectedNames = model.rows
-            .filter { model.state.selection.contains($0.id) }
-            .map(\.nameData)
-        return HStack(spacing: 6) {
+        // No .onDrag here, deliberately: a cell-level drag source wraps the
+        // cell content in its own drag-hosting view, which desyncs SwiftUI's
+        // drawn rows from AppKit's hit rects (clicks land one row off; top
+        // row unreachable). Bisected to 9808498, proven by removal 2026-07-10.
+        // TableRow.itemProvider carries pane-to-pane drag alone.
+        HStack(spacing: 6) {
             Capsule()
                 .fill(Theme.accent)
                 .frame(width: 3, height: 14)
@@ -546,14 +548,6 @@ extension PaneView {
                     .lineLimit(1)
             }
             driveMark(for: entry)
-        }
-        // Supplementary drag source on the name-cell content view — a second
-        // path in addition to TableRow.itemProvider. Both produce the same
-        // public.json payload; instrumentation logs say which fires. This path
-        // is known-good for drags starting on cell content (not just a row hit).
-        .onDrag {
-            let payload = dragPayload(for: entry, selectedNames: selectedNames)
-            return Palana.itemProvider(for: payload) ?? NSItemProvider()
         }
     }
 
