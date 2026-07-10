@@ -49,7 +49,7 @@ SwiftUI's `tableColumnCustomization` (macOS 14, exactly our floor) gives the Fin
 
 ### Decision 5 — The star column shows favorites' truth and toggles it
 
-★ renders on directories whose `host:path/name` favorites already holds—`FavoritesList.isFavorited`, the ho-9.4 truth, no second registry. A click toggles, same as `8` on the row. Files show nothing (a favorite is a location). Sortable so starred directories can gather at the top; sorting by a bool is stable and cheap.
+★ renders on directories whose `host:path/name` favorites already holds—`FavoritesList.isFavorited`, the ho-9.4 truth, no second registry. A click toggles, same as `8` on the row. Files show nothing (a favorite is a location). *Execution amendment:* the column does not sort—the Table's comparator is `KeyPathComparator<FileEntry>` and starred is deliberately not a `FileEntry` fact, so the header cannot emit a ★ comparator; gathering starred rows wants a different control if his hands ask for one.
 
 ### Decision 6 — New sort keys are core
 
@@ -74,8 +74,8 @@ The six new TableColumns, `tableColumnCustomization` with `columns.json` persist
 - Right-click on the header shows/hides columns Finder-style; widths and visibility survive a relaunch
 - created/changed carry real dates at each flavor's sealed fidelity and dashes where the flavor can't say
 - permissions, owner, group columns show what the listing always gathered
-- ★ marks favorited directories, toggles on click, sorts
-- Header-click sort works on every visible column; nils sort last
+- ★ marks favorited directories and toggles on click (not sortable—the platform boundary named in Decision 5)
+- Header-click sort works on every entry-fact column; nils sort last
 - Both re-recorded corpora replay green; the recorder learned the exchange first
 - Verification rhythm green, PalanaCore coverage floor holds
 
@@ -83,8 +83,16 @@ The six new TableColumns, `tableColumnCustomization` with `columns.json` persist
 
 ## Phase 3 — Reflect
 
-_Filled at close._
+**The sealed fidelity dodged the cliff it was built for.** BSD gathered both timestamps through two more stat directives; GNU took `%C@` as one more printf field with the same fractional-epoch parse as mtime; BusyBox's corpus is byte-identical by git diff. No vendor flag was walked, no degradation arrived unnamed. The recorder-first law held—both corpora re-recorded live, and the recorder even grew the trailing-newline fix the pre-commit hook had been paying for by hand.
+
+**The platform gave the picker and took the persistence.** `tableColumnCustomization` delivered the Finder-style header right-click without a line of picker UI—and proved not Codable, exactly the risk Decision 4 braced for. The named escape hatch shipped: visibility persists in `columns.json`, widths live for the process. If width persistence ever matters, it's an own-model column-width capture, not a fight with the platform value.
+
+**★ sorts was cut by an API truth the Think phase missed.** The Table's one comparator type is `KeyPathComparator<FileEntry>`, and starred is deliberately not a `FileEntry` fact—the one-registry law and the sort seam are structurally incompatible at the header. The review caught the agent's unreachable sort branch (and its reliance on undocumented sort stability) and cut it rather than shipping dead code. ★ is display and toggle; a gather-the-starred control is his hands' to ask for.
+
+**The direction-baked comparator refactor quietly fixed a shuffle.** The old descending sort reversed the whole ascending array—ties reversed with it. Direction now lives in each comparator and ties hold byte order both ways, which is also what lets a column of dashes stand still.
+
+**Hands verdicts pending:** the header right-click discovery, the default-hidden six, date formats at his font scale, the ★ toggle feel, and whether width-persistence-across-relaunch is missed enough to earn its own capture.
 
 ---
 
-_Authored: 2026-07-10 (Think phase). Born at Checkpoint 3's round-3 amendment—his hands on the column edges; the star column queued from ho-9.4._
+_Authored: 2026-07-10 (Think phase). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session. Born at Checkpoint 3's round-3 amendment—his hands on the column edges; the star column queued from ho-9.4._

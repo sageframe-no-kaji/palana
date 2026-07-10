@@ -72,8 +72,14 @@ Transferable conformance, row drag from the Table, pane-level drop destination f
 
 ## Phase 3 — Reflect
 
-_Filled at close._
+**The Table gave up its data-collection form for the drag, and the conversion held.** Per-row `.draggable` demanded the `rows:` builder; columns, sort, selection, and the context menu came through byte-identical by the diff. The payload expands to the whole selection when the dragged row is in it—Finder's manners—with the selection's names gathered once per render, because the agent's per-row filter was O(n²) against the cadence law and the review caught it.
+
+**A drop that can't resolve its names refuses.** The review's second catch: when the dragged names no longer stand in the source pane (rows changed between drag and drop), the routing fell through to `begin` with the pane's stale cursor and selection—a plan for entries nobody dragged, saved only by the gate. It refuses with one spoken line now.
+
+**The gate law needed no defending.** Every drop path funnels into the standing gather—the panel arrives ready, Enter enacts, and there was no temptation anywhere in the diff to shortcut it. The engine half (payload + pure decision) went in without a single deviation.
+
+**Hands verdicts pending:** the wash's weight, the option-for-move muscle, whether the panel arriving on a drop feels like the right ceremony or wants a quieter form, and the Finder-drop cohort rule against a real mixed drag.
 
 ---
 
-_Authored: 2026-07-10 (Think phase). Sixth on the Checkpoint 3 slate—the mouse learns the verbs the keys already know._
+_Authored: 2026-07-10 (Think phase). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session. Sixth on the Checkpoint 3 slate—the mouse learns the verbs the keys already know._

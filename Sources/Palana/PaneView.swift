@@ -31,6 +31,8 @@ struct PaneView: View {
     let fontScale: CGFloat
     /// The favorites model — drives the star and the host menu's favorites section.
     let favorites: FavoritesModel
+    /// The shared column customization — visibility and widths for both panes.
+    let columnStore: ColumnStore
     /// Toggle this pane's location in favorites.
     let onToggleFavorite: () -> Void
     /// A favorite was chosen from the host menu — point the pane.
@@ -315,29 +317,23 @@ extension PaneView {
     }
 
     var innerTable: some View {
-        // Rows-builder form — required for per-row .draggable(). All column
-        // definitions, sort/selection/context-menu behaviour, and every
-        // modifier remain byte-identical to the prior data-collection form.
-        Table(of: FileEntry.self, selection: cursorBinding, sortOrder: $sortOrder) {
-            TableColumn("name", value: \.name) { entry in
-                nameCell(entry)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(cursorWash(entry))
-            }
-            TableColumn("size", value: \.size) { entry in
-                Text(entry.kind == .directory ? "—" : Self.sizeText(entry.size))
-                    .foregroundStyle(Theme.inkFaint)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .background(cursorWash(entry))
-            }
-            .width(min: 60, ideal: 80, max: 110)
-            TableColumn("modified", value: \.modified) { entry in
-                Text(entry.modified.formatted(date: .abbreviated, time: .shortened))
-                    .foregroundStyle(Theme.inkFaint)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(cursorWash(entry))
-            }
-            .width(min: 110, ideal: 150, max: 190)
+        // Rows-builder form — required for per-row .draggable(). Nine columns
+        // in a single Table builder exceed a reasonable type-check window, so
+        // the column groups are split into @TableColumnBuilder helpers in
+        // extensions below to keep the compiler happy.
+        //
+        // Column customization is shared across both panes via `columnStore` so
+        // the operator's show/hide choices apply everywhere. The customization
+        // binding drives header right-click without a bespoke picker.
+        @Bindable var store = columnStore
+        return Table(
+            of: FileEntry.self,
+            selection: cursorBinding,
+            sortOrder: $sortOrder,
+            columnCustomization: $store.customization
+        ) {
+            coreColumns()
+            extendedColumns(favorites: favorites, model: model)
         } rows: {
             // Each row is draggable. The payload expands to the full selection
             // when the dragged row is within it (Finder's manners); otherwise
@@ -356,6 +352,10 @@ extension PaneView {
             // A header click re-sorts through the pane's own model — the
             // Table reports the column, the listing keeps its comparators.
             if let first = order.first { model.applySort(from: first) }
+        }
+        .onChange(of: store.customization) { _, _ in
+            // Persist hidden-column set whenever the operator changes visibility.
+            columnStore.persist()
         }
         .tableStyle(.inset)
         .font(.system(size: 13 * fontScale))

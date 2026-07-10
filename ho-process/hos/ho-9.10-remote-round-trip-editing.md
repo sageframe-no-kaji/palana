@@ -76,8 +76,16 @@ Registration at the remote-open site, the round-trip center holding live watcher
 
 ## Phase 3 — Reflect
 
-_Filled at close._
+**The directory watch alone wasn't enough, and the agent's deviation was right.** Decision 1 sealed a directory watch because atomic-replace saves kill a file-fd watch. True—and incomplete: on Darwin a directory's `.write` event fires only when the listing changes, so an in-place save fires nothing. The shipped watcher holds both sources—directory fd for the rename savers, file fd for the in-place savers, rebound after each replace—behind one stat-compare and one debounce. The agent argued the deviation from the spec's own battery and was correct.
+
+**The review's catch was an fd race in the rebind.** The cancel handlers closed `self.fileFD` as read at handler-run time—if the re-arm ever ran first, the old handler would close the new fd under the live source. Handlers now close the fd they captured at arm time; the race class is gone, not narrowed.
+
+**A timing test is a spec about wall clocks, and CI's wall clock is hostile.** The burst-coalesce test's 50ms window plus deliberate inter-write sleeps read as rigor and ran as flake—a loaded runner spaced the writes wider than the window twice in two runs. The burst test now owns a one-second window with back-to-back writes. The lesson generalizes: a debounce test's window must dwarf the runner's worst scheduling stall, not the developer's.
+
+**The panel-pop at registration was scope creep in kindness's clothing.** The agent popped the terminal on every remote open so the watching note would be seen. Decision 5 said one line, no new surface—the pop is the save's, not the open's. Reverted in review.
+
+**Hands verdicts pending:** the whole loop wants his editor—open remote, edit, save, read the plan, Enter, and the changed-since-fetch note against a remote that actually moved.
 
 ---
 
-_Authored: 2026-07-10 (Think phase). Queued from ho-9.1's Reflect—the open path ate an edit once; it doesn't get to again._
+_Authored: 2026-07-10 (Think phase). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session. Queued from ho-9.1's Reflect—the open path ate an edit once; it doesn't get to again._

@@ -358,26 +358,6 @@ final class PaneModel {
         throw PointingError.unreachable("no capability fact")
     }
 
-    /// Sets the sort from a Table header click.
-    ///
-    /// The Table reports the tapped column and its direction through its
-    /// `sortOrder` binding; this maps that to the pane's own `Sort` and
-    /// re-sorts through the listing's natural comparators — the same path
-    /// the sort-key grammar (`,n` / `,s` / `,m`) takes.
-    func applySort(from comparator: KeyPathComparator<FileEntry>) {
-        let key: PaneState.SortKey
-        if comparator.keyPath == \FileEntry.size {
-            key = .size
-        } else if comparator.keyPath == \FileEntry.modified {
-            key = .modified
-        } else {
-            key = .name
-        }
-        state.sort = PaneState.Sort(key: key, ascending: comparator.order == .forward)
-        refreshRows()
-        onDisplayChange()
-    }
-
     /// A display-changing move: mutate, recompute rows, persist.
     private func applyDisplayChange(_ change: (inout PaneState) -> Void) {
         change(&state)
@@ -473,6 +453,40 @@ final class PaneModel {
     static func nameSansExtension(_ name: String) -> String {
         guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return name }
         return String(name[..<dot])
+    }
+}
+
+// MARK: - Sort (ho-9.8 — extended for all nine columns)
+
+extension PaneModel {
+    /// Sets the sort from a Table header click.
+    ///
+    /// The Table reports the tapped column and its direction through its
+    /// `sortOrder` binding; this maps that to the pane's own `Sort` and
+    /// re-sorts through the listing's natural comparators — the same path
+    /// the sort-key grammar (`,n` / `,s` / `,m`) takes.
+    ///
+    /// The `★` column does not sort: the Table's comparator type is
+    /// `KeyPathComparator<FileEntry>` and starred is deliberately not a
+    /// `FileEntry` fact (favorites are the one registry, app-side), so the
+    /// header can never emit a ★ comparator. ★ is display and toggle.
+    func applySort(from comparator: KeyPathComparator<FileEntry>) {
+        let key: PaneState.SortKey
+        switch comparator.keyPath {
+        case \FileEntry.size: key = .size
+        case \FileEntry.modified: key = .modified
+        case \FileEntry.name: key = .name
+        case \FileEntry.created: key = .created
+        case \FileEntry.changed: key = .changed
+        case \FileEntry.permissions: key = .permissions
+        case \FileEntry.owner: key = .owner
+        case \FileEntry.group: key = .group
+        default:
+            return  // a column with no core sort key — nothing to apply
+        }
+        state.sort = PaneState.Sort(key: key, ascending: comparator.order == .forward)
+        refreshRows()
+        onDisplayChange()
     }
 }
 

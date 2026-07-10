@@ -77,8 +77,14 @@ The destination-listing fetch in `OperationModel.gather`, the detect call, the u
 
 ## Phase 3 — Reflect
 
-_Filled at close._
+**The classification was the wrong key, and the review caught it before it shipped a hole.** The agent keyed the report on classification and returned nil for `.withinDatasetRename`—but that classification serves two masters: the guarded rename (no destination, `test ! -e` already refuses) and the mv-based move into another directory, which overwrites and was exactly the gap this ho exists to close. The report now keys on the destination directory's presence. The regression test pins it: a within-dataset move with matching dataset facts carries the report.
+
+**The facts pattern held for the third time.** Gather fresh, digest pure, carry on the Plan, render honest—recursiveSizes cut the channel, collisions rode it without friction. The gather reuses the panes' own listing call, so every userland the listing speaks, the collision facts speak.
+
+**Two smaller review catches worth their lines:** the clause separator arrived as a semicolon (banned in the house voice, and every panel line already speaks in middle dots), and the detect's name index would have crashed on a malformed listing's duplicate name instead of refusing—first occurrence wins now.
+
+**Hands verdicts pending:** the line's feel on a real overwrite—wording, placement under the size line, whether the merge clause reads right on a directory send.
 
 ---
 
-_Authored: 2026-07-10 (Think phase). Queued from ho-9.1's Reflect—the third finding named this ho's reason._
+_Authored: 2026-07-10 (Think phase). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session. Queued from ho-9.1's Reflect—the third finding named this ho's reason._

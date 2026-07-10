@@ -63,6 +63,9 @@ final class PalanaSession {
     /// The round-trip center — owns all live watches, offers uploads when
     /// the operator saves a fetched remote file.
     let roundTripCenter = RoundTripCenter()
+    /// The column customization — shared across both panes so the operator's
+    /// show/hide choices apply to the left and the right identically.
+    let columnStore = ColumnStore()
 
     /// The tool coordinator — aimed at each host via the routing conduit.
     let workbench: Workbench
@@ -455,6 +458,7 @@ final class PalanaSession {
             right: SessionSnapshot.Pane(of: right.state),
             focused: focusedSide)
         try? SessionStore.save(snapshot, to: SessionStore.defaultURL())
+        columnStore.persist()
     }
 
     /// Closes every ControlMaster — the quit path owns this.

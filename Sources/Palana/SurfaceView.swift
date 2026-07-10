@@ -206,6 +206,7 @@ struct SurfaceView: View {
             },
             fontScale: session.fontScale,
             favorites: session.favorites,
+            columnStore: session.columnStore,
             onToggleFavorite: { session.toggleFavorite(forFocusedPaneOr: model) },
             onChooseFavorite: { entry in
                 let fav = Favorite(
