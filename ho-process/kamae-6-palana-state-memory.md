@@ -16,6 +16,67 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10, fifth block — THE HANDS SESSION, FOUR ROUNDS DEEP, REBOOT PENDING
+
+**COMPLETED**
+- **Four feedback rounds built live on his hands** (5d46527, 5508ebc,
+  f35a833, e58cae2, 06707d7 — all CI-green; one runner flake rerun to
+  green): the ZFS POP-OUT PANEL (first plugin panel, FavoritesPanel
+  lineage, keys-panel stepped sizing ⌘1–5/⌘+/−), the two-column strip
+  (plugins LEFT, solid cream-on-burnt-umber chips, Theme.plugin, green
+  engagement line beside reads / umber line on the plugin edge), THE
+  DATASET TREE in the panel (selection = target, ↑↓ walk, unmounted
+  selectable and '· unmounted' in words, pre-select from pane path,
+  right-click menu with all verbs + open-in-pane, ⇧⌘←/→ point a pane),
+  panel persistence (Esc/✕ only). Create's verify reads name,mounted.
+- **The Linux root wall fully mapped in anger**: delegated create lands
+  unmounted; delegated destroy of a MOUNTED dataset fails (cannot
+  unmount, permission denied). Works delegated: the whole snapshot loop,
+  create(-unmounted), destroy-unmounted. THE PITCH LEAD: snapshot/
+  rollback/destroy-snapshot over plain ssh, readable plan, native Mac —
+  nobody else has it.
+- **The two-cursor failure witnessed**: his destroy aimed at pool root
+  (panel tree selection) while his pane cursor sat on angrybird — the
+  panel-as-primary-mutation-surface is structurally confusing. His
+  framing sealed: ZFS management is a SEPARATE activity → pane MODE with
+  explicit boundary (background shift) is the right surface (ho-10.2/3).
+- **Click-zone "bug" diagnosed ENVIRONMENTAL**: broken everywhere, on
+  YESTERDAY'S binary too (bisect worktree, cleaned up) → his Mac: swap
+  12.6/13GB, WindowServer 1.2GB after days of memory max. REBOOT is the
+  fix; he's rebooting. Not pālana's code.
+
+**NEXT**
+- **Post-reboot, one pass**: restart fixture (`make zfs-fixture`), CLEAR
+  STALE `.fixtures/zfs.env` first if suites dial a dead port, relaunch
+  current build on fixture config, he clicks to confirm the heal.
+- **Then two small 10.1 fixes**: verbs refuse the POOL ROOT dataset with
+  a plain sentence (destroy/rename must not compose on it); panel
+  pre-select follows the pane CURSOR when it sits on a dataset
+  mountpoint (not just the directory). Then his close verdicts →
+  close ho-10.1 → **tag v0.5, ZFS badged beta** → README/docs polish →
+  he writes to Dave (ysap.sh, ZFS fiend, positioning review — counsel
+  given: name the root wall in the README, lead with the snapshot loop).
+- Sequencing HIS CALL, recommendation pending his word: v0.5 → ho-11
+  terminal → ho-12/v1.0 → 10.2 (sudo mount capability + pane mode +
+  settings trio) as first post-1.0 feature; alternative is 10.2 before
+  ho-11.
+
+**ACTION ITEMS / BLOCKS**
+- BLOCKED only on his reboot + click confirmation.
+- ho-10.2 SEALED scope grew: sudo -n mount capability + settings trio
+  (sudoers helper, per-tool plugin toggles) + likely the pane mode
+  (his ratified instinct; panel demotes to launcher/overview).
+  Installable third-party plugins: post-v1 seed thinking, banked.
+- ho-10 is CLOSED (read-only Workbench) — no gap before ho-11.
+- Fixture VM dies with his reboot; angrybird mounted manually by him
+  (root); t62-prx-* leftovers still in pool (fine — destroy targets).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; v0.5 (ZFS tool, beta badge) is one close +
+  two small fixes away; v1.0 = ho-11 + ho-12.
+
+---
+
 ## State summary — 2026-07-10, fourth block — ho-10.1 BUILT, HIS HANDS NEXT
 
 **COMPLETED**
@@ -63,7 +124,10 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   sudoers line to copy ("counsel people to do that, if they want this
   feature" — his words). Unlocks mount/unmount verbs; heals
   set-mountpoint's remount. Root-helper daemon REJECTED (standing root,
-  no per-action gate).
+  no per-action gate). Also sealed for ho-10.2's settings work: per-tool
+  toggles for built-in plugins ("lets do 1 for now… its low cost");
+  INSTALLABLE third-party plugins banked as post-v1 seed-level thinking,
+  not a ho.
 - **SEALED same day: the ZFS pane mode — ho-10.3** (per-pane dataset
   view, not hardcoded left; verb-grammar Think required — what does d
   mean on a dataset; dataset-y-equals-send convergence with ho-06.2).
