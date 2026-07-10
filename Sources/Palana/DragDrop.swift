@@ -22,38 +22,13 @@
 //   happens to land on the pane is caught by a decode failure and refused
 //   quietly (fall through to URL resolution).
 //
-// Instrumentation (drag:) — kept until drag is proven end-to-end.
-//   Log to both stderr (lands in /tmp/palana-stderr.log at launch) and
-//   os.Logger (subsystem "net.sageframe.palana", category "dragdrop"):
-//   (a) itemProvider builder called — proves the TableRow closure fired.
-//   (b) provider registration completion handler — proves the pasteboard write.
-//   (c) onDrop closure entry — proves the drop side fires, lists type identifiers.
-//   (d) resolve outcome — selection decoded / urls N / nothing.
+// Diagnostics from the proving rounds were removed once the practitioner
+// confirmed drag working live (2026-07-10, "its working").
 
 import AppKit
-import OSLog
 import PalanaCore
 import SwiftUI
 import UniformTypeIdentifiers
-
-// MARK: - Drag instrumentation logger
-
-/// Shared logger for drag-and-drop diagnostics.
-///
-/// Subsystem "net.sageframe.palana", category "dragdrop". Visible in Console.app.
-/// stderr output lands in /tmp/palana-stderr.log when the app is launched with
-/// the companion launch script. Both channels are active until drag is proven.
-private let dragLog = Logger(subsystem: "net.sageframe.palana", category: "dragdrop")
-
-/// Writes `message` to both os.Logger and stderr.
-///
-/// Belt-and-suspenders while drag is unproven. All messages are prefixed
-/// "drag:" per spec.
-private func dragDiag(_ message: String) {
-    let line = "drag: \(message)"
-    dragLog.info("\(line, privacy: .public)")
-    fputs("\(line)\n", stderr)
-}
 
 // MARK: - Drag payload builder
 
@@ -64,20 +39,11 @@ private func dragDiag(_ message: String) {
 /// public.text. The drop side identifies our payload by successful JSON decode
 /// into ``DraggedSelection`` rather than by a custom type identifier.
 ///
-/// Instrumentation log points:
-/// - (a) logged when this function is called — proves the TableRow closure fired.
-/// - (b) logged inside the registration completion handler — proves the pasteboard
-///       write path executed and the data was serialised.
-///
-/// Returns `nil` when encoding fails (programming error; logged to both channels).
+/// Returns `nil` when encoding fails (a programming error).
 @MainActor
 func itemProvider(for selection: DraggedSelection) -> NSItemProvider? {
-    // (a) builder called
-    dragDiag("itemProvider builder called — \(selection.names.count) name(s)")
-
     let encoder = JSONEncoder()
     guard let data = try? encoder.encode(selection) else {
-        dragDiag("ERROR: failed to encode DraggedSelection")
         return nil
     }
     let provider = NSItemProvider()
@@ -86,10 +52,6 @@ func itemProvider(for selection: DraggedSelection) -> NSItemProvider? {
         forTypeIdentifier: UTType.json.identifier,
         visibility: .all
     ) { completion in
-        // (b) registration completion handler — proves the pasteboard write executed
-        dragDiag(
-            "registration completion handler invoked — \(data.count) bytes under public.json"
-        )
         completion(data, nil)
         return nil
     }
@@ -267,15 +229,7 @@ func handleUnifiedDrop(
     onDropSelection: @escaping (DraggedSelection, Bool) -> Void,
     onFinderDrop: @escaping ([URL], Bool) -> Void
 ) -> Bool {
-    // (c) onDrop closure entry — list all type identifiers from each provider
-    let summaryParts = providers.enumerated().map { idx, provider in
-        "[\(idx)]: \(provider.registeredTypeIdentifiers.joined(separator: ", "))"
-    }
-    let identifierSummary = summaryParts.joined(separator: " | ")
-    dragDiag("onDrop closure entered — \(providers.count) provider(s): \(identifierSummary)")
-
     guard model.status == .ready, model.state.host != nil else {
-        dragDiag("onDrop refused — pane not ready (status=\(model.status))")
         return false
     }
     let optionHeld = NSEvent.modifierFlags.contains(.option)
@@ -288,7 +242,6 @@ func handleUnifiedDrop(
         $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
     }
     guard hasJSON || hasURLs else {
-        dragDiag("onDrop refused — no public.json or fileURL type found")
         return false
     }
 
@@ -300,15 +253,6 @@ func handleUnifiedDrop(
             providers: providers,
             optionHeld: optionHeld
         )
-        // (d) resolve outcome
-        switch result {
-        case .selection(let payload, _):
-            dragDiag("resolve outcome — selection decoded (\(payload.names.count) name(s))")
-        case .urls(let urls, _):
-            dragDiag("resolve outcome — \(urls.count) URL(s) from Finder")
-        case nil:
-            dragDiag("resolve outcome — nothing (providers carried no usable content)")
-        }
         guard let result else { return }
         DispatchQueue.main.async {
             switch result {
