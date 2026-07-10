@@ -10,10 +10,12 @@ import PalanaCore
 extension PalanaSession {
     /// Routes a key event while the ZFS panel is the key window.
     ///
-    /// Esc closes. ⌘1–⌘5 jump to a size; ⌘+/= and ⌘− step — mirroring
-    /// `handleKeysPanelKey` exactly. A plain letter matching a ZFS verb's
-    /// `keyHint` fires that verb — panel closes first so focus returns to
-    /// the main window before the gather opens. Everything else passes through.
+    /// Esc closes. ↑↓ (keyCodes 126/125) move the dataset tree selection
+    /// without rebuilding the hosting view. ⌘1–⌘5 jump to a size; ⌘+/= and
+    /// ⌘− step — mirroring `handleKeysPanelKey` exactly. A plain letter
+    /// matching a ZFS verb's `keyHint` fires that verb on the currently
+    /// selected dataset — panel closes first so focus returns to the main
+    /// window before the gather opens. Everything else passes through.
     func handleZFSPanelKey(_ event: NSEvent) -> Bool {
         let keyCode = event.keyCode
         let chars = event.charactersIgnoringModifiers
@@ -23,6 +25,17 @@ extension PalanaSession {
         if keyCode == 53 {
             ZFSPanelController.shared.close()
             return true
+        }
+        // ↑ / ↓ — move tree selection (no modifiers).
+        if !hasCommand, !hasShift {
+            if keyCode == 126 {
+                moveTreeSelectionUp()
+                return true
+            }
+            if keyCode == 125 {
+                moveTreeSelectionDown()
+                return true
+            }
         }
         // Sizing keys — ⌘+/= step up, ⌘− step down, ⌘1–⌘5 jump.
         if hasCommand, chars == "=" || chars == "+" {
@@ -42,13 +55,37 @@ extension PalanaSession {
             let ch = event.charactersIgnoringModifiers,
             ch.count == 1
         else { return false }
-        // Match against a ZFS verb's keyHint.
+        // Match against a ZFS verb's keyHint — fires on the selected dataset.
         if let verb = zfsTool.verbs.first(where: { $0.keyHint == ch }) {
+            let sel = ZFSPanelController.shared.selection
+            guard let host = focusedPane.state.host,
+                let dataset = sel.selectedDataset
+            else { return true }
             ZFSPanelController.shared.close()
-            runWorkbenchVerb(verb)
+            runWorkbenchMutation(verb, on: host, dataset: dataset)
             return true
         }
         return false
+    }
+
+    /// Asks the tree selection to move one step up, re-reading cached datasets.
+    private func moveTreeSelectionUp() {
+        Task {
+            guard let host = focusedPane.state.host, host != PalanaCore.localHostName else { return }
+            let topology = await sessionEngine.field.facts(for: host)?.zfsTopology?.value ?? []
+            let sorted = topology.sorted { $0.name < $1.name }
+            ZFSPanelController.shared.selection.moveUp(in: sorted)
+        }
+    }
+
+    /// Asks the tree selection to move one step down, re-reading cached datasets.
+    private func moveTreeSelectionDown() {
+        Task {
+            guard let host = focusedPane.state.host, host != PalanaCore.localHostName else { return }
+            let topology = await sessionEngine.field.facts(for: host)?.zfsTopology?.value ?? []
+            let sorted = topology.sorted { $0.name < $1.name }
+            ZFSPanelController.shared.selection.moveDown(in: sorted)
+        }
     }
 }
 
@@ -93,13 +130,26 @@ extension PalanaSession {
         }
     }
 
-    /// Routes a mutation verb: resolves the dataset, checks availability,
-    /// and hands off to the operation gather.
+    /// Routes a mutation verb using the SELECTED dataset from the ZFS panel tree.
+    ///
+    /// This is the primary path when the ZFS panel is open — the caller has
+    /// already resolved which dataset to target from the tree selection.
+    /// Skips the `datasetContaining` path-search used by the pane-anchored variant.
+    func runWorkbenchMutation(_ verb: WorkbenchVerb, on host: String, dataset: String) {
+        Task {
+            guard await zfsMutationGuard(verb: verb, on: host) else { return }
+            operation.beginZFSMutation(verb, tool: zfsTool, host: host, dataset: dataset)
+        }
+    }
+
+    /// Routes a mutation verb: resolves the dataset from the focused pane's path,
+    /// checks availability, and hands off to the operation gather.
+    ///
+    /// Used by the terminal-focus letter path (via `runWorkbenchVerb`) and by
+    /// any caller that does not have an explicit dataset selection.
     func runWorkbenchMutation(_ verb: WorkbenchVerb, on host: String) {
         Task {
-            let avail = await workbench.availability(of: verb, on: host)
-            guard case .available = avail else { return }
-            guard !operation.terminalBusy else { return }
+            guard await zfsMutationGuard(verb: verb, on: host) else { return }
             // Resolve the containing dataset from the focused pane's path.
             let path = focusedPane.state.path
             guard let topology = await sessionEngine.field.facts(for: host)?.zfsTopology?.value,
@@ -110,5 +160,15 @@ extension PalanaSession {
             }
             operation.beginZFSMutation(verb, tool: zfsTool, host: host, dataset: dataset.name)
         }
+    }
+
+    /// Shared availability and busy guard for all mutation routes.
+    ///
+    /// Returns `true` when the verb may proceed; `false` when it should abort.
+    private func zfsMutationGuard(verb: WorkbenchVerb, on host: String) async -> Bool {
+        let avail = await workbench.availability(of: verb, on: host)
+        guard case .available = avail else { return false }
+        guard !operation.terminalBusy else { return false }
+        return true
     }
 }

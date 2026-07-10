@@ -36,8 +36,15 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
 
     private var panel: NSPanel?
 
-    /// The base size at scale 1.0 (step index 2) — 300 × 480.
-    private let base = CGSize(width: 300, height: 480)
+    /// The base size at scale 1.0 (step index 2) — 300 × 600.
+    ///
+    /// Taller than the original 480 to accommodate the dataset tree above
+    /// the verb rows without crowding either section.
+    private let base = CGSize(width: 300, height: 600)
+
+    /// The selection model — shared with the key handler so arrow keys
+    /// move the selection without rebuilding the hosting SwiftUI tree.
+    let selection = ZFSPanelSelection()
 
     private static let stepKey = "palana.zfsPanelStep"
 
@@ -156,7 +163,7 @@ struct ZFSPanelContent: View {
     var body: some View {
         VStack(spacing: 0) {
             OverlayHeader(title: "zfs") { ZFSPanelController.shared.close() }
-            ZFSPanelView(session: session)
+            ZFSPanelView(session: session, selection: ZFSPanelController.shared.selection)
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -165,32 +172,29 @@ struct ZFSPanelContent: View {
 
 // MARK: - ZFSPanelView
 
-/// The scrollable verb list and target line — the panel's working area.
+/// The dataset tree, target line, and verb rows — the panel's working area.
 ///
-/// Resolves the focused dataset from cached Field facts whenever the focused
-/// pane's host or path changes. No wire contact — the `task` calls the
-/// actor's synchronous cache read via `await` (actor-hop only, no I/O).
+/// The dataset tree (``ZFSDatasetTree``) sits between the header and the verb
+/// rows. Verbs now fire on the SELECTED dataset from the tree rather than on
+/// the dataset containing the focused pane's path — this is the change that
+/// makes unmounted datasets reachable for the first time.
+///
+/// No wire contact — all cache reads are actor-hops to `field.facts(for:)`.
 struct ZFSPanelView: View {
     /// The root session — verbs, availability, focused pane, engine.
     let session: PalanaSession
+    /// The selection model — shared with the controller's key handler.
+    let selection: ZFSPanelSelection
 
     /// Cached availabilities for the focused host — refreshed when the host changes.
     @State private var availabilities: [String: VerbAvailability] = [:]
 
-    /// The dataset the focused pane stands in — nil until the first cache read.
-    ///
-    /// When non-nil the target line shows "operates on <dataset> · <host>";
-    /// when nil it shows the guidance sentence.
-    @State private var targetDataset: String?
-
     // MARK: - Derived state
 
     private var focusedHost: String? { session.focusedPane.state.host }
-    private var focusedPath: String { session.focusedPane.state.path }
     private var terminalBusy: Bool { session.operation.terminalBusy }
-
-    /// The task identity — recompute whenever host or path changes.
-    private var paneKey: String { "\(focusedHost ?? "")|\(focusedPath)" }
+    /// True when the tree has no selection — disables text (mutation) verbs.
+    private var noSelection: Bool { selection.selectedDataset == nil }
 
     // MARK: - Body
 
@@ -200,6 +204,9 @@ struct ZFSPanelView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 6)
+            Divider().opacity(0.35)
+            ZFSDatasetTree(session: session, selection: selection)
+                .padding(.top, 4)
             Divider().opacity(0.35)
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -216,24 +223,20 @@ struct ZFSPanelView: View {
         .task(id: focusedHost ?? "") {
             await refreshAvailabilities()
         }
-        // Refresh the target dataset when the focused pane moves.
-        .task(id: paneKey) {
-            await refreshTargetDataset()
-        }
     }
 
     // MARK: - Target line
 
-    /// Shows which dataset the verbs will operate on, or guidance when none.
+    /// Shows the selected dataset and host, or guidance when none is selected.
     @ViewBuilder private var targetLine: some View {
-        if let dataset = targetDataset, let host = focusedHost {
+        if let dataset = selection.selectedDataset, let host = focusedHost {
             Text("operates on \(dataset) · \(host)")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(2)
         } else {
-            Text("point a pane inside a dataset — verbs aim where you stand")
+            Text("point a pane at a host — select a dataset in the tree")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.inkFaint)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -244,24 +247,26 @@ struct ZFSPanelView: View {
     // MARK: - Verb rows
 
     /// One full-width verb row — label left, key hint right.
+    ///
+    /// Verbs fire on the selected dataset from the tree. Mutation verbs are
+    /// additionally disabled when there is no tree selection (no-topology host).
     private func verbRow(_ verb: WorkbenchVerb) -> some View {
         let avail = resolvedAvailability(for: verb)
-        let enabled = !terminalBusy && avail == .available
+        let enabled = !terminalBusy && avail == .available && !(verb.kind == .mutation && noSelection)
         return ZFSVerbRow(
             label: verb.label,
             keyHint: verb.keyHint,
             enabled: enabled,
             help: helpText(for: verb, avail: avail)
         ) {
+            guard let host = focusedHost, let dataset = selection.selectedDataset else { return }
             ZFSPanelController.shared.close()
-            session.runWorkbenchVerb(verb)
+            session.runWorkbenchMutation(verb, on: host, dataset: dataset)
         }
     }
 
     private func resolvedAvailability(for verb: WorkbenchVerb) -> VerbAvailability {
-        // Local honesty: zfs verbs are not applicable on this Mac. The .zfs
-        // evaluation returns "not yet probed" for nil facts, but this Mac is
-        // never probed — "not yet probed" misreads the truth.
+        // Local honesty: zfs verbs are not applicable on this Mac.
         guard focusedHost != PalanaCore.localHostName else {
             return .unmet("no zfs on this Mac")
         }
@@ -271,6 +276,7 @@ struct ZFSPanelView: View {
     private func helpText(for verb: WorkbenchVerb, avail: VerbAvailability) -> String {
         guard !terminalBusy else { return "\(verb.label) — terminal busy" }
         if case .unmet(let reason) = avail { return reason }
+        if verb.kind == .mutation, noSelection { return "\(verb.label) — no dataset selected" }
         return "\(verb.label) on \(focusedHost ?? "—")"
     }
 
@@ -279,11 +285,13 @@ struct ZFSPanelView: View {
     private var panelFooter: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
-            Text("esc closes · letter fires verb · Z opens · ⌘1–⌘5 pick a size · ⌘+/− step")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.inkFaint)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+            Text(
+                "↑↓ choose a dataset · esc closes · letter fires verb · Z opens · ⌘1–⌘5 pick a size · ⌘+/− step"
+            )
+            .font(.system(size: 10))
+            .foregroundStyle(Theme.inkFaint)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
     }
 
@@ -295,17 +303,6 @@ struct ZFSPanelView: View {
         for verb in session.zfsTool.verbs {
             availabilities[verb.id] = await session.workbench.availability(of: verb, on: host)
         }
-    }
-
-    /// Resolves which dataset the focused pane stands in — cache read, no wire.
-    private func refreshTargetDataset() async {
-        guard let host = focusedHost, host != PalanaCore.localHostName else {
-            targetDataset = nil
-            return
-        }
-        let path = focusedPath
-        let dataset = await session.sessionEngine.field.datasetContaining(path: path, on: host)
-        targetDataset = dataset?.name
     }
 }
 
