@@ -47,11 +47,10 @@ enum Grammar {
         ["?"]: .help,
         ["y"]: .operationCopy,
         ["m"]: .operationMove,
-        ["r"]: .operationDelete,
-        ["R"]: .operationRename,
+        ["d"]: .operationDelete,
+        ["r"]: .operationRename,
         ["a"]: .operationCreate,
         ["t"]: .operationTouch,
-        ["T"]: .operationTouchNew,
     ]
 
     /// Key codes for the non-character keys, ANSI layout.

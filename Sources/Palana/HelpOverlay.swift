@@ -45,68 +45,74 @@ struct HelpOverlay: View {
         return copy
     }
 
+    // Five groups — one grammar lesson. Move and select rows are inlined
+    // above the group structure: navigation is muscle memory, not a
+    // rule-bearing surface.
+
+    private static let prelude = HelpSection(
+        title: "navigate",
+        rows: [
+            HelpRow(keys: "j / k  ↓ / ↑", what: "cursor down / up"),
+            HelpRow(keys: "h / l  ← / →", what: "parent / enter directory"),
+            HelpRow(keys: "gg / G", what: "top / bottom"),
+            HelpRow(keys: "⌃d / ⌃u", what: "half page · space select"),
+            HelpRow(keys: "⌘A / esc", what: "select all / clear · tab switch pane"),
+        ])
+
     private static let leftColumn = [
         HelpSection(
-            title: "move",
+            title: "verbs",
             rows: [
-                HelpRow(keys: "j / k  ↓ / ↑", what: "cursor down / up"),
-                HelpRow(keys: "h / l  ← / →", what: "parent / enter directory"),
-                HelpRow(keys: "return", what: "enter directory · open file"),
-                HelpRow(keys: "gg / G", what: "top / bottom"),
-                HelpRow(keys: "⌃d / ⌃u", what: "half page down / up"),
-                HelpRow(keys: "pgup / pgdn", what: "page up / down"),
+                HelpRow(keys: "y", what: "copy to other pane — plan first"),
+                HelpRow(keys: "m", what: "move to other pane — plan first"),
+                HelpRow(keys: "d", what: "delete — plan first, Enter enacts"),
+                HelpRow(keys: "r", what: "rename — opens name field, ⏎ renames"),
+                HelpRow(keys: "a", what: "create — name/ for a directory"),
+                HelpRow(keys: "t", what: "touch — update modified"),
             ]),
         HelpSection(
-            title: "select",
+            title: "names",
             rows: [
-                HelpRow(keys: "space", what: "select and advance"),
-                HelpRow(keys: "⌘A / esc", what: "select all / clear"),
+                HelpRow(keys: "r / a", what: "open the name field"),
+                HelpRow(keys: "⏎", what: "commit name · renames or creates"),
             ]),
         HelpSection(
-            title: "panes",
+            title: "families",
             rows: [
-                HelpRow(keys: "tab", what: "switch pane"),
-                HelpRow(keys: "⇧⌘G", what: "go to host : path"),
-            ]),
-        HelpSection(
-            title: "arrange",
-            rows: [
-                HelpRow(keys: ",n ,s ,m", what: "sort by name, size, modified — again flips"),
-                HelpRow(keys: ".", what: "show hidden files"),
-                HelpRow(keys: "⌘R", what: "refresh"),
+                HelpRow(keys: "c c / c d", what: "copy path / directory path"),
+                HelpRow(keys: "c f / c n", what: "copy filename / name sans extension"),
+                HelpRow(keys: ", n / , s / , m", what: "sort by name / size / modified"),
+                HelpRow(keys: "g g / G", what: "top / bottom"),
             ]),
     ]
 
     private static let rightColumn = [
         HelpSection(
-            title: "act",
-            rows: [
-                HelpRow(keys: "y / m", what: "copy / move to the other pane — plan first"),
-                HelpRow(keys: "r", what: "remove — plan first, Enter enacts"),
-                HelpRow(keys: "R", what: "rename cursor entry — plan first"),
-                HelpRow(keys: "a", what: "create (name/ = directory) — plan first"),
-                HelpRow(keys: "t", what: "touch — update modified · plan first"),
-                HelpRow(keys: "T", what: "touch a new file — names it · plan first"),
-            ]),
-        HelpSection(
-            title: "copy",
-            rows: [
-                HelpRow(keys: "cc / cd", what: "copy path / directory path"),
-                HelpRow(keys: "cf / cn", what: "copy filename / name sans extension"),
-            ]),
-        HelpSection(
             title: "surfaces",
             rows: [
                 HelpRow(keys: "f", what: "field view"),
                 HelpRow(keys: "F", what: "host map — floats"),
-                HelpRow(keys: "⌘,", what: "settings"),
+                HelpRow(keys: "*", what: "favorites panel"),
+                HelpRow(keys: "`", what: "terminal"),
                 HelpRow(keys: "?", what: "this card · ? again floats it"),
+                HelpRow(keys: "⌘,", what: "settings"),
             ]),
         HelpSection(
-            title: "terminal",
+            title: "app",
             rows: [
-                HelpRow(keys: "`", what: "show / hide the terminal"),
-                HelpRow(keys: "⇧tab", what: "engage the terminal · tool reads"),
+                HelpRow(keys: "⌘R", what: "refresh"),
+                HelpRow(keys: "⌘← / ⌘→", what: "back / forward"),
+                HelpRow(keys: "⌘+ / ⌘− / ⌘0", what: "zoom in / out / reset"),
+                HelpRow(keys: "⌘K", what: "clear terminal"),
+                HelpRow(keys: "⇧⌘G", what: "go to host : path"),
+                HelpRow(keys: "⇧⌘L", what: "operations log"),
+                HelpRow(keys: "8", what: "star highlighted entry"),
+                HelpRow(keys: "⌘8", what: "star this folder"),
+            ]),
+        HelpSection(
+            title: "terminal reads",
+            rows: [
+                HelpRow(keys: "⇧tab", what: "engage · tool reads"),
                 HelpRow(keys: "d z s p", what: "df · zfs list · zpool status · zpool list"),
             ]),
     ]
@@ -115,6 +121,8 @@ struct HelpOverlay: View {
         VStack(alignment: .leading, spacing: 0) {
             OverlayHeader(title: "the keys", onClose: dismissAction)
             VStack(alignment: .leading, spacing: 14 * scale) {
+                column([Self.prelude])
+                Divider()
                 HStack(alignment: .top, spacing: 32 * scale) {
                     column(Self.leftColumn)
                     column(Self.rightColumn)

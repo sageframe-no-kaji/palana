@@ -39,6 +39,55 @@ The command echoes into the panel and its output streams under it. A progress ba
 
 You close pālana. It stops. The field has been tended.
 
+## Keybindings
+
+Five rule groups — learn the rules and the keys generate themselves.
+
+**verbs** — a lowercase letter states an intent; the plan panel opens before anything runs
+
+| key | verb |
+|---|---|
+| `y` | copy to other pane |
+| `m` | move to other pane |
+| `d` | delete |
+| `r` | rename |
+| `a` | create (trailing `/` = directory) |
+| `t` | touch — update modified |
+
+**names** — `r` and `a` open the name field; `⏎` does the whole job
+
+**surfaces** — six summons, the set is closed
+
+| key | surface |
+|---|---|
+| `f` | field view |
+| `F` | host map (floats) |
+| `*` | favorites panel |
+| `` ` `` | terminal |
+| `?` | this card · `?` again floats it |
+| `⌘,` | settings |
+
+**app** — `⌘` belongs to the app, never to files
+
+| key | action |
+|---|---|
+| `⌘R` | refresh |
+| `⌘← / ⌘→` | back / forward |
+| `⌘+ / ⌘− / ⌘0` | zoom in / out / reset |
+| `⌘K` | clear terminal |
+| `⇧⌘G` | go to host : path |
+| `⇧⌘L` | operations log |
+| `8` | star highlighted entry |
+| `⌘8` | star this folder |
+
+**families** — sequence prefixes
+
+| prefix | family |
+|---|---|
+| `c c / c d / c f / c n` | clipboard: path · directory · filename · name |
+| `, n / , s / , m` | sort: by name · size · modified (again flips) |
+| `g g / G` | top / bottom |
+
 ## What pālana Is Not
 
 - **Not a dashboard or a monitor.** No alerts, no graphs, no watching. You cannot act from a graph anyway.

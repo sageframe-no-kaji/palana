@@ -86,11 +86,10 @@ struct VerbChipRow: View {
     private let verbChips: [(key: String, tip: String)] = [
         ("y", "copy again"),
         ("m", "move again"),
-        ("r", "remove"),
-        ("R", "rename"),
+        ("d", "delete"),
+        ("r", "rename"),
         ("a", "create"),
         ("t", "touch"),
-        ("T", "touch new"),
     ]
 
     var body: some View {

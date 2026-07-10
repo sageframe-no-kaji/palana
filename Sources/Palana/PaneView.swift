@@ -473,8 +473,8 @@ extension PaneView {
             .keyboardShortcut("y", modifiers: [])
         Button("move to other pane") { operate(.move, ids: ids) }
             .keyboardShortcut("m", modifiers: [])
-        Button("remove — plan first") { operate(.delete, ids: ids) }
-            .keyboardShortcut("r", modifiers: [])
+        Button("delete — plan first") { operate(.delete, ids: ids) }
+            .keyboardShortcut("d", modifiers: [])
         Button("touch — update modified") { operate(.touch, ids: ids) }
             .keyboardShortcut("t", modifiers: [])
         Divider()
@@ -507,7 +507,7 @@ extension PaneView {
         if let entry = directoryEntry {
             let entryPath = PaneModel.childPath(of: model.state.path, name: entry.name)
             let isStarred = favorites.isFavorited(host: model.state.host ?? "", path: entryPath)
-            Button(isStarred ? "unstar this location" : "star this location    ⇧⌘8") {
+            Button(isStarred ? "unstar this location" : "star this location    8") {
                 onStarEntry(entryPath)
             }
         }

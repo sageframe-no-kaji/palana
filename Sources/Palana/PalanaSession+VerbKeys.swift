@@ -17,15 +17,10 @@ extension PalanaSession {
         switch key {
         case "y": beginOperation(.copy)
         case "m": beginOperation(.move)
-        case "r": beginOperation(.delete)
-        case "R": beginNaming(.rename)
+        case "d": beginOperation(.delete)
+        case "r": beginNaming(.rename)
         case "a": beginNaming(.create)
         case "t": beginOperation(.touch)
-        case "T":
-            operation.beginNaming(
-                .create,
-                source: focusedPane,
-                labelOverride: "touch: new file name  (trailing / = directory)")
         case "esc":
             if operation.terminalBusy {
                 operation.cancelCommand()

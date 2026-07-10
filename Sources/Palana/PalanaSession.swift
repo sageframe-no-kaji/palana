@@ -358,14 +358,6 @@ final class PalanaSession {
             beginNaming(.create)
         case .operationTouch:
             beginOperation(.touch)
-        case .operationTouchNew:
-            // T: names a new file or directory then composes a create plan.
-            // The create engine already handles both files and directories
-            // (trailing / = directory); only the naming prompt differs.
-            operation.beginNaming(
-                .create,
-                source: focusedPane,
-                labelOverride: "type a file name — ⏎ creates  (trailing / for a directory)")
         default:
             focusedPane.apply(intent)
         }
@@ -385,7 +377,7 @@ final class PalanaSession {
         operation.begin(operationKind, source: focusedPane, destination: destination)
     }
 
-    /// R or a: opens the naming field on the focused pane — no destination needed.
+    /// r or a: opens the naming field on the focused pane — no destination needed.
     func beginNaming(_ operationKind: PlanOperation) {
         operation.beginNaming(operationKind, source: focusedPane)
     }
@@ -530,8 +522,8 @@ extension PalanaSession {
             fontScale = 1.0
         case "cmd-k":
             operation.clearTranscript()
-        case "cmd-shift-8", "cmd-shift-*":
-            starHighlightedEntry()
+        case "cmd-8":
+            starFocusedDirectory()
         case "cmd-left":
             focusedPane.historyBack()
         case "cmd-right":
@@ -574,7 +566,7 @@ extension PalanaSession {
             return true
         }
         if token == "8" {
-            starFocusedDirectory()
+            starHighlightedEntry()
             return true
         }
         if token == "cmd-shift-l" {
