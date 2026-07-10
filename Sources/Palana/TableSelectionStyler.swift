@@ -56,7 +56,23 @@ struct TableSelectionStyler: NSViewRepresentable {
         }
 
         /// Applies the silence, hooking notifications the first time.
+        ///
+        /// Always deferred a runloop turn: `enforce()` is reached from
+        /// `updateNSView` — inside SwiftUI's own update pass — and from
+        /// notification handlers inside the table's delegate pass. Mutating
+        /// the table synchronously in either is a reentrant operation;
+        /// AppKit warns today ("reentrant operation in its NSTableView
+        /// delegate") and asserts tomorrow.
         func enforce() {
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { [weak self] in
+                    self?.applySilence()
+                }
+            }
+        }
+
+        /// The one mutation site — only ever reached off-pass.
+        private func applySilence() {
             if table == nil, let probe {
                 table = Self.findTable(near: probe)
                 if let table {
@@ -76,8 +92,14 @@ struct TableSelectionStyler: NSViewRepresentable {
             for name in names {
                 observers.append(
                     center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                        MainActor.assumeIsolated {
-                            self?.table?.selectionHighlightStyle = .none
+                        // Deferred a turn: the notification fires inside the
+                        // table's own delegate pass, and mutating the table
+                        // there is a reentrant operation — AppKit warns today
+                        // and will assert tomorrow.
+                        DispatchQueue.main.async {
+                            MainActor.assumeIsolated {
+                                self?.table?.selectionHighlightStyle = .none
+                            }
                         }
                     })
             }
