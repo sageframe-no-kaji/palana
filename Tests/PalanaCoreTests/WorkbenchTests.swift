@@ -145,11 +145,12 @@ struct SystemReadsToolTests {
         #expect(tool.command(for: zpoolStatusVerb, on: host) == "zpool status")
         #expect(tool.command(for: zpoolListVerb, on: host) == "zpool list")
     }
-    @Test("planRequest default returns nil for all verbs")
+    @Test("planRequest default returns nil for all verbs (new signature)")
     func planRequestDefaultNil() {
         let tool = SystemReadsTool()
+        let input = MutationInput(target: "tank/data")
         for verb in tool.verbs {
-            #expect(tool.planRequest(for: verb, on: "jodo") == nil)
+            #expect(tool.planRequest(for: verb, on: "jodo", input: input) == nil)
         }
     }
 }
