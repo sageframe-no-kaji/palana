@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened runtime for pālana. Empty by design.
+         pālana is pure Swift and shells out to the system `ssh`/`rsync`
+         binaries via Foundation.Process — spawning system executables under
+         hardened runtime needs no entitlement. Unlike a Python/Qt bundle, there
+         is no dynamically-loaded code, so allow-unsigned-executable-memory and
+         disable-library-validation are deliberately absent. Add an entitlement
+         here only when a concrete capability demands it, with a comment saying why. -->
+</dict>
+</plist>
