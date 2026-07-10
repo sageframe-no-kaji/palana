@@ -16,6 +16,48 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10
+
+**COMPLETED**
+- Post-beta surface polish (Opus + sonnet, all CI-green): a visible close on
+  every summonable surface — an upper-left ✕ that reddens on hover like the
+  system close, turned into a proper title-bar row (✕ + surface name: the field,
+  the keys, settings, favorites, the host map), esc still closes everything;
+  title-to-content spacing tightened to ~8pt on the cards. `OverlayCloseButton`
+  and `OverlayHeader` are the shared components.
+- **ho-10.1 OPENED** — the ZFS tool, Think phase authored (Opus). The mutation
+  seam ho-10 named is the target: dataset create/destroy/rename, snapshot
+  create/destroy/rollback, mountpoint set/clear, each composing a `zfs` command
+  the operator reads in the plan panel before Enter enacts. Six Think decisions:
+  a `ZFSMutation` payload on `PlanRequest` (op `.zfs`), one `Classification`
+  `.zfsMutation`, transport `.local`, delegated no-sudo composes verified by
+  reading state, destroy/rollback safe because the plan is read before Enter,
+  verb targets the dataset the pane stands in, fixture-only (never a real pool).
+  Three ATs named; AT-01 (core engine) authored and **building on sonnet now**.
+
+**NEXT**
+- Finish **ho-10.1**: review AT-01 (core ZFS mutation engine + fixture round
+  trip), then author+build AT-02 (`ZFSMutationTool` fills the seam) and AT-03
+  (app mutation path: planRequest → PlanEngine.plan → render → Enter, the
+  parameter-gather, dataset targeting from the focused pane) — AT-03 is a hands
+  session (the mutation feel, against the fixture pool). Then ho-11 (terminal),
+  ho-12 (formalize the ship, v1.0).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. AT-01 must prove the create→snapshot→rollback→mountpoint→destroy
+  round trip on the Lima fixture pool (`make zfs-fixture`), never a real pool.
+- Deferred (named in the ho): pool create/destroy (viz only), `zfs clone`,
+  non-mountpoint properties, `zpool status` drives-fact.
+- Carried from the ho-9.x run: star column in the column picker → a future
+  columns ho; the modal-sheet onboarding variant offered if the inline form
+  still reads cramped.
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public. ho-10.1 (ZFS Workbench tool) in progress toward
+  v0.5; then terminal (ho-11) and the formal ship (ho-12) before v1.0.
+
+---
+
 ## State summary — 2026-07-09
 
 **COMPLETED**
