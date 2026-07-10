@@ -4,7 +4,7 @@
 
 > pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs moves and copies server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
 
-**Status:** in development, pre-v0.1. The design chain is sealed and the build is underway. Source open under GPL-3.0. Signed binary release coming with v1.0.
+**Status:** in active development, v0.3. The headless engine is complete and the app surface is standing — dual-pane SSH file management, plan → enact, the field view, host onboarding. The ZFS workbench tool comes next; the signed binary release ships with v1.0. Source open under GPL-3.0.
 
 ---
 
@@ -91,9 +91,9 @@ The full design — every decision with its rationale — is public in the build
 
 | | |
 |---|---|
-| **Now** | Seed and system design sealed. The build opens with the feasibility spike — SwiftUI table performance is the one go/no-go in the project. |
-| **Next** | The engine, bottom up: the Conduit, the Field, the Listing, the plan engine, the Transports. |
-| **Later** | The Surface, the Workbench with the ZFS tool, signing and notarization, v1.0. |
+| **Now** | v0.3. The engine is complete and headless — Conduit, Field, Listing, plan engine, Transports, at 97% coverage. The Surface stands on it: dual panes, plan → enact, the field view, plus rename and create, settings, favorites, and host onboarding. |
+| **Next** | The Workbench's first mutating tool — ZFS dataset management, snapshots, pools — the plugin API proven against real state. |
+| **Later** | Signing, notarization, and the v1.0 `.dmg` on GitHub Releases. |
 
 ## What's Ahead
 
@@ -137,4 +137,4 @@ pālana is open source under [GPL-3.0](LICENSE). Clone it, build it, run it, cha
 
 ---
 
-*pālana is a [Sageframe](https://atmarcus.net) project by [Andrew Marcus](https://atmarcus.net), built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). Last meaningful update: 2026-07-03.*
+*pālana is a [Sageframe](https://atmarcus.net) project by [Andrew Marcus](https://atmarcus.net), built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). Last meaningful update: 2026-07-09.*
