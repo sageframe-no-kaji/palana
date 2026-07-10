@@ -97,6 +97,15 @@ final class PaneModel {
     /// Set once, right after construction.
     var onDisplayChange: @MainActor () -> Void = {}
 
+    /// Fires after a remote file is fetched and the round-trip record is ready.
+    ///
+    /// The session wires this to `RoundTripCenter.register(record:)`. Keeping
+    /// the pane free of any direct reach into the center lets the pane remain
+    /// ignorant of the operation model — the same pattern `onDisplayChange` uses.
+    ///
+    /// Set once, right after construction.
+    var onRoundTripRegistered: @MainActor (RoundTripRecord) -> Void = { _ in }
+
     private static let logger = Logger(subsystem: "net.sageframe.palana", category: "pane")
 
     private let engine: Engine
@@ -524,6 +533,14 @@ extension PaneModel {
                 try data.write(to: local, options: .atomic)
                 self.isReading = false
                 self.openInForeground(local)
+                // Register a round-trip watch for this remote open.
+                // The session wires onRoundTripRegistered to RoundTripCenter.
+                let record = RoundTripRecord(
+                    host: host,
+                    remoteDirectory: self.state.path,
+                    fetched: entry,
+                    localURL: local)
+                self.onRoundTripRegistered(record)
             } catch {
                 self.isReading = false
                 self.lastError = Self.describe(error)

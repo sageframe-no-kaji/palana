@@ -33,21 +33,21 @@ final class OperationModel {
     }
 
     /// Where the panel stands.
-    private(set) var phase = Phase.idle
+    var phase = Phase.idle
     /// The composed plan, whole, once ready.
-    private(set) var plan: Plan?
+    var plan: Plan?
     /// The panel's transcript — gathering notes, then the run.
-    private(set) var echo = EchoBuffer()
+    var echo = EchoBuffer()
     /// The transfer step's latest progress observation.
-    private(set) var progress: ProgressReport?
+    var progress: ProgressReport?
     /// What was asked — names the panel while the plan composes.
-    private(set) var requested: PlanOperation?
+    var requested: PlanOperation?
     /// The label shown during naming — old name for rename, the hint for create.
-    private(set) var namingLabel: String = ""
+    var namingLabel: String = ""
     /// The text the name field starts with — old name for rename, empty for create.
-    private(set) var namingPrefill: String = ""
+    var namingPrefill: String = ""
     /// The bare result name set when naming commits — the session lands the cursor here.
-    private(set) var resultName: String?
+    var resultName: String?
 
     /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
@@ -68,7 +68,7 @@ final class OperationModel {
     ///
     /// An enactment keeps running when the panel hides (second hands
     /// session: "the same terminal session running in the background").
-    private(set) var panelShowing = false
+    var panelShowing = false
 
     /// Fires when an enactment completes — the session refreshes panes.
     ///
@@ -79,11 +79,11 @@ final class OperationModel {
     private let configuration: SSHConfiguration
     private let settings: SettingsModel
     private let log: OperationLog
-    private var gatherTask: Task<Void, Never>?
+    var gatherTask: Task<Void, Never>?
     private var enactTask: Task<Void, Never>?
-    private var probedLocalCapability: HostCapability?
-    private var pendingNamingEntry: FileEntry?
-    private var pendingNamingSource: Locus?
+    var probedLocalCapability: HostCapability?
+    var pendingNamingEntry: FileEntry?
+    var pendingNamingSource: Locus?
 
     /// An operation flow over the session's engine.
     init(engine: Engine, configuration: SSHConfiguration, settings: SettingsModel) {
@@ -224,7 +224,7 @@ final class OperationModel {
     ///
     /// The engine flags rsync commands by the running side's rsync;
     /// this machine's answer decides whether progress2 rides.
-    private func localCapability() async -> HostCapability? {
+    func localCapability() async -> HostCapability? {
         if let probedLocalCapability { return probedLocalCapability }
         guard
             let result = try? await engine.localConduit
@@ -236,7 +236,7 @@ final class OperationModel {
     }
 
     /// Remembered facts, or one discovery when the host was never met.
-    private func ensureFacts(_ host: String) async throws -> HostFacts? {
+    func ensureFacts(_ host: String) async throws -> HostFacts? {
         guard !engine.isLocal(host) else { return nil }
         if let facts = await engine.field.facts(for: host) { return facts }
         note("discovering \(host)…")
@@ -412,7 +412,7 @@ final class OperationModel {
         panelShowing = true
     }
 
-    private func reset() {
+    func reset() {
         phase = .idle
         plan = nil
         echo = EchoBuffer()
@@ -434,9 +434,13 @@ extension OperationModel {
         echo.appendLine(text, kind: .note)
     }
 
+    /// The effective rsync flags from settings — readable by extensions in
+    /// separate files without direct reach into the private `settings` field.
+    var effectiveRsyncFlags: String? { settings.effectiveRsyncFlags }
+
     /// Uniquifies composed snapshot names — the engine is pure and
     /// mints nothing, so the caller stamps the moment.
-    private static func mintToken() -> String {
+    static func mintToken() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         formatter.timeZone = TimeZone(identifier: "UTC")
@@ -456,7 +460,7 @@ extension OperationModel {
     }
 
     /// One sentence per failure — typed errors say what they are.
-    private static func describe(_ error: any Error) -> String {
+    static func describe(_ error: any Error) -> String {
         if let text = describePlanError(error) { return text }
         switch error {
         case EnactmentError.stepFailed(let index, let status, let stderrTail):

@@ -60,6 +60,9 @@ final class PalanaSession {
     let favorites = FavoritesModel()
     /// The favorites column panel's fold state.
     let favoritesPanelModel = FavoritesPanelModel()
+    /// The round-trip center — owns all live watches, offers uploads when
+    /// the operator saves a fetched remote file.
+    let roundTripCenter = RoundTripCenter()
 
     /// The tool coordinator — aimed at each host via the routing conduit.
     let workbench: Workbench
@@ -120,6 +123,8 @@ final class PalanaSession {
             left.apply(.refresh)
             right.apply(.refresh)
         }
+        // Wire the round-trip center into pane callbacks and the finish hook.
+        wireRoundTripCenter()
     }
 
     /// The pane the keyboard drives.
@@ -494,27 +499,6 @@ extension PalanaSession {
             onJump: { [weak self] host, path in self?.jumpFavorite(host: host, path: path) },
             onUnstar: { [weak self] id in self?.favorites.remove(id: id) },
             onSetScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) })
-    }
-
-    /// Stars or unstars the focused pane's current directory.
-    ///
-    /// A guard on `state.host` ensures the pane is pointed somewhere.
-    /// The toggle removes if already favorited, adds host-bound if not.
-    func starFocusedDirectory() {
-        guard let host = focusedPane.state.host else { return }
-        favorites.toggle(host: host, path: focusedPane.state.path)
-    }
-
-    /// Stars or unstars the highlighted entry when it is a directory.
-    ///
-    /// If the cursor entry is absent or is not a directory, this is a no-op —
-    /// favorites are directories in v1.
-    func starHighlightedEntry() {
-        guard let entry = focusedPane.cursorEntry else { return }
-        guard entry.kind == .directory else { return }
-        guard let host = focusedPane.state.host else { return }
-        let path = PaneModel.childPath(of: focusedPane.state.path, name: entry.name)
-        favorites.toggle(host: host, path: path)
     }
 }
 

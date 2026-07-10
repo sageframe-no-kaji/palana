@@ -335,4 +335,19 @@ public enum RoundTrip {
     public static func changedSinceFetch(baseline: FileEntry, current: FileEntry) -> Bool {
         baseline.size != current.size || baseline.modified != current.modified
     }
+
+    /// Composes the one-line note for a remote that moved since the fetch.
+    ///
+    /// Returns a sentence of the form
+    /// `"remote changed since fetch — <size> · <date> now stands there"`.
+    /// Pure — no I/O, no side effects. Lives in core so the unit battery
+    /// can pin the sentence format directly.
+    ///
+    /// - Parameter current: The ``FileEntry`` from the current remote listing.
+    /// - Returns: A human-readable note naming what now stands at the destination.
+    public static func changedSinceFetchNote(current: FileEntry) -> String {
+        let size = current.size.formatted(.byteCount(style: .file))
+        let date = current.modified.formatted(date: .abbreviated, time: .shortened)
+        return "remote changed since fetch — \(size) · \(date) now stands there"
+    }
 }

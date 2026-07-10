@@ -420,6 +420,17 @@ struct ChangedSinceFetchTests {
         let current = entry(size: 100, mtime: mtime, permissions: "755")
         #expect(!RoundTrip.changedSinceFetch(baseline: baseline, current: current))
     }
+
+    @Test("the changed-since-fetch note names size and date, locale aside")
+    func changedNoteShape() {
+        // Date and byte rendering are locale-dependent — pin the frame,
+        // not the middle.
+        let current = entry(size: 2048, mtime: Date(timeIntervalSince1970: 1_000_000))
+        let note = RoundTrip.changedSinceFetchNote(current: current)
+        #expect(note.hasPrefix("remote changed since fetch — "))
+        #expect(note.hasSuffix(" now stands there"))
+        #expect(note.contains(" · "))
+    }
 }
 
 // MARK: - LockProtected
