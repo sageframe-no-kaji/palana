@@ -39,10 +39,21 @@ struct PaneView: View {
     let onToggleFavoriteScope: (String) -> Void
     /// Star or unstar a directory entry by its full path on this pane's host.
     let onStarEntry: (String) -> Void
+    /// Called when a ``DraggedSelection`` is dropped onto this pane.
+    ///
+    /// The session resolves it through the standing gather path. The Bool is
+    /// whether Option was held at drop time.
+    let onDropSelection: (DraggedSelection, Bool) -> Void
+    /// Called when Finder file URLs are dropped onto this pane.
+    ///
+    /// The session resolves them through the local listing and the gather path.
+    /// The Bool is whether Option was held at drop time.
+    let onFinderDrop: ([URL], Bool) -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
     @State private var starHovering = false
+    @State private var dropTargeted = false
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
@@ -58,6 +69,45 @@ struct PaneView: View {
             if !isFocused {
                 Theme.ink.opacity(0.045)
                     .allowsHitTesting(false)
+            }
+        }
+        // The drop wash — accent ground + 2px inner border while a valid
+        // drag hovers. Layered above the dim overlay so it is always visible.
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 0)
+                    .fill(Theme.accent.opacity(0.08))
+                    .overlay(
+                        Rectangle()
+                            .strokeBorder(Theme.accent, lineWidth: 2)
+                    )
+                    .allowsHitTesting(false)
+            }
+        }
+        // Pane-level drop surface — DraggedSelection first, Finder URLs second.
+        // isTargeted drives the wash; the pane must be ready to show a wash.
+        .dropDestination(for: DraggedSelection.self) { items, _ in
+            guard let payload = items.first,
+                model.state.host != nil,
+                model.status == .ready
+            else { return false }
+            let optionHeld = NSEvent.modifierFlags.contains(.option)
+            onDropSelection(payload, optionHeld)
+            return true
+        } isTargeted: { targeted in
+            // Only show the wash when the pane is a valid destination.
+            dropTargeted = targeted && model.status == .ready
+        }
+        .dropDestination(for: URL.self) { items, _ in
+            guard model.status == .ready else { return false }
+            let optionHeld = NSEvent.modifierFlags.contains(.option)
+            onFinderDrop(items, optionHeld)
+            return true
+        } isTargeted: { targeted in
+            if targeted, model.status == .ready {
+                dropTargeted = true
+            } else if !targeted {
+                dropTargeted = false
             }
         }
         .simultaneousGesture(TapGesture().onEnded { onFocus() })
@@ -265,7 +315,10 @@ extension PaneView {
     }
 
     var innerTable: some View {
-        Table(model.rows, selection: cursorBinding, sortOrder: $sortOrder) {
+        // Rows-builder form — required for per-row .draggable(). All column
+        // definitions, sort/selection/context-menu behaviour, and every
+        // modifier remain byte-identical to the prior data-collection form.
+        Table(of: FileEntry.self, selection: cursorBinding, sortOrder: $sortOrder) {
             TableColumn("name", value: \.name) { entry in
                 nameCell(entry)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -285,6 +338,19 @@ extension PaneView {
                     .background(cursorWash(entry))
             }
             .width(min: 110, ideal: 150, max: 190)
+        } rows: {
+            // Each row is draggable. The payload expands to the full selection
+            // when the dragged row is within it (Finder's manners); otherwise
+            // only the dragged row's name is carried. The selection's names
+            // are gathered ONCE per render — a per-row filter would be O(n²)
+            // on a dense directory, and the pane cadence is law (ho-07).
+            let selectedNames = model.rows
+                .filter { model.state.selection.contains($0.id) }
+                .map(\.nameData)
+            ForEach(model.rows) { entry in
+                TableRow(entry)
+                    .draggable(dragPayload(for: entry, selectedNames: selectedNames))
+            }
         }
         .onChange(of: sortOrder) { _, order in
             // A header click re-sorts through the pane's own model — the
@@ -317,6 +383,25 @@ extension PaneView {
                         model.pageSize = max(Int(height / 24) - 1, 1)
                     }
             })
+    }
+
+    /// Builds the ``DraggedSelection`` payload for a row being dragged.
+    ///
+    /// When the dragged row is within the selection, the whole selection is
+    /// the payload — Finder's muscle. When the row is outside the selection,
+    /// only the dragged row's name is carried (one-name drag).
+    func dragPayload(for entry: FileEntry, selectedNames: [Data]) -> DraggedSelection {
+        let host = model.state.host ?? PalanaCore.localHostName
+        let directory = model.state.path
+        let names: [Data]
+        if model.state.selection.contains(entry.id), !selectedNames.isEmpty {
+            // Dragged row is selected — carry the whole selection.
+            names = selectedNames
+        } else {
+            // Dragged row is outside the selection — carry only that row.
+            names = [entry.nameData]
+        }
+        return DraggedSelection(host: host, directory: directory, names: names)
     }
 
     /// The full menu, right-clicked.

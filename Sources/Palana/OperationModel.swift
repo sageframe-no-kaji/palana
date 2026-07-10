@@ -145,7 +145,7 @@ final class OperationModel {
         }
     }
 
-    private func gather(
+    func gather(
         _ operation: PlanOperation,
         source: Locus,
         destination: Locus?,

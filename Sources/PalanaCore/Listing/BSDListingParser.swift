@@ -19,9 +19,18 @@ enum BSDListingParser {
     static let linksMarker = "PALANA-LINKS"
 
     /// The one-round-trip listing command for a BSD userland.
+    ///
+    /// The stat format now carries eight tab-separated fields:
+    /// type (`%HT`), size (`%z`), mtime-epoch (`%m`), perms (`%Lp`),
+    /// owner (`%Su`), group (`%Sg`), birth-epoch (`%B`), ctime-epoch (`%c`).
+    ///
+    /// `%B` and `%c` emit raw Unix epoch seconds, matching `%m`'s integer
+    /// format exactly. APFS carries real birth times; HFS+ and network
+    /// filesystems may echo mtime — the parser records what stat says,
+    /// never adjusts.
     static func command(for path: String) -> String {
         let quoted = ShellQuote.quote(path)
-        let statFormat = "%HT\t%z\t%m\t%Lp\t%Su\t%Sg"
+        let statFormat = "%HT\t%z\t%m\t%Lp\t%Su\t%Sg\t%B\t%c"
         let batch =
             #"stat -f "\#(statFormat)" -- "$@"; printf "\0"; printf "%s\0" "$@""#
         return "cd \(quoted) && { "
@@ -100,10 +109,16 @@ enum BSDListingParser {
         nameData: Data,
         targets: [Data: Data]
     ) throws -> FileEntry {
+        // Field layout (0-indexed):
+        // 0 type (%HT), 1 size (%z), 2 mtime-epoch (%m),
+        // 3 perms (%Lp), 4 owner (%Su), 5 group (%Sg),
+        // 6 birth-epoch (%B), 7 ctime-epoch (%c).
         guard
-            attributes.count == 6,
+            attributes.count == 8,
             let size = Int64(attributes[1]),
-            let epoch = Double(attributes[2])
+            let mepoch = Double(attributes[2]),
+            let birthEpoch = Double(attributes[6]),
+            let cepoch = Double(attributes[7])
         else {
             throw ListingError.malformedListing
         }
@@ -112,7 +127,9 @@ enum BSDListingParser {
             nameData: nameData,
             kind: kind,
             size: size,
-            modified: Date(timeIntervalSince1970: epoch),
+            modified: Date(timeIntervalSince1970: mepoch),
+            created: Date(timeIntervalSince1970: birthEpoch),
+            changed: Date(timeIntervalSince1970: cepoch),
             permissions: attributes[3],
             owner: attributes[4],
             group: attributes[5],

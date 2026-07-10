@@ -43,11 +43,14 @@ public struct ConduitTranscript: Codable, Sendable, Equatable {
         self = try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
     }
 
-    /// Writes the transcript as pretty-printed, key-sorted JSON.
+    /// Writes the transcript as pretty-printed, key-sorted JSON with a
+    /// trailing newline — the convention for committed corpus files.
     public func write(to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(self).write(to: url)
+        var data = try encoder.encode(self)
+        data.append(UInt8(ascii: "\n"))
+        try data.write(to: url)
     }
 }
 

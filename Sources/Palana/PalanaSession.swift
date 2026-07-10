@@ -132,6 +132,9 @@ final class PalanaSession {
         focusedSide == .left ? left : right
     }
 
+    /// The session's engine — accessible to same-module extensions.
+    var sessionEngine: Engine { engine }
+
     /// Loads the host list and restores the remembered workbench.
     ///
     /// This Mac leads the list — always present, always reachable, and

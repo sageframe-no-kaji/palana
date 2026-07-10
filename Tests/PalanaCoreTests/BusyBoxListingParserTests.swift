@@ -40,6 +40,15 @@ struct BusyBoxListingParserTests {
         #expect(config.permissions == "rw-r--r--")
     }
 
+    @Test("BusyBox entries carry nil created and nil changed — fidelity sealed by Decision 2")
+    func nilTimestamps() throws {
+        let entries = try BusyBoxListingParser.parse(Self.stream)
+        for entry in entries {
+            #expect(entry.created == nil, "\(entry.name): BusyBox never gathers birth time")
+            #expect(entry.changed == nil, "\(entry.name): BusyBox never gathers ctime")
+        }
+    }
+
     @Test("symlink targets split at the first arrow")
     func symlinks() throws {
         let entries = try BusyBoxListingParser.parse(Self.stream)

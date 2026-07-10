@@ -9,10 +9,13 @@ import Testing
 
 @Suite("Listing")
 struct ListingTests {
-    private static let gnuStdout = "notes.txt\0f\012\01700000000.5\0644\0op\0op\0\0"
+    // GNU: 9 fields — name, type, size, mtime(%T@), ctime(%C@), perms, owner, group, target
+    private static let gnuStdout = "notes.txt\0f\012\01700000000.5\01700000100.0\0644\0op\0op\0\0"
 
+    // BSD: 8 fields — type(%HT), size(%z), mtime(%m), perms(%Lp), owner(%Su), group(%Sg),
+    // birth(%B), ctime(%c)
     private static let bsdStdout =
-        "Regular File\t12\t1700000000\t644\top\tstaff\n\0./notes.txt\0PALANA-LINKS\0"
+        "Regular File\t12\t1700000000\t644\top\tstaff\t1699000000\t1700000100\n\0./notes.txt\0PALANA-LINKS\0"
 
     private static func transcript() -> ConduitTranscript {
         ConduitTranscript(entries: [

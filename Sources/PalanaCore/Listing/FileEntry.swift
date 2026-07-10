@@ -21,6 +21,15 @@ public struct FileEntry: Sendable, Equatable, Hashable, Identifiable, Codable {
         case other
     }
 
+    // MARK: — Coding keys
+
+    private enum CodingKeys: String, CodingKey {
+        case nameData, kind, size, modified, permissions, owner, group, symlinkTarget
+        case created, changed
+    }
+
+    // MARK: — Stored properties
+
     /// The filename as bytes — the truth commands compose from.
     public var nameData: Data
     /// The entry's kind.
@@ -29,6 +38,14 @@ public struct FileEntry: Sendable, Equatable, Hashable, Identifiable, Codable {
     public var size: Int64
     /// Modification time — fractional seconds where the userland gives them.
     public var modified: Date
+    /// Creation time — BSD only; nil on GNU and BusyBox.
+    ///
+    /// Absent from pre-9.8 cache and session data on disk; decodes to nil.
+    public var created: Date?
+    /// Status-change time — BSD and GNU (`%C@`); nil on BusyBox.
+    ///
+    /// Absent from pre-9.8 cache and session data on disk; decodes to nil.
+    public var changed: Date?
     /// Permission bits, octal — `644`.
     public var permissions: String
     /// Owning user name.
@@ -38,12 +55,16 @@ public struct FileEntry: Sendable, Equatable, Hashable, Identifiable, Codable {
     /// Where a symlink points, as bytes. nil for everything else.
     public var symlinkTarget: Data?
 
+    // MARK: — Init
+
     /// Assembles an entry from parsed facts.
     public init(
         nameData: Data,
         kind: Kind,
         size: Int64,
         modified: Date,
+        created: Date? = nil,
+        changed: Date? = nil,
         permissions: String,
         owner: String,
         group: String,
@@ -53,10 +74,45 @@ public struct FileEntry: Sendable, Equatable, Hashable, Identifiable, Codable {
         self.kind = kind
         self.size = size
         self.modified = modified
+        self.created = created
+        self.changed = changed
         self.permissions = permissions
         self.owner = owner
         self.group = group
         self.symlinkTarget = symlinkTarget
+    }
+
+    // MARK: — Codable
+
+    /// Decodes an entry, tolerating absent ``created`` and ``changed``
+    /// fields so pre-9.8 cache and session files still load.
+    public init(from decoder: any Decoder) throws {
+        let keyed = try decoder.container(keyedBy: CodingKeys.self)
+        nameData = try keyed.decode(Data.self, forKey: .nameData)
+        kind = try keyed.decode(Kind.self, forKey: .kind)
+        size = try keyed.decode(Int64.self, forKey: .size)
+        modified = try keyed.decode(Date.self, forKey: .modified)
+        created = try keyed.decodeIfPresent(Date.self, forKey: .created)
+        changed = try keyed.decodeIfPresent(Date.self, forKey: .changed)
+        permissions = try keyed.decode(String.self, forKey: .permissions)
+        owner = try keyed.decode(String.self, forKey: .owner)
+        group = try keyed.decode(String.self, forKey: .group)
+        symlinkTarget = try keyed.decodeIfPresent(Data.self, forKey: .symlinkTarget)
+    }
+
+    /// Encodes all fields including the optional timestamps.
+    public func encode(to encoder: any Encoder) throws {
+        var keyed = encoder.container(keyedBy: CodingKeys.self)
+        try keyed.encode(nameData, forKey: .nameData)
+        try keyed.encode(kind, forKey: .kind)
+        try keyed.encode(size, forKey: .size)
+        try keyed.encode(modified, forKey: .modified)
+        try keyed.encodeIfPresent(created, forKey: .created)
+        try keyed.encodeIfPresent(changed, forKey: .changed)
+        try keyed.encode(permissions, forKey: .permissions)
+        try keyed.encode(owner, forKey: .owner)
+        try keyed.encode(group, forKey: .group)
+        try keyed.encodeIfPresent(symlinkTarget, forKey: .symlinkTarget)
     }
 
     /// The name bytes are the identity.

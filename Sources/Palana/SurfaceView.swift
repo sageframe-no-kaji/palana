@@ -220,6 +220,13 @@ struct SurfaceView: View {
             onStarEntry: { path in
                 guard let host = model.state.host else { return }
                 session.favorites.toggle(host: host, path: path)
+            },
+            onDropSelection: { payload, optionHeld in
+                session.handleSelectionDrop(
+                    payload: payload, targetPane: model, optionHeld: optionHeld)
+            },
+            onFinderDrop: { urls, optionHeld in
+                session.handleFinderDrop(urls: urls, targetPane: model, optionHeld: optionHeld)
             }
         )
         .frame(minWidth: 320)

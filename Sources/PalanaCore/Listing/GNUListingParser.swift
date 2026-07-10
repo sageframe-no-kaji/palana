@@ -7,14 +7,23 @@ import Foundation
 
 /// Composes and parses the GNU userland listing.
 enum GNUListingParser {
-    /// Fields per record — name, type, size, mtime, perms, owner, group,
-    /// link target.
-    static let fieldCount = 8
+    /// Fields per record — name, type, size, mtime, ctime(%C@), perms,
+    /// owner, group, link target.
+    ///
+    /// Field layout (0-indexed):
+    /// 0 name, 1 type, 2 size, 3 mtime(%T@), 4 ctime(%C@),
+    /// 5 perms, 6 owner, 7 group, 8 link-target.
+    static let fieldCount = 9
 
     /// The one-round-trip listing command for a GNU userland.
+    ///
+    /// `%C@` gathers the status-change time as a fractional Unix epoch,
+    /// matching `%T@`'s format exactly so the same parser handles both.
+    /// GNU birth time (`%W@`) is NOT gathered — Decision 2 of ho-9.8
+    /// seals that fidelity: statx is not portably available via find.
     static func command(for path: String) -> String {
         "cd \(ShellQuote.quote(path)) && find . -mindepth 1 -maxdepth 1 "
-            + #"-printf '%f\0%y\0%s\0%T@\0%m\0%u\0%g\0%l\0'"#
+            + #"-printf '%f\0%y\0%s\0%T@\0%C@\0%m\0%u\0%g\0%l\0'"#
     }
 
     /// Parses NUL-delimited records into entries, sorted by name bytes.
@@ -37,19 +46,21 @@ enum GNUListingParser {
         let type = text(record[1])
         guard
             let size = Int64(text(record[2])),
-            let epoch = Double(text(record[3]))
+            let mepoch = Double(text(record[3])),
+            let cepoch = Double(text(record[4]))
         else {
             throw ListingError.malformedListing
         }
-        let target = record[7]
+        let target = record[8]
         return FileEntry(
             nameData: record[0],
             kind: kind(ofFindType: type),
             size: size,
-            modified: Date(timeIntervalSince1970: epoch),
-            permissions: text(record[4]),
-            owner: text(record[5]),
-            group: text(record[6]),
+            modified: Date(timeIntervalSince1970: mepoch),
+            changed: Date(timeIntervalSince1970: cepoch),
+            permissions: text(record[5]),
+            owner: text(record[6]),
+            group: text(record[7]),
             symlinkTarget: target.isEmpty ? nil : target
         )
     }
