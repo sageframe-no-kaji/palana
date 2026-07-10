@@ -103,8 +103,6 @@ Items the architecture is prepared for but v1 does not include:
 
 **An operations queue.** v1 enacts one plan at a time, synchronously. Plans are values — a queue is a list of them, and it is the first post-release enhancement.
 
-**An interactive terminal.** The plan panel echoes enactment in v1. A terminal you type into, per host, is a Workbench tool for later.
-
 **Forteller and Mujō plugins.** Config deployment and backup-state tooling, each arriving on the Workbench API when it exists and as the practice demands.
 
 **A services plugin.** Extends the field view's vocabulary from machines and datasets to the services running on them.
