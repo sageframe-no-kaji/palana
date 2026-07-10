@@ -54,6 +54,10 @@ struct PaneView: View {
     let onFinderDrop: ([URL], Bool) -> Void
     /// Pops the terminal — wired to `OperationModel.showPanel()`.
     let onShowPanel: () -> Void
+    /// Called when the back chevron is tapped.
+    let onBack: () -> Void
+    /// Called when the forward chevron is tapped.
+    let onForward: () -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -143,6 +147,7 @@ struct PaneView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
+            historyButtons
             Circle()
                 .fill(isFocused ? Theme.accent : Theme.inkFaint.opacity(0.25))
                 .frame(width: 7, height: 7)
@@ -231,6 +236,18 @@ struct PaneView: View {
             onToggleFavoriteScope: onToggleFavoriteScope
         )
         .fixedSize()
+    }
+
+    /// Back and forward chevrons — dimmed and inert when the stack is empty.
+    private var historyButtons: some View {
+        HStack(spacing: 2) {
+            ToolbarGlyphButton("chevron.left", help: "go back  ⌘←") { onBack() }
+                .opacity(model.canGoBack ? 1 : 0.3)
+                .allowsHitTesting(model.canGoBack)
+            ToolbarGlyphButton("chevron.right", help: "go forward  ⌘→") { onForward() }
+                .opacity(model.canGoForward ? 1 : 0.3)
+                .allowsHitTesting(model.canGoForward)
+        }
     }
 
     /// Builds the flat entries passed to `HostMenuButton`.

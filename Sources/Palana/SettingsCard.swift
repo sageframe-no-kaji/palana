@@ -319,10 +319,12 @@ struct SettingsForm: View {
         .padding(12)
         .frame(width: 300, alignment: .leading)
     }
+}
 
-    // MARK: - Transfers
+// MARK: - Transfers section
 
-    private var transfersSection: some View {
+extension SettingsForm {
+    var transfersSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Transfers")
                 .font(.system(size: 11, weight: .semibold))
@@ -337,6 +339,18 @@ struct SettingsForm: View {
                 .controlSize(.mini)
                 .tint(Theme.accent)
                 .font(.system(size: 12))
+            Divider().opacity(0.25)
+            VStack(alignment: .leading, spacing: 2) {
+                Toggle("send saved edits back automatically", isOn: $model.autoSendRoundTrips)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .tint(Theme.accent)
+                    .font(.system(size: 12))
+                Text("when off, pālana shows the plan and waits for ⏎")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.inkFaint)
+                    .padding(.leading, 2)
+            }
             HStack(spacing: 8) {
                 Text("more flags")
                     .font(.system(size: 12))

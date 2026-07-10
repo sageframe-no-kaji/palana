@@ -91,6 +91,10 @@ final class PaneModel {
     /// True while the header's path field is being typed in — the key
     /// monitor stands down so the letters reach the field.
     var pathEditing = false
+    /// The pane's navigation history — back and forward stacks.
+    var history = PaneHistory()
+    /// True while a back/forward navigation is in flight — suppresses history push.
+    var isHistoryNavigation = false
 
     /// Fires on pointing, sort, and hidden changes — the session persists there.
     ///
@@ -297,6 +301,9 @@ final class PaneModel {
                 self.isReading = false
                 if self.status == .loading { self.status = self.rows.isEmpty ? .unpointed : .ready }
                 self.lastError = Self.describe(error)
+                // A failed history traversal must not leave the suppress
+                // flag standing — the next real navigation still pushes.
+                self.isHistoryNavigation = false
             }
         }
     }
@@ -313,6 +320,13 @@ final class PaneModel {
         datasetMountpoints = engine.isLocal(host) ? [] : ZFSTopology.mountpointSet(in: datasets)
         mountTargets = engine.isLocal(host) ? [] : MountTable.targetSet(in: allMounts)
         let moved = host != state.host || path != state.path
+        // Push the current location before the move commits — only for
+        // real navigations, not history traversals, and only when the
+        // pane already points somewhere (no push from the initial unpointed state).
+        if moved, !isHistoryNavigation, let currentHost = state.host {
+            history.push(PaneLocation(host: currentHost, path: state.path))
+        }
+        isHistoryNavigation = false
         state.host = host
         state.path = path
         if moved {

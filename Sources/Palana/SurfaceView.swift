@@ -234,7 +234,9 @@ struct SurfaceView: View {
             onShowPanel: {
                 session.operation.showPanel()
                 session.terminalFocused = true
-            }
+            },
+            onBack: { model.historyBack() },
+            onForward: { model.historyForward() }
         )
         .frame(minWidth: 320)
     }

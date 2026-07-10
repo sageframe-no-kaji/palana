@@ -18,11 +18,13 @@ private struct SettingsStored: Codable {
     var rsyncFlags: String
     var excludeDSStore: Bool
     var excludeAppleDouble: Bool
+    var autoSendRoundTrips: Bool
 
     enum CodingKeys: String, CodingKey {
         case rsyncFlags
         case excludeDSStore
         case excludeAppleDouble
+        case autoSendRoundTrips
     }
 
     // Custom decoder — missing keys in old settings.json read false.
@@ -33,12 +35,15 @@ private struct SettingsStored: Codable {
             (try? container.decodeIfPresent(Bool.self, forKey: .excludeDSStore)) ?? false
         excludeAppleDouble =
             (try? container.decodeIfPresent(Bool.self, forKey: .excludeAppleDouble)) ?? false
+        autoSendRoundTrips =
+            (try? container.decodeIfPresent(Bool.self, forKey: .autoSendRoundTrips)) ?? false
     }
 
-    init(rsyncFlags: String, excludeDSStore: Bool, excludeAppleDouble: Bool) {
+    init(rsyncFlags: String, excludeDSStore: Bool, excludeAppleDouble: Bool, autoSendRoundTrips: Bool) {
         self.rsyncFlags = rsyncFlags
         self.excludeDSStore = excludeDSStore
         self.excludeAppleDouble = excludeAppleDouble
+        self.autoSendRoundTrips = autoSendRoundTrips
     }
 }
 
@@ -74,6 +79,16 @@ final class SettingsModel {
     /// Covers AppleDouble resource-fork sidecar files. Persisted to
     /// `settings.json` on every assignment.
     var excludeAppleDouble: Bool = false {
+        didSet { persist() }
+    }
+
+    /// When true, a round-trip upload is sent automatically on save without
+    /// waiting for the operator to press Enter.
+    ///
+    /// A conflict (the remote file changed since the fetch) always blocks the
+    /// auto-send regardless of this setting. Persisted to `settings.json` on
+    /// every assignment.
+    var autoSendRoundTrips: Bool = false {
         didSet { persist() }
     }
 
@@ -260,13 +275,15 @@ final class SettingsModel {
         rsyncFlags = stored.rsyncFlags
         excludeDSStore = stored.excludeDSStore
         excludeAppleDouble = stored.excludeAppleDouble
+        autoSendRoundTrips = stored.autoSendRoundTrips
     }
 
     private func persist() {
         let stored = SettingsStored(
             rsyncFlags: rsyncFlags,
             excludeDSStore: excludeDSStore,
-            excludeAppleDouble: excludeAppleDouble)
+            excludeAppleDouble: excludeAppleDouble,
+            autoSendRoundTrips: autoSendRoundTrips)
         guard let data = try? JSONEncoder().encode(stored) else { return }
         let dir = settingsURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

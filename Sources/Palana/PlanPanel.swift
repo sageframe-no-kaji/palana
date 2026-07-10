@@ -36,6 +36,12 @@ struct PlanPanel: View {
                             if operation.phase == .naming {
                                 namingFieldView
                             } else {
+                                if operation.phase == .ready, let callout = operation.readyCallout {
+                                    Text(callout)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Theme.accent)
+                                        .padding(.bottom, 4)
+                                }
                                 if let plan = operation.plan {
                                     planBlock(plan)
                                 }
@@ -166,7 +172,8 @@ struct PlanPanel: View {
     @ViewBuilder private var namingFieldView: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(operation.namingLabel)
-                .foregroundStyle(Theme.inkFaint)
+                .foregroundStyle(Theme.accent)
+                .fontWeight(.semibold)
             TextField("", text: $nameText)
                 .textFieldStyle(.plain)
                 .focused($namingFieldFocused)
@@ -179,6 +186,11 @@ struct PlanPanel: View {
                         operation.dismissOrCancel()
                     }
                 }
+                .padding(4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 3)
+                        .stroke(Theme.accent, lineWidth: 2)
+                )
         }
     }
 

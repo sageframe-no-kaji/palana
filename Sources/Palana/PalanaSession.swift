@@ -365,7 +365,7 @@ final class PalanaSession {
             operation.beginNaming(
                 .create,
                 source: focusedPane,
-                labelOverride: "touch: new file name  (trailing / = directory)")
+                labelOverride: "type a file name — ⏎ creates  (trailing / for a directory)")
         default:
             focusedPane.apply(intent)
         }
@@ -532,6 +532,10 @@ extension PalanaSession {
             operation.clearTranscript()
         case "cmd-shift-8", "cmd-shift-*":
             starHighlightedEntry()
+        case "cmd-left":
+            focusedPane.historyBack()
+        case "cmd-right":
+            focusedPane.historyForward()
         default:
             return false
         }

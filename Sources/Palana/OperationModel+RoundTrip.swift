@@ -86,7 +86,7 @@ extension OperationModel {
             facts.rsyncOperatorFlags = effectiveRsyncFlags
 
             // Collision gather — delivers the changed-since-fetch note inline.
-            await gatherRoundTripCollisions(
+            let conflicted = await gatherRoundTripCollisions(
                 destination: destinationLocus,
                 subjects: [localEntry],
                 record: record,
@@ -101,7 +101,20 @@ extension OperationModel {
                 destination: destinationLocus,
                 token: Self.mintToken())
             plan = try PlanEngine.plan(request, facts: facts)
-            phase = .ready
+
+            // Auto-send: skip the confirmation gate when the toggle is on and
+            // there is no conflict. A conflict (the remote changed since the
+            // fetch) always blocks auto-send — an automatic overwrite of a file
+            // someone else changed is the one case the gate exists for.
+            if autoSendRoundTrips, !conflicted {
+                phase = .ready
+                note("sending back automatically — auto-send is on in settings")
+                enact()
+            } else {
+                readyCallout =
+                    "⏎ press enter to send it back to \(record.host):\(record.remoteDirectory) · esc keeps the edit local"
+                phase = .ready
+            }
         } catch {
             guard !Task.isCancelled else { return }
             echo.appendLine(Self.describe(error), kind: .failure)
@@ -126,12 +139,14 @@ extension OperationModel {
     ///   - subjects: The local entries being uploaded (single file for a round-trip).
     ///   - record: The round-trip record carrying the fetch-time baseline.
     ///   - facts: The facts bundle to write collision results into.
+    /// - Returns: `true` when a changed-since-fetch conflict was detected — the
+    ///   caller uses this to block auto-send regardless of the toggle.
     func gatherRoundTripCollisions(
         destination: Locus,
         subjects: [FileEntry],
         record: RoundTripRecord,
         into facts: inout PlanFacts
-    ) async {
+    ) async -> Bool {
         do {
             let flavor = try await resolveFlavor(destination.host)
             let listing = try await engine.listing(for: destination.host)
@@ -140,8 +155,10 @@ extension OperationModel {
             // Changed-since-fetch note — emitted before the collision summary
             // so the operator reads the conflict context first.
             let remoteEntry = listing.first { $0.nameData == record.fetched.nameData }
+            var conflicted = false
             if let remoteEntry, RoundTrip.changedSinceFetch(baseline: record.fetched, current: remoteEntry) {
                 note(RoundTrip.changedSinceFetchNote(current: remoteEntry))
+                conflicted = true
             }
 
             let collisions = Collision.detect(sources: subjects, destinationListing: listing)
@@ -150,9 +167,11 @@ extension OperationModel {
                 let count = collisions.count
                 note("\(count) \(count == 1 ? "collision" : "collisions") at destination")
             }
+            return conflicted
         } catch {
             facts.collisions = nil
             note("destination unread — collisions unknown")
+            return false
         }
     }
 }

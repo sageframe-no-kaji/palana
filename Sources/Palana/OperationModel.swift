@@ -48,6 +48,10 @@ final class OperationModel {
     var namingPrefill: String = ""
     /// The bare result name set when naming commits — the session lands the cursor here.
     var resultName: String?
+    /// A callout shown above the plan when the operator should press Enter to proceed.
+    ///
+    /// Set by round-trip upload gather when auto-send is off. Cleared by ``reset()``.
+    var readyCallout: String?
 
     /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
@@ -422,6 +426,7 @@ final class OperationModel {
         namingLabel = ""
         namingPrefill = ""
         resultName = nil
+        readyCallout = nil
         pendingNamingEntry = nil
         pendingNamingSource = nil
     }
@@ -437,6 +442,9 @@ extension OperationModel {
     /// The effective rsync flags from settings — readable by extensions in
     /// separate files without direct reach into the private `settings` field.
     var effectiveRsyncFlags: String? { settings.effectiveRsyncFlags }
+
+    /// Whether the operator has enabled automatic upload on round-trip saves.
+    var autoSendRoundTrips: Bool { settings.autoSendRoundTrips }
 
     /// Uniquifies composed snapshot names — the engine is pure and
     /// mints nothing, so the caller stamps the moment.
@@ -541,49 +549,6 @@ extension OperationModel {
     }
 }
 
-// MARK: - Touch
-
-extension OperationModel {
-    /// t: opens the panel and composes a touch plan immediately — no
-    /// gathering, no naming. touch needs no facts: it stays in place
-    /// and the exit status is its verification.
-    ///
-    /// Subjects follow the same law as the other verbs — the selection
-    /// when non-empty, else the cursor entry. Phase law mirrors `begin`.
-    func beginTouch(source: PaneModel) {
-        if phase == .enacting {
-            panelShowing = true
-            return
-        }
-        if phase == .gathering {
-            gatherTask?.cancel()
-            gatherTask = nil
-        }
-        if phase == .naming { reset() }
-        guard let sourceHost = source.state.host, source.status == .ready else { return }
-        let subjects = source.operationSubjects
-        guard !subjects.isEmpty else { return }
-        panelShowing = true
-        requested = .touch
-        echo = EchoBuffer()
-        progress = nil
-        plan = nil
-        resultName = nil
-        let request = PlanRequest(
-            operation: .touch,
-            source: Locus(host: sourceHost, directory: source.state.path),
-            entries: subjects,
-            token: Self.mintToken())
-        do {
-            plan = try PlanEngine.plan(request, facts: PlanFacts())
-            phase = .ready
-        } catch {
-            echo.appendLine(Self.describe(error), kind: .failure)
-            phase = .failed
-        }
-    }
-}
-
 // MARK: - Naming
 
 extension OperationModel {
@@ -610,11 +575,11 @@ extension OperationModel {
             guard let entry = source.cursorEntry else { return }
             pendingNamingEntry = entry
             namingPrefill = entry.name
-            namingLabel = "rename: \(entry.name)"
+            namingLabel = "type the new name — ⏎ renames"
         } else {
             pendingNamingEntry = nil
             namingPrefill = ""
-            namingLabel = labelOverride ?? "create  (trailing / = directory)"
+            namingLabel = labelOverride ?? "type a name — ⏎ creates  (trailing / for a directory)"
         }
         pendingNamingSource = Locus(host: sourceHost, directory: source.state.path)
         requested = operation
@@ -669,6 +634,11 @@ extension OperationModel {
             plan = try PlanEngine.plan(request, facts: PlanFacts())
             resultName = bareName
             phase = .ready
+            // The name field IS the confirmation — skip the second Enter
+            // for rename and create and enact immediately on submit.
+            if operation == .rename || operation == .create {
+                enact()
+            }
         } catch {
             echo.appendLine(Self.describe(error), kind: .failure)
             phase = .failed
