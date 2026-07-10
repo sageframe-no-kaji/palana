@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: open
+status: executed — hands verdicts pending
 type: ho-document
 project: palana
 ho: 9.8

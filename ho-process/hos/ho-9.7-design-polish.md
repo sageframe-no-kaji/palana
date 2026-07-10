@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: open
+status: executed — hands verdicts pending
 type: ho-document
 project: palana
 ho: 9.7
@@ -77,8 +77,16 @@ The go-again key-cap chips, the pane-footer popout control, the palette/glyph au
 
 ## Phase 3 — Reflect
 
-_Filled at close._
+**The NSMenu refit's premise had dissolved, and the honest deliverable was the finding.** The queued snippet targeted menus carrying sequence-suffix key hints—and the app has none. The host menu's items are plain labels, there are no `.commands` builders (the menu bar is the OS default), and the only hint-carrying items live in SwiftUI context menus, where the spaced-suffix verdict already stands and an `NSApp.mainMenu` rewrite would flicker on regeneration. The agent shipped a helper applied to zero items—reverted in review; dead code is not infrastructure. If a hand-built menu ever grows key hints, the attributedTitle right-tab treatment is a twenty-line helper away, and this paragraph is where to find that decision.
+
+**The chips and the popout landed as sealed.** Go-again keys wear key-cap chips in the transient hint line—contextual, faint, no persistent rail. Each pane's footer carries one terminal popout glyph on backtick's exact show path. Both are one-look hands questions.
+
+**The audit found the palette already clean—the fragments-landing-early pattern did the pruning as it went.** No stray system colors, no dead style code. The taste-call ledger, untouched and left for his eye: the white ✕ on the alarm circle (traffic-light metaphor), the black scrim at 0.12 on the field and settings backdrops, the 15pt pālana mark, the 10/12pt label-vs-hint split in the workbench chips, the 11pt disclosure triangle, and the 10/11/12pt hierarchy inside the cards. Each reads as deliberate; none was changed.
+
+**The cmd-swallow debt closes verified, not asserted.** The `!token.contains("cmd-")` guard in `handleActiveOverlay` covers the help, settings, and field branches uniformly; the panel's priority handler falls through to an unmatched grammar press. Every ⌘-chord passes through every surface. The reading is recorded with the guard lines in the AT report; no fix was needed.
+
+**Hands verdicts pending:** the chip weight in the hint line, the footer strip's presence (a permanent 24pt strip is more than the "icon" he asked for—if it reads heavy, the glyph can move into the header), and the taste-call ledger above.
 
 ---
 
-_Authored: 2026-07-10 (Think phase). Seventh on the Checkpoint 3 slate—consolidated after its fragments kept landing early._
+_Authored: 2026-07-10 (Think phase). Executed same day—two agent tasks on claude-sonnet-4-6, reviewed by the session; AT-01 produced a finding, not a diff. Seventh on the Checkpoint 3 slate—consolidated after its fragments kept landing early._

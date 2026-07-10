@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-07-10
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,82 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-07-10 (the BIG PUSH — ho-9 remainder)
+
+**COMPLETED**
+- **The ho-9 remainder EXECUTED — hos 9.6 through 9.10 authored (Kamae 5,
+  Think phases sealed) and built in one autonomous push.** Every AT on
+  claude-sonnet-4-6, reviewed at the top from the diff, verification rhythm
+  green at every commit, CI green through the run (`gh run` checked, one
+  timing flake de-flaked). 682 tests, 113 suites.
+  - **ho-9.9 Collision Facts** — the overwrite-safety teeth. `Collision` /
+    `CollisionReport` in core, gathered fresh per plan through the panes'
+    listing, alarm line under the size line (replaces · merges into · kind
+    clash; "destination unread" when the gather fails; silence only when
+    gathered-and-clean). Review catch: report keys on the destination, not
+    the classification — the mv-move overwrite would have stayed unnamed.
+  - **ho-9.10 Remote Round-Trip Editing** — the stranded-edit gap closed.
+    Remote opens register a watch (dual DispatchSource — dir fd survives
+    atomic-replace saves, file fd catches in-place; fd-capture cancel
+    handlers, review catch); a debounced save summons the panel with the
+    upload plan + collision line + changed-since-fetch note; busy panel
+    never evicted; Esc declines, watch survives; baseline refreshes after a
+    send. No panel pop at registration (Decision 5 held in review).
+  - **ho-9.6 Drag-and-Drop** — DraggedSelection/DropDecision in core; rows
+    drag the selection (Table → rows-builder form, behavior held); drop
+    composes copy / option-move through the standing gather; Finder URLs
+    resolve via local listing; self-drops refuse; accent wash on valid
+    hover. Review catches: stale-drop refusal, O(n²) payload → once-per-render.
+  - **ho-9.8 Columns** — FileEntry.created/.changed at sealed fidelity (BSD
+    both via stat %B/%c, GNU changed via find %C@, BusyBox neither); GNU+BSD
+    corpora re-recorded LIVE, recorder first; six new columns behind the
+    platform header right-click; visibility persists to columns.json
+    (TableColumnCustomization is NOT Codable — widths per-process, the named
+    escape hatch); ★ column = display + toggle (the header cannot emit a
+    starred comparator — KeyPathComparator<FileEntry> vs the one-registry
+    law; dead sort branch cut in review).
+  - **ho-9.7 Design Polish** — consolidation: early-landed fragments named
+    in the doc; go-again keys as KeyCapChips (transient, hint line only);
+    terminal popout glyph on each pane footer (backtick's exact path);
+    pruning audit found the palette CLEAN (taste-call ledger in the doc);
+    cmd-swallow debt closed by verified reading (no surface swallows
+    ⌘-chords). NSMenu refit dissolved: NO menu carries sequence hints —
+    finding recorded, no diff shipped.
+- **ho-10.1 AT-01 reviewed + committed** (was left uncommitted by the prior
+  session): the ZFS mutation engine, round trip proven LIVE on the Lima pool
+  (create → snapshot → rollback → mountpoint set/clear → destroy). Fixture
+  delegation grew rename,rollback. VM left stopped.
+- Reflects filled in all five ho docs (execution truths + hands-pending
+  lists); kamae-4 build record carries the batch entry; per-ho close entries
+  wait on his verdicts, per precedent.
+
+**NEXT**
+- **ONE hands session over the five** — the overwrite line on a real
+  collision, the round-trip loop in his editor (edit remote → save → panel →
+  Enter), the drag between panes + from Finder, the header right-click
+  columns + ★, the chips and the pane-footer popout (if the 24pt strip reads
+  heavy, the glyph can move to the header). Verdicts → fill close entries →
+  close 9.6–9.10. ho-9.5 close also still pending his onboarding verdicts.
+- Then **ho-10.1 resumes**: AT-02 (`ZFSMutationTool` fills the Workbench
+  seam) + AT-03 (app mutation path, hands against the fixture pool). Then
+  ho-11 (terminal), ho-12 (ship, v1.0).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. App rebuilt and relaunched on his REAL config with the full
+  push (reads only).
+- Deferred, named in the docs: pane→Finder drag-out (file promises), width
+  persistence across relaunch (own capture if missed), type-to-jump (`/`
+  filter-jump direction sealed in ho-9.8, its own slot), verb-time re-choice
+  in the panel after a drop, a gather-the-starred control if his hands ask.
+- Carried: the README Kamae-3 refresh ("doesn't do it justice"); the
+  modal-sheet onboarding variant offer (9.5).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public. The ho-9 remainder executed toward the ho-9
+  close; ho-10.1 in progress toward v0.5; then ho-11, ho-12 to v1.0.
 
 ---
 
