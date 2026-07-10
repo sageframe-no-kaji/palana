@@ -61,3 +61,6 @@ dist/
 
 # ─── Project-specific (add below) ───────────────────────────────────────
 .fixtures/
+
+# Generated app icon (built from packaging/palana.png at build time)
+packaging/*.icns
