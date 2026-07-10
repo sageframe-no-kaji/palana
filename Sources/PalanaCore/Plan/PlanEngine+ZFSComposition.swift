@@ -1,0 +1,160 @@
+// ZFS mutation composition — the three composer methods extracted from
+// PlanEngine.swift to keep that file within the length limit. Same
+// extension, same pure-function contract: no I/O, no Field, no wire.
+
+import Foundation
+
+extension PlanEngine {
+    // MARK: - Validation
+
+    /// Validates a `.zfs` request — payload required, names non-empty,
+    /// snapshot name must not carry `@`, rename names must differ.
+    static func validateZfs(_ request: PlanRequest) throws {
+        guard let mutation = request.zfs else {
+            throw PlanError.zfsMutationPayloadRequired
+        }
+        switch mutation {
+        case .createDataset(let name, _):
+            try requireNonEmpty(name)
+        case .destroyDataset(let name, _):
+            try requireNonEmpty(name)
+        case .renameDataset(let from, let to):
+            try requireNonEmpty(from)
+            try requireNonEmpty(to)
+            guard from != to else { throw PlanError.zfsRenameNamesIdentical }
+        case .snapshot(let dataset, let name, _):
+            try requireNonEmpty(dataset)
+            try requireNonEmpty(name)
+            guard !name.contains("@") else { throw PlanError.zfsSnapshotNameContainsAt }
+        case .destroySnapshot(let dataset, let name):
+            try requireNonEmpty(dataset)
+            try requireNonEmpty(name)
+        case .rollback(let dataset, let name):
+            try requireNonEmpty(dataset)
+            try requireNonEmpty(name)
+        case .setMountpoint(let dataset, let path):
+            try requireNonEmpty(dataset)
+            try requireNonEmpty(path)
+        case .clearMountpoint(let dataset):
+            try requireNonEmpty(dataset)
+        }
+    }
+
+    private static func requireNonEmpty(_ value: String) throws {
+        guard !value.isEmpty else { throw PlanError.zfsNameEmpty }
+    }
+
+    // MARK: - Composition
+
+    /// Routes to the appropriate ZFS composer based on the mutation family.
+    static func composeZFSMutation(_ request: PlanRequest) -> [PlanStep] {
+        guard let mutation = request.zfs else { return [] }
+        let host = Runner.host(request.source.host)
+        switch mutation {
+        case .createDataset, .destroyDataset, .renameDataset:
+            return composeZFSDatasetMutation(mutation, on: host)
+        case .snapshot, .destroySnapshot, .rollback, .setMountpoint, .clearMountpoint:
+            return composeZFSSnapshotAndPropertyMutation(mutation, on: host)
+        }
+    }
+
+    /// Dataset create / destroy / rename — all operate on the dataset name directly.
+    private static func composeZFSDatasetMutation(
+        _ mutation: ZFSMutation,
+        on host: Runner
+    ) -> [PlanStep] {
+        switch mutation {
+        case .createDataset(let name, let mountpoint):
+            let namePart = ShellQuote.quote(name)
+            let mountPart = mountpoint.map { " -o mountpoint=\(ShellQuote.quote($0))" } ?? ""
+            return [
+                PlanStep(
+                    runsOn: host, command: "zfs create\(mountPart) \(namePart)", role: .create),
+                PlanStep(
+                    runsOn: host, command: "zfs list -H -o name -- \(namePart)", role: .verify),
+            ]
+        case .destroyDataset(let name, let recursive):
+            let namePart = ShellQuote.quote(name)
+            let flag = recursive ? " -r" : ""
+            return [
+                PlanStep(runsOn: host, command: "zfs destroy\(flag) \(namePart)", role: .delete),
+                PlanStep(
+                    runsOn: host, command: "! zfs list -H -o name -- \(namePart)", role: .verify),
+            ]
+        case .renameDataset(let from, let to):
+            let fromPart = ShellQuote.quote(from)
+            let toPart = ShellQuote.quote(to)
+            let verifyCmd =
+                "zfs list -H -o name -- \(toPart) && ! zfs list -H -o name -- \(fromPart)"
+            return [
+                PlanStep(
+                    runsOn: host, command: "zfs rename -- \(fromPart) \(toPart)", role: .rename),
+                PlanStep(runsOn: host, command: verifyCmd, role: .verify),
+            ]
+        default:
+            return []
+        }
+    }
+
+    /// Snapshot, destroySnapshot, rollback, setMountpoint, clearMountpoint.
+    private static func composeZFSSnapshotAndPropertyMutation(
+        _ mutation: ZFSMutation,
+        on host: Runner
+    ) -> [PlanStep] {
+        switch mutation {
+        case .snapshot(let dataset, let name, let recursive):
+            let full = ShellQuote.quote("\(dataset)@\(name)")
+            let flag = recursive ? " -r" : ""
+            return [
+                PlanStep(runsOn: host, command: "zfs snapshot\(flag) \(full)", role: .snapshot),
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs list -H -o name -t snapshot -- \(full)",
+                    role: .verify),
+            ]
+        case .destroySnapshot(let dataset, let name):
+            let full = ShellQuote.quote("\(dataset)@\(name)")
+            return [
+                PlanStep(runsOn: host, command: "zfs destroy \(full)", role: .delete),
+                PlanStep(
+                    runsOn: host,
+                    command: "! zfs list -H -o name -t snapshot -- \(full)",
+                    role: .verify),
+            ]
+        case .rollback(let dataset, let name):
+            let full = ShellQuote.quote("\(dataset)@\(name)")
+            return [
+                PlanStep(runsOn: host, command: "zfs rollback \(full)", role: .rollback),
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs list -H -o name -t snapshot -- \(full)",
+                    role: .verify),
+            ]
+        case .setMountpoint(let dataset, let path):
+            let dsPart = ShellQuote.quote(dataset)
+            let pathPart = ShellQuote.quote(path)
+            return [
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs set mountpoint=\(pathPart) \(dsPart)",
+                    role: .property),
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs get -H -o value mountpoint -- \(dsPart)",
+                    role: .verify),
+            ]
+        case .clearMountpoint(let dataset):
+            let dsPart = ShellQuote.quote(dataset)
+            return [
+                PlanStep(
+                    runsOn: host, command: "zfs inherit mountpoint \(dsPart)", role: .property),
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs get -H -o value mountpoint -- \(dsPart)",
+                    role: .verify),
+            ]
+        default:
+            return []
+        }
+    }
+}

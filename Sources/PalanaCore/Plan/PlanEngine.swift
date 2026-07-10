@@ -83,6 +83,8 @@ public enum PlanEngine {
             try validateRename(request)
         case .create:
             try validateCreate(request)
+        case .zfs:
+            try validateZfs(request)
         }
         for entry in request.entries {
             guard String(data: entry.nameData, encoding: .utf8) != nil else {
@@ -126,6 +128,8 @@ public enum PlanEngine {
             return .deletion
         case .touch:
             return .modificationTimeUpdate
+        case .zfs:
+            return .zfsMutation
         case .move:
             let sameHost = request.source.host == request.destination?.host
             guard sameHost else { return .crossHostTransfer }
@@ -160,7 +164,7 @@ public enum PlanEngine {
     ) -> Transport {
         switch classification {
         case .withinDatasetRename, .crossDatasetCopyPlusDelete, .withinHostCopy, .deletion,
-            .creation, .modificationTimeUpdate:
+            .creation, .modificationTimeUpdate, .zfsMutation:
             return .local
         case .crossHostTransfer, .crossHostCopy:
             let touchesThisMachine =
@@ -310,6 +314,8 @@ extension PlanEngine {
             // The exit status is the whole verification — unlike rename
             // and create there is no new state a test step could show.
             return [PlanStep(runsOn: host, command: "touch -- \(sources)", role: .touch)]
+        case .zfsMutation:
+            return composeZFSMutation(request)
         case .crossHostTransfer, .crossHostCopy:
             return []  // never local — the transport switch routes these away
         }

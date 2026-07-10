@@ -71,7 +71,7 @@ CONF
         # and receiving a -R stream that carries it — needs the property
         # itself delegated, not just the verb.
         sudo zfs allow -u "$(whoami)" \
-            send,snapshot,hold,create,receive,mount,destroy,canmount,mountpoint palana
+            send,snapshot,hold,create,receive,mount,destroy,rename,rollback,canmount,mountpoint palana
     '
 }
 

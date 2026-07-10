@@ -20,6 +20,9 @@ public struct PlanRequest: Sendable, Equatable {
     /// The bare new name for rename and create; nil for every other
     /// operation.
     public var targetName: String?
+    /// The ZFS mutation payload — non-nil only for `.zfs` operations,
+    /// nil for every file operation.
+    public var zfs: ZFSMutation?
 
     /// Assembles a request.
     public init(
@@ -28,7 +31,8 @@ public struct PlanRequest: Sendable, Equatable {
         entries: [FileEntry],
         destination: Locus? = nil,
         token: String = "palana-transfer",
-        targetName: String? = nil
+        targetName: String? = nil,
+        zfs: ZFSMutation? = nil
     ) {
         self.operation = operation
         self.source = source
@@ -36,6 +40,7 @@ public struct PlanRequest: Sendable, Equatable {
         self.destination = destination
         self.token = token
         self.targetName = targetName
+        self.zfs = zfs
     }
 }
 
@@ -131,4 +136,12 @@ public enum PlanError: Error, Equatable, Sendable {
     case entriesForbiddenForCreate
     /// The target name contains a path separator in a disallowed position.
     case targetNameContainsSeparator
+    /// A `.zfs` request must carry a non-nil `zfs` payload.
+    case zfsMutationPayloadRequired
+    /// Dataset and snapshot names must be non-empty.
+    case zfsNameEmpty
+    /// A snapshot name must not contain `@` — the composer joins it.
+    case zfsSnapshotNameContainsAt
+    /// A rename requires distinct `from` and `to` names.
+    case zfsRenameNamesIdentical
 }

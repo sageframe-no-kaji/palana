@@ -19,6 +19,9 @@ public enum PlanOperation: String, Codable, Sendable {
     case create
     /// Update modification times on the selected entries in place.
     case touch
+    /// A ZFS in-place mutation — create, destroy, rename, snapshot,
+    /// rollback, or property change.
+    case zfs
 }
 
 /// What the operation actually is, named before it runs.
@@ -43,6 +46,8 @@ public enum Classification: String, Codable, Sendable {
     case creation
     /// Modification times updated where the entries stand.
     case modificationTimeUpdate = "modification-time update"
+    /// A ZFS in-place mutation on a single host.
+    case zfsMutation = "zfs mutation"
 }
 
 /// How the bytes move, auth path included — the plan names it, the
@@ -127,6 +132,10 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case touch
         /// The result confirmed after a mutation.
         case verify
+        /// A dataset or snapshot rolled back to a prior state.
+        case rollback
+        /// A ZFS property set or cleared on a dataset.
+        case property
     }
 
     /// Where the command runs.
