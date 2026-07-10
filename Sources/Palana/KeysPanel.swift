@@ -28,7 +28,10 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
     private var scale: Double {
         get {
             let stored = UserDefaults.standard.double(forKey: Self.scaleKey)
-            return stored == 0 ? 1.0 : stored
+            // Clamp on read — a stored out-of-range scale must never
+            // reproduce a bad frame on the next summon (the crash-loop
+            // lesson: persisted state that crashes re-crashes forever).
+            return stored == 0 ? 1.0 : clamp(stored)
         }
         set { UserDefaults.standard.set(newValue, forKey: Self.scaleKey) }
     }
@@ -64,7 +67,15 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         made.maxSize = CGSize(
             width: base.width * Self.scaleRange.upperBound,
             height: base.height * Self.scaleRange.upperBound)
-        made.contentView = NSHostingView(rootView: content(scale: scale))
+        let hosting = NSHostingView(rootView: content(scale: scale))
+        // The panel's frame is the one truth. Without this, the hosting
+        // view pushes its content's size into the window's constraint
+        // system, and a frame below the content's minimum becomes an
+        // unsatisfiable-layout exception mid-pass — the resize-too-small
+        // crash (report 2026-07-10-081511: NSHostingView
+        // invalidateSizeConstraintsIfNecessary under _crashOnException).
+        hosting.sizingOptions = []
+        made.contentView = hosting
         made.delegate = self
         made.center()
         panel = made
@@ -132,7 +143,8 @@ struct KeysPanelContent: View {
     var body: some View {
         HelpOverlay(
             scale: scale,
-            footer: "esc closes · drag an edge, ⌘ + / −, or the icons resize"
+            footer: "esc closes · drag an edge, ⌘ + / −, or the icons resize",
+            chromeless: true
         )
         .onDismiss { KeysPanelController.shared.close() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

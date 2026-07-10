@@ -36,6 +36,11 @@ struct HelpOverlay: View {
     /// The card caller wires this to `session.helpVisible = false`.
     /// The floating panel leaves it nil — the panel manages its own lifecycle.
     var dismissAction: (() -> Void)?
+    /// True when a floating panel hosts the card — the panel owns the
+    /// ground, the rounded clip, and the window shadow, so the card must
+    /// not draw its own (a card shadow clipped inside the panel's rounded
+    /// frame reads as a border).
+    var chromeless = false
 
     /// Attaches a dismiss action to the overlay — wired by the card caller
     /// to the same path that esc and `?` already use.
@@ -140,9 +145,13 @@ struct HelpOverlay: View {
             .padding(.bottom, 24 * scale)
             .padding(.top, 6 * scale)
         }
-        .background(Theme.ground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
+        .background(chromeless ? nil : Theme.ground)
+        .clipShape(RoundedRectangle(cornerRadius: chromeless ? 0 : 10))
+        .shadow(
+            color: chromeless ? .clear : Theme.ink.opacity(0.18),
+            radius: chromeless ? 0 : 24,
+            y: chromeless ? 0 : 8
+        )
         .fixedSize()
     }
 
