@@ -32,7 +32,9 @@ extension OperationModel {
             gatherTask = nil
         }
         if phase == .naming { reset() }
-        panelShowing = true
+        // The panel does NOT pop here — save is save (his ruling,
+        // 2026-07-10). It shows only when the send needs him: the
+        // ask setting is on, a conflict blocks the send, or a failure.
         requested = .copy
         echo = EchoBuffer()
         progress = nil
@@ -70,6 +72,8 @@ extension OperationModel {
                 guard !Task.isCancelled else { return }
                 echo.appendLine("local copy not found — was it moved or deleted?", kind: .failure)
                 phase = .failed
+                // A failure never stays off-screen.
+                panelShowing = true
                 return
             }
             guard !Task.isCancelled else { return }
@@ -102,23 +106,28 @@ extension OperationModel {
                 token: Self.mintToken())
             plan = try PlanEngine.plan(request, facts: facts)
 
-            // Auto-send: skip the confirmation gate when the toggle is on and
-            // there is no conflict. A conflict (the remote changed since the
-            // fetch) always blocks auto-send — an automatic overwrite of a file
-            // someone else changed is the one case the gate exists for.
-            if autoSendRoundTrips, !conflicted {
+            // Save is save: the send runs on its own unless the operator
+            // asked to be asked. A conflict (the remote changed since the
+            // fetch) always asks, regardless of the setting — an automatic
+            // overwrite of a file someone else changed is the one case the
+            // gate exists for. Auto-send failures still pop the panel
+            // (enact's own failure path never stays off-screen).
+            if !askBeforeSendingBack, !conflicted {
                 phase = .ready
-                note("sending back automatically — auto-send is on in settings")
+                note("sending back — \(record.fetched.name) to \(record.host):\(record.remoteDirectory)")
                 enact()
             } else {
                 readyCallout =
                     "⏎ press enter to send it back to \(record.host):\(record.remoteDirectory) · esc keeps the edit local"
                 phase = .ready
+                panelShowing = true
             }
         } catch {
             guard !Task.isCancelled else { return }
             echo.appendLine(Self.describe(error), kind: .failure)
             phase = .failed
+            // A failure never stays off-screen.
+            panelShowing = true
         }
     }
 

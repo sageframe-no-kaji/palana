@@ -38,8 +38,12 @@ extension PalanaSession {
         roundTripCenter.register(record: record)
         // Transcript note — echoed through the same path gather notes use.
         // The panel is NOT popped here (Decision 5: one line, no new
-        // surface) — it pops when a save summons the upload plan.
-        operation.note("watching \(record.fetched.name) — a save offers to send it back")
+        // surface). The line tells the truth of the current setting.
+        if operation.askBeforeSendingBack {
+            operation.note("watching \(record.fetched.name) — a save offers to send it back")
+        } else {
+            operation.note("watching \(record.fetched.name) — saves go back to \(record.host) on their own")
+        }
     }
 
     /// Called after every enactment finishes.

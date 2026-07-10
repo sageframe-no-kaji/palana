@@ -18,13 +18,13 @@ private struct SettingsStored: Codable {
     var rsyncFlags: String
     var excludeDSStore: Bool
     var excludeAppleDouble: Bool
-    var autoSendRoundTrips: Bool
+    var askBeforeSendingBack: Bool
 
     enum CodingKeys: String, CodingKey {
         case rsyncFlags
         case excludeDSStore
         case excludeAppleDouble
-        case autoSendRoundTrips
+        case askBeforeSendingBack
     }
 
     // Custom decoder — missing keys in old settings.json read false.
@@ -35,15 +35,18 @@ private struct SettingsStored: Codable {
             (try? container.decodeIfPresent(Bool.self, forKey: .excludeDSStore)) ?? false
         excludeAppleDouble =
             (try? container.decodeIfPresent(Bool.self, forKey: .excludeAppleDouble)) ?? false
-        autoSendRoundTrips =
-            (try? container.decodeIfPresent(Bool.self, forKey: .autoSendRoundTrips)) ?? false
+        // The key changed name when the default flipped (save is save,
+        // 2026-07-10) — old files carry autoSendRoundTrips, which is
+        // deliberately ignored so everyone lands on the new default.
+        askBeforeSendingBack =
+            (try? container.decodeIfPresent(Bool.self, forKey: .askBeforeSendingBack)) ?? false
     }
 
-    init(rsyncFlags: String, excludeDSStore: Bool, excludeAppleDouble: Bool, autoSendRoundTrips: Bool) {
+    init(rsyncFlags: String, excludeDSStore: Bool, excludeAppleDouble: Bool, askBeforeSendingBack: Bool) {
         self.rsyncFlags = rsyncFlags
         self.excludeDSStore = excludeDSStore
         self.excludeAppleDouble = excludeAppleDouble
-        self.autoSendRoundTrips = autoSendRoundTrips
+        self.askBeforeSendingBack = askBeforeSendingBack
     }
 }
 
@@ -82,13 +85,13 @@ final class SettingsModel {
         didSet { persist() }
     }
 
-    /// When true, a round-trip upload is sent automatically on save without
-    /// waiting for the operator to press Enter.
+    /// When true, every round-trip upload waits for the operator's Enter.
     ///
-    /// A conflict (the remote file changed since the fetch) always blocks the
-    /// auto-send regardless of this setting. Persisted to `settings.json` on
-    /// every assignment.
-    var autoSendRoundTrips: Bool = false {
+    /// Off by default — save is save: a saved edit goes back to the server
+    /// with one transcript line. A conflict (the remote file changed since
+    /// the fetch) always asks, regardless of this setting. Persisted to
+    /// `settings.json` on every assignment.
+    var askBeforeSendingBack: Bool = false {
         didSet { persist() }
     }
 
@@ -275,7 +278,7 @@ final class SettingsModel {
         rsyncFlags = stored.rsyncFlags
         excludeDSStore = stored.excludeDSStore
         excludeAppleDouble = stored.excludeAppleDouble
-        autoSendRoundTrips = stored.autoSendRoundTrips
+        askBeforeSendingBack = stored.askBeforeSendingBack
     }
 
     private func persist() {
@@ -283,7 +286,7 @@ final class SettingsModel {
             rsyncFlags: rsyncFlags,
             excludeDSStore: excludeDSStore,
             excludeAppleDouble: excludeAppleDouble,
-            autoSendRoundTrips: autoSendRoundTrips)
+            askBeforeSendingBack: askBeforeSendingBack)
         guard let data = try? JSONEncoder().encode(stored) else { return }
         let dir = settingsURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

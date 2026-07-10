@@ -444,7 +444,7 @@ extension OperationModel {
     var effectiveRsyncFlags: String? { settings.effectiveRsyncFlags }
 
     /// Whether the operator has enabled automatic upload on round-trip saves.
-    var autoSendRoundTrips: Bool { settings.autoSendRoundTrips }
+    var askBeforeSendingBack: Bool { settings.askBeforeSendingBack }
 
     /// Uniquifies composed snapshot names — the engine is pure and
     /// mints nothing, so the caller stamps the moment.
