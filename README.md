@@ -4,7 +4,9 @@
 
 > pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs moves and copies server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
 
-**Status:** in active development, v0.3. The headless engine is complete and the app surface is standing — dual-pane SSH file management, plan → enact, the field view, host onboarding. The ZFS workbench tool comes next; the signed binary release ships with v1.0. Source open under GPL-3.0.
+**Status:** in active development, **v0.4-beta** — the first public build. The headless engine is complete and the app surface stands: dual-pane SSH file management, plan → enact, the field view, host onboarding. The ZFS workbench tool and the interactive terminal are not in yet; the signed v1.0 release follows. Source open under GPL-3.0.
+
+**▸ Try the beta.** A signed, notarized macOS build is on the [Releases page](https://github.com/sageframe-no-kaji/palana/releases/latest) — download the `.dmg`, drag to Applications, open it (macOS 14+). It's early: expect rough edges. **Feedback is wanted** — what's broken, what's missing, what feels wrong — [open an issue](https://github.com/sageframe-no-kaji/palana/issues).
 
 ---
 
@@ -91,7 +93,7 @@ The full design — every decision with its rationale — is public in the build
 
 | | |
 |---|---|
-| **Now** | v0.3. The engine is complete and headless — Conduit, Field, Listing, plan engine, Transports, at 97% coverage. The Surface stands on it: dual panes, plan → enact, the field view, plus rename and create, settings, favorites, and host onboarding. |
+| **Now** | v0.4-beta — the first public build. The engine is complete and headless — Conduit, Field, Listing, plan engine, Transports, at 97% coverage. The Surface stands on it: dual panes, plan → enact, the field view, plus rename and create, settings, favorites, and host onboarding. |
 | **Next** | The Workbench's first mutating tool — ZFS dataset management, snapshots, pools — the plugin API proven against real state. |
 | **Later** | Signing, notarization, and the v1.0 `.dmg` on GitHub Releases. |
 
@@ -111,7 +113,7 @@ Items the architecture is prepared for but v1 does not include:
 
 ## Download
 
-*Not yet. The signed, notarized `.dmg` ships with v1.0 through GitHub Releases — direct download, no App Store. In the meantime, you can build from source.*
+The **v0.4-beta** — a signed and notarized macOS `.dmg`, direct download, no App Store — is on the [Releases page](https://github.com/sageframe-no-kaji/palana/releases/latest). Drag it to Applications and open it; it runs on macOS 14 or later. This is a beta: the engine and the app surface are in, the ZFS workbench tool and the interactive terminal are not yet. The signed v1.0 follows. Prefer to build it yourself? See [Development](#development).
 
 ## Requirements
 
