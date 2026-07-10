@@ -48,11 +48,13 @@ struct WorkbenchStrip: View {
             .frame(maxHeight: .infinity)
             .background(Theme.plugin.opacity(0.05))
 
-            // MARK: Column separator
+            // MARK: Column separator — the reads column's green engagement
+            // line lives here, back beside the regular chips (his call).
             Rectangle()
-                .fill(Theme.inkFaint.opacity(0.18))
-                .frame(width: 1)
+                .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
+                .frame(width: session.terminalFocused ? 2 : 1)
                 .frame(maxHeight: .infinity)
+                .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
 
             // MARK: Reads column
             ScrollView {
@@ -73,10 +75,10 @@ struct WorkbenchStrip: View {
             .background(Theme.ground)
         }
         .overlay(alignment: .leading) {
-            // The left separator and the cream ground carry all the way down —
-            // a hairline against the transcript, accent when engaged.
+            // The strip's outer edge belongs to the plugins column — its
+            // engagement line speaks the plugin hue, not the accent.
             Rectangle()
-                .fill(session.terminalFocused ? Theme.accent : Theme.inkFaint.opacity(0.18))
+                .fill(session.terminalFocused ? Theme.plugin : Theme.inkFaint.opacity(0.18))
                 .frame(width: session.terminalFocused ? 2 : 1)
                 .animation(.easeInOut(duration: 0.12), value: session.terminalFocused)
         }
