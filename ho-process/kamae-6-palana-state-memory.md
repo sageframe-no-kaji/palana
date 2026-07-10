@@ -16,6 +16,54 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10, sixth block — THE CLICK HUNT ENDS: CODE, NOT MACHINE
+
+**COMPLETED**
+- **The click-offset bug is FOUND and FIXED** (50f34fb). The fifth
+  block's "environmental" verdict was WRONG — post-reboot the bug
+  persisted, the bare v0.4-beta binary clicked perfectly on the same
+  loaded machine, and a five-step bisect across v0.4-beta..1e80c10
+  landed on 9808498: the supplementary `.onDrag` added to nameCell
+  (drag attempt three's belt-and-suspenders). A cell-level drag source
+  wraps cell content in its own drag-hosting view and desyncs SwiftUI's
+  drawn rows from AppKit's hit rects — hit zones one row high, top row
+  under the header. Removed outright; TableRow.itemProvider carries
+  pane-to-pane drag alone (he verified live: clicks true AND file
+  dragged across panes, on 1e80c10 + removal).
+- **Why the earlier exoneration lied**: PALANA_NO_DRAG stripped only the
+  row itemProvider; the cell-level `.onDrag` stayed live. Banked.
+- **The styler reentrancy fix committed as its own keeper** (f82ba7a):
+  every table mutation deferred a runloop turn — AppKit's "reentrant
+  operation in its NSTableView delegate… will become an assert" warning
+  answered. Found en route, kept on merit; NOT the click cause.
+- **Hunt fully torn down**: scratch gates (PALANA_NO_STYLER/NO_DRAG/
+  CLICK_DEBUG) stripped, bisect + v0.4 worktrees removed, his real app
+  state restored from `palana.click-quarantine`. Verification: format +
+  lint strict green, 704 tests green (sshd-fixture integration suites
+  skipped — Docker daemon down by design this session; failures were
+  connection-refused only, untouched by this UI-only diff).
+
+**NEXT**
+- **The two small 10.1 fixes** (pool-root refusal; panel pre-select
+  follows pane cursor on dataset mountpoints), then his close verdicts →
+  close ho-10.1 → **tag v0.5, ZFS badged beta** → README/docs polish →
+  he writes to Dave (ysap.sh; counsel: name the root wall, lead with the
+  snapshot loop).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. The reboot-gate in the fifth block is CLEARED (bug was
+  code, now fixed).
+- Restarting integration fixtures (sshd container, `make zfs-fixture`)
+  wants Docker Desktop up — start before the next integration-touching
+  session; run the full suite then.
+- Sequencing after v0.5 still HIS CALL (ho-11 first vs 10.2 first).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; v0.5 is one ho-close + two small fixes
+  away; v1.0 = ho-11 + ho-12.
+
+---
+
 ## State summary — 2026-07-10, fifth block — THE HANDS SESSION, FOUR ROUNDS DEEP, REBOOT PENDING
 
 **COMPLETED**
