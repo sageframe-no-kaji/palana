@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: executed — hands verdicts pending
+status: complete
 type: ho-document
 project: palana
 ho: 9.10
@@ -84,7 +84,7 @@ Registration at the remote-open site, the round-trip center holding live watcher
 
 **The panel-pop at registration was scope creep in kindness's clothing.** The agent popped the terminal on every remote open so the watching note would be seen. Decision 5 said one line, no new surface—the pop is the save's, not the open's. Reverted in review.
 
-**Hands verdicts pending:** the whole loop wants his editor—open remote, edit, save, read the plan, Enter, and the changed-since-fetch note against a remote that actually moved.
+**Closed by his hands (2026-07-10), and the hands overruled the Think phase's central ceremony.** He ran the loop and named it "weird and counter intuitive"—the ask arrived in the wrong app after the moment had passed, and every editor teaches that save means saved. His ruling, verbatim: "i concur. save is save." The default flipped: a saved edit goes back on its own with one transcript line, the panel never pops uninvited, the setting inverted to ask-before-sending (a new stored key so old files land on the new default). The carve-out is law regardless: a remote that changed since the fetch always asks, and failures always surface. Queued from his word: a light first-class text editor as a future Workbench plugin.
 
 ---
 

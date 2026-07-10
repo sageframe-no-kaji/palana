@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: executed — hands verdicts pending
+status: complete
 type: ho-document
 project: palana
 ho: 9.9
@@ -83,7 +83,7 @@ The destination-listing fetch in `OperationModel.gather`, the detect call, the u
 
 **Two smaller review catches worth their lines:** the clause separator arrived as a semicolon (banned in the house voice, and every panel line already speaks in middle dots), and the detect's name index would have crashed on a malformed listing's duplicate name instead of refusing—first occurrence wins now.
 
-**Hands verdicts pending:** the line's feel on a real overwrite—wording, placement under the size line, whether the merge clause reads right on a directory send.
+**Closed by his hands (2026-07-10):** he drove copies and moves over standing files, quoted the wording back approvingly, and supplied the sentence the line now speaks verbatim—"N files already exist at destination." The line held through the language sweep.
 
 ---
 

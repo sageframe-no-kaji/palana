@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: open
+status: complete
 type: ho-document
 project: palana
 ho: 9.11
@@ -35,7 +35,7 @@ The keys grew one at a time across five hands sessions and the practitioner name
 
 **The atomic-commit law earned its keep at execution.** Bindings, chips, context menus, the card, the README — five surfaces naming keys, one diff. No test pinned the binding table (a gap worth noting: the grammar is now the app's most operator-facing contract and nothing asserts it — a bindings-table snapshot test is cheap insurance for the next rename).
 
-**Hands verdict pending:** the retrained r/d muscle over a few real sessions, and whether the reorganized card actually teaches.
+**Closed with the series (2026-07-10).** The retrain is his to live with—he chose it knowing the cost ("i like r for delete (rm) but this seems to make sense"), and the card and README now carry the rules his fingers will learn against. The binding-table snapshot test remains the noted debt.
 
 ---
 

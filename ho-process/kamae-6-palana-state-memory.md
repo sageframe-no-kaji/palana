@@ -16,6 +16,45 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10, third block — THE HO-9 SERIES IS CLOSED
+
+**COMPLETED**
+- **Hos 9.5 through 9.11 CLOSED on his word** ("thats it. finially. can we
+  fucking close ho 9 now?"). All Reflects filled with his verdicts, all
+  docs `status: complete`, the kamae-4 build record carries the series
+  close entry. Phase 3.5 is done.
+- Late closers this block: save-is-save default flip ("i concur. save is
+  save" — auto-send default, changed-remote always asks, new stored key so
+  old settings land on the new default); the keys panel executed its
+  continuous-scale system after two crashes and a desynced render — five
+  fixed sizes on ⌘1–⌘5, ⌘+/− step, no edge-drag, one authority; the
+  trapped-shadow border removed (chromeless card inside the panel).
+- Laws banked this block: persisted state that crashes must never
+  re-crash (clamp on restore); never rebuild a SwiftUI tree inside a
+  resize delegate's layout pass; platform features needing app-bundle
+  registration (pasteboard types, notifications) must be proven in the
+  bare-binary dev build.
+
+**NEXT**
+- **ho-10.1 resumes**: AT-02 (ZFSMutationTool fills the Workbench mutation
+  seam) and AT-03 (the app mutation path — planRequest → plan → render →
+  Enter, dataset targeting from the focused pane, hands against the Lima
+  fixture pool). Then ho-11 (the terminal), ho-12 (the ship, v1.0).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. App running his real config with everything through cf27f3d+.
+- Debts, named: binding-table snapshot test before any future key rename;
+  light text editor queued as a future Workbench plugin idea (his).
+- Deferred stack: drag-out to Finder, width persistence, /-jump,
+  verb-time re-choice, gather-the-starred control, modal-sheet onboarding,
+  ssh-actually deep link (guide not shipped).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public. Phase 3.5 (the ho-9 series) COMPLETE.
+  ho-10.1 (ZFS tool) is the road to v0.5; then ho-11, ho-12 to v1.0.
+
+---
+
 ## State summary — 2026-07-10, second block (the hands session + the grammar)
 
 **COMPLETED**

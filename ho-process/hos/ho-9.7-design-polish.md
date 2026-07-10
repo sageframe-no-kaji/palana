@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: executed — hands verdicts pending
+status: complete
 type: ho-document
 project: palana
 ho: 9.7
@@ -85,7 +85,7 @@ The go-again key-cap chips, the pane-footer popout control, the palette/glyph au
 
 **The cmd-swallow debt closes verified, not asserted.** The `!token.contains("cmd-")` guard in `handleActiveOverlay` covers the help, settings, and field branches uniformly; the panel's priority handler falls through to an unmatched grammar press. Every ⌘-chord passes through every surface. The reading is recorded with the guard lines in the AT report; no fix was needed.
 
-**Hands verdicts pending:** the chip weight in the hint line, the footer strip's presence (a permanent 24pt strip is more than the "icon" he asked for—if it reads heavy, the glyph can move into the header), and the taste-call ledger above.
+**Closed by his hands (2026-07-10), which grew the polish past the ho's own scope.** The chips he asked to be "always there" became a permanent verb rail, dimmed while a plan runs. The floating keys panel then paid three rounds of debt in one day: a trapped drop-shadow reading as a border (the panel double-wrapped the card—chromeless now), a resize-too-small crash that persisted its own trigger (the crash-loop law was born: persisted state that crashes must never re-crash—clamp on restore, always), and finally his ruling that killed the whole continuous-scale system: five fixed sizes on ⌘1–⌘5, window and text as one value applied in one place, no edge-drag, no delegate feedback, nothing to fight. His close: "thats it. finially." The footer strip and the taste ledger went unremarked—they stand.
 
 ---
 

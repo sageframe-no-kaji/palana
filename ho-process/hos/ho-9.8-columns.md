@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: executed — hands verdicts pending
+status: complete
 type: ho-document
 project: palana
 ho: 9.8
@@ -91,7 +91,7 @@ The six new TableColumns, `tableColumnCustomization` with `columns.json` persist
 
 **The direction-baked comparator refactor quietly fixed a shuffle.** The old descending sort reversed the whole ascending array—ties reversed with it. Direction now lives in each comparator and ties hold byte order both ways, which is also what lets a column of dashes stand still.
 
-**Hands verdicts pending:** the header right-click discovery, the default-hidden six, date formats at his font scale, the ★ toggle feel, and whether width-persistence-across-relaunch is missed enough to earn its own capture.
+**Closed by his hands (2026-07-10) — which first caught what the review missed.** The six new columns shipped without sort comparators; header clicks did nothing ("created isnt sorting, nor is changed, nor star, nor perms"). The fix wired real comparators (a custom SortComparator for the optional dates) and reversed this Reflect's own ★ verdict: the column sorts after all, through a routing-token comparator applySort intercepts for an explicit starred-first partition. His word after the fix: "column fixed." Width persistence went unremarked—the escape hatch stands.
 
 ---
 

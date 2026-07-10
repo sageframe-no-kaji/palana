@@ -109,7 +109,11 @@ The add-a-host form, the show-and-confirm write through `SettingsModel`'s backup
 
 ## Phase 3 — Reflect
 
-_Pending execution and the practitioner's hands._
+**The safety rules were verified by reading, not assertion, and they held.** Every config write backs up first through the one commitWrite path, zero ssh execution anywhere in the flow (clipboard strings only), the block previews before the write, and the first-reach probe only reads. The Think phase's open question—show the key-setup commands or run them—closed itself by default: show-and-link shipped, he never asked for more, and mutating a remote from an onboarding form remains unbuilt on purpose.
+
+**His hands rewrote the form's shape, not its safety.** Round one: "almost unusable — too cute"—the two-step compose ceremony died into a live block preview with one filled button, the focus wedge (a field that looked focused while the monitor ate keys) forced the whole-lifetime stand-down pattern, and the identity picker learned to steer away from .pub files. Round two, "MUCH better," then his own question—"we use esc to close everything — benefit to a red system X?"—became the visible close on every summonable surface, OverlayCloseButton and the title-bar rows, polish that landed well beyond this ho's borders.
+
+**Closed with the series (2026-07-10) on his word.** The modal-sheet variant stays offered, unbuilt; the ssh-actually deep link waits for the guide to ship.
 
 ---
 

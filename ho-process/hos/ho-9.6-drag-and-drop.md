@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: executed — hands verdicts pending
+status: complete
 type: ho-document
 project: palana
 ho: 9.6
@@ -78,7 +78,7 @@ Transferable conformance, row drag from the Table, pane-level drop destination f
 
 **The gate law needed no defending.** Every drop path funnels into the standing gather—the panel arrives ready, Enter enacts, and there was no temptation anywhere in the diff to shortcut it. The engine half (payload + pure decision) went in without a single deviation.
 
-**Hands verdicts pending:** the wash's weight, the option-for-move muscle, whether the panel arriving on a drop feels like the right ceremony or wants a quieter form, and the Finder-drop cohort rule against a real mixed drag.
+**Closed by his hands (2026-07-10) — after drag took three attempts to actually drag.** The battery could never have caught it: a bundle-less SwiftPM binary cannot declare pasteboard types, so UTType(exportedAs:) silently wrote nothing and UTType(string) returned nil, degrading the drop registration—and SwiftUI honours only one dropDestination per view, so the URL handler shadowed the selection handler. The shipped fix carries the payload as public.json (a system type that needs nobody's permission) through one unified onDrop, with TableRow.itemProvider plus a supplementary onDrag on the name cell. Diagnostics on both halves rode the third attempt and came out after his verdict: "its working." The lesson is banked: platform integrations that depend on app-bundle registration must be proven in the running binary, never assumed from a green build.
 
 ---
 
