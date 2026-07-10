@@ -228,6 +228,10 @@ struct SurfaceView: View {
             },
             onFinderDrop: { urls, optionHeld in
                 session.handleFinderDrop(urls: urls, targetPane: model, optionHeld: optionHeld)
+            },
+            onShowPanel: {
+                session.operation.showPanel()
+                session.terminalFocused = true
             }
         )
         .frame(minWidth: 320)
@@ -299,7 +303,7 @@ extension SessionSnapshot.Side: Identifiable {
 }
 
 /// A toolbar glyph that lights up on hover — a light moss wash, the VS Code feel.
-private struct ToolbarGlyphButton: View {
+struct ToolbarGlyphButton: View {
     let systemName: String
     let help: String
     let action: () -> Void

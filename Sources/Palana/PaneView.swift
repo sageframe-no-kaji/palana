@@ -51,6 +51,8 @@ struct PaneView: View {
     /// The session resolves them through the local listing and the gather path.
     /// The Bool is whether Option was held at drop time.
     let onFinderDrop: ([URL], Bool) -> Void
+    /// Pops the terminal — wired to `OperationModel.showPanel()`.
+    let onShowPanel: () -> Void
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -65,6 +67,7 @@ struct PaneView: View {
             header
             Divider()
             content
+            paneFooter
         }
         .background(Theme.ground)
         .overlay {
@@ -113,6 +116,29 @@ struct PaneView: View {
             }
         }
         .simultaneousGesture(TapGesture().onEnded { onFocus() })
+    }
+
+    // MARK: - Pane footer
+
+    /// The pane's bottom strip — one terminal popout button, right-pinned.
+    ///
+    /// Wired to the same show path backtick uses so the operator can
+    /// summon the terminal from wherever the mouse happens to be.
+    private var paneFooter: some View {
+        HStack {
+            Spacer()
+            ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
+                onShowPanel()
+            }
+            .padding(.horizontal, 4)
+        }
+        .frame(height: 24)
+        .background(Theme.groundDeep)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Theme.inkFaint.opacity(0.15))
+                .frame(height: 1)
+        }
     }
 
     // MARK: - Header

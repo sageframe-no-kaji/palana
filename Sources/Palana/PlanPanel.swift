@@ -112,14 +112,25 @@ struct PlanPanel: View {
     }
 
     /// The quiet remainder of the hint—the escape and follow-on keys.
-    private var hintRest: String {
+    ///
+    /// Returns nil for the finished/failed/cancelled phases — those use
+    /// `GoAgainHintLine` (chip-styled keys) instead of a plain string.
+    private var hintRest: String? {
         switch operation.phase {
         case .idle: return "esc hides"
         case .naming: return "esc cancel"
         case .gathering: return "esc hides · ⌃c cancels"
         case .ready: return "esc hides · a new verb recomposes"
         case .enacting: return "esc hides, keeps running · ⌃c cancels"
-        case .finished, .failed, .cancelled: return "esc hides · y m r R a t T go again"
+        case .finished, .failed, .cancelled: return nil
+        }
+    }
+
+    /// Whether the current phase should show the go-again chip line.
+    private var showGoAgainLine: Bool {
+        switch operation.phase {
+        case .finished, .failed, .cancelled: return true
+        default: return false
         }
     }
 
@@ -136,8 +147,12 @@ struct PlanPanel: View {
                     .frame(maxHeight: .infinity)
                     .background(Theme.accent)
             }
-            Text(hintRest)
-                .foregroundStyle(Theme.inkFaint)
+            if showGoAgainLine {
+                GoAgainHintLine(fontSize: 12)
+            } else if let rest = hintRest {
+                Text(rest)
+                    .foregroundStyle(Theme.inkFaint)
+            }
         }
         .frame(maxHeight: .infinity)
     }
