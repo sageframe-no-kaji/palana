@@ -121,32 +121,36 @@ struct PlanPanel: View {
         }
     }
 
-    /// The quiet remainder of the hint—the escape and follow-on keys.
+    /// The phase-specific hint text rendered left of the verb rail's esc chip.
     ///
-    /// Returns nil for the finished/failed/cancelled phases — those use
-    /// `GoAgainHintLine` (chip-styled keys) instead of a plain string.
-    private var hintRest: String? {
+    /// Returns nil when no per-phase prefix is needed — finished/failed/
+    /// cancelled have no extra context worth naming there.
+    private var verbRailHintText: String? {
         switch operation.phase {
-        case .idle: return "esc hides"
+        case .idle: return nil
         case .naming: return "esc cancel"
-        case .gathering: return "esc hides · ⌃c cancels"
-        case .ready: return "esc hides · a new verb recomposes"
-        case .enacting: return "esc hides, keeps running · ⌃c cancels"
+        case .gathering: return "⌃c cancels"
+        case .ready: return "a new verb recomposes"
+        case .enacting: return "keeps running · ⌃c cancels"
         case .finished, .failed, .cancelled: return nil
         }
     }
 
-    /// Whether the current phase should show the go-again chip line.
-    private var showGoAgainLine: Bool {
+    /// Whether the verb chip rail is interactive (full opacity, clickable).
+    ///
+    /// Enabled in the resting and terminal phases — idle, ready, finished,
+    /// failed, cancelled. Dimmed and inert while work is in flight —
+    /// gathering, enacting, naming — matching the workbench strip's posture.
+    private var verbRailEnabled: Bool {
         switch operation.phase {
-        case .finished, .failed, .cancelled: return true
-        default: return false
+        case .idle, .ready, .finished, .failed, .cancelled: return true
+        case .gathering, .enacting, .naming: return false
         }
     }
 
-    /// The header hint—a full-height accent block calls out the live Return
+    /// The header hint — a full-height accent block calls out the live Return
     /// action (moss ground, light letters, square to the header lines), the
-    /// rest stays quiet beside it.
+    /// verb chip rail is always beside it.
     @ViewBuilder private var hintView: some View {
         HStack(spacing: 10) {
             if let callout = enactCallout {
@@ -157,12 +161,12 @@ struct PlanPanel: View {
                     .frame(maxHeight: .infinity)
                     .background(Theme.accent)
             }
-            if showGoAgainLine {
-                GoAgainHintLine(fontSize: 12, onVerbKey: onVerbKey)
-            } else if let rest = hintRest {
-                Text(rest)
-                    .foregroundStyle(Theme.inkFaint)
-            }
+            VerbChipRow(
+                fontSize: 12,
+                enabled: verbRailEnabled,
+                hintText: verbRailHintText,
+                onVerbKey: onVerbKey
+            )
         }
         .frame(maxHeight: .infinity)
     }

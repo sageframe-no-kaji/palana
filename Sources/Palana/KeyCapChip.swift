@@ -1,14 +1,14 @@
-// A small key-cap chip — the visual treatment for key glyphs in transient
-// hint lines. Rounded rect background, hairline stroke, mono glyph.
+// A small key-cap chip — the visual treatment for key glyphs in hint lines.
+// Rounded rect background, hairline stroke, mono glyph.
 // Height is bounded so the chip never grows its parent row.
 
 import SwiftUI
 
 /// A single key styled as a key-cap chip.
 ///
-/// Used in the plan panel's finished/failed/cancelled hint line to mark
-/// each verb key visually. The chip fits within the existing hint-line
-/// height — no padding or frame that would push the row taller.
+/// Used in the plan panel's verb rail to mark each key visually. The chip
+/// fits within the existing hint-line height — no padding or frame that
+/// would push the row taller.
 ///
 /// When `onTap` is non-nil the chip renders as a `Button` — clicking it
 /// fires the same action the physical key would. Hover slightly lightens
@@ -51,20 +51,34 @@ struct KeyCapChip: View {
     }
 }
 
-/// The finished/failed/cancelled hint line — verb keys as chips, connective
-/// words as plain text.
+/// The persistent verb chip rail — always present in the plan panel header.
 ///
-/// Layout: `esc hides · <chips> go again`, all on one inline row.
-/// The chips carry `.fixedSize()` so the row's height is governed by the
-/// surrounding text, not the chip rendering.
+/// Layout: `<phase-hint-text> · esc hides · <verb chips> go again`, all on
+/// one inline row. The chips carry `.fixedSize()` so the row's height is
+/// governed by the surrounding text, not the chip rendering.
 ///
-/// `onVerbKey` fires when a chip is clicked, passing the key string the
-/// physical key would produce. The caller (PlanPanel → PalanaSession) routes
-/// it to the same dispatch path the keyboard uses.
-struct GoAgainHintLine: View {
-    /// The text size of the parent hint line.
+/// `enabled` controls interactivity. When `true` (idle, ready, finished,
+/// failed, cancelled) the chips are clickable at full opacity. When `false`
+/// (gathering, enacting, naming) the rail dims to ~0.35 and swallows hits —
+/// the same safety story as the workbench strip's greying.
+///
+/// `hintText` is an optional phase-specific string rendered to the left of
+/// the esc chip. The caller supplies the appropriate string per phase.
+///
+/// `onVerbKey` fires when a chip is clicked (enabled only), passing the key
+/// string the physical key would produce. The caller (PlanPanel → PalanaSession)
+/// routes it through the same dispatch path the keyboard uses.
+struct VerbChipRow: View {
+    /// The text size of the parent hint area.
     let fontSize: CGFloat
-    /// Called when a chip is clicked — the key string passed is the same
+    /// Whether the chips are active (clickable, full opacity).
+    ///
+    /// `false` during gathering, enacting, and naming — the same phases the
+    /// workbench greys.
+    let enabled: Bool
+    /// Optional phase-specific hint text rendered to the left of the esc chip.
+    var hintText: String?
+    /// Called when an enabled chip is clicked — the key string is the same
     /// token the keyboard grammar would produce for that key.
     var onVerbKey: (String) -> Void = { _ in }
 
@@ -81,9 +95,17 @@ struct GoAgainHintLine: View {
 
     var body: some View {
         HStack(spacing: 4) {
+            if let hint = hintText {
+                Text(hint)
+                    .font(.system(size: fontSize))
+                    .foregroundStyle(Theme.inkFaint)
+                Text("·")
+                    .font(.system(size: fontSize))
+                    .foregroundStyle(Theme.inkFaint)
+            }
             // esc fires the hide path — same as the panel-priority esc handler.
-            KeyCapChip(label: "esc", fontSize: fontSize) { onVerbKey("esc") }
-                .help("hide")
+            KeyCapChip(label: "esc", fontSize: fontSize, onTap: enabled ? { onVerbKey("esc") } : nil)
+                .help(enabled ? "hide" : "hide (not available while running)")
             Text("hides")
                 .font(.system(size: fontSize))
                 .foregroundStyle(Theme.inkFaint)
@@ -91,13 +113,15 @@ struct GoAgainHintLine: View {
                 .font(.system(size: fontSize))
                 .foregroundStyle(Theme.inkFaint)
             ForEach(verbChips, id: \.key) { chip in
-                KeyCapChip(label: chip.key, fontSize: fontSize) { onVerbKey(chip.key) }
-                    .help(chip.tip)
+                KeyCapChip(label: chip.key, fontSize: fontSize, onTap: enabled ? { onVerbKey(chip.key) } : nil)
+                    .help(enabled ? chip.tip : "\(chip.tip) (not available while running)")
             }
             Text("go again")
                 .font(.system(size: fontSize))
                 .foregroundStyle(Theme.inkFaint)
         }
         .fixedSize()
+        .opacity(enabled ? 1 : 0.35)
+        .allowsHitTesting(enabled)
     }
 }

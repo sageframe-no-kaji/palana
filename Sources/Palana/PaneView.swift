@@ -95,14 +95,13 @@ struct PaneView: View {
             }
         }
         // Pane-level drop surface — unified .onDrop handles both DraggedSelection
-        // (pane-to-pane) and file URLs (Finder). A single modifier avoids the
-        // SwiftUI single-drop-destination limit; see DragDrop.swift for the RC2
-        // fix rationale. isTargeted drives the wash.
+        // (pane-to-pane, encoded as public.json) and file URLs (Finder). A single
+        // modifier avoids the SwiftUI single-drop-destination limit (RC2).
+        // RC3: accepts .json (system-declared, conforms to public.data) instead of
+        // the undeclared custom identifier that UTType(_:) was silently nil-ing.
+        // isTargeted drives the drop-wash overlay.
         .onDrop(
-            of: [
-                UTType(selectionPasteboardType) ?? .data,
-                .fileURL,
-            ],
+            of: [.json, .fileURL],
             isTargeted: Binding(
                 get: { dropTargeted },
                 set: { targeted in
@@ -386,9 +385,9 @@ extension PaneView {
                 .map(\.nameData)
             ForEach(model.rows) { entry in
                 // itemProvider replaces .draggable — carries the DraggedSelection
-                // as JSON under selectionPasteboardType via NSItemProvider so that
-                // the drag pasteboard write succeeds even when running as a bare
-                // SwiftPM binary without a bundle (RC1 fix; see DragDrop.swift).
+                // as JSON under public.json (UTType.json) via NSItemProvider so
+                // the drag pasteboard write succeeds without a bundle (RC1) and
+                // the drop side accepts the type (RC3; see DragDrop.swift).
                 TableRow(entry)
                     .itemProvider {
                         let payload = dragPayload(for: entry, selectedNames: selectedNames)
@@ -529,7 +528,10 @@ extension PaneView {
     }
 
     func nameCell(_ entry: FileEntry) -> some View {
-        HStack(spacing: 6) {
+        let selectedNames = model.rows
+            .filter { model.state.selection.contains($0.id) }
+            .map(\.nameData)
+        return HStack(spacing: 6) {
             Capsule()
                 .fill(Theme.accent)
                 .frame(width: 3, height: 14)
@@ -544,6 +546,14 @@ extension PaneView {
                     .lineLimit(1)
             }
             driveMark(for: entry)
+        }
+        // Supplementary drag source on the name-cell content view — a second
+        // path in addition to TableRow.itemProvider. Both produce the same
+        // public.json payload; instrumentation logs say which fires. This path
+        // is known-good for drags starting on cell content (not just a row hit).
+        .onDrag {
+            let payload = dragPayload(for: entry, selectedNames: selectedNames)
+            return Palana.itemProvider(for: payload) ?? NSItemProvider()
         }
     }
 
