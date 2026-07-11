@@ -125,6 +125,12 @@ extension PalanaSession {
         if operation.isFieldlessZFSGather {
             return .handled(handleFieldlessZFSGatherKey(event))
         }
+        // The jump owns every plain key while it is open (round 10) —
+        // text entry like the rest, routed here to keep handle() within
+        // its complexity budget.
+        if jumpBuffer != nil {
+            return .handled(handleJumpKey(event))
+        }
         // While any text field is live, every key belongs to the field.
         guard !left.pathEditing, !right.pathEditing, !operation.isNaming,
             !settingsFieldFocused

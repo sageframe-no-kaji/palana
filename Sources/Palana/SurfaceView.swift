@@ -261,6 +261,10 @@ struct SurfaceView: View {
                 Text("transfer running — ` brings the panel back")
                     .foregroundStyle(Theme.accent)
             }
+            if let buffer = session.jumpBuffer {
+                Text("jump: \(buffer.isEmpty ? "type a name…" : buffer) · ⏎ stays · esc cancels")
+                    .foregroundStyle(Theme.accent)
+            }
             if session.shellVisible {
                 // ho-11's keyboard, named plainly — Esc itself goes to
                 // the shell (vim needs it); ⌘` moves the keyboard.

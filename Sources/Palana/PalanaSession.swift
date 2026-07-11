@@ -88,6 +88,12 @@ final class PalanaSession {
     /// does not own it (`shellVisible`). Distinct from `terminalFocused`,
     /// which only means the strip's tool letters are armed.
     var shellMode = false
+    /// The live type-to-jump buffer — nil when the jump is closed.
+    ///
+    /// Non-nil stands the whole verb grammar down (`handleJumpKey`);
+    /// the footer renders the buffer so the operator sees what the
+    /// cursor is chasing.
+    var jumpBuffer: String?
     /// True while the KEYBOARD belongs to the shell.
     ///
     /// ⌘` toggles this without tearing the view down — the shell can sit
@@ -597,6 +603,10 @@ extension PalanaSession {
         }
         if token == "F" {
             HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+            return true
+        }
+        if token == "/", !terminalFocused, focusedPane.paneMode == .files {
+            beginJump()
             return true
         }
         if token == "`" {
