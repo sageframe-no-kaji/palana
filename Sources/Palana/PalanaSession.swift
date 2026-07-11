@@ -581,8 +581,8 @@ extension PalanaSession {
     /// Backtick (`` ` ``) shows the plan panel; phase and work are untouched.
     /// Z enters zfs mode on the focused pane — only fires while the terminal
     /// holds focus, where it acts as a mode switch, not a WorkbenchVerb.
-    /// ⌘⇧Z summons the floating panel (ho-10.3 Decision 3 — demoted to
-    /// launcher and glance-overview; the panel no longer mutates).
+    /// The glance-only floating panel has NO chord — its strip chip is the
+    /// door (the ⌘⇧Z experiment read as gibberish on his hands).
     private func handleMainSpecialKey(_ token: String) -> Bool {
         guard pendingPrefix.isEmpty else { return false }
         if token == "f" {
@@ -610,10 +610,6 @@ extension PalanaSession {
         }
         if token == "cmd-shift-l" {
             revealOperationsLog()
-            return true
-        }
-        if token == "cmd-shift-z" {
-            ZFSPanelController.shared.toggle(session: self)
             return true
         }
         if token == "shift-tab" {

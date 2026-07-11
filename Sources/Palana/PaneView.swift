@@ -86,7 +86,7 @@ struct PaneView: View {
         .background(Theme.ground)
         .background {
             if model.paneMode == .zfs {
-                Theme.plugin.opacity(0.08)
+                Theme.plugin.opacity(0.12)
             }
         }
         .overlay {
@@ -196,9 +196,20 @@ struct PaneView: View {
     /// show or type (ho-10.3 Decision 2), untypeable while the mode holds.
     @ViewBuilder private var addressReadout: some View {
         if model.paneMode == .zfs {
-            Text("zfs · \(model.state.host ?? "—")")
-                .fontWeight(.semibold)
-                .foregroundStyle(Theme.plugin)
+            // The boundary wears the plugin chip's own clothes — solid
+            // umber, cream letters — so the mode is unmistakable from
+            // across the room (his ask, pointing at the strip chip).
+            HStack(spacing: 8) {
+                Text("ZFS")
+                    .fontWeight(.bold)
+                    .foregroundStyle(Theme.ground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Theme.plugin, in: RoundedRectangle(cornerRadius: 4))
+                Text(model.state.host ?? "—")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.plugin)
+            }
         } else if model.pathEditing {
             TextField("host:path — local: for this Mac, ~ for home", text: $pathDraft)
                 .textFieldStyle(.plain)

@@ -102,9 +102,15 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         hosting.sizingOptions = []
         made.contentView = hosting
         made.delegate = self
-        // setFrameAutosaveName persists position only; size is step-authored.
+        // setFrameAutosaveName restores the WHOLE saved frame — size
+        // included — which let a stale size defeat the stepped authority
+        // (the 'too small' screenshot). Take the remembered position,
+        // then re-assert the step's size; center only on first-ever show.
+        let hadSavedFrame =
+            UserDefaults.standard.string(forKey: "NSWindow Frame palana-zfs-position") != nil
         made.setFrameAutosaveName("palana-zfs-position")
-        made.center()
+        made.setContentSize(size)
+        if !hadSavedFrame { made.center() }
         panel = made
         made.makeKeyAndOrderFront(nil)
     }
