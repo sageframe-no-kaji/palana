@@ -39,9 +39,16 @@ import UniformTypeIdentifiers
 /// public.text. The drop side identifies our payload by successful JSON decode
 /// into ``DraggedSelection`` rather than by a custom type identifier.
 ///
+/// When `localFileURL` is non-nil the provider ALSO registers the real
+/// file URL, so the drag lands anywhere a file lands — Finder, a browser
+/// upload, Mail. Local panes only: a remote entry has no URL this Mac can
+/// honor (the file-promise download drag is banked as its own item).
+/// pālana's own drop side prefers the json payload, so pane-to-pane drags
+/// are untouched by the extra representation.
+///
 /// Returns `nil` when encoding fails (a programming error).
 @MainActor
-func itemProvider(for selection: DraggedSelection) -> NSItemProvider? {
+func itemProvider(for selection: DraggedSelection, localFileURL: URL? = nil) -> NSItemProvider? {
     let encoder = JSONEncoder()
     guard let data = try? encoder.encode(selection) else {
         return nil
@@ -54,6 +61,10 @@ func itemProvider(for selection: DraggedSelection) -> NSItemProvider? {
     ) { completion in
         completion(data, nil)
         return nil
+    }
+    if let url = localFileURL {
+        provider.suggestedName = url.lastPathComponent
+        provider.registerObject(url as NSURL, visibility: .all)
     }
     return provider
 }

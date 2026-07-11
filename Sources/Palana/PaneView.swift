@@ -438,7 +438,8 @@ extension PaneView {
                         let payload = dragPayload(for: entry, selectedNames: selectedNames)
                         // Qualify the global to resolve the name collision with the
                         // .itemProvider(_:) modifier method on TableRow.
-                        return Palana.itemProvider(for: payload)
+                        return Palana.itemProvider(
+                            for: payload, localFileURL: localDragURL(for: entry))
                     }
             }
         }
@@ -570,6 +571,19 @@ extension PaneView {
             model.state.cursor = ids.first
         }
         onOperation(operation)
+    }
+
+    /// The real file URL for a drag leaving the app — local pane only.
+    ///
+    /// A remote entry returns nil: no URL on this Mac can honor it (the
+    /// file-promise download drag is a banked follow-up). The URL rides
+    /// the drag beside the pane-to-pane payload so files land on any
+    /// outside target — a browser upload, Finder, Mail.
+    func localDragURL(for entry: FileEntry) -> URL? {
+        guard model.state.host == PalanaCore.localHostName else { return nil }
+        let base = model.state.path
+        let path = base == "/" ? "/\(entry.name)" : "\(base)/\(entry.name)"
+        return URL(fileURLWithPath: path)
     }
 
     func nameCell(_ entry: FileEntry) -> some View {
