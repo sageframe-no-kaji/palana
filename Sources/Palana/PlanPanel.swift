@@ -3,8 +3,15 @@
 // when Enter fires the enactment echoes here live: real commands, real
 // output, streaming. The panel renders values and forwards nothing —
 // the keyboard's Enter and Esc live in the session.
+//
+// ho-11 grows a third mode: shell mode swaps the transcript (and the
+// tools strip beside it) for the focused pane's live session, full
+// panel height. The header stays — orientation never disappears — but
+// its hint line trades the phase word for the exit copy while the shell
+// shows.
 
 import PalanaCore
+import SwiftTerm
 import SwiftUI
 
 /// The bottom surface: the plan whole, then the run live.
@@ -29,51 +36,61 @@ struct PlanPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            HStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 2) {
-                            if operation.phase == .naming {
-                                namingFieldView
-                            } else {
-                                // Every ready plan says what Enter does, in
-                                // green, in the terminal — the round-trip's
-                                // callout stays custom when it set one.
-                                if operation.phase == .ready {
-                                    Text(
-                                        operation.readyCallout
-                                            ?? "⏎ press enter to run this plan · esc dismisses it"
-                                    )
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Theme.accent)
-                                    .padding(.bottom, 4)
+            if session.shellMode, let host = session.shellHost {
+                // Full panel height — the strip yields too, the keyboard
+                // belongs to the shell while it shows.
+                TerminalHostView(
+                    view: session.terminalSessions.session(for: host),
+                    fontSize: 13 * session.fontScale
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HStack(spacing: 0) {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 2) {
+                                if operation.phase == .naming {
+                                    namingFieldView
+                                } else {
+                                    // Every ready plan says what Enter does, in
+                                    // green, in the terminal — the round-trip's
+                                    // callout stays custom when it set one.
+                                    if operation.phase == .ready {
+                                        Text(
+                                            operation.readyCallout
+                                                ?? "⏎ press enter to run this plan · esc dismisses it"
+                                        )
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Theme.accent)
+                                        .padding(.bottom, 4)
+                                    }
+                                    if let plan = operation.plan {
+                                        planBlock(plan)
+                                    }
+                                    transcript
                                 }
-                                if let plan = operation.plan {
-                                    planBlock(plan)
-                                }
-                                transcript
+                                Color.clear.frame(height: 1).id("panel-bottom")
                             }
-                            Color.clear.frame(height: 1).id("panel-bottom")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+                        .onChange(of: operation.echo.revision) {
+                            // The revision moves on every mutation. Watching the
+                            // last line missed most of a live run: commits land
+                            // above a live progress partial, and the tail's id
+                            // and text never change.
+                            proxy.scrollTo("panel-bottom", anchor: .bottom)
+                        }
                     }
-                    .onChange(of: operation.echo.revision) {
-                        // The revision moves on every mutation. Watching the
-                        // last line missed most of a live run: commits land
-                        // above a live progress partial, and the tail's id
-                        // and text never change.
-                        proxy.scrollTo("panel-bottom", anchor: .bottom)
+                    // Strip beside the plan/transcript only — not over the naming field.
+                    if operation.phase != .naming {
+                        WorkbenchStrip(session: session)
                     }
                 }
-                // Strip beside the plan/transcript only — not over the naming field.
-                if operation.phase != .naming {
-                    WorkbenchStrip(session: session)
+                if let progress = operation.progress {
+                    progressBar(progress)
                 }
-            }
-            if let progress = operation.progress {
-                progressBar(progress)
             }
         }
         .font(mono)
@@ -310,7 +327,7 @@ struct PlanPanel: View {
         }
     }
 
-    private func color(for kind: EchoBuffer.Line.Kind) -> Color {
+    private func color(for kind: EchoBuffer.Line.Kind) -> SwiftUI.Color {
         switch kind {
         case .command: Theme.ink
         case .stdout: Theme.ink

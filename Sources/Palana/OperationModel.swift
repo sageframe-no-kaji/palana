@@ -74,6 +74,14 @@ final class OperationModel {
     /// True while the naming field is live — the key monitor stands down.
     var isNaming: Bool { phase == .naming }
 
+    /// True during a field-less ZFS gather — destroy's typed-confirmation setting off.
+    ///
+    /// The key monitor routes to `handleFieldlessZFSGatherKey` instead of
+    /// the field, since there is no field to hold focus.
+    var isFieldlessZFSGather: Bool {
+        isNaming && pendingZFSVerb != nil && !zfsGatherWantsText
+    }
+
     /// Whether the panel is on screen — the view, not the work.
     ///
     /// An enactment keeps running when the panel hides (second hands
@@ -84,6 +92,13 @@ final class OperationModel {
     ///
     /// Set once, right after construction.
     var onFinished: @MainActor () -> Void = {}
+
+    /// Fires when a running enactment fails.
+    ///
+    /// ho-11's failure law: the session forces the transcript back over
+    /// an open shell regardless of mode. Set once, right after
+    /// construction, alongside `onFinished`.
+    var onEnactmentFailed: @MainActor () -> Void = {}
 
     let engine: Engine
     private let configuration: SSHConfiguration
@@ -273,6 +288,9 @@ final class OperationModel {
                 phase = .failed
                 // A failure never stays off-screen.
                 panelShowing = true
+                // ho-11: nor behind an open shell — the transcript comes
+                // forward regardless of mode.
+                onEnactmentFailed()
             }
         }
     }
@@ -652,54 +670,5 @@ extension OperationModel {
             phase = .failed
             panelShowing = true
         }
-    }
-}
-
-// MARK: - Gather helpers (moved from class body for type_body_length budget)
-
-extension OperationModel {
-    /// The forwarding question exists only between two distinct
-    /// remotes — this machine at either end authenticates itself.
-    func needsForwardingFact(source: Locus, destination: Locus) -> Bool {
-        destination.host != source.host
-            && !engine.isLocal(source.host)
-            && !engine.isLocal(destination.host)
-    }
-
-    /// This Mac's own capability — probed once per session, in memory.
-    ///
-    /// The engine flags rsync commands by the running side's rsync;
-    /// this machine's answer decides whether progress2 rides.
-    func localCapability() async -> HostCapability? {
-        if let probedLocalCapability { return probedLocalCapability }
-        guard
-            let result = try? await engine.localConduit
-                .run(on: PalanaCore.localHostName, CapabilityProbe.command).collect(),
-            let capability = try? CapabilityProbe.parse(result.stdoutText)
-        else { return nil }
-        probedLocalCapability = capability
-        return capability
-    }
-
-    /// Remembered facts, or one discovery when the host was never met.
-    func ensureFacts(_ host: String) async throws -> HostFacts? {
-        guard !engine.isLocal(host) else { return nil }
-        if let facts = await engine.field.facts(for: host) { return facts }
-        note("discovering \(host)…")
-        return try await engine.field.discover(host)
-    }
-
-    /// The flavor fact — this Mac is BSD, remotes answer from memory or
-    /// one discovery round trip.
-    func resolveFlavor(_ host: String) async throws -> UserlandFlavor {
-        if engine.isLocal(host) { return .bsd }
-        if let flavor = await engine.field.facts(for: host)?.capability?.value.flavor {
-            return flavor
-        }
-        let facts = try await engine.field.discover(host)
-        guard let flavor = facts.capability?.value.flavor else {
-            throw ListingError.listingFailed(exitStatus: -1, stderr: "no capability fact")
-        }
-        return flavor
     }
 }

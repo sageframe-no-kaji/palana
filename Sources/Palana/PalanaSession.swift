@@ -77,6 +77,17 @@ final class PalanaSession {
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
     var fontScale: CGFloat = 1.0
+    /// Per-host live shell sessions — ho-11's interactive terminal.
+    ///
+    /// Lazy per host, kept alive across mode exits, torn down at quit
+    /// (`closeDoors()`'s partner, wired from the app delegate).
+    let terminalSessions = TerminalSessionStore()
+    /// True while the plan panel shows a live shell instead of the transcript.
+    ///
+    /// ho-11's terminal mode. Distinct from `terminalFocused`, which only
+    /// means the keyboard points at the terminal strip's tool letters;
+    /// this is the PTY taking the panel over entirely.
+    var shellMode = false
 
     private let conduit: SSHConduit
     private let field: Field
@@ -133,6 +144,9 @@ final class PalanaSession {
             }
             left.apply(.refresh)
             right.apply(.refresh)
+        }
+        operation.onEnactmentFailed = { [weak self] in
+            self?.resurfaceTranscriptOnFailure()
         }
         // Wire the round-trip center into pane callbacks and the finish hook.
         wireRoundTripCenter()
@@ -271,7 +285,11 @@ final class PalanaSession {
     }
 
     /// Closes every ControlMaster — the quit path owns this.
+    ///
+    /// Also tears down every live shell session (ho-11) — nothing outlives
+    /// the window, the terminal included.
     func closeDoors() async {
+        terminalSessions.teardownAll()
         await conduit.closeAll()
     }
 }
@@ -319,28 +337,49 @@ extension PalanaSession {
                 }
                 return consumed ? nil : event
             }
+            // ho-11: while the shell holds the panel, it is the key first
+            // responder in the same window — no window identifier
+            // distinguishes it, so the stand-down is checked here by the
+            // session's own flag before `handle` ever sees the event.
+            if self?.shellMode == true {
+                let consumed = MainActor.assumeIsolated {
+                    self?.handleShellModeKey(event) == true
+                }
+                return consumed ? nil : event
+            }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
         }
+    }
+
+    /// True while any text field holds the keyboard — a pane's path field,
+    /// the naming field, or the settings card's fields.
+    ///
+    /// Extracted from `handle` to keep that method within the complexity
+    /// limit; every key belongs to the field while any of these is live.
+    private var anyTextFieldLive: Bool {
+        left.pathEditing || right.pathEditing || operation.isNaming || settingsFieldFocused
     }
 
     /// Routes one key event through the grammar.
     ///
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
+        // ho-11's stand-down is checked in `installKeyMonitor`'s closure,
+        // ahead of this call, since the shell is the key first responder
+        // in the same window and needs no window-identity branch here —
+        // `handle` is never invoked at all while shell mode holds the panel.
         guard gotoTarget == nil else { return false }
         // Field-less ZFS gather: isNaming stands the monitor down so typed
         // keys never reach the panes. Return and Esc are handled here,
         // extracted to keep cyclomatic complexity in budget. The model's
         // flag decides, not the verb's static spec — destroy grows a field
         // when the typed confirmation is on.
-        if operation.isNaming, operation.pendingZFSVerb != nil, !operation.zfsGatherWantsText {
+        if operation.isFieldlessZFSGather {
             return handleFieldlessZFSGatherKey(event)
         }
         // While any text field is live, every key belongs to the field.
-        guard !left.pathEditing, !right.pathEditing, !operation.isNaming,
-            !settingsFieldFocused
-        else { return false }
+        guard !anyTextFieldLive else { return false }
         guard let token = Grammar.token(for: event) else { return false }
         // ⌘, reaches settings even while help or the field view is up.
         if handleGlobalChord(token) { return true }
@@ -509,8 +548,10 @@ extension PalanaSession {
     /// Global chords — settings and the text zoom.
     ///
     /// Fired regardless of overlay or focus, and extracted from `handle` to
-    /// keep that method within the complexity limit.
-    private func handleGlobalChord(_ token: String) -> Bool {
+    /// keep that method within the complexity limit. Not private: ho-11's
+    /// shell-mode stand-down (`PalanaSession+Shell.swift`) reuses it so
+    /// `cmd-,`/menus keep working while the PTY holds the panel.
+    func handleGlobalChord(_ token: String) -> Bool {
         switch token {
         case "cmd-,":
             helpVisible = false
@@ -586,6 +627,15 @@ extension PalanaSession {
         // the key does not collide with pane navigation in the main flow.
         if token == "Z", terminalFocused {
             ZFSPanelController.shared.toggle(session: self)
+            return true
+        }
+        // t — the interactive shell (ho-11). Active only while the terminal
+        // strip holds focus, exactly like Z, so it never collides with the
+        // main grammar's operationTouch binding. Summons the panel if it
+        // isn't already up, then swaps the transcript for the focused
+        // pane's live session.
+        if token == "t", terminalFocused {
+            enterShellMode()
             return true
         }
         return false
@@ -695,49 +745,5 @@ extension PalanaSession {
             fieldVisible = false
         default: break
         }
-    }
-}
-
-// MARK: - Workbench and terminal focus
-
-extension PalanaSession {
-    /// Runs a Workbench verb against the focused host.
-    ///
-    /// Read verbs: checks availability, starts the read, drains raw output into
-    /// the transcript. Phase is never touched — a read is not an operation.
-    ///
-    /// Mutation verbs: resolves the target dataset from the focused pane's path,
-    /// checks availability, then hands off to the operation gather.
-    ///
-    /// The read and mutation helpers live in `PalanaSession+ZFS.swift`.
-    func runWorkbenchVerb(_ verb: WorkbenchVerb) {
-        guard !operation.terminalBusy else { return }
-        guard let host = focusedPane.state.host else {
-            operation.appendToolError("point a pane at a host first")
-            return
-        }
-        // Local honesty: zfs verbs are not applicable on this Mac.
-        guard !(verb.requirement == .zfs && host == PalanaCore.localHostName) else { return }
-        switch verb.kind {
-        case .read:
-            runWorkbenchRead(verb, on: host)
-        case .mutation:
-            runWorkbenchMutation(verb, on: host)
-        }
-    }
-}
-
-// MARK: - Host onboarding probe
-
-extension PalanaSession {
-    /// First-reach probe offered after a guided add.
-    func probeHost(alias: String) async -> OnboardingProbeOutcome {
-        guard alias != Engine.localHost else { return .connected }
-        guard let facts = try? await engine.field.discover(alias),
-            case .unreachable(let detail) = facts.reachability?.value
-        else { return .connected }
-        let low = detail.lowercased()
-        let denied = low.contains("authentication denied") || low.contains("permission denied")
-        return denied ? .authDenied(detail: detail) : .unreachable(detail: detail)
     }
 }
