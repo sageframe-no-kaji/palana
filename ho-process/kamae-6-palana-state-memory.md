@@ -62,6 +62,16 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 - A 20-item numbered test list was handed to him (drag-out 1–4, shell
   5–11, zfs pane mode 12–18, 10.1 remainders 19–20); his replies come
   as numbers.
+- **SEEDED, his ask ("it would be life changing"): the PREVIEW/INFO
+  pane mode** — paneMode grows .preview; the right pane follows the
+  LEFT pane's cursor. Local: QLPreviewView (Quick Look) + an info card
+  assembled from facts we already gather (FileEntry, treeSizes, ◆).
+  Remote text: Listing.readFile head-read. Remote binary: fetch-to-
+  cache on the ho-9.10 round-trip machinery — needs a Think phase
+  (size caps, cursor-motion debounce, eviction). Sizing: local+info =
+  one ho; remote-binary its own follow-up. Wants a Kamae-4 slot when
+  the board clears. Also noted: 3 reentrant-NSTableView warnings at
+  launch on the integration branch — run down before the branch closes.
 
 **NEXT**
 - **His verdicts**: the ⌘` keyboard loop, Z-from-pane zfs circuit
