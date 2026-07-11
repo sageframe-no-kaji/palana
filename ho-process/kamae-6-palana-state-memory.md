@@ -16,6 +16,70 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-10, seventh block — THE HANDS ROUND BUILT LIVE; TWO HOS EXECUTED IN PARALLEL WORKTREES
+
+**COMPLETED**
+- **ho-10.1 hands round, built live on his verdicts** (three commits on
+  main after the click fix): panel text scales with the size steps
+  (keys-panel ruling applied); the tree reads cache-then-discovers-then-
+  re-reads (angrybird-missing and create-not-showing both dead); every
+  ready plan says "⏎ press enter to run this plan" in green in the term
+  + the header's armed-Return block grew words; rollback/destroy-snapshot
+  gathers list the dataset's snapshots under the field (ShellQuote went
+  public for it); **typed destroy** — the word arms the verb, setting
+  `confirmDestroyTyped` (default ON) in the new Workbench settings
+  section frees it. Fixture pool mountpoints chowned to the ssh user
+  (yank l→r was EACCES on root-owned /palana — machinery held, gates
+  held); zfs-fixture.sh patched to chown on create.
+- **His sequencing call, ratified**: "I DO want to wire up the terminal
+  and the pane solution." ho-11 + ho-10.3 authored (Kamae 5, Think
+  sealed at the top) and EXECUTED in parallel worktrees on sonnet;
+  both reviewed at the top, both independently verified green.
+  - **ho-11-terminal branch** (a4df114, /tmp/palana-ho11): SwiftTerm
+    1.14.0 app-target-only; per-host LocalProcessTerminalView over the
+    operator's own `ssh <alias>` (same config, same masters); plan panel
+    third mode on `t` at terminal focus; Esc passes to vim, ⌘Esc comes
+    home; failure law wired (onEnactmentFailed). 714 tests. NEW: a
+    PalanaTests app-target test target exists at last.
+  - **ho-10.3-pane-mode branch** (bc9eb72, /tmp/palana-ho103): pane
+    Mode .files|.zfs, plugin-hued boundary, one cursor targets every
+    verb, Enter-on-mounted exits into the mountpoint, panel DEMOTED
+    (verb rows gone, zero mutation paths — grep-verified), afterZFS
+    refresh mode-aware. Agent's flagged call: Z and ⇧Z are one token in
+    this grammar, so bare Z = pane mode, panel moved to ⌘⇧Z. 708 tests.
+- **ssh config gained an Include** of .fixtures/zfs-ssh-config (top of
+  ~/.ssh/config) so the app + plain ssh resolve zfs-self; session.json
+  pointed the right pane at zfs-self:/palana. Fixture VM RUNNING.
+
+**NEXT**
+- **His remaining 10.1 verdicts** (typed destroy live in the running
+  build; snapshot loop; the click list) + the SECOND-PRESS mystery
+  (Images #4/#5/#6 — something reappears on the second Enter; his one-
+  line description still owed) → close ho-10.1 → **tag v0.5** → merge
+  ho-11-terminal then ho-10.3-pane-mode (hand-merge: both reshape
+  PalanaSession.swift; expect conflicts in monitor/extraction areas) →
+  hands session per branch → README polish.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. Both branches wait on the v0.5 tag, not on build work.
+- Post-merge follow-up: write the tree-walk unit tests ho-10.3 skipped
+  (no app test target existed on its branch; ho-11's PalanaTests target
+  arrives in the merge and unblocks them).
+- SwiftTerm 1.14.0 was tagged upstream the same day it was pinned —
+  builder diffed it vs 1.13.0 (iOS-side changes); Package.resolved pins
+  exact. First dependency in the project; note for the v1.0 audit.
+- Feel-checks queued: `t`-for-shell vs touch muscle memory; Z / ⌘⇧Z
+  split; vim/htop/⌃C/resize in the shell.
+- Session end: fixture VM to stop (`scripts/zfs-fixture.sh stop`);
+  ~/.ssh/config Include line stays (inert when fixture is down) or
+  comes out — his call. Dave still parked.
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; v0.5 is his verdicts away; ho-11 and
+  ho-10.3 built and reviewed, awaiting merge; v1.0 = ho-12 after.
+
+---
+
 ## State summary — 2026-07-10, sixth block — THE CLICK HUNT ENDS: CODE, NOT MACHINE
 
 **COMPLETED**
