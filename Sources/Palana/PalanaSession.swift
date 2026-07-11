@@ -540,6 +540,15 @@ extension PalanaSession {
             helpVisible = false
             fieldVisible = false
             settingsVisible.toggle()
+        case "cmd-`":
+            // The shell toggle, both directions (ho-11 hands session).
+            // ⌘Esc never reaches the app — the system eats it — and a
+            // letter summon shadowed the file grammar (t fired touch
+            // seven times on his hands). Backtick is the terminal-focus
+            // family; the ⌘ chord is its inhabit-the-shell sibling.
+            // Exit rides handleShellModeKey (shell mode never reaches
+            // this switch); entry lands here from every other state.
+            enterShellMode()
         case "cmd-=", "cmd-+":
             adjustFontScale(by: 0.1)
         case "cmd--":
@@ -616,15 +625,6 @@ extension PalanaSession {
         // the key does not collide with pane navigation in the main flow.
         if token == "Z", terminalFocused {
             toggleZFSPaneMode()
-            return true
-        }
-        // t — the interactive shell (ho-11). Active only while the terminal
-        // strip holds focus, exactly like Z, so it never collides with the
-        // main grammar's operationTouch binding. Summons the panel if it
-        // isn't already up, then swaps the transcript for the focused
-        // pane's live session.
-        if token == "t", terminalFocused {
-            enterShellMode()
             return true
         }
         return false

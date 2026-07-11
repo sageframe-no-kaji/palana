@@ -21,18 +21,20 @@ extension PalanaSession {
             if shellMode, shellHost == host {
                 exitShellMode()
             }
-            operation.note("shell on \(host) ended — t starts a new one")
+            operation.note("shell on \(host) ended — ⌘` starts a new one")
         }
     }
 
-    /// `t` while the terminal strip holds focus — summons the panel if
-    /// needed and swaps the transcript for the focused pane's live shell.
+    /// ⌘` from anywhere — summons the panel if needed and swaps the
+    /// transcript for the focused pane's live shell. The same chord
+    /// leaves (`handleShellModeKey`) — one key, both directions.
     ///
     /// No-op with no pane pointed anywhere: a shell needs a host. Switching
     /// the focused pane afterward switches which host's session shows
     /// (`shellHost` tracks the pointing live), so this only needs to arm
     /// the mode once.
     func enterShellMode() {
+        guard !shellMode else { return }
         guard focusedPane.state.host != nil else {
             operation.appendToolError("point a pane at a host first")
             return
@@ -76,7 +78,7 @@ extension PalanaSession {
     /// the key first responder while shell mode shows.
     func handleShellModeKey(_ event: NSEvent) -> Bool {
         guard let token = Grammar.token(for: event) else { return false }
-        if token == "cmd-esc" {
+        if token == "cmd-`" || token == "cmd-esc" {
             exitShellMode()
             return true
         }

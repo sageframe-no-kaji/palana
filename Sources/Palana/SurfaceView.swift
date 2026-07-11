@@ -263,8 +263,9 @@ struct SurfaceView: View {
             }
             if session.shellMode {
                 // ho-11's exits, named plainly — Esc itself goes to the
-                // shell (vim needs it); only the ⌘ chord leaves.
-                Text("⌘esc leaves the shell · ⌘-chords pass")
+                // shell (vim needs it); only ⌘` leaves (⌘Esc never
+                // reaches the app; the system eats it).
+                Text("⌘` leaves the shell · ⌘-chords pass")
                     .foregroundStyle(Theme.accent)
             }
             Spacer()

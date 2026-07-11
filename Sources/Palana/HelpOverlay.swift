@@ -99,6 +99,7 @@ struct HelpOverlay: View {
                 HelpRow(keys: "F", what: "host map — floats"),
                 HelpRow(keys: "*", what: "favorites panel"),
                 HelpRow(keys: "`", what: "terminal"),
+                HelpRow(keys: "⌘`", what: "live shell — same key leaves"),
                 HelpRow(keys: "?", what: "this card · ? again floats it"),
                 HelpRow(keys: "⌘,", what: "settings"),
             ]),
