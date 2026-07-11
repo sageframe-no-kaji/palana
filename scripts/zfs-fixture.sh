@@ -91,6 +91,9 @@ datasets() {
         ensure palana/svc/baserow
         ensure palana/legacy -o mountpoint=legacy
         ensure palana/detached -o canmount=noauto
+        # The operator writes through the panes as the ssh user — root-owned
+        # mountpoints turn every pane transfer into EACCES (the yank round).
+        chown -R atmarcus:atmarcus /palana /opt/services
     '
 }
 
