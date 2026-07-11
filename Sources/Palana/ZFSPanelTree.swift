@@ -152,7 +152,7 @@ struct ZFSDatasetTree: View {
                     }
                     .padding(.vertical, 2)
                 }
-                .frame(maxHeight: 180 * scale)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
         .task(id: treeKey) {

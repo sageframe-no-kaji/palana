@@ -179,7 +179,7 @@ struct ZFSPanelContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            OverlayHeader(title: "zfs", scale: scale) { ZFSPanelController.shared.close() }
+            OverlayHeader(title: "zfs overview", scale: scale) { ZFSPanelController.shared.close() }
             ZFSPanelView(
                 session: session,
                 selection: ZFSPanelController.shared.selection,
@@ -236,7 +236,7 @@ struct ZFSPanelView: View {
     /// Shows the selected dataset and host, or guidance when none is selected.
     @ViewBuilder private var targetLine: some View {
         if let dataset = selection.selectedDataset, let host = focusedHost {
-            Text("\(dataset) · \(host) — overview only, mutate from a pane in zfs mode")
+            Text("\(dataset) · \(host) — a glance, nothing more. Z makes the focused pane the zfs surface")
                 .font(.system(size: 11 * scale, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -256,7 +256,7 @@ struct ZFSPanelView: View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
             Text(
-                "↑↓ choose · ⇧⌘←/→ opens in pane · right-click for zfs mode · esc closes · ⌘1–⌘5 size · ⌘+/− step"
+                "↑↓ choose · ⇧⌘←/→ open in pane · Z zfs pane mode · esc closes · ⌘1–⌘5 size · ⌘+/− step"
             )
             .font(.system(size: 10 * scale))
             .foregroundStyle(Theme.inkFaint)
