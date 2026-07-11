@@ -16,6 +16,71 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-11, eighth block — THE INTEGRATION HANDS SESSION: FIVE ROUNDS ON THE SHELL AND THE BOUNDARY
+
+**COMPLETED**
+- **He asked for the merge early** ("i want to test the terminal and the
+  pane zfs setup") — branch `integration-shell-panemode` (worktree
+  /tmp/palana-ho11) merged ho-11 + ho-10.3 ahead of the v0.5 tag; one
+  conflict (both branches re-extracted handle()'s text-entry priority;
+  10.3's handleTextEntryPriority subsumed ho-11's inline form). Main
+  UNTOUCHED. Then five live hands rounds on the integration build:
+  1. **`exit` killed the app silently** — nothing heard the child die;
+     keystrokes wrote into a closed/recyclable fd → SIGPIPE, no crash
+     report. Fixed threefold (0591f4e): store is processDelegate and
+     drops dead sessions firing onSessionEnded; shell mode exits with a
+     transcript note; SIGPIPE ignored app-wide. Two tests pin it.
+  2. **⌘Esc provably never reaches the app** (key trace: the system eats
+     ⌘Esc AND ⌘.) and `t`-for-shell fired file-touch seven times on his
+     hands. ⌘` became the shell key (his fingers pressed it four times
+     looking for the exit); t means touch again (94970c8).
+  3. **The demoted overview panel was cramped and mute** — tree uncapped
+     (the 180pt cap was for the deleted verb rows), copy names Z
+     (b4783cb); then the WINDOW size bug: setFrameAutosaveName restores
+     size too, stale frame defeated the stepped sizing — step size
+     re-asserted after restore (0d91efd).
+  4. **The zfs pane boundary too quiet; ⌘⇧Z 'WTH is that?'** — header
+     wears a solid umber ZFS badge in the chip's style, wash 0.12, the
+     chord is DEAD: panel is click-only on its chip; Z is the one zfs
+     key (0d91efd).
+  5. **'Z isnt working' + 'can I bring the shell in and out of focus?'**
+     — Z was gated on strip focus (my ho doc's error; type-ahead ate it)
+     → ungated, works at pane focus. And the focus model landed
+     (682250f): shellMode (view) splits from shellFocused (keyboard);
+     ⌘` MOVES THE KEYBOARD while the view stays — engagement line +
+     dim + footer words say who is listening; first responder follows
+     deferred a turn; ONE LAW replaced the failure hook's special case:
+     the plan owns the panel whenever an operation exists, the shell
+     shows in the idle gaps.
+- Every round: full rhythm green (714 tests incl. 2 natural-exit).
+
+**NEXT**
+- **His verdicts**: the ⌘` keyboard loop, Z-from-pane zfs circuit
+  (verbs on the tree cursor, Enter-into-mountpoint, post-enact tree
+  truth, typed destroy), vim/htop/⌃C in the shell — plus the ORIGINAL
+  10.1 list (snapshot loop feel) and the second-press one-liner still
+  owed. Then: close 10.1 → tag v0.5 on main → fold the integration
+  branch's fixes back into ho-11/ho-10.3 closes (the branch IS the
+  hands session record) → merge to main → hands-verified close of both.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. App instance quit (his ⌘Q, ~00:00); relaunch:
+  `cd /tmp/palana-ho11 && .build/debug/Palana` (run_in_background).
+- Fixture VM left RUNNING for the resumed hands session (stop with
+  `scripts/zfs-fixture.sh stop` when the walk is done).
+- Post-merge follow-ups from the seventh block still open (tree-walk
+  unit tests; SwiftTerm same-day-tag note for the v1.0 audit).
+- ho-11/ho-10.3 docs need their Reflect sections amended with the
+  hands-session corrections (⌘` not t/⌘Esc; Z ungated; panel click-only
+  — my Decision-3 ⇧Z text was wrong in the app's grammar).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; v0.5 waits on his 10.1 verdicts; ho-11 +
+  ho-10.3 hands-session-hardened on the integration branch; v1.0 =
+  ho-12 after.
+
+---
+
 ## State summary — 2026-07-10, seventh block — THE HANDS ROUND BUILT LIVE; TWO HOS EXECUTED IN PARALLEL WORKTREES
 
 **COMPLETED**
