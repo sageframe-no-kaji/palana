@@ -36,14 +36,26 @@ struct PlanPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            if session.shellMode, let host = session.shellHost {
-                // Full panel height — the strip yields too, the keyboard
-                // belongs to the shell while it shows.
+            if session.shellVisible, let host = session.shellHost {
+                // Full panel height — the strip yields too. The leading
+                // engagement line names who has the keyboard, the same
+                // vocabulary the strip's edge speaks; ⌘` flips it.
                 TerminalHostView(
                     view: session.terminalSessions.session(for: host),
-                    fontSize: 13 * session.fontScale
+                    fontSize: 13 * session.fontScale,
+                    focused: session.shellFocused
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .opacity(session.shellFocused ? 1.0 : 0.75)
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(
+                            session.shellFocused
+                                ? Theme.accent : Theme.inkFaint.opacity(0.18)
+                        )
+                        .frame(width: session.shellFocused ? 2 : 1)
+                        .animation(.easeInOut(duration: 0.12), value: session.shellFocused)
+                }
             } else {
                 HStack(spacing: 0) {
                     ScrollViewReader { proxy in

@@ -261,12 +261,15 @@ struct SurfaceView: View {
                 Text("transfer running — ` brings the panel back")
                     .foregroundStyle(Theme.accent)
             }
-            if session.shellMode {
-                // ho-11's exits, named plainly — Esc itself goes to the
-                // shell (vim needs it); only ⌘` leaves (⌘Esc never
-                // reaches the app; the system eats it).
-                Text("⌘` leaves the shell · ⌘-chords pass")
-                    .foregroundStyle(Theme.accent)
+            if session.shellVisible {
+                // ho-11's keyboard, named plainly — Esc itself goes to
+                // the shell (vim needs it); ⌘` moves the keyboard.
+                Text(
+                    session.shellFocused
+                        ? "shell has the keyboard · ⌘` gives it back · ⌘-chords pass"
+                        : "panes have the keyboard · ⌘` speaks to the shell"
+                )
+                .foregroundStyle(session.shellFocused ? Theme.accent : Theme.inkFaint)
             }
             Spacer()
             if !session.pendingPrefix.isEmpty {

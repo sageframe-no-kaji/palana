@@ -82,12 +82,17 @@ final class PalanaSession {
     /// Lazy per host, kept alive across mode exits, torn down at quit
     /// (`closeDoors()`'s partner, wired from the app delegate).
     let terminalSessions = TerminalSessionStore()
-    /// True while the plan panel shows a live shell instead of the transcript.
+    /// True while the operator has a shell summoned (ho-11).
     ///
-    /// ho-11's terminal mode. Distinct from `terminalFocused`, which only
-    /// means the keyboard points at the terminal strip's tool letters;
-    /// this is the PTY taking the panel over entirely.
+    /// The standing choice — the panel shows the shell whenever the plan
+    /// does not own it (`shellVisible`). Distinct from `terminalFocused`,
+    /// which only means the strip's tool letters are armed.
     var shellMode = false
+    /// True while the KEYBOARD belongs to the shell.
+    ///
+    /// ⌘` toggles this without tearing the view down — the shell can sit
+    /// visible and dimmed while the operator drives the panes.
+    var shellFocused = false
 
     private let conduit: SSHConduit
     private let field: Field
@@ -342,7 +347,7 @@ extension PalanaSession {
             // responder in the same window — no window identifier
             // distinguishes it, so the stand-down is checked here by the
             // session's own flag before `handle` ever sees the event.
-            if self?.shellMode == true {
+            if self?.shellMode == true, self?.shellFocused == true {
                 let consumed = MainActor.assumeIsolated {
                     self?.handleShellModeKey(event) == true
                 }
@@ -541,14 +546,13 @@ extension PalanaSession {
             fieldVisible = false
             settingsVisible.toggle()
         case "cmd-`":
-            // The shell toggle, both directions (ho-11 hands session).
-            // ⌘Esc never reaches the app — the system eats it — and a
-            // letter summon shadowed the file grammar (t fired touch
-            // seven times on his hands). Backtick is the terminal-focus
-            // family; the ⌘ chord is its inhabit-the-shell sibling.
-            // Exit rides handleShellModeKey (shell mode never reaches
-            // this switch); entry lands here from every other state.
-            enterShellMode()
+            // The shell KEYBOARD toggle (ho-11 hands session, twice
+            // corrected). ⌘Esc never reaches the app — the system eats
+            // it — and a letter summon shadowed the file grammar. ⌘`
+            // moves the keyboard between shell and panes; the view
+            // stays. Focus-off rides handleShellModeKey (a focused
+            // shell never reaches this switch); everything else here.
+            toggleShellKeyboard()
         case "cmd-=", "cmd-+":
             adjustFontScale(by: 0.1)
         case "cmd--":
@@ -579,8 +583,9 @@ extension PalanaSession {
     /// All are gated on `pendingPrefix.isEmpty` so multi-key chords
     /// (`c f` = copyFilename) are not intercepted. Returns true when consumed.
     /// Backtick (`` ` ``) shows the plan panel; phase and work are untouched.
-    /// Z enters zfs mode on the focused pane — only fires while the terminal
-    /// holds focus, where it acts as a mode switch, not a WorkbenchVerb.
+    /// Z enters zfs mode on the focused pane — from PANE focus too; a
+    /// pane mode key gated on the strip was the hands session's 'jumps
+    /// to z' confusion (the Table's type-ahead ate it).
     /// The glance-only floating panel has NO chord — its strip chip is the
     /// door (the ⌘⇧Z experiment read as gibberish on his hands).
     private func handleMainSpecialKey(_ token: String) -> Bool {
@@ -619,7 +624,7 @@ extension PalanaSession {
         }
         // Z — zfs pane mode. Active only while the terminal holds focus so
         // the key does not collide with pane navigation in the main flow.
-        if token == "Z", terminalFocused {
+        if token == "Z" {
             toggleZFSPaneMode()
             return true
         }
