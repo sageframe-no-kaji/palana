@@ -9,6 +9,22 @@ import AppKit
 import PalanaCore
 
 extension PalanaSession {
+    /// Wires the store's end-of-session signal — called once from init.
+    ///
+    /// A shell that ends on its own (`exit`, a dropped connection) leaves
+    /// shell mode if it was showing and says so in the transcript. The
+    /// store has already dropped the dead session; the next `t` starts
+    /// fresh.
+    func wireShellLifecycle() {
+        terminalSessions.onSessionEnded = { [weak self] host in
+            guard let self else { return }
+            if shellMode, shellHost == host {
+                exitShellMode()
+            }
+            operation.note("shell on \(host) ended — t starts a new one")
+        }
+    }
+
     /// `t` while the terminal strip holds focus — summons the panel if
     /// needed and swaps the transcript for the focused pane's live shell.
     ///

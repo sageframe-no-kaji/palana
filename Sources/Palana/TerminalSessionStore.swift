@@ -20,17 +20,29 @@ import SwiftTerm
 /// override, so the operator's real `~/.ssh/config` governs exactly as
 /// it does in Terminal.app.
 @MainActor
-final class TerminalSessionStore {
+final class TerminalSessionStore: NSObject {
     private var sessions: [String: LocalProcessTerminalView] = [:]
+
+    /// Fired when a session's child process ends on its own — the operator
+    /// typed `exit`, the connection dropped, the shell died.
+    ///
+    /// The dead session is already removed when this fires; the next
+    /// summon spawns fresh. The session wires this to leave shell mode
+    /// and say so in the transcript. A dead session left in the panel is
+    /// how the natural-exit crash happened: keystrokes kept writing into
+    /// a closed (and recyclable) descriptor.
+    var onSessionEnded: (String) -> Void = { _ in }
 
     /// The live session for `host`, creating and starting it on first summon.
     ///
     /// Later calls for the same host return the same view — the session
     /// survives mode exits, so re-summoning shows the same scrollback and
-    /// the same running program.
+    /// the same running program. A session whose process ENDED is removed
+    /// by the termination delegate, so a summon after `exit` starts anew.
     func session(for host: String) -> LocalProcessTerminalView {
         if let existing = sessions[host] { return existing }
         let view = LocalProcessTerminalView(frame: .zero)
+        view.processDelegate = self
         start(view, host: host)
         sessions[host] = view
         return view
@@ -65,5 +77,36 @@ final class TerminalSessionStore {
             view.terminate()
         }
         sessions.removeAll()
+    }
+}
+
+// MARK: - LocalProcessTerminalViewDelegate
+
+/// The store hears its sessions' lifecycle. Only termination matters:
+/// a session whose child ended must leave the table immediately, or the
+/// panel keeps feeding keystrokes to a closed descriptor (the
+/// natural-exit crash — a recycled fd turns that into SIGPIPE).
+///
+/// SwiftTerm delivers these on the main queue (`LocalProcess`'s default);
+/// the protocol itself is nonisolated, so each method hops explicitly.
+extension TerminalSessionStore: LocalProcessTerminalViewDelegate {
+    nonisolated func processTerminated(source: TerminalView, exitCode: Int32?) {
+        MainActor.assumeIsolated {
+            guard let host = sessions.first(where: { $0.value === source })?.key else { return }
+            sessions.removeValue(forKey: host)
+            onSessionEnded(host)
+        }
+    }
+
+    nonisolated func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {
+        // The view manages its own PTY winsize; nothing to relay.
+    }
+
+    nonisolated func setTerminalTitle(source: LocalProcessTerminalView, title: String) {
+        // The panel's header names the host; shell titles are not surfaced.
+    }
+
+    nonisolated func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {
+        // OSC 7 tracking is a future nicety (point-a-pane-here); unused today.
     }
 }

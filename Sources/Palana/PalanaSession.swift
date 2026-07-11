@@ -148,6 +148,7 @@ final class PalanaSession {
         operation.onEnactmentFailed = { [weak self] in
             self?.resurfaceTranscriptOnFailure()
         }
+        wireShellLifecycle()
         // Wire the round-trip center into pane callbacks and the finish hook.
         wireRoundTripCenter()
     }

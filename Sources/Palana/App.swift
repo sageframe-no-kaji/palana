@@ -45,6 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// A bare `swift run Palana` starts as a background process —
     /// become a regular app and take the front.
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // SIGPIPE's default is silent process death, and this app owns
+        // descriptors that close underneath it by design (PTY sessions
+        // ending, ControlMaster sockets). A stray write must surface as
+        // EPIPE to the writer, never kill the app — the natural-exit
+        // crash (ho-11 hands session) was exactly this.
+        signal(SIGPIPE, SIG_IGN)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
