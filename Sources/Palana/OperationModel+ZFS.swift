@@ -192,12 +192,26 @@ extension OperationModel {
     /// Refreshes panes pointed at the affected host (mountpoint moves and
     /// destroys change what listings show), and kicks one field re-discovery
     /// so the topology fact — dataset names, mountpoints, the ◆ markers,
-    /// future verb targeting — carries the new truth. Fire-and-forget.
+    /// future verb targeting — carries the new truth. A pane in zfs mode on
+    /// the affected host re-renders its own tree from the same fresh
+    /// topology instead of a file refresh (ho-10.3 Decision 5) — the
+    /// created dataset appears, the destroyed one goes, without leaving
+    /// the mode. Fire-and-forget.
     func afterZFSFinished(host: String, left: PaneModel, right: PaneModel) {
-        if left.state.host == host { left.apply(.refresh) }
-        if right.state.host == host { right.apply(.refresh) }
+        let leftInZFSMode = left.state.host == host && left.paneMode == .zfs
+        let rightInZFSMode = right.state.host == host && right.paneMode == .zfs
+        if left.state.host == host, left.paneMode == .files { left.apply(.refresh) }
+        if right.state.host == host, right.paneMode == .files { right.apply(.refresh) }
         Task {
-            _ = try? await engine.field.discover(host)
+            // A pane in zfs mode re-reads its own tree — its refresh already
+            // runs a cache-then-discover-then-cache pass, so the plain
+            // top-level discover below only needs to fire when neither pane
+            // is doing that work itself.
+            if leftInZFSMode { await left.refreshZFSTree(engine: engine) }
+            if rightInZFSMode { await right.refreshZFSTree(engine: engine) }
+            if !leftInZFSMode, !rightInZFSMode {
+                _ = try? await engine.field.discover(host)
+            }
         }
     }
 

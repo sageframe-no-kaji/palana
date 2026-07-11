@@ -236,7 +236,9 @@ struct SurfaceView: View {
                 session.terminalFocused = true
             },
             onBack: { model.historyBack() },
-            onForward: { model.historyForward() }
+            onForward: { model.historyForward() },
+            onZFSVerb: { verb in session.runZFSPaneModeVerb(verb, on: model) },
+            zfsVerbs: session.zfsTool.verbs
         )
         .frame(minWidth: 320)
     }

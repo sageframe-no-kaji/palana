@@ -352,15 +352,6 @@ extension PalanaSession {
         }
     }
 
-    /// True while any text field holds the keyboard — a pane's path field,
-    /// the naming field, or the settings card's fields.
-    ///
-    /// Extracted from `handle` to keep that method within the complexity
-    /// limit; every key belongs to the field while any of these is live.
-    private var anyTextFieldLive: Bool {
-        left.pathEditing || right.pathEditing || operation.isNaming || settingsFieldFocused
-    }
-
     /// Routes one key event through the grammar.
     ///
     /// True means consumed.
@@ -370,21 +361,18 @@ extension PalanaSession {
         // in the same window and needs no window-identity branch here —
         // `handle` is never invoked at all while shell mode holds the panel.
         guard gotoTarget == nil else { return false }
-        // Field-less ZFS gather: isNaming stands the monitor down so typed
-        // keys never reach the panes. Return and Esc are handled here,
-        // extracted to keep cyclomatic complexity in budget. The model's
-        // flag decides, not the verb's static spec — destroy grows a field
-        // when the typed confirmation is on.
-        if operation.isFieldlessZFSGather {
-            return handleFieldlessZFSGatherKey(event)
-        }
-        // While any text field is live, every key belongs to the field.
-        guard !anyTextFieldLive else { return false }
+        if case .handled(let consumed) = handleTextEntryPriority(event) { return consumed }
         guard let token = Grammar.token(for: event) else { return false }
         // ⌘, reaches settings even while help or the field view is up.
         if handleGlobalChord(token) { return true }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
+        // A pane in zfs mode is its own mutation surface (ho-10.3 Decision 4):
+        // a zfs verb's keyHint fires on the pane's tree cursor regardless of
+        // terminal focus — checked first so it takes priority over the file
+        // grammar's own bindings for the same letters (k/m/r collide by
+        // design: the vocabularies are disjoint only within each mode).
+        if handleZFSPaneModeLetterKey(token) { return true }
         // While the terminal holds focus, a tool hint fires its verb — but every
         // other key still flows to the panes, so the operator keeps acting there.
         // Key hints are disjoint by construction; first-match over both tools.
@@ -431,16 +419,7 @@ extension PalanaSession {
     private func handlePanelPriorityKey(_ token: String) -> Bool {
         switch token {
         case "esc":
-            // Esc out of a command cancels it and drops into terminal focus —
-            // the tool keys are live for the next move. On a resting terminal
-            // it is a pure hide; the Esc that follows clears the selection.
-            if operation.terminalBusy {
-                operation.cancelCommand()
-                terminalFocused = true
-            } else {
-                terminalFocused = false
-                operation.hidePanel()
-            }
+            handlePanelPriorityEsc()
             return true
         case "`":
             // Backtick stashes — the command keeps running, peek away and back.
@@ -504,10 +483,13 @@ extension PalanaSession {
         }
     }
 
-    /// Handles Esc in the main grammar path — a pending prefix dies first;
-    /// a bare Esc clears the selection.
+    /// Handles Esc in the main grammar path — zfs mode exits first (ho-10.3
+    /// Decision 3), then a pending prefix dies, then a bare Esc clears the
+    /// selection.
     private func handleEscInMainPath() {
-        if pendingPrefix.isEmpty {
+        if focusedPane.paneMode == .zfs {
+            focusedPane.exitZFSMode()
+        } else if pendingPrefix.isEmpty {
             focusedPane.apply(.clearSelection)
         } else {
             recognizer.reset()
@@ -587,8 +569,10 @@ extension PalanaSession {
     /// All are gated on `pendingPrefix.isEmpty` so multi-key chords
     /// (`c f` = copyFilename) are not intercepted. Returns true when consumed.
     /// Backtick (`` ` ``) shows the plan panel; phase and work are untouched.
-    /// Z toggles the ZFS panel — only fires while the terminal holds focus,
-    /// where it acts as a launcher not a WorkbenchVerb.
+    /// Z enters zfs mode on the focused pane — only fires while the terminal
+    /// holds focus, where it acts as a mode switch, not a WorkbenchVerb.
+    /// ⌘⇧Z summons the floating panel (ho-10.3 Decision 3 — demoted to
+    /// launcher and glance-overview; the panel no longer mutates).
     private func handleMainSpecialKey(_ token: String) -> Bool {
         guard pendingPrefix.isEmpty else { return false }
         if token == "f" {
@@ -618,15 +602,19 @@ extension PalanaSession {
             revealOperationsLog()
             return true
         }
+        if token == "cmd-shift-z" {
+            ZFSPanelController.shared.toggle(session: self)
+            return true
+        }
         if token == "shift-tab" {
             if !operation.panelShowing { operation.showPanel() }
             terminalFocused.toggle()
             return true
         }
-        // Z — ZFS panel launcher. Active only while the terminal holds focus so
+        // Z — zfs pane mode. Active only while the terminal holds focus so
         // the key does not collide with pane navigation in the main flow.
         if token == "Z", terminalFocused {
-            ZFSPanelController.shared.toggle(session: self)
+            toggleZFSPaneMode()
             return true
         }
         // t — the interactive shell (ho-11). Active only while the terminal

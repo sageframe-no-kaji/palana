@@ -10,16 +10,15 @@ import PalanaCore
 extension PalanaSession {
     /// Routes a key event while the ZFS panel is the key window.
     ///
-    /// Esc closes. ↑↓ (keyCodes 126/125) move the dataset tree selection
+    /// Demoted by ho-10.3: the panel no longer mutates, so its key handler
+    /// no longer matches a verb's `keyHint` — that letter now belongs to
+    /// whatever the panel's tree happens to show, not a fired verb. Esc
+    /// closes. ↑↓ (keyCodes 126/125) move the dataset tree selection
     /// without rebuilding the hosting view. ⇧⌘← (keyCode 123) points the
     /// left pane at the selected dataset's mountpoint; ⇧⌘→ (keyCode 124)
     /// the right pane — mounted datasets only, silent no-op otherwise.
     /// ⌘1–⌘5 jump to a size; ⌘+/= and ⌘− step — mirroring
-    /// `handleKeysPanelKey` exactly. A plain letter matching a ZFS verb's
-    /// `keyHint` fires that verb on the currently selected dataset —
-    /// the panel stays open and keyboard focus returns to the main window
-    /// so the gather field receives input immediately. Everything else
-    /// passes through.
+    /// `handleKeysPanelKey` exactly. Everything else passes through.
     func handleZFSPanelKey(_ event: NSEvent) -> Bool {
         let keyCode = event.keyCode
         let chars = event.charactersIgnoringModifiers
@@ -61,23 +60,6 @@ extension PalanaSession {
             ZFSPanelController.shared.select(step: digit - 1)
             return true
         }
-        // Plain letters only — modifiers would step on menu shortcuts.
-        guard !hasCommand, !hasShift,
-            let ch = event.charactersIgnoringModifiers,
-            ch.count == 1
-        else { return false }
-        // Match against a ZFS verb's keyHint — fires on the selected dataset.
-        // Panel stays open — Esc or ✕ closes it. Focus returns to the main
-        // window so the gather field (PlanPanel .naming phase) receives input.
-        if let verb = zfsTool.verbs.first(where: { $0.keyHint == ch }) {
-            let sel = ZFSPanelController.shared.selection
-            guard let host = focusedPane.state.host,
-                let dataset = sel.selectedDataset
-            else { return true }
-            runWorkbenchMutation(verb, on: host, dataset: dataset)
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-            return true
-        }
         return false
     }
 
@@ -114,6 +96,146 @@ extension PalanaSession {
             let sorted = topology.sorted { $0.name < $1.name }
             ZFSPanelController.shared.selection.moveDown(in: sorted)
         }
+    }
+}
+
+// MARK: - Text-entry priority (the top of `handle(_:)`)
+
+extension PalanaSession {
+    /// The verdict from the text-entry priority check at the top of `handle`.
+    enum TextEntryPriorityOutcome {
+        /// Fully handled — `handle(_:)` returns this consumed verdict.
+        case handled(Bool)
+        /// Not a text-entry case — the caller continues routing the event.
+        case continueRouting
+    }
+
+    /// The text-entry priority check at the top of `handle(_:)` — field-less
+    /// ZFS gather routing and the "every key belongs to a live text field"
+    /// guard.
+    ///
+    /// Lives here (not `PalanaSession.swift`, where it is called) because
+    /// its first branch is ZFS-gather-specific, and to keep `handle(_:)`'s
+    /// cyclomatic complexity and that file's line count in budget.
+    func handleTextEntryPriority(_ event: NSEvent) -> TextEntryPriorityOutcome {
+        // Field-less ZFS gather: isNaming stands the monitor down so typed
+        // keys never reach the panes. Return and Esc are handled here. The
+        // model's flag decides, not the verb's static spec — destroy grows
+        // a field when the typed confirmation is on.
+        if operation.isFieldlessZFSGather {
+            return .handled(handleFieldlessZFSGatherKey(event))
+        }
+        // While any text field is live, every key belongs to the field.
+        guard !left.pathEditing, !right.pathEditing, !operation.isNaming,
+            !settingsFieldFocused
+        else { return .handled(false) }
+        return .continueRouting
+    }
+}
+
+// MARK: - ZFS pane mode (ho-10.3)
+
+extension PalanaSession {
+    /// Esc's body inside `handlePanelPriorityKey` — cancels a busy command,
+    /// or does a pure hide that also exits a pane's zfs mode when the
+    /// focused pane is in it (ho-10.3 Decision 3).
+    ///
+    /// Extracted here (from `PalanaSession.swift`, where the switch lives)
+    /// to keep that file within the line-length budget and the switch's
+    /// cyclomatic complexity in budget.
+    func handlePanelPriorityEsc() {
+        if operation.terminalBusy {
+            operation.cancelCommand()
+            terminalFocused = true
+        } else {
+            terminalFocused = false
+            operation.hidePanel()
+            if focusedPane.paneMode == .zfs { focusedPane.exitZFSMode() }
+        }
+    }
+
+    /// `Z` while the terminal holds focus: toggles zfs mode on the focused pane.
+    ///
+    /// Esc is the pane's own exit (handled in the panel-priority and main
+    /// Esc paths); `Z` here only enters, or exits if already in the mode —
+    /// a second `Z` is the quick way back out without reaching for Esc.
+    /// Entry is capability-gated: a host with no `zfsTopology` fact refuses
+    /// with a plain sentence in the transcript rather than showing an
+    /// empty tree.
+    func toggleZFSPaneMode() {
+        let pane = focusedPane
+        if pane.paneMode == .zfs {
+            pane.exitZFSMode()
+            return
+        }
+        enterZFSMode(on: pane, host: pane.state.host)
+    }
+
+    /// Capability-gated entry into zfs mode on a specific pane.
+    ///
+    /// Shared by `toggleZFSPaneMode` (the `Z` key, always the focused pane)
+    /// and the panel's "open as zfs mode" context-menu item (which may name
+    /// left or right explicitly, focus or not). A host with no `zfsTopology`
+    /// fact — including the local Mac, which is never probed — refuses with
+    /// a plain sentence in the transcript rather than showing an empty tree.
+    func enterZFSMode(on pane: PaneModel, host: String?) {
+        guard let host else {
+            operation.appendToolError("point a pane at a host first")
+            return
+        }
+        guard host != PalanaCore.localHostName else {
+            operation.appendToolError("no zfs on this Mac")
+            return
+        }
+        Task {
+            let facts = await sessionEngine.field.facts(for: host)
+            let avail = CapabilityRequirement.zfs.evaluate(host: host, facts: facts)
+            guard case .available = avail else {
+                if case .unmet(let reason) = avail {
+                    operation.appendToolError(reason)
+                }
+                return
+            }
+            pane.enterZFSMode()
+            await pane.refreshZFSTree(engine: sessionEngine)
+        }
+    }
+
+    /// Fires a zfs verb on the focused pane's tree cursor when it is in zfs
+    /// mode and `token` matches one of the tool's key hints.
+    ///
+    /// Extracted from `handle(_:)` to keep that function's complexity in
+    /// budget — the whole check-and-fire lives here as one branch point
+    /// rather than two.
+    func handleZFSPaneModeLetterKey(_ token: String) -> Bool {
+        guard focusedPane.paneMode == .zfs,
+            let verb = zfsTool.verbs.first(where: { $0.keyHint == token })
+        else { return false }
+        runZFSPaneModeVerb(verb)
+        return true
+    }
+
+    /// Fires a zfs verb on the focused pane's tree cursor.
+    ///
+    /// The pane IS the mutation surface in zfs mode — one cursor, the row
+    /// the operator is standing on. Silent no-op without a host or a
+    /// selected dataset (an empty tree, or the pre-select rules not
+    /// having landed on anything yet). Routes through the same
+    /// `runWorkbenchMutation(_:on:dataset:)` the panel used to call
+    /// directly — gathers, plan-then-Enter, pool-root refusal, and typed
+    /// destroy are all unchanged (Decision 4).
+    func runZFSPaneModeVerb(_ verb: WorkbenchVerb) {
+        runZFSPaneModeVerb(verb, on: focusedPane)
+    }
+
+    /// Fires a zfs verb on a specific pane's tree cursor.
+    ///
+    /// Used by the pane's own context menu, which may render for a pane
+    /// that is not the focused one — the row the operator right-clicked
+    /// is always this pane's cursor, focus or not (Finder's manners).
+    func runZFSPaneModeVerb(_ verb: WorkbenchVerb, on pane: PaneModel) {
+        guard let host = pane.state.host, let dataset = pane.zfsSelectedDataset else { return }
+        runWorkbenchMutation(verb, on: host, dataset: dataset)
     }
 }
 
