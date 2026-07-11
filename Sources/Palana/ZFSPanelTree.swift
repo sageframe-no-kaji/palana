@@ -111,6 +111,8 @@ struct ZFSDatasetTree: View {
     let session: PalanaSession
     /// The selection model owned by the controller — shared with the key handler.
     let selection: ZFSPanelSelection
+    /// Text scale, driven by the panel's size step.
+    var scale: Double = 1.0
 
     /// The focused host — nil for the local Mac or when no pane points anywhere.
     private var focusedHost: String? { session.focusedPane.state.host }
@@ -128,11 +130,11 @@ struct ZFSDatasetTree: View {
         Group {
             if datasets.isEmpty {
                 Text("no topology cached — reprobe the host to populate the tree")
-                    .font(.system(size: 11))
+                    .font(.system(size: 11 * scale))
                     .foregroundStyle(Theme.inkFaint)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16 * scale)
+                    .padding(.vertical, 8 * scale)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -142,6 +144,7 @@ struct ZFSDatasetTree: View {
                                 depth: depth(of: dataset),
                                 isSelected: selection.selectedDataset == dataset.name,
                                 session: session,
+                                scale: scale,
                                 verbsForDataset: verbsForDataset
                             ) {
                                 selection.select(fullDataset: dataset)
@@ -150,7 +153,7 @@ struct ZFSDatasetTree: View {
                     }
                     .padding(.vertical, 2)
                 }
-                .frame(maxHeight: 180)
+                .frame(maxHeight: 180 * scale)
             }
         }
         .task(id: treeKey) {
@@ -185,17 +188,28 @@ struct ZFSDatasetTree: View {
         session.zfsTool.verbs
     }
 
-    /// Reads facts from the cache and rebuilds the sorted dataset list.
+    /// Rebuilds the dataset list: cache first, then the wire.
     ///
-    /// No-op for the local Mac (no ZFS there) and when no host is focused.
-    /// Selects the dataset containing the focused path on first load, then
-    /// falls back to the first root dataset if none matches.
+    /// The cached topology renders instantly, then one field re-discovery
+    /// runs and the tree re-reads — so a dataset mounted or created since
+    /// the last probe appears without the operator firing a verb (the
+    /// stale-tree round: angrybird missing at open, a fresh create absent
+    /// until the next keypress). No-op for the local Mac.
     private func refreshTree() async {
         guard let host = focusedHost, host != PalanaCore.localHostName else {
             datasets = []
             selection.select(fullDataset: nil)
             return
         }
+        await readCache(host: host)
+        // The wire pass — facts land in the cache, then re-read. Cancelled
+        // cleanly if the treeKey changes mid-probe (.task(id:) semantics).
+        _ = try? await session.sessionEngine.field.discover(host)
+        await readCache(host: host)
+    }
+
+    /// One cache read: sorted list plus the pre-select rules.
+    private func readCache(host: String) async {
         let topology = await session.sessionEngine.field.facts(for: host)?.zfsTopology?.value ?? []
         let sorted = topology.sorted { $0.name < $1.name }
         datasets = sorted
@@ -239,6 +253,8 @@ private struct ZFSDatasetRow: View {
     let isSelected: Bool
     /// The root session — used by the context menu to fire verbs and point panes.
     let session: PalanaSession
+    /// Text scale, driven by the panel's size step.
+    var scale: Double = 1.0
     /// Returns the verb list — passed from the tree so the row need not
     /// hold a reference to the ZFS tool directly.
     let verbsForDataset: (ZFSDataset) -> [WorkbenchVerb]
@@ -250,16 +266,16 @@ private struct ZFSDatasetRow: View {
         Button(action: onSelect) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(leafName)
-                    .font(.system(size: 12))
+                    .font(.system(size: 12 * scale))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                 mountpointAnnotation
                 unmountedSuffix
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
-            .padding(.leading, CGFloat(depth) * 12)
-            .frame(minHeight: 26)
+            .padding(.horizontal, 12 * scale)
+            .padding(.leading, CGFloat(depth) * CGFloat(12 * scale))
+            .frame(minHeight: 26 * scale)
             .background(rowBackground)
             .contentShape(Rectangle())
         }
@@ -314,19 +330,19 @@ private struct ZFSDatasetRow: View {
             EmptyView()
         } else if dataset.mountpoint == "legacy" {
             Text("legacy")
-                .font(.system(size: 10))
+                .font(.system(size: 10 * scale))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
         } else if mounted {
             // Effectively mounted — show the path.
             Text(dataset.mountpoint)
-                .font(.system(size: 10))
+                .font(.system(size: 10 * scale))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
         } else {
             // Has a path-style mountpoint but is not mounted — show path + unmounted tag.
             Text("\(dataset.mountpoint) · unmounted")
-                .font(.system(size: 10))
+                .font(.system(size: 10 * scale))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
         }
@@ -340,7 +356,7 @@ private struct ZFSDatasetRow: View {
     @ViewBuilder private var unmountedSuffix: some View {
         if !mounted, dataset.mountpoint == "none" || dataset.mountpoint.isEmpty {
             Text("· unmounted")
-                .font(.system(size: 10))
+                .font(.system(size: 10 * scale))
                 .foregroundStyle(Theme.inkFaint)
         }
     }

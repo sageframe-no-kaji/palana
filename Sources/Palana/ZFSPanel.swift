@@ -46,6 +46,10 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     /// move the selection without rebuilding the hosting SwiftUI tree.
     let selection = ZFSPanelSelection()
 
+    /// The session the panel was shown with — needed to re-render the
+    /// content at a new text scale when the size steps (keys-panel pattern).
+    private weak var session: PalanaSession?
+
     private static let stepKey = "palana.zfsPanelStep"
 
     /// The persisted step index, clamped on read — persisted state that
@@ -64,6 +68,7 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     /// If the panel is already visible, brings it to front without
     /// rebuilding the hosting view.
     func show(session: PalanaSession) {
+        self.session = session
         if let panel {
             panel.makeKeyAndOrderFront(nil)
             return
@@ -85,7 +90,7 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         // A fullscreen main window stranded the panel out of reach — joining
         // all Spaces and allowing fullscreen auxiliary prevents this.
         made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        let hosting = NSHostingView(rootView: ZFSPanelContent(session: session))
+        let hosting = NSHostingView(rootView: ZFSPanelContent(session: session, scale: scale))
         // The panel's frame is the one truth — the hosting view must not
         // push content size into the window's constraint system.
         hosting.sizingOptions = []
@@ -122,8 +127,8 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         apply(step: stepIndex + delta)
     }
 
-    /// The one place size changes: window frame from the stepped scale,
-    /// top-left corner held.
+    /// The one place size changes: text scale and window frame together,
+    /// top-left corner held (the keys-panel ruling — one sizing authority).
     ///
     /// Never called from a delegate or layout pass.
     private func apply(step: Int) {
@@ -134,6 +139,10 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         }
         stepIndex = clamped
         let scale = Self.steps[clamped]
+        if let session {
+            (panel.contentView as? NSHostingView<ZFSPanelContent>)?.rootView =
+                ZFSPanelContent(session: session, scale: scale)
+        }
         var frame = panel.frame
         let size = CGSize(width: base.width * scale, height: base.height * scale)
         frame.origin.y += frame.height - size.height
@@ -159,11 +168,17 @@ private final class ZFSFloatingPanel: NSPanel {
 struct ZFSPanelContent: View {
     /// The root session — verbs, availability, focused pane, engine.
     let session: PalanaSession
+    /// Text scale, driven by the panel's size step.
+    var scale: Double = 1.0
 
     var body: some View {
         VStack(spacing: 0) {
-            OverlayHeader(title: "zfs") { ZFSPanelController.shared.close() }
-            ZFSPanelView(session: session, selection: ZFSPanelController.shared.selection)
+            OverlayHeader(title: "zfs", scale: scale) { ZFSPanelController.shared.close() }
+            ZFSPanelView(
+                session: session,
+                selection: ZFSPanelController.shared.selection,
+                scale: scale
+            )
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -185,6 +200,9 @@ struct ZFSPanelView: View {
     let session: PalanaSession
     /// The selection model — shared with the controller's key handler.
     let selection: ZFSPanelSelection
+    /// Text scale, driven by the panel's size step — fonts, paddings, and
+    /// row heights all multiply by it (the keys-panel ruling).
+    var scale: Double = 1.0
 
     /// Cached availabilities for the focused host — refreshed when the host changes.
     @State private var availabilities: [String: VerbAvailability] = [:]
@@ -201,12 +219,12 @@ struct ZFSPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             targetLine
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 6)
+                .padding(.horizontal, 16 * scale)
+                .padding(.top, 8 * scale)
+                .padding(.bottom, 6 * scale)
             Divider().opacity(0.35)
-            ZFSDatasetTree(session: session, selection: selection)
-                .padding(.top, 4)
+            ZFSDatasetTree(session: session, selection: selection, scale: scale)
+                .padding(.top, 4 * scale)
             Divider().opacity(0.35)
             ScrollView {
                 LazyVStack(spacing: 0) {
@@ -215,7 +233,7 @@ struct ZFSPanelView: View {
                         Divider().opacity(0.18)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 4 * scale)
             }
             panelFooter
         }
@@ -231,13 +249,13 @@ struct ZFSPanelView: View {
     @ViewBuilder private var targetLine: some View {
         if let dataset = selection.selectedDataset, let host = focusedHost {
             Text("operates on \(dataset) · \(host)")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11 * scale, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(2)
         } else {
             Text("point a pane at a host — select a dataset in the tree")
-                .font(.system(size: 11))
+                .font(.system(size: 11 * scale))
                 .foregroundStyle(Theme.inkFaint)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(2)
@@ -263,7 +281,8 @@ struct ZFSPanelView: View {
             label: verb.label,
             keyHint: verb.keyHint,
             enabled: enabled,
-            help: helpText(for: verb, avail: avail)
+            help: helpText(for: verb, avail: avail),
+            scale: scale
         ) {
             guard let host = focusedHost, let dataset = selection.selectedDataset else { return }
             // Panel stays open — Esc or ✕ closes it.
@@ -296,10 +315,10 @@ struct ZFSPanelView: View {
             Text(
                 "↑↓ choose · letter fires verb · ⇧⌘←/→ opens in pane · esc closes · Z opens · ⌘1–⌘5 size · ⌘+/− step"
             )
-            .font(.system(size: 10))
+            .font(.system(size: 10 * scale))
             .foregroundStyle(Theme.inkFaint)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 16 * scale)
+            .padding(.vertical, 8 * scale)
         }
     }
 
@@ -326,6 +345,7 @@ private struct ZFSVerbRow: View {
     let keyHint: String
     let enabled: Bool
     let help: String
+    var scale: Double = 1.0
     let action: () -> Void
 
     @State private var hovering = false
@@ -334,15 +354,15 @@ private struct ZFSVerbRow: View {
         Button(action: action) {
             HStack {
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12 * scale, weight: .semibold))
                     .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
                 Spacer()
                 Text(keyHint)
-                    .font(.system(size: 13, weight: .regular))
+                    .font(.system(size: 13 * scale, weight: .regular))
                     .foregroundStyle(Theme.accent)
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 34)
+            .padding(.horizontal, 16 * scale)
+            .frame(minHeight: 34 * scale)
             .background(
                 hovering && enabled
                     ? Theme.accent.opacity(0.10)

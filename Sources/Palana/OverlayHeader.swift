@@ -20,11 +20,14 @@ import SwiftUI
 struct OverlayHeader: View {
     /// The surface's display title — shown at all times.
     let title: String
+    /// Text scale — stepped panels pass their step's scale; others default to 1.
+    var scale: Double = 1.0
     /// The close action — when non-nil the ✕ button is shown.
     var onClose: (() -> Void)?
 
-    init(title: String, onClose: (() -> Void)? = nil) {
+    init(title: String, scale: Double = 1.0, onClose: (() -> Void)? = nil) {
         self.title = title
+        self.scale = scale
         self.onClose = onClose
     }
 
@@ -34,7 +37,7 @@ struct OverlayHeader: View {
                 OverlayCloseButton(action: onClose)
             }
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 12 * scale, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             Spacer()
         }

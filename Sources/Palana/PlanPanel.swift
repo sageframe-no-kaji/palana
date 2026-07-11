@@ -36,11 +36,17 @@ struct PlanPanel: View {
                             if operation.phase == .naming {
                                 namingFieldView
                             } else {
-                                if operation.phase == .ready, let callout = operation.readyCallout {
-                                    Text(callout)
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(Theme.accent)
-                                        .padding(.bottom, 4)
+                                // Every ready plan says what Enter does, in
+                                // green, in the terminal — the round-trip's
+                                // callout stays custom when it set one.
+                                if operation.phase == .ready {
+                                    Text(
+                                        operation.readyCallout
+                                            ?? "⏎ press enter to run this plan · esc dismisses it"
+                                    )
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Theme.accent)
+                                    .padding(.bottom, 4)
                                 }
                                 if let plan = operation.plan {
                                     planBlock(plan)
@@ -115,8 +121,8 @@ struct PlanPanel: View {
     /// phase, where nothing is armed.
     private var enactCallout: String? {
         switch operation.phase {
-        case .ready: return "⏎ run"
-        case .naming: return "⏎ commit"
+        case .ready: return "⏎ enter runs"
+        case .naming: return "⏎ enter commits"
         default: return nil
         }
     }
@@ -154,10 +160,12 @@ struct PlanPanel: View {
     @ViewBuilder private var hintView: some View {
         HStack(spacing: 10) {
             if let callout = enactCallout {
+                // Wider block, bigger type than the header line — the armed
+                // Return is the one thing the operator must not miss.
                 Text(callout)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.ground)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 14)
                     .frame(maxHeight: .infinity)
                     .background(Theme.accent)
             }
@@ -219,6 +227,19 @@ struct PlanPanel: View {
                         .foregroundStyle(Theme.ink)
                 }
                 .toggleStyle(.checkbox)
+            }
+            // The gather's context — the dataset's snapshot names during a
+            // rollback or destroy-snapshot gather, read off the wire so the
+            // operator copies instead of remembering.
+            if !operation.namingContextLines.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(operation.namingContextLines, id: \.self) { line in
+                        Text(line)
+                            .foregroundStyle(Theme.inkFaint)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.top, 2)
             }
         }
     }

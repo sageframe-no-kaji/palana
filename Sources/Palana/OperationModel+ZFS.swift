@@ -22,6 +22,7 @@ extension OperationModel {
         pendingZFSHost = nil
         pendingZFSDataset = nil
         zfsRecursive = false
+        namingContextLines = []
     }
 
     // MARK: - Begin
@@ -73,10 +74,44 @@ extension OperationModel {
             // panel's field row renders with the gather label and optional toggle.
             namingLabel = gatherLabel(verb: verb, dataset: dataset)
             namingPrefill = gatherPrefill(verb: verb, dataset: dataset)
+            namingContextLines = []
             phase = .naming
+            // The snapshot verbs gather a name nobody remembers — read the
+            // dataset's snapshots off the wire and show them under the field.
+            if verb.id == "zfs-rollback" || verb.id == "zfs-destroy-snapshot" {
+                fetchSnapshotContext(host: host, dataset: dataset)
+            }
         } else {
             // No text, no toggle (e.g. zfs-clear-mountpoint) — compose now.
             commitZFSGather(nil)
+        }
+    }
+
+    /// Reads the dataset's snapshot names and drops them into
+    /// ``namingContextLines`` for the gather view — oldest first, short
+    /// names only (the part after `@`, which is what the field wants).
+    ///
+    /// Fire-and-forget; lines landing after the gather closed render
+    /// nowhere and clear at the next state change.
+    private func fetchSnapshotContext(host: String, dataset: String) {
+        Task {
+            let cmd = "zfs list -H -t snapshot -o name -s creation -- \(ShellQuote.quote(dataset))"
+            guard let running = try? await engine.conduit(for: host).run(on: host, cmd),
+                let result = try? await running.collect()
+            else {
+                namingContextLines = ["(could not list snapshots on \(host))"]
+                return
+            }
+            let names = (String(bytes: result.stdout, encoding: .utf8) ?? "")
+                .split(separator: "\n")
+                .compactMap { line -> String? in
+                    guard let at = line.firstIndex(of: "@") else { return nil }
+                    return String(line[line.index(after: at)...])
+                }
+            namingContextLines =
+                names.isEmpty
+                ? ["(no snapshots on \(dataset))"]
+                : names
         }
     }
 

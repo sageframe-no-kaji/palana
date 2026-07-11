@@ -46,6 +46,12 @@ final class OperationModel {
     var namingLabel: String = ""
     /// The text the name field starts with — old name for rename, empty for create.
     var namingPrefill: String = ""
+    /// Context lines rendered faint under the gather field.
+    ///
+    /// The dataset's snapshot names during a rollback or destroy-snapshot
+    /// gather, so the operator reads instead of remembering. Filled async
+    /// by a wire read; empty for every other gather.
+    var namingContextLines: [String] = []
     /// The bare result name set when naming commits — the session lands the cursor here.
     var resultName: String?
     /// A callout shown above the plan when the operator should press Enter to proceed.
@@ -399,6 +405,7 @@ final class OperationModel {
         panelShowing = false
         namingLabel = ""
         namingPrefill = ""
+        namingContextLines = []
         resultName = nil
         readyCallout = nil
         pendingNamingEntry = nil
