@@ -186,9 +186,11 @@ struct PlanPanel: View {
             Text(operation.namingLabel)
                 .foregroundStyle(Theme.accent)
                 .fontWeight(.semibold)
+            // The model's flag, not the verb's static spec — destroy grows
+            // a field when the typed confirmation is on.
             let zfsNeedsTextField =
                 operation.pendingZFSVerb == nil
-                || operation.pendingZFSVerb?.gather?.needsText == true
+                || operation.zfsGatherWantsText
             if zfsNeedsTextField {
                 // Standard file ops and ZFS text verbs both show the field.
                 TextField("", text: $nameText)

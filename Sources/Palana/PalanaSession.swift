@@ -329,10 +329,12 @@ extension PalanaSession {
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
         guard gotoTarget == nil else { return false }
-        // Field-less ZFS gather (destroy): isNaming stands the monitor down so
-        // typed keys never reach the panes. Return and Esc are handled here,
-        // extracted to keep cyclomatic complexity in budget.
-        if operation.isNaming, operation.pendingZFSVerb?.gather?.needsText == false {
+        // Field-less ZFS gather: isNaming stands the monitor down so typed
+        // keys never reach the panes. Return and Esc are handled here,
+        // extracted to keep cyclomatic complexity in budget. The model's
+        // flag decides, not the verb's static spec — destroy grows a field
+        // when the typed confirmation is on.
+        if operation.isNaming, operation.pendingZFSVerb != nil, !operation.zfsGatherWantsText {
             return handleFieldlessZFSGatherKey(event)
         }
         // While any text field is live, every key belongs to the field.

@@ -22,6 +22,7 @@ extension OperationModel {
         pendingZFSHost = nil
         pendingZFSDataset = nil
         zfsRecursive = false
+        zfsGatherWantsText = false
         namingContextLines = []
     }
 
@@ -67,7 +68,12 @@ extension OperationModel {
         zfsRecursive = false
 
         let spec = verb.gather
-        let needsText = spec?.needsText == true
+        // Destroy grows a field when the typed confirmation is on — the
+        // word `destroy` is the arm, not a second Enter (his call, this
+        // round). The routing and the panel read the flag, not the spec.
+        let typedConfirm = verb.id == "zfs-destroy" && confirmDestroyTyped
+        let needsText = spec?.needsText == true || typedConfirm
+        zfsGatherWantsText = needsText
 
         if needsText || spec?.offersRecursive == true {
             // Enter the naming phase — the key monitor stands down and the
@@ -146,6 +152,19 @@ extension OperationModel {
             trimmedText = nil
         }
 
+        // Destroy with the typed confirmation on: the field's only job is
+        // the word. Anything else — empty, a typo, the dataset name —
+        // dismisses quietly, and the mutation never composes.
+        if verb.id == "zfs-destroy", zfsGatherWantsText {
+            guard trimmedText?.lowercased() == "destroy" else {
+                reset()
+                return
+            }
+            let input = MutationInput(target: dataset, text: nil, recursive: zfsRecursive)
+            compose(verb: verb, tool: tool, host: host, input: input)
+            return
+        }
+
         if needsText {
             guard let txt = trimmedText else {
                 // Empty required text — dismiss quietly.
@@ -220,7 +239,9 @@ extension OperationModel {
         case "zfs-create":
             return "name the new dataset — a child of \(dataset)  (⏎ shows the plan)"
         case "zfs-destroy":
-            return "destroy \(dataset) — ⏎ shows the plan, nothing runs yet"
+            return confirmDestroyTyped
+                ? "type destroy to arm — \(dataset)  (⏎ shows the plan, nothing runs yet)"
+                : "destroy \(dataset) — ⏎ shows the plan, nothing runs yet"
         case "zfs-rename":
             return "type the full new name — ⏎ shows the plan"
         case "zfs-snapshot":

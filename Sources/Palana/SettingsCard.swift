@@ -61,6 +61,8 @@ struct SettingsForm: View {
             hostsSection
             Divider().opacity(0.35)
             transfersSection
+            Divider().opacity(0.35)
+            workbenchSection
         }
         .onChange(of: flagsFocused) { _, focused in
             session.settingsFieldFocused = focused
@@ -364,6 +366,29 @@ extension SettingsForm {
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 8)
+        }
+    }
+}
+
+// MARK: - Workbench section
+
+extension SettingsForm {
+    var workbenchSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Workbench")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
+            VStack(alignment: .leading, spacing: 2) {
+                Toggle("zfs destroy asks you to type it", isOn: $model.confirmDestroyTyped)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .tint(Theme.accent)
+                    .font(.system(size: 12))
+                Text("on: the word destroy arms the verb · off: Enter shows the plan directly")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.inkFaint)
+                    .padding(.leading, 2)
+            }
         }
     }
 }

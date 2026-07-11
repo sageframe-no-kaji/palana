@@ -111,6 +111,12 @@ final class OperationModel {
     ///
     /// Reset to false on each `beginZFSMutation` call.
     var zfsRecursive: Bool = false
+    /// Whether the open ZFS gather renders a text field.
+    ///
+    /// True for the verbs that gather a name AND for destroy when the
+    /// typed confirmation setting is on — the routing and the panel both
+    /// consult this instead of the verb's static `needsText`.
+    var zfsGatherWantsText: Bool = false
 
     /// An operation flow over the session's engine.
     init(engine: Engine, configuration: SSHConfiguration, settings: SettingsModel) {
@@ -415,6 +421,7 @@ final class OperationModel {
         pendingZFSHost = nil
         pendingZFSDataset = nil
         zfsRecursive = false
+        zfsGatherWantsText = false
     }
 }
 
@@ -431,6 +438,9 @@ extension OperationModel {
 
     /// Whether the operator has enabled automatic upload on round-trip saves.
     var askBeforeSendingBack: Bool { settings.askBeforeSendingBack }
+
+    /// Whether zfs destroy's gather demands the word `destroy` typed.
+    var confirmDestroyTyped: Bool { settings.confirmDestroyTyped }
 
     /// Uniquifies composed snapshot names — the engine is pure and
     /// mints nothing, so the caller stamps the moment.

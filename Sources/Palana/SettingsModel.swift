@@ -19,15 +19,17 @@ private struct SettingsStored: Codable {
     var excludeDSStore: Bool
     var excludeAppleDouble: Bool
     var askBeforeSendingBack: Bool
+    var confirmDestroyTyped: Bool
 
     enum CodingKeys: String, CodingKey {
         case rsyncFlags
         case excludeDSStore
         case excludeAppleDouble
         case askBeforeSendingBack
+        case confirmDestroyTyped
     }
 
-    // Custom decoder — missing keys in old settings.json read false.
+    // Custom decoder — missing keys in old settings.json read their default.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         rsyncFlags = try container.decode(String.self, forKey: .rsyncFlags)
@@ -40,13 +42,23 @@ private struct SettingsStored: Codable {
         // deliberately ignored so everyone lands on the new default.
         askBeforeSendingBack =
             (try? container.decodeIfPresent(Bool.self, forKey: .askBeforeSendingBack)) ?? false
+        // Missing key reads TRUE — the typed confirmation is the default.
+        confirmDestroyTyped =
+            (try? container.decodeIfPresent(Bool.self, forKey: .confirmDestroyTyped)) ?? true
     }
 
-    init(rsyncFlags: String, excludeDSStore: Bool, excludeAppleDouble: Bool, askBeforeSendingBack: Bool) {
+    init(
+        rsyncFlags: String,
+        excludeDSStore: Bool,
+        excludeAppleDouble: Bool,
+        askBeforeSendingBack: Bool,
+        confirmDestroyTyped: Bool
+    ) {
         self.rsyncFlags = rsyncFlags
         self.excludeDSStore = excludeDSStore
         self.excludeAppleDouble = excludeAppleDouble
         self.askBeforeSendingBack = askBeforeSendingBack
+        self.confirmDestroyTyped = confirmDestroyTyped
     }
 }
 
@@ -92,6 +104,16 @@ final class SettingsModel {
     /// the fetch) always asks, regardless of this setting. Persisted to
     /// `settings.json` on every assignment.
     var askBeforeSendingBack: Bool = false {
+        didSet { persist() }
+    }
+
+    /// When true, zfs destroy's gather demands the word `destroy` typed
+    /// into the field before the plan composes.
+    ///
+    /// On by default — the most destructive verb reads your intent in
+    /// letters, not in a second Enter. Persisted to `settings.json` on
+    /// every assignment.
+    var confirmDestroyTyped: Bool = true {
         didSet { persist() }
     }
 
@@ -279,6 +301,7 @@ final class SettingsModel {
         excludeDSStore = stored.excludeDSStore
         excludeAppleDouble = stored.excludeAppleDouble
         askBeforeSendingBack = stored.askBeforeSendingBack
+        confirmDestroyTyped = stored.confirmDestroyTyped
     }
 
     private func persist() {
@@ -286,7 +309,8 @@ final class SettingsModel {
             rsyncFlags: rsyncFlags,
             excludeDSStore: excludeDSStore,
             excludeAppleDouble: excludeAppleDouble,
-            askBeforeSendingBack: askBeforeSendingBack)
+            askBeforeSendingBack: askBeforeSendingBack,
+            confirmDestroyTyped: confirmDestroyTyped)
         guard let data = try? JSONEncoder().encode(stored) else { return }
         let dir = settingsURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
