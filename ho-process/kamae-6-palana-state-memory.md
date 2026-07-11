@@ -53,6 +53,15 @@ session (and any hook) knows exactly where the build stands. Newest block on top
      the plan owns the panel whenever an operation exists, the shell
      shows in the idle gaps.
 - Every round: full rhythm green (714 tests incl. 2 natural-exit).
+- **Late add, his ask ("I am already reaching for palana ALL the
+  time!"): drag-out** — a local pane's drag registers the real file URL
+  beside the pane-to-pane payload, so the same gesture lands on browser
+  uploads, Finder, Mail. Remote drag-out (file-promise that downloads
+  through the transport on drop) BANKED as its own item. Internal drops
+  prefer json — pane-to-pane untouched.
+- A 20-item numbered test list was handed to him (drag-out 1–4, shell
+  5–11, zfs pane mode 12–18, 10.1 remainders 19–20); his replies come
+  as numbers.
 
 **NEXT**
 - **His verdicts**: the ⌘` keyboard loop, Z-from-pane zfs circuit
