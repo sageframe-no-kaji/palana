@@ -57,7 +57,10 @@ func itemProvider(for selection: DraggedSelection, localFileURL: URL? = nil) -> 
     provider.suggestedName = "selection"
     provider.registerDataRepresentation(
         forTypeIdentifier: UTType.json.identifier,
-        visibility: .all
+        // Same-process only: the payload is pane-to-pane vocabulary, not
+        // an export. Visibility .all let a remote drag materialize a
+        // 'selection.json' on outside targets (his round-9 finding).
+        visibility: .ownProcess
     ) { completion in
         completion(data, nil)
         return nil

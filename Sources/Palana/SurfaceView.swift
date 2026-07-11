@@ -266,8 +266,8 @@ struct SurfaceView: View {
                 // the shell (vim needs it); ⌘` moves the keyboard.
                 Text(
                     session.shellFocused
-                        ? "shell has the keyboard · ⌘` gives it back · ⌘-chords pass"
-                        : "panes have the keyboard · ⌘` speaks to the shell"
+                        ? "the shell has the keyboard · ⌘` hands it to the panes · ⌘ shortcuts still work"
+                        : "the panes have the keyboard · ⌘` speaks to the shell"
                 )
                 .foregroundStyle(session.shellFocused ? Theme.accent : Theme.inkFaint)
             }

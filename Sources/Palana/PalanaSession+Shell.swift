@@ -32,7 +32,7 @@ extension PalanaSession {
     /// only in the idle gaps. `shellMode` is the operator's standing
     /// choice; this is that choice filtered through the panel's one law.
     var shellVisible: Bool {
-        shellMode && operation.phase == .idle
+        shellMode && operation.phase == .idle && operation.panelShowing
     }
 
     /// ⌘` — the keyboard toggle (his ask: bring the shell in and out of
@@ -40,9 +40,9 @@ extension PalanaSession {
     ///
     /// Not in shell mode yet: enters it, shell shown and focused. In
     /// shell mode with the keyboard: hands the keyboard back to the
-    /// panes, shell stays visible (dimmed edge). In shell mode without
-    /// the keyboard: focuses the shell again — unless the plan owns the
-    /// panel, which is said out loud instead of silently ignored.
+    /// panes, shell stays visible (dimmed edge). Panel hidden: re-summons
+    /// the shell whole. Plan owns the panel: declines silently (his call)
+    /// — the keyboard never goes to a shell that is not on screen.
     func toggleShellKeyboard() {
         if !shellMode {
             guard focusedPane.state.host != nil else {
@@ -54,15 +54,18 @@ extension PalanaSession {
             shellFocused = true
             return
         }
-        if shellFocused {
-            shellFocused = false
+        // The panel is hidden — ⌘` re-summons the shell whole rather than
+        // moving the keyboard onto something invisible (the round-9 trap:
+        // 'stuck somewhere I can't find my way out of').
+        if !operation.panelShowing {
+            operation.showPanel()
+            shellFocused = true
             return
         }
-        guard shellVisible else {
-            operation.note("the plan owns the panel — esc dismisses it, then ⌘` returns the shell")
-            return
-        }
-        shellFocused = true
+        // The plan owns the panel — decline silently (his call, round 9).
+        // The keyboard never goes to a shell that is not on screen.
+        guard shellVisible else { return }
+        shellFocused.toggle()
     }
 
     /// Leaves shell mode entirely — the session-ended path.

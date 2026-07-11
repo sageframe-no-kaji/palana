@@ -347,7 +347,7 @@ extension PalanaSession {
             // responder in the same window — no window identifier
             // distinguishes it, so the stand-down is checked here by the
             // session's own flag before `handle` ever sees the event.
-            if self?.shellMode == true, self?.shellFocused == true {
+            if self?.shellVisible == true, self?.shellFocused == true {
                 let consumed = MainActor.assumeIsolated {
                     self?.handleShellModeKey(event) == true
                 }

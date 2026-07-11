@@ -643,7 +643,12 @@ extension PaneView {
                 // carry Finder's selection manners: shift extends from
                 // the cursor, ⌘ or ⌥ toggles one row. Keyed moves write
                 // the state directly and never pass through here.
-                let flags = NSApp.currentEvent?.modifierFlags ?? []
+                // NSEvent.modifierFlags (the class property, live hardware
+                // state) — NOT NSApp.currentEvent: the Table delivers this
+                // set AFTER the click event has passed, so currentEvent's
+                // flags read empty and shift-click degraded to a plain
+                // click (round 9: 'I cant shift selecet').
+                let flags = NSEvent.modifierFlags
                 if let clicked, flags.contains(.shift) {
                     model.extendSelection(to: clicked)
                 } else if let clicked, !flags.isDisjoint(with: [.command, .option]) {

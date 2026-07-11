@@ -198,12 +198,20 @@ struct PlanPanel: View {
                     .frame(maxHeight: .infinity)
                     .background(Theme.accent)
             }
-            VerbChipRow(
-                fontSize: 12,
-                enabled: verbRailEnabled,
-                hintText: verbRailHintText,
-                onVerbKey: onVerbKey
-            )
+            if session.shellVisible, session.shellFocused {
+                // 'esc hides' would be a lie here — esc types into the
+                // shell. The rail yields to the shell's one sentence.
+                Text("esc types into the shell · ⌘` hands the keyboard back")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkFaint)
+            } else {
+                VerbChipRow(
+                    fontSize: 12,
+                    enabled: verbRailEnabled,
+                    hintText: verbRailHintText,
+                    onVerbKey: onVerbKey
+                )
+            }
         }
         .frame(maxHeight: .infinity)
     }
