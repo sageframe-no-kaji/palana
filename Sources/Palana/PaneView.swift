@@ -58,6 +58,12 @@ struct PaneView: View {
     let onBack: () -> Void
     /// Called when the forward chevron is tapped.
     let onForward: () -> Void
+    /// Fires a zfs verb on this pane's tree cursor — the context menu's
+    /// route, mirroring the letter-key path (ho-10.3 Decision 4).
+    let onZFSVerb: (WorkbenchVerb) -> Void
+    /// The zfs mutation verbs, for the pane's context menu in zfs mode —
+    /// the session's shared `zfsTool.verbs` list, never hardcoded here.
+    let zfsVerbs: [WorkbenchVerb]
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -74,7 +80,15 @@ struct PaneView: View {
             content
             paneFooter
         }
+        // zfs mode washes the ground toward the plugin hue at low opacity —
+        // the loud, unmistakable boundary ho-10.3 Decision 2 calls for.
+        // Layered under Theme.ground so files-mode is untouched.
         .background(Theme.ground)
+        .background {
+            if model.paneMode == .zfs {
+                Theme.plugin.opacity(0.08)
+            }
+        }
         .overlay {
             if !isFocused {
                 Theme.ink.opacity(0.045)
@@ -124,9 +138,16 @@ struct PaneView: View {
     /// The pane's bottom strip — one terminal popout button, right-pinned.
     ///
     /// Wired to the same show path backtick uses so the operator can
-    /// summon the terminal from wherever the mouse happens to be.
+    /// summon the terminal from wherever the mouse happens to be. In zfs
+    /// mode this line names the exits instead (ho-10.3 Decision 2) — no
+    /// mistaking which activity the pane is in from any distance.
     private var paneFooter: some View {
         HStack {
+            if model.paneMode == .zfs {
+                Text("↑↓ walk · letter fires verb · ⏎ opens mounted · esc/Z exits zfs mode")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.plugin)
+            }
             Spacer()
             ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
                 onShowPanel()
@@ -170,9 +191,15 @@ struct PaneView: View {
     /// The whole address — text until clicked, one typeable field after.
     ///
     /// `host:path` is the vocabulary, same as the terminal's. A pane
-    /// pointed nowhere is one click and one address from somewhere.
+    /// pointed nowhere is one click and one address from somewhere. In
+    /// zfs mode the header reads `zfs · <host>` instead — no path to
+    /// show or type (ho-10.3 Decision 2), untypeable while the mode holds.
     @ViewBuilder private var addressReadout: some View {
-        if model.pathEditing {
+        if model.paneMode == .zfs {
+            Text("zfs · \(model.state.host ?? "—")")
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.plugin)
+        } else if model.pathEditing {
             TextField("host:path — local: for this Mac, ~ for home", text: $pathDraft)
                 .textFieldStyle(.plain)
                 .focused($pathFieldFocused)
@@ -299,18 +326,25 @@ struct PaneView: View {
     // MARK: - Content
 
     @ViewBuilder private var content: some View {
-        switch model.status {
-        case .unpointed:
-            quietLine(model.lastError ?? "⇧⌘G to go somewhere — or click the bar above and type host:path")
-        case .loading:
-            quietLine("reading…")
-        case .ready:
-            table
-                .overlay(alignment: .bottom) {
-                    if let error = model.lastError {
-                        errorBanner(error)
+        if model.paneMode == .zfs {
+            // The dataset tree replaces the file Table entirely — the
+            // machinery lives in PaneView+ZFSMode.swift to keep this file
+            // under the line-length budget.
+            zfsTreeContent
+        } else {
+            switch model.status {
+            case .unpointed:
+                quietLine(model.lastError ?? "⇧⌘G to go somewhere — or click the bar above and type host:path")
+            case .loading:
+                quietLine("reading…")
+            case .ready:
+                table
+                    .overlay(alignment: .bottom) {
+                        if let error = model.lastError {
+                            errorBanner(error)
+                        }
                     }
-                }
+            }
         }
     }
 
@@ -326,7 +360,7 @@ struct PaneView: View {
             .allowsHitTesting(false)
     }
 
-    private func quietLine(_ text: String) -> some View {
+    func quietLine(_ text: String) -> some View {
         VStack {
             Spacer()
             Text(text)

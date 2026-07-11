@@ -144,8 +144,7 @@ struct ZFSDatasetTree: View {
                                 depth: depth(of: dataset),
                                 isSelected: selection.selectedDataset == dataset.name,
                                 session: session,
-                                scale: scale,
-                                verbsForDataset: verbsForDataset
+                                scale: scale
                             ) {
                                 selection.select(fullDataset: dataset)
                             }
@@ -177,15 +176,6 @@ struct ZFSDatasetTree: View {
     private func selectionIsStale(in sorted: [ZFSDataset]) -> Bool {
         guard let current = selection.selectedDataset else { return true }
         return !sorted.contains { $0.name == current }
-    }
-
-    /// Fires a verb on a given dataset — selects the row first, then routes
-    /// through the same explicit-dataset path the letter keys use.
-    ///
-    /// Used by the context menu to ensure a right-click on a non-selected
-    /// row targets that row, not the previously selected one.
-    private func verbsForDataset(_ dataset: ZFSDataset) -> [WorkbenchVerb] {
-        session.zfsTool.verbs
     }
 
     /// Rebuilds the dataset list: cache first, then the wire.
@@ -244,20 +234,17 @@ struct ZFSDatasetTree: View {
 /// unmounted/legacy/none datasets. Dimmed rows remain selectable —
 /// reaching unmounted datasets is the point of this tree.
 ///
-/// A context menu duplicates the eight ZFS verbs (on THIS row's dataset,
-/// whether or not it is currently selected), a divider, then
-/// "open in left pane" / "open in right pane" (mounted datasets only).
+/// Demoted by ho-10.3: the context menu no longer fires verbs — it opens
+/// panes, plain or straight into zfs mode ("open as zfs mode", then
+/// "open in left/right pane" for mounted datasets).
 private struct ZFSDatasetRow: View {
     let dataset: ZFSDataset
     let depth: Int
     let isSelected: Bool
-    /// The root session — used by the context menu to fire verbs and point panes.
+    /// The root session — used by the context menu to enter zfs mode and point panes.
     let session: PalanaSession
     /// Text scale, driven by the panel's size step.
     var scale: Double = 1.0
-    /// Returns the verb list — passed from the tree so the row need not
-    /// hold a reference to the ZFS tool directly.
-    let verbsForDataset: (ZFSDataset) -> [WorkbenchVerb]
     let onSelect: () -> Void
 
     @State private var hovering = false
@@ -287,28 +274,21 @@ private struct ZFSDatasetRow: View {
 
     // MARK: - Context menu
 
-    /// The context menu: eight ZFS verbs on this dataset, then pane-open items.
+    /// The context menu: pane-open items, plain or straight into zfs mode.
     ///
-    /// Selects this row before firing so the verb rows and the context menu
-    /// always agree on which dataset is targeted. Verb availability mirrors
-    /// the verb-row logic: disabled when the terminal is busy, when the verb
-    /// is a mutation and the host has no ZFS, or when this is the local Mac.
+    /// Demoted by ho-10.3 — the verb rows are gone; this menu only opens
+    /// panes. "open as zfs mode" is unconditional (mounted or not — zfs
+    /// mode reaches unmounted datasets too, the whole reason the tree
+    /// exists); the plain "open in ... pane" items still require a
+    /// mounted, path-style mountpoint since a file pane needs somewhere
+    /// to point.
     @ViewBuilder private var contextMenuContent: some View {
         let host = session.focusedPane.state.host
-        let localMac = host == nil || host == PalanaCore.localHostName
-        let busy = session.operation.terminalBusy
-        ForEach(verbsForDataset(dataset), id: \.id) { verb in
-            let isMutation = verb.kind == .mutation
-            let disabled = busy || (isMutation && localMac)
-            Button(verb.label) {
-                // Select this row first — the verb targets THIS dataset.
-                ZFSPanelController.shared.selection.select(fullDataset: dataset)
-                guard let targetHost = host, !localMac else { return }
-                session.runWorkbenchMutation(verb, on: targetHost, dataset: dataset.name)
-                NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-            }
-            .disabled(disabled)
+        Button("open as zfs mode") {
+            ZFSPanelController.shared.selection.select(fullDataset: dataset)
+            session.enterZFSMode(on: session.focusedPane, host: host)
         }
+        .disabled(host == nil || host == PalanaCore.localHostName)
         Divider()
         Button("open in left pane") {
             ZFSPanelController.shared.selection.select(fullDataset: dataset)
