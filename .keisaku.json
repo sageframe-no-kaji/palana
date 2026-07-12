@@ -1,0 +1,72 @@
+{
+  "keisaku": 1,
+  "works": [
+    {
+      "id": "palana",
+      "name": "Pālana",
+      "hero": "The state view, built into the same model.",
+      "importance": 3,
+      "featured": false,
+      "group": "infrastructure",
+      "themes": [
+        "infrastructure",
+        "sovereignty"
+      ],
+      "sort_order_within_group": 20,
+      "tags": [
+        "software",
+        "desktop-app",
+        "operational-workbench",
+        "zfs",
+        "homelab"
+      ],
+      "media": [
+        "software"
+      ],
+      "status": "in-development",
+      "repo": "git@github-no-kaji:sageframe-no-kaji/palana.git",
+      "license": "GPL-3.0",
+      "deployment": [
+        {
+          "label": "GitHub repo",
+          "url": "https://github.com/sageframe-no-kaji/palana"
+        }
+      ],
+      "tech_stack": "Swift",
+      "created": "2026-05-08",
+      "last_updated": "2026-07-11",
+      "conceived": "2025-08-01",
+      "named": "2026-03-21",
+      "short_description": "Operational workbench; dual-pane file manager with true server-side operations, ZFS-aware cross-dataset handling, a field view of machine topology, and Forteller built in as an integrated capability.",
+      "substantive_description": [
+        "Pālana is the live-state companion to Forteller's configuration push. Where Forteller manages the declarative side, Pālana provides the operational visibility: dual-pane file management with server-side operations, ZFS-aware cross-dataset handling, a topological view of the machine fleet. The deeper argument is about the relationship between configuration and visibility. Most infrastructure tooling treats one or the other. The Kṣetra-Ops pair treats both as one problem with two views."
+      ],
+      "images": {
+        "gallery": []
+      },
+      "_keisaku": {
+        "generated_at": "2026-07-11T13:34:16",
+        "generator_version": "1",
+        "sources": {
+          "readme": "README.md",
+          "contract": "ho-process/kamae-6-palana-state-memory.md",
+          "manifest": "Package.swift"
+        },
+        "derived_defaults": {
+          "id": "palana",
+          "name": "pālana",
+          "media": [
+            "software"
+          ],
+          "created": "2026-03-22",
+          "tags": [
+            "swift"
+          ]
+        },
+        "contract_issues": [
+          "token-missing"
+        ]
+      }
+    }
+  ]
+}
