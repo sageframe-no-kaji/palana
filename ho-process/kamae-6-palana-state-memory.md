@@ -16,6 +16,70 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-12, ninth block — THE VERDICT MARATHON: SHELL GREEN, ZFS HARDENED, THE MOUNT SEAM LANDS
+
+**COMPLETED**
+- **Shell 5–9 ALL YES; zfs 12/13/16/17 YES; #20 CLOSED** (fixed by the
+  plan-owns-the-panel redesign; unreproducible). His hands drove ~six
+  more fix rounds on the integration branch, all rhythm-green:
+  - `/` type-to-jump (his ask: a MODE, not suppression — grammar stands
+    down, cursor chases, footer shows the buffer).
+  - Round-9 fixes: shift-click selects (NSEvent.modifierFlags class
+    property — the Table's setter fires after the event passes);
+    selection.json leak sealed (.ownProcess); esc-hides lie fixed;
+    invisible-shell trap closed (shellVisible requires panelShowing;
+    ⌘` on hidden panel re-summons whole; plan-owned = silent decline).
+  - Esc hands the panel back to the shell (dismiss + keep panel up);
+    rail names the road.
+  - Rollback -r as a plainly-worded toggle (destroysNewer — GatherSpec
+    grew toggleLabel); dead-end gathers self-dismiss AND stay visible;
+    sshFailure renders as a sentence; relative mountpoints refuse in
+    words; double-click descends a mounted dataset; snapshot verbs
+    validate typed names against the listed truth; destroy label
+    shouts DESTROY; recursive toggles name what they take (snapshots
+    ARE children — his question, answered in the label).
+  - Squat panel (3rd appearance): first-layout fitting-height squeeze —
+    step size reasserted post-front + a turn later; panel owns its own
+    origin persistence (frame autosave FIRED — legacy key + frame saved
+    on a disconnected display); stale defaults keys purged.
+  - zfs-mode host-follow: refresh moved from point() to commit() —
+    reads are async, the old placement refreshed the OLD host.
+- **ho-10.4 (The Mount Seam) authored, built by agent, reviewed,
+  MERGED into integration** (8b62150): HostFacts.sudoNoPassword
+  (sudo -n true, never-fatal, 4th discover round trip, host-map token);
+  .mount/.unmount composing `sudo -n zfs mount/unmount` read IN the
+  plan; keys m/u, set-mountpoint → p; CapabilityRequirement.zfsMount
+  gating on BOTH facts with the exact refusal sentence. 736 tests.
+  Corpus fixture zfs-pool.json predates the probe — re-capture when
+  hands are on the VM (flagged, nothing asserts on it).
+- **Time-machine revelation banked** (snapshots = browsable past via
+  .zfs/snapshot; works TODAY via address bar; READmade copy commitment;
+  likely roadmap reorder). Preview-pane seed banked earlier.
+
+**NEXT**
+- **His mount hands-round** (m/u on the fixture, sudo token in host
+  map, p for set-mountpoint, refusal on koan) + retests: panel open
+  size (post-front reassert), host-follow in mode, dead-end note
+  visible, DESTROY label, sandwich destroy with the renamed -r toggle.
+- Then THE CLOSE CASCADE: his final verdicts → close ho-10.1 → tag
+  v0.5 on main → merge integration branch to main → close ho-11/10.3/
+  10.4 with hands-session Reflects (amend docs: ⌘` not t/⌘Esc, Z
+  ungated, panel click-only, mount seam) → README polish LEADING with
+  browse-your-snapshots → Dave (still parked).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. App running merged build; fixture VM up.
+- Banked: selection rows want a highlight wash (design polish); zfs
+  pane-mode dataset jump; auto-mount after create; preview pane;
+  snapshot-history surface (Kamae-4 slots when board clears).
+- Reentrant-NSTableView launch warnings still unchased (pre-close).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; v0.5 = his verdicts away; integration
+  branch carries ho-11 + 10.3 + 10.4 hands-hardened; v1.0 = ho-12.
+
+---
+
 ## State summary — 2026-07-11, eighth block — THE INTEGRATION HANDS SESSION: FIVE ROUNDS ON THE SHELL AND THE BOUNDARY
 
 **COMPLETED**
