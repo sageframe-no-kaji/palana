@@ -124,15 +124,13 @@ struct CapabilityRequirementZfsMountEvaluateTests {
                 == .unmet("jodo has no zfs")
         )
     }
-    @Test("zfsMount: unmet with the sudo refusal when sudoNoPassword is nil")
+    @Test("zfsMount: nil sudo fact is 'not asked yet', never the root-wall claim")
     func zfsButSudoNil() {
         var facts = HostFacts()
         facts.zfsTopology = Dated(value: [], discoveredAt: Date())
         #expect(
             CapabilityRequirement.zfsMount.evaluate(host: "jodo", facts: facts)
-                == .unmet(
-                    "mounting needs root on Linux — grant passwordless sudo for zfs, or use the shell"
-                )
+                == .unmet("jodo not asked about sudo yet — r in the field view asks")
         )
     }
     @Test("zfsMount: unmet with the sudo refusal when sudoNoPassword is false")

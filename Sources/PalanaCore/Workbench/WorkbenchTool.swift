@@ -61,7 +61,14 @@ public enum CapabilityRequirement: Sendable, Equatable {
             guard facts.zfsTopology != nil else {
                 return .unmet("\(host) has no zfs")
             }
-            guard facts.sudoNoPassword?.value == true else {
+            // Nil is 'never asked', not 'refused' — a host probed before
+            // this fact existed must not wear the root-wall sentence
+            // (his question: 'why not probe on load?' — facts arrive on
+            // engagement, so name the real state until they do).
+            guard let sudo = facts.sudoNoPassword else {
+                return .unmet("\(host) not asked about sudo yet — r in the field view asks")
+            }
+            guard sudo.value else {
                 return .unmet(
                     "mounting needs root on Linux — grant passwordless sudo for zfs, or use the shell"
                 )
