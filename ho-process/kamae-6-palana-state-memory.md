@@ -77,6 +77,13 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   design (snapdir=hidden) — the surface erases that invisibility.
   LIKELY REORDERS THE ROADMAP (his energy says this beats 10.2's sudo
   work); his call at the next Kamae-4 pass. THIS is the Dave pitch.
+  HIS COPY COMMITMENT ("we need to put this in the copy"): the README
+  polish step LEADS the ZFS story with browse-your-snapshots ('browse
+  the past like a directory; restore is just a copy'), ahead of the
+  verb list. Mac-local ZFS asked and answered: possible (OpenZFS kext,
+  Reduced Security on Apple Silicon) but recommended NO — the Mac is
+  the operator; possible v-next: history surface abstracts snapshot
+  providers (ZFS remote + APFS local).
 - **SEEDED, his ask ("it would be life changing"): the PREVIEW/INFO
   pane mode** — paneMode grows .preview; the right pane follows the
   LEFT pane's cursor. Local: QLPreviewView (Quick Look) + an info card
