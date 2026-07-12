@@ -223,6 +223,62 @@ struct ZFSClearMountpointComposeTests {
     }
 }
 
+@Suite("ZFSMutation compose — mount")
+struct ZFSMountComposeTests {
+    @Test("mount composes sudo -n zfs mount and an unprivileged verify")
+    func mount() throws {
+        let plan = try planZfs(.mount(dataset: "tank/data"))
+        #expect(
+            plan.steps.map(\.command) == [
+                "sudo -n zfs mount tank/data",
+                "zfs list -H -o name,mounted -- tank/data",
+            ])
+        #expect(plan.steps.map(\.role) == [.property, .verify])
+    }
+
+    @Test("mount quotes spaced dataset in both the mutating and verify commands")
+    func mountSpacedName() throws {
+        let plan = try planZfs(.mount(dataset: "tank/my data"))
+        #expect(plan.steps[0].command == "sudo -n zfs mount 'tank/my data'")
+        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- 'tank/my data'")
+    }
+
+    @Test("mount composes on the pool root — mounting is never destructive")
+    func mountPoolRootAllowed() throws {
+        let plan = try planZfs(.mount(dataset: "tank"))
+        #expect(plan.steps[0].command == "sudo -n zfs mount tank")
+        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- tank")
+    }
+}
+
+@Suite("ZFSMutation compose — unmount")
+struct ZFSUnmountComposeTests {
+    @Test("unmount composes sudo -n zfs unmount and an unprivileged verify")
+    func unmount() throws {
+        let plan = try planZfs(.unmount(dataset: "tank/data"))
+        #expect(
+            plan.steps.map(\.command) == [
+                "sudo -n zfs unmount tank/data",
+                "zfs list -H -o name,mounted -- tank/data",
+            ])
+        #expect(plan.steps.map(\.role) == [.property, .verify])
+    }
+
+    @Test("unmount quotes spaced dataset in both the mutating and verify commands")
+    func unmountSpacedName() throws {
+        let plan = try planZfs(.unmount(dataset: "tank/my data"))
+        #expect(plan.steps[0].command == "sudo -n zfs unmount 'tank/my data'")
+        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- 'tank/my data'")
+    }
+
+    @Test("unmount composes on the pool root — unmounting is never destructive")
+    func unmountPoolRootAllowed() throws {
+        let plan = try planZfs(.unmount(dataset: "tank"))
+        #expect(plan.steps[0].command == "sudo -n zfs unmount tank")
+        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- tank")
+    }
+}
+
 @Suite("ZFSMutation validation")
 struct ZFSMutationValidationTests {
     @Test("zfs operation without payload throws zfsMutationPayloadRequired")
@@ -370,6 +426,20 @@ struct ZFSMutationValidationTests {
             _ = try planZfs(.clearMountpoint(dataset: ""))
         }
     }
+
+    @Test("mount refuses empty dataset name")
+    func mountEmptyDataset() {
+        #expect(throws: PlanError.zfsNameEmpty) {
+            _ = try planZfs(.mount(dataset: ""))
+        }
+    }
+
+    @Test("unmount refuses empty dataset name")
+    func unmountEmptyDataset() {
+        #expect(throws: PlanError.zfsNameEmpty) {
+            _ = try planZfs(.unmount(dataset: ""))
+        }
+    }
 }
 
 @Suite("ZFSMutation Codable")
@@ -396,6 +466,8 @@ struct ZFSMutationCodableTests {
             .rollback(dataset: "tank/g", name: "snap3", destroysNewer: true),
             .setMountpoint(dataset: "tank/h", path: "/mnt/h"),
             .clearMountpoint(dataset: "tank/i"),
+            .mount(dataset: "tank/j"),
+            .unmount(dataset: "tank/k"),
         ]
         for mutation in mutations {
             let data = try JSONEncoder().encode(mutation)

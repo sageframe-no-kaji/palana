@@ -15,6 +15,17 @@ extension PlanEngine {
             throw PlanError.zfsMutationPayloadRequired
         }
         switch mutation {
+        case .createDataset, .destroyDataset, .renameDataset:
+            try validateZfsDatasetMutation(mutation)
+        case .snapshot, .destroySnapshot, .rollback, .setMountpoint, .clearMountpoint, .mount,
+            .unmount:
+            try validateZfsSnapshotAndPropertyMutation(mutation)
+        }
+    }
+
+    /// Validates create / destroy / rename — destroy and rename refuse the pool root.
+    private static func validateZfsDatasetMutation(_ mutation: ZFSMutation) throws {
+        switch mutation {
         case .createDataset(let name, _):
             try requireNonEmpty(name)
         case .destroyDataset(let name, _):
@@ -25,6 +36,15 @@ extension PlanEngine {
             try requireNonEmpty(to)
             guard from != to else { throw PlanError.zfsRenameNamesIdentical }
             try refusePoolRoot(from)
+        default:
+            break
+        }
+    }
+
+    /// Validates snapshot, destroySnapshot, rollback, setMountpoint,
+    /// clearMountpoint, mount, unmount — pool root is legal for all of these.
+    private static func validateZfsSnapshotAndPropertyMutation(_ mutation: ZFSMutation) throws {
+        switch mutation {
         case .snapshot(let dataset, let name, _):
             try requireNonEmpty(dataset)
             try requireNonEmpty(name)
@@ -44,6 +64,12 @@ extension PlanEngine {
             guard path.hasPrefix("/") else { throw PlanError.zfsMountpointNotAbsolute }
         case .clearMountpoint(let dataset):
             try requireNonEmpty(dataset)
+        case .mount(let dataset), .unmount(let dataset):
+            // Pool-root mount/unmount is legal — unlike destroy/rename,
+            // never refused here.
+            try requireNonEmpty(dataset)
+        default:
+            break
         }
     }
 
@@ -68,6 +94,8 @@ extension PlanEngine {
             return composeZFSDatasetMutation(mutation, on: host)
         case .snapshot, .destroySnapshot, .rollback, .setMountpoint, .clearMountpoint:
             return composeZFSSnapshotAndPropertyMutation(mutation, on: host)
+        case .mount, .unmount:
+            return composeZFSMountMutation(mutation, on: host)
         }
     }
 
@@ -170,6 +198,36 @@ extension PlanEngine {
                 PlanStep(
                     runsOn: host,
                     command: "zfs get -H -o value mountpoint -- \(dsPart)",
+                    role: .verify),
+            ]
+        default:
+            return []
+        }
+    }
+
+    /// Mount / unmount — the escalation reads in the plan like every other
+    /// fact of the command; the verify step stays unprivileged.
+    private static func composeZFSMountMutation(
+        _ mutation: ZFSMutation,
+        on host: Runner
+    ) -> [PlanStep] {
+        switch mutation {
+        case .mount(let dataset):
+            let dsPart = ShellQuote.quote(dataset)
+            return [
+                PlanStep(runsOn: host, command: "sudo -n zfs mount \(dsPart)", role: .property),
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs list -H -o name,mounted -- \(dsPart)",
+                    role: .verify),
+            ]
+        case .unmount(let dataset):
+            let dsPart = ShellQuote.quote(dataset)
+            return [
+                PlanStep(runsOn: host, command: "sudo -n zfs unmount \(dsPart)", role: .property),
+                PlanStep(
+                    runsOn: host,
+                    command: "zfs list -H -o name,mounted -- \(dsPart)",
                     role: .verify),
             ]
         default:
