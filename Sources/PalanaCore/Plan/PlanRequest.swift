@@ -157,4 +157,7 @@ public enum PlanError: Error, Equatable, Sendable {
     /// `/`). Pools are physical — pālana manages datasets, never the
     /// pool itself (ho-10.1 keeps pool create/destroy out of scope).
     case zfsPoolRootRefused
+    /// A mountpoint must be an absolute path — zfs refuses anything
+    /// else, so the engine refuses first, in words.
+    case zfsMountpointNotAbsolute
 }

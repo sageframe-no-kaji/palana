@@ -114,10 +114,18 @@ extension OperationModel {
                     guard let at = line.firstIndex(of: "@") else { return nil }
                     return String(line[line.index(after: at)...])
                 }
-            namingContextLines =
-                names.isEmpty
-                ? ["(no snapshots on \(dataset))"]
-                : names
+            if names.isEmpty {
+                // A field that can only fail is a dead end — dismiss the
+                // gather and say why in the transcript instead (the hands
+                // round sat in front of '(no snapshots)' with nothing
+                // sensible to type).
+                if phase == .naming, pendingZFSVerb != nil {
+                    reset()
+                    note("no snapshots on \(dataset) — nothing to act on")
+                }
+                return
+            }
+            namingContextLines = names
         }
     }
 

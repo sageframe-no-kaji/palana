@@ -94,6 +94,13 @@ private struct ZFSPaneDatasetRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Double-click descends into a mounted dataset — the same move as
+        // keyboard Enter (the hands round clicked a mounted row and read
+        // the silence as breakage; files double-click descends, so must
+        // this). Unmounted rows: quiet no-op, matching Enter.
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded { onOpenInPane?() }
+        )
         .opacity(mounted ? 1.0 : 0.6)
         .onHover { hovering = $0 }
         .contextMenu {

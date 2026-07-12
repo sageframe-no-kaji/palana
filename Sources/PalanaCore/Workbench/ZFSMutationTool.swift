@@ -85,7 +85,9 @@ public struct ZFSMutationTool: WorkbenchTool {
             kind: .mutation,
             gather: GatherSpec(
                 prompt: "name the snapshot to roll back to",
-                needsText: true
+                needsText: true,
+                offersRecursive: true,
+                toggleLabel: "roll back past newer snapshots — destroys them"
             )
         ),
         WorkbenchVerb(
@@ -185,7 +187,7 @@ extension ZFSMutationTool {
             return .destroySnapshot(dataset: target, name: text)
         case "zfs-rollback":
             guard let text = trimmed(input.text) else { return nil }
-            return .rollback(dataset: target, name: text)
+            return .rollback(dataset: target, name: text, destroysNewer: input.recursive)
         case "zfs-set-mountpoint":
             guard let text = trimmed(input.text) else { return nil }
             return .setMountpoint(dataset: target, path: text)

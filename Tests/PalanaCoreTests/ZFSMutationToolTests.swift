@@ -122,11 +122,12 @@ struct ZFSMutationToolGatherSpecTests {
         #expect(spec.offersRecursive == false)
     }
 
-    @Test("zfs-rollback: needsText true, offersRecursive false")
+    @Test("zfs-rollback: needsText true, offers the destroys-newer toggle")
     func gatherRollback() throws {
         let spec = try #require(try matchedVerb("zfs-rollback").gather)
         #expect(spec.needsText == true)
-        #expect(spec.offersRecursive == false)
+        #expect(spec.offersRecursive == true)
+        #expect(spec.toggleLabel == "roll back past newer snapshots — destroys them")
     }
 
     @Test("zfs-set-mountpoint: needsText true, offersRecursive false")
@@ -265,7 +266,7 @@ struct ZFSMutationToolCompositionTests {
     @Test("rollback: dataset and snapshot name compose correctly")
     func rollback() throws {
         let request = try compose("zfs-rollback", text: "snap1")
-        #expect(request.zfs == .rollback(dataset: target, name: "snap1"))
+        #expect(request.zfs == .rollback(dataset: target, name: "snap1", destroysNewer: false))
     }
 
     // MARK: zfs-set-mountpoint

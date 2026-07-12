@@ -109,7 +109,7 @@ struct ZfsMutationIntegrationTests {
 
         // 3. Rollback to snapshot
         let rollbackPlan = try Self.planMutation(
-            .rollback(dataset: dsName, name: snapName), on: world.host)
+            .rollback(dataset: dsName, name: snapName, destroysNewer: false), on: world.host)
         try await Self.enact(rollbackPlan, world: world)
         #expect(
             try await Self.snapshotExists(world, snapFull),

@@ -164,7 +164,7 @@ struct ZFSDestroySnapshotComposeTests {
 struct ZFSRollbackComposeTests {
     @Test("rollback composes zfs rollback and a snapshot-still-lists verify")
     func rollback() throws {
-        let plan = try planZfs(.rollback(dataset: "tank/data", name: "bk-2026"))
+        let plan = try planZfs(.rollback(dataset: "tank/data", name: "bk-2026", destroysNewer: false))
         // tank/data@bk-2026 → bare
         #expect(
             plan.steps.map(\.command) == [
@@ -173,10 +173,23 @@ struct ZFSRollbackComposeTests {
             ])
         #expect(plan.steps.map(\.role) == [.rollback, .verify])
     }
+
+    @Test("rollback with destroysNewer states its -r in the command")
+    func rollbackDestroysNewer() throws {
+        let plan = try planZfs(.rollback(dataset: "tank/data", name: "bk-2026", destroysNewer: true))
+        #expect(plan.steps[0].command == "zfs rollback -r tank/data@bk-2026")
+    }
 }
 
 @Suite("ZFSMutation compose — setMountpoint")
 struct ZFSSetMountpointComposeTests {
+    @Test("setMountpoint refuses a relative path — absolute or nothing")
+    func setMountpointRelative() {
+        #expect(throws: PlanError.zfsMountpointNotAbsolute) {
+            _ = try planZfs(.setMountpoint(dataset: "tank/data", path: "~/data"))
+        }
+    }
+
     @Test("setMountpoint composes zfs set mountpoint and a get verify")
     func setMountpoint() throws {
         let plan = try planZfs(.setMountpoint(dataset: "tank/data", path: "/mnt/data"))
@@ -326,14 +339,14 @@ struct ZFSMutationValidationTests {
     @Test("rollback refuses empty dataset name")
     func rollbackEmptyDataset() {
         #expect(throws: PlanError.zfsNameEmpty) {
-            _ = try planZfs(.rollback(dataset: "", name: "snap"))
+            _ = try planZfs(.rollback(dataset: "", name: "snap", destroysNewer: false))
         }
     }
 
     @Test("rollback refuses empty snapshot name")
     func rollbackEmptyName() {
         #expect(throws: PlanError.zfsNameEmpty) {
-            _ = try planZfs(.rollback(dataset: "tank/data", name: ""))
+            _ = try planZfs(.rollback(dataset: "tank/data", name: "", destroysNewer: false))
         }
     }
 
@@ -380,7 +393,7 @@ struct ZFSMutationCodableTests {
             .renameDataset(from: "tank/c", to: "tank/d"),
             .snapshot(dataset: "tank/e", name: "snap1", recursive: false),
             .destroySnapshot(dataset: "tank/f", name: "snap2"),
-            .rollback(dataset: "tank/g", name: "snap3"),
+            .rollback(dataset: "tank/g", name: "snap3", destroysNewer: true),
             .setMountpoint(dataset: "tank/h", path: "/mnt/h"),
             .clearMountpoint(dataset: "tank/i"),
         ]

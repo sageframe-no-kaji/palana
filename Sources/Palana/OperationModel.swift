@@ -498,6 +498,11 @@ extension OperationModel {
             return "permission denied: \(path)"
         case ListingError.listingFailed(_, let stderr):
             return "a fact could not be gathered: \(stderr)"
+        case ConduitError.sshFailure(let exitStatus, let stderr):
+            // A struct dump is not a sentence (the hands round saw
+            // sshFailure(exitStatus: 255, ...) verbatim in the panel).
+            let tail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "the host refused (exit \(exitStatus))\(tail.isEmpty ? "" : ": \(tail)")"
         case let conduitError as ConduitError:
             return "\(conduitError)"
         default:
@@ -528,6 +533,8 @@ extension OperationModel {
             return "rename and create stay in the source directory — no destination"
         case PlanError.zfsPoolRootRefused:
             return "that is the pool root — pālana manages datasets, never the pool itself"
+        case PlanError.zfsMountpointNotAbsolute:
+            return "a mountpoint must be an absolute path — /like/this, not ~ or relative"
         default:
             return nil
         }

@@ -32,12 +32,16 @@ extension PlanEngine {
         case .destroySnapshot(let dataset, let name):
             try requireNonEmpty(dataset)
             try requireNonEmpty(name)
-        case .rollback(let dataset, let name):
+        case .rollback(let dataset, let name, _):
             try requireNonEmpty(dataset)
             try requireNonEmpty(name)
         case .setMountpoint(let dataset, let path):
             try requireNonEmpty(dataset)
             try requireNonEmpty(path)
+            // zfs itself refuses relative paths with an exit-255 spray;
+            // the engine says it plainly before anything composes (the
+            // hands round typed '~/').
+            guard path.hasPrefix("/") else { throw PlanError.zfsMountpointNotAbsolute }
         case .clearMountpoint(let dataset):
             try requireNonEmpty(dataset)
         }
@@ -135,10 +139,11 @@ extension PlanEngine {
                     command: "! zfs list -H -o name -t snapshot -- \(full)",
                     role: .verify),
             ]
-        case .rollback(let dataset, let name):
+        case .rollback(let dataset, let name, let destroysNewer):
             let full = ShellQuote.quote("\(dataset)@\(name)")
+            let flag = destroysNewer ? "-r " : ""
             return [
-                PlanStep(runsOn: host, command: "zfs rollback \(full)", role: .rollback),
+                PlanStep(runsOn: host, command: "zfs rollback \(flag)\(full)", role: .rollback),
                 PlanStep(
                     runsOn: host,
                     command: "zfs list -H -o name -t snapshot -- \(full)",

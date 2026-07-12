@@ -263,9 +263,12 @@ struct PlanPanel: View {
                         set: { operation.zfsRecursive = $0 }
                     )
                 ) {
-                    Text("recursive — includes everything beneath")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.ink)
+                    Text(
+                        operation.pendingZFSVerb?.gather?.toggleLabel
+                            ?? "recursive — includes everything beneath"
+                    )
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.ink)
                 }
                 .toggleStyle(.checkbox)
             }

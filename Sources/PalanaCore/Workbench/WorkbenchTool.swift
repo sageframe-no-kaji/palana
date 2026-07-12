@@ -88,12 +88,24 @@ public struct GatherSpec: Sendable, Equatable {
     public var needsText: Bool
     /// Whether the verb offers a recursive choice.
     public var offersRecursive: Bool
+    /// The toggle's label when `offersRecursive` is on.
+    ///
+    /// Nil takes the surface's default wording. Verbs whose flag means
+    /// something sharper than 'recursive' (rollback's -r destroys newer
+    /// snapshots) say so here, plainly.
+    public var toggleLabel: String?
 
     /// Assembles a gather spec.
-    public init(prompt: String, needsText: Bool, offersRecursive: Bool = false) {
+    public init(
+        prompt: String,
+        needsText: Bool,
+        offersRecursive: Bool = false,
+        toggleLabel: String? = nil
+    ) {
         self.prompt = prompt
         self.needsText = needsText
         self.offersRecursive = offersRecursive
+        self.toggleLabel = toggleLabel
     }
 }
 
