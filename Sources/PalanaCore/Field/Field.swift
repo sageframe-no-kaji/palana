@@ -177,14 +177,20 @@ public actor Field {
         return fact
     }
 
-    /// Probes passwordless sudo.
+    /// Probes passwordless sudo — blanket or scoped to the zfs verbs.
     ///
-    /// `sudo -n true`, exit 0 grants, anything else refuses. Never throws:
-    /// a host without sudo at all, or any other failure of this one round
-    /// trip, reads as `false` rather than aborting the rest of discovery.
+    /// One round trip, two questions chained: `sudo -n true` detects a
+    /// blanket grant; when that fails, `sudo -n -l zfs mount` asks
+    /// whether the SCOPED grant exists (a sudoers line naming only
+    /// `zfs mount *`/`zfs unmount *` — the recommended posture — makes
+    /// `true` refuse while the zfs verbs are allowed). `-l` only asks,
+    /// runs nothing. Exit 0 from either grants. Never throws: any
+    /// failure of this round trip reads as `false` rather than
+    /// aborting the rest of discovery.
     private static func probeSudoNoPassword(conduit: any Conduit, host: String) async -> Bool {
         do {
-            let result = try await conduit.run(on: host, "sudo -n true").collect()
+            let probe = "sudo -n true 2>/dev/null || sudo -n -l zfs mount"
+            let result = try await conduit.run(on: host, probe).collect()
             return result.exitStatus == 0
         } catch {
             return false

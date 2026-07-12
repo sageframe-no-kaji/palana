@@ -67,11 +67,11 @@ struct FieldTests {
             entry("jodo", ZFSTopology.listCommand, stdout: zfsListStdout),
             entry("jodo", MountTable.command(forKernel: "Linux"), stdout: linuxMountsStdout),
             // jodo grants passwordless sudo — exit 0.
-            entry("jodo", "sudo -n true", exit: 0),
+            entry("jodo", "sudo -n true 2>/dev/null || sudo -n -l zfs mount", exit: 0),
             entry("mac", CapabilityProbe.command, stdout: bsdProbeStdout),
             entry("mac", MountTable.command(forKernel: "Darwin"), stdout: darwinMountsStdout),
             // mac refuses passwordless sudo — nonzero exit, no stdout.
-            entry("mac", "sudo -n true", exit: 1),
+            entry("mac", "sudo -n true 2>/dev/null || sudo -n -l zfs mount", exit: 1),
             entry(
                 "koan",
                 CapabilityProbe.command,
@@ -85,7 +85,7 @@ struct FieldTests {
                 MountTable.command(forKernel: "Linux"),
                 stderr: "cat: /proc/mounts: Permission denied",
                 exit: 1),
-            entry("nomount", "sudo -n true", exit: 0),
+            entry("nomount", "sudo -n true 2>/dev/null || sudo -n -l zfs mount", exit: 0),
         ])
     }
 
