@@ -43,4 +43,10 @@ public enum ZFSMutation: Sendable, Equatable, Codable {
     /// Clear the mountpoint property so the dataset inherits from its
     /// parent (`zfs inherit mountpoint`).
     case clearMountpoint(dataset: String)
+    /// Mount a dataset — `sudo -n zfs mount`. The pool root is legal here;
+    /// mounting is never destructive.
+    case mount(dataset: String)
+    /// Unmount a dataset — `sudo -n zfs unmount`. The pool root is legal
+    /// here; unmounting is never destructive.
+    case unmount(dataset: String)
 }

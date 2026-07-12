@@ -105,6 +105,10 @@ public actor Field {
                     : MountTable.parseBSD(mountsResult.stdoutText)
                 facts.mounts = Dated(value: parsed, discoveredAt: now())
             }
+            facts.sudoNoPassword = Dated(
+                value: await Self.probeSudoNoPassword(conduit: conduit, host: host),
+                discoveredAt: now()
+            )
         } catch let error as ConduitError {
             facts.reachability = Dated(
                 value: .unreachable(detail: Self.describe(error)),
@@ -171,6 +175,20 @@ public actor Field {
         memory[source] = facts
         try? cache.save(memory)
         return fact
+    }
+
+    /// Probes passwordless sudo.
+    ///
+    /// `sudo -n true`, exit 0 grants, anything else refuses. Never throws:
+    /// a host without sudo at all, or any other failure of this one round
+    /// trip, reads as `false` rather than aborting the rest of discovery.
+    private static func probeSudoNoPassword(conduit: any Conduit, host: String) async -> Bool {
+        do {
+            let result = try await conduit.run(on: host, "sudo -n true").collect()
+            return result.exitStatus == 0
+        } catch {
+            return false
+        }
     }
 
     /// A short human line for the unreachable fact's detail.
