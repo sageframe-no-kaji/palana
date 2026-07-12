@@ -57,6 +57,11 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     private weak var session: PalanaSession?
 
     private static let stepKey = "palana.zfsPanelStep"
+    /// The hand-persisted window origin — "x,y".
+    ///
+    /// See show() for why the system frame autosave is not trusted
+    /// with this window.
+    private static let originKey = "palana.zfsPanelOrigin"
 
     /// The persisted step index, clamped on read — persisted state that
     /// crashes must never crash twice (the crash-loop lesson from the keys panel).
@@ -102,15 +107,24 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         hosting.sizingOptions = []
         made.contentView = hosting
         made.delegate = self
-        // setFrameAutosaveName restores the WHOLE saved frame — size
-        // included — which let a stale size defeat the stepped authority
-        // (the 'too small' screenshot). Take the remembered position,
-        // then re-assert the step's size; center only on first-ever show.
-        let hadSavedFrame =
-            UserDefaults.standard.string(forKey: "NSWindow Frame palana-zfs-position") != nil
-        made.setFrameAutosaveName("palana-zfs-position")
+        // The panel owns its persistence outright. Frame autosave burned
+        // us twice — a stale legacy key, then a frame saved on a
+        // disconnected external display — so the machinery loses the
+        // pen: origin remembered by hand (clamped to a live screen),
+        // size ALWAYS step-authored.
         made.setContentSize(size)
-        if !hadSavedFrame { made.center() }
+        var placed = false
+        if let saved = UserDefaults.standard.string(forKey: Self.originKey) {
+            let parts = saved.split(separator: ",").compactMap { Double($0) }
+            if parts.count == 2 {
+                let origin = NSPoint(x: parts[0], y: parts[1])
+                if NSScreen.screens.contains(where: { $0.visibleFrame.contains(origin) }) {
+                    made.setFrameOrigin(origin)
+                    placed = true
+                }
+            }
+        }
+        if !placed { made.center() }
         panel = made
         made.makeKeyAndOrderFront(nil)
     }
@@ -165,6 +179,9 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
+        if let origin = panel?.frame.origin {
+            UserDefaults.standard.set("\(origin.x),\(origin.y)", forKey: Self.originKey)
+        }
         panel = nil
     }
 }

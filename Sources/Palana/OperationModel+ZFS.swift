@@ -179,6 +179,21 @@ extension OperationModel {
                 reset()
                 return
             }
+            // The snapshot verbs validate against the listed truth: a name
+            // not in the list composes a plan that can only fail (the
+            // hands round typed the confirm word 'destroy' into a
+            // rollback's NAME field and met 'dataset does not exist').
+            // Context lines starting with "(" are notes, not names.
+            if verb.id == "zfs-rollback" || verb.id == "zfs-destroy-snapshot" {
+                let known = namingContextLines.filter { !$0.hasPrefix("(") }
+                if !known.isEmpty, !known.contains(txt) {
+                    reset()
+                    appendToolError(
+                        "no snapshot named \(txt) on \(dataset) — it has: \(known.joined(separator: ", "))"
+                    )
+                    return
+                }
+            }
             // Rename: unchanged name dismisses quietly (the prefill unedited).
             if verb.id == "zfs-rename", txt == dataset {
                 reset()
@@ -262,7 +277,7 @@ extension OperationModel {
             return "name the new dataset — a child of \(dataset)  (⏎ shows the plan)"
         case "zfs-destroy":
             return confirmDestroyTyped
-                ? "type destroy to arm — \(dataset)  (⏎ shows the plan, nothing runs yet)"
+                ? "type DESTROY to arm — \(dataset)  (⏎ shows the plan, nothing runs yet)"
                 : "destroy \(dataset) — ⏎ shows the plan, nothing runs yet"
         case "zfs-rename":
             return "type the full new name — ⏎ shows the plan"
