@@ -62,6 +62,21 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 - A 20-item numbered test list was handed to him (drag-out 1–4, shell
   5–11, zfs pane mode 12–18, 10.1 remainders 19–20); his replies come
   as numbers.
+- **SEEDED, his revelation ("WAY more useful than any of this... like
+  time machine!"): SNAPSHOT HISTORY BROWSING** — the pattern he
+  actually lives by: reach into `.zfs/snapshot/<name>/` and copy out,
+  never rollback. The reframe: snapshots are a TIME DIMENSION of the
+  filesystem — Time Machine for the homelab, over ssh. Works TODAY by
+  typing the .zfs path into the address bar (restore = ordinary yank
+  through the gate, source read-only by construction). The real
+  feature: a history surface — stand on a file/dir, summon its past,
+  pick a snapshot by age (field-view vocabulary), browse in a pane,
+  restore with y. Engine has the facts, transports move the bytes,
+  gate reads the plan; only the surface is missing, and pane modes are
+  a solved shape. Wrinkle to solve: .zfs is invisible to listings by
+  design (snapdir=hidden) — the surface erases that invisibility.
+  LIKELY REORDERS THE ROADMAP (his energy says this beats 10.2's sudo
+  work); his call at the next Kamae-4 pass. THIS is the Dave pitch.
 - **SEEDED, his ask ("it would be life changing"): the PREVIEW/INFO
   pane mode** — paneMode grows .preview; the right pane follows the
   LEFT pane's cursor. Local: QLPreviewView (Quick Look) + an info card
