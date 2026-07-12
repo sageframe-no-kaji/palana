@@ -121,6 +121,11 @@ extension OperationModel {
                 // sensible to type).
                 if phase == .naming, pendingZFSVerb != nil {
                     reset()
+                    // reset() hides the panel — re-show it so the
+                    // explanation is READ, not buried (the hands round
+                    // watched the panel flash and vanish, then found
+                    // the note later by hand).
+                    showPanel()
                     note("no snapshots on \(dataset) — nothing to act on")
                 }
                 return

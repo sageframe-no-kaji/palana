@@ -148,15 +148,7 @@ final class PaneModel {
     /// The pointing commits only if the read succeeds — a bad path
     /// leaves the pane exactly where it was.
     func point(host: String, path: String) {
-        let hostChanged = state.host != host
         read(host: host, path: path.isEmpty ? "/" : path)
-        // A zfs-mode pane pointed at a new host shows THAT host's tree —
-        // the host menu works in the mode, so the tree must follow it
-        // (the hands round switched hosts and read the stale tree,
-        // rightly, as breakage).
-        if paneMode == .zfs, hostChanged {
-            Task { await refreshZFSTree(engine: engine) }
-        }
     }
 
     /// Applies one intent.
@@ -371,6 +363,13 @@ final class PaneModel {
         status = .ready
         isReading = false
         lastError = nil
+        // A zfs-mode pane whose HOST just landed somewhere new shows that
+        // host's tree. This lives here, not in point(): reads are async,
+        // and refreshing before the host commits refreshed the OLD host
+        // (the hands round's stale-tree screenshots, twice).
+        if paneMode == .zfs, moved {
+            Task { await refreshZFSTree(engine: engine) }
+        }
         onDisplayChange()
     }
 

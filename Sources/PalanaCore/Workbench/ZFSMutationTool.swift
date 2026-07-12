@@ -40,7 +40,8 @@ public struct ZFSMutationTool: WorkbenchTool {
             gather: GatherSpec(
                 prompt: "destroy this dataset",
                 needsText: false,
-                offersRecursive: true
+                offersRecursive: true,
+                toggleLabel: "destroy its children and snapshots too — zfs counts both"
             )
         ),
         WorkbenchVerb(
@@ -63,7 +64,8 @@ public struct ZFSMutationTool: WorkbenchTool {
             gather: GatherSpec(
                 prompt: "name the snapshot",
                 needsText: true,
-                offersRecursive: true
+                offersRecursive: true,
+                toggleLabel: "snapshot every child dataset too"
             )
         ),
         WorkbenchVerb(

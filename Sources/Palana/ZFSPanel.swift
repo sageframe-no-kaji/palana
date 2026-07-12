@@ -127,6 +127,15 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         if !placed { made.center() }
         panel = made
         made.makeKeyAndOrderFront(nil)
+        // Something in the first layout pass squeezes the window to the
+        // content's fitting height (width survives, height collapses —
+        // the hands round's squat panel, third appearance). The step is
+        // the only sizing authority: reassert after ordering front, and
+        // once more a turn later for whatever lays out after us.
+        made.setContentSize(size)
+        DispatchQueue.main.async { [weak made] in
+            made?.setContentSize(size)
+        }
     }
 
     /// Toggles the panel — closes when up, opens when not.
