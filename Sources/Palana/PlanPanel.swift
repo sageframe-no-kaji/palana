@@ -167,7 +167,9 @@ struct PlanPanel: View {
         case .gathering: return "⌃c cancels"
         case .ready: return "a new verb rebuilds the plan"
         case .enacting: return "keeps running · ⌃c cancels"
-        case .finished, .failed, .cancelled: return nil
+        case .finished, .failed, .cancelled:
+            // A shell waits underneath — the rail names the road back.
+            return session.shellMode ? "esc hands the panel back to the shell" : nil
         }
     }
 

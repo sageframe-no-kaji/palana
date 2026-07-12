@@ -153,11 +153,22 @@ extension PalanaSession {
         if operation.terminalBusy {
             operation.cancelCommand()
             terminalFocused = true
-        } else {
-            terminalFocused = false
-            operation.hidePanel()
-            if focusedPane.paneMode == .zfs { focusedPane.exitZFSMode() }
+            return
         }
+        terminalFocused = false
+        // A shell is waiting underneath: esc hands the panel back to it —
+        // dismiss the result, keep the panel up, the shell resurfaces.
+        // Without this, esc hid the panel and the shell key re-showed the
+        // same stale result — a loop with no visible road to the shell
+        // (round 10: 'I am here. how do i get to the shell?').
+        let dismissable: [OperationModel.Phase] = [.ready, .finished, .failed, .cancelled]
+        if shellMode, dismissable.contains(operation.phase) {
+            operation.dismissOrCancel()
+            operation.showPanel()
+        } else {
+            operation.hidePanel()
+        }
+        if focusedPane.paneMode == .zfs { focusedPane.exitZFSMode() }
     }
 
     /// `Z` while the terminal holds focus: toggles zfs mode on the focused pane.
