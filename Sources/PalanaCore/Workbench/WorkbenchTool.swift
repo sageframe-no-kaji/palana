@@ -26,6 +26,10 @@ public enum CapabilityRequirement: Sendable, Equatable {
     /// Enabled only when a `zfsTopology` fact is present for the host —
     /// probed and zfs-bearing. Absent facts mean "not yet probed", not "no zfs".
     case zfs
+    /// Enabled only when the host is zfs-bearing AND grants passwordless
+    /// sudo — mount/unmount need root on Linux, and pālana never composes
+    /// toward a guaranteed failure.
+    case zfsMount
 
     /// Whether the requirement is met, given cached facts for the host.
     ///
@@ -47,6 +51,20 @@ public enum CapabilityRequirement: Sendable, Equatable {
             }
             guard facts.zfsTopology != nil else {
                 return .unmet("\(host) has no zfs")
+            }
+            return .available
+
+        case .zfsMount:
+            guard let facts else {
+                return .unmet("\(host) not yet probed—probe from the field or map")
+            }
+            guard facts.zfsTopology != nil else {
+                return .unmet("\(host) has no zfs")
+            }
+            guard facts.sudoNoPassword?.value == true else {
+                return .unmet(
+                    "mounting needs root on Linux — grant passwordless sudo for zfs, or use the shell"
+                )
             }
             return .available
         }

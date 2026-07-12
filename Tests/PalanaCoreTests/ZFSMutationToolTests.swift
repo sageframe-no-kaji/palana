@@ -48,9 +48,9 @@ struct ZFSMutationToolIdentityTests {
         #expect(tool.label == "zfs")
     }
 
-    @Test("exactly eight verbs")
+    @Test("exactly ten verbs")
     func verbCount() {
-        #expect(tool.verbs.count == 8)
+        #expect(tool.verbs.count == 10)
     }
 
     @Test("all verbs are mutation kind")
@@ -60,10 +60,12 @@ struct ZFSMutationToolIdentityTests {
         }
     }
 
-    @Test("all verbs require zfs capability")
-    func allRequireZfs() {
+    @Test("every verb's capability requirement matches its declared shape")
+    func requirementsPerVerb() {
+        let zfsMountIds: Set<String> = ["zfs-mount", "zfs-unmount"]
         for verb in tool.verbs {
-            #expect(verb.requirement == .zfs)
+            let expected: CapabilityRequirement = zfsMountIds.contains(verb.id) ? .zfsMount : .zfs
+            #expect(verb.requirement == expected, "\(verb.id) should require \(expected)")
         }
     }
 
@@ -78,8 +80,17 @@ struct ZFSMutationToolIdentityTests {
             "zfs-rollback",
             "zfs-set-mountpoint",
             "zfs-clear-mountpoint",
+            "zfs-mount",
+            "zfs-unmount",
         ]
         #expect(tool.verbs.map(\.id) == expectedIds)
+    }
+
+    @Test("zfs-set-mountpoint's keyHint moved to p; zfs-mount and zfs-unmount claim m and u")
+    func keyHints() throws {
+        #expect(try matchedVerb("zfs-set-mountpoint").keyHint == "p")
+        #expect(try matchedVerb("zfs-mount").keyHint == "m")
+        #expect(try matchedVerb("zfs-unmount").keyHint == "u")
     }
 }
 
@@ -143,6 +154,20 @@ struct ZFSMutationToolGatherSpecTests {
         #expect(spec.needsText == false)
         #expect(spec.offersRecursive == false)
     }
+
+    @Test("zfs-mount: needsText false, offersRecursive false")
+    func gatherMount() throws {
+        let spec = try #require(try matchedVerb("zfs-mount").gather)
+        #expect(spec.needsText == false)
+        #expect(spec.offersRecursive == false)
+    }
+
+    @Test("zfs-unmount: needsText false, offersRecursive false")
+    func gatherUnmount() throws {
+        let spec = try #require(try matchedVerb("zfs-unmount").gather)
+        #expect(spec.needsText == false)
+        #expect(spec.offersRecursive == false)
+    }
 }
 
 // MARK: - planRequest composition per verb
@@ -177,6 +202,8 @@ struct ZFSMutationToolCompositionTests {
         VerbCase("zfs-rollback", text: "snap1"),
         VerbCase("zfs-set-mountpoint", text: "/mnt/data"),
         VerbCase("zfs-clear-mountpoint"),
+        VerbCase("zfs-mount"),
+        VerbCase("zfs-unmount"),
     ]
 
     @Test("every verb: operation is .zfs, entries empty, destination nil")
@@ -283,6 +310,22 @@ struct ZFSMutationToolCompositionTests {
     func clearMountpoint() throws {
         let request = try compose("zfs-clear-mountpoint")
         #expect(request.zfs == .clearMountpoint(dataset: target))
+    }
+
+    // MARK: zfs-mount
+
+    @Test("mount: no text needed, composes correctly")
+    func mount() throws {
+        let request = try compose("zfs-mount")
+        #expect(request.zfs == .mount(dataset: target))
+    }
+
+    // MARK: zfs-unmount
+
+    @Test("unmount: no text needed, composes correctly")
+    func unmount() throws {
+        let request = try compose("zfs-unmount")
+        #expect(request.zfs == .unmount(dataset: target))
     }
 }
 
@@ -443,6 +486,20 @@ struct ZFSMutationToolRoundTripTests {
     @Test("clear-mountpoint: tool-built request yields steps from PlanEngine")
     func clearMountpointRoundTrip() throws {
         let plan = try planVia(verbId: "zfs-clear-mountpoint")
+        #expect(!plan.steps.isEmpty)
+        #expect(plan.classification == .zfsMutation)
+    }
+
+    @Test("mount: tool-built request yields steps from PlanEngine")
+    func mountRoundTrip() throws {
+        let plan = try planVia(verbId: "zfs-mount")
+        #expect(!plan.steps.isEmpty)
+        #expect(plan.classification == .zfsMutation)
+    }
+
+    @Test("unmount: tool-built request yields steps from PlanEngine")
+    func unmountRoundTrip() throws {
+        let plan = try planVia(verbId: "zfs-unmount")
         #expect(!plan.steps.isEmpty)
         #expect(plan.classification == .zfsMutation)
     }

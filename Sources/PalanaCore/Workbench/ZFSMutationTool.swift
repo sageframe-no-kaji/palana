@@ -1,4 +1,4 @@
-// ZFSMutationTool — the Workbench tool for ZFS mutations. Eight verbs, each
+// ZFSMutationTool — the Workbench tool for ZFS mutations. Ten verbs, each
 // composing a ZFSMutation the Plan Engine turns into a command the operator
 // reads before Enter runs it. The Workbench's read path never sees these;
 // the app routes .mutation verbs through planRequest(for:on:input:).
@@ -7,18 +7,19 @@ import Foundation
 
 /// The ZFS mutation tool.
 ///
-/// Exposes eight mutation verbs covering the dataset and snapshot lifecycle:
+/// Exposes ten mutation verbs covering the dataset and snapshot lifecycle:
 /// create, destroy, rename; snapshot, destroy snapshot, rollback; set and
-/// clear the mountpoint. Every verb requires a probed `zfsTopology` fact —
-/// the host must have ZFS — and composes a ``PlanRequest`` the Plan Engine
-/// turns into the command the operator reads before Enter.
+/// clear the mountpoint; mount and unmount. Every verb requires a probed
+/// `zfsTopology` fact — the host must have ZFS — and mount/unmount also
+/// require passwordless sudo. Each composes a ``PlanRequest`` the Plan
+/// Engine turns into the command the operator reads before Enter.
 public struct ZFSMutationTool: WorkbenchTool {
     /// `"zfs"` — the stable tool identifier.
     public let id = "zfs"
     /// `"zfs"` — the display label.
     public let label = "zfs"
 
-    /// The eight ZFS mutation verbs.
+    /// The ten ZFS mutation verbs.
     public let verbs: [WorkbenchVerb] = [
         WorkbenchVerb(
             id: "zfs-create",
@@ -93,7 +94,7 @@ public struct ZFSMutationTool: WorkbenchTool {
         WorkbenchVerb(
             id: "zfs-set-mountpoint",
             label: "set mountpoint",
-            keyHint: "m",
+            keyHint: "p",
             requirement: .zfs,
             kind: .mutation,
             gather: GatherSpec(
@@ -109,6 +110,28 @@ public struct ZFSMutationTool: WorkbenchTool {
             kind: .mutation,
             gather: GatherSpec(
                 prompt: "clear the mountpoint — the dataset inherits its parent's",
+                needsText: false
+            )
+        ),
+        WorkbenchVerb(
+            id: "zfs-mount",
+            label: "mount",
+            keyHint: "m",
+            requirement: .zfsMount,
+            kind: .mutation,
+            gather: GatherSpec(
+                prompt: "mount this dataset",
+                needsText: false
+            )
+        ),
+        WorkbenchVerb(
+            id: "zfs-unmount",
+            label: "unmount",
+            keyHint: "u",
+            requirement: .zfsMount,
+            kind: .mutation,
+            gather: GatherSpec(
+                prompt: "unmount this dataset",
                 needsText: false
             )
         ),
@@ -173,6 +196,9 @@ extension ZFSMutationTool {
         target: String,
         input: MutationInput
     ) -> ZFSMutation? {
+        if let fieldLess = fieldLessMutation(for: verbId, target: target) {
+            return fieldLess
+        }
         switch verbId {
         case "zfs-create":
             return mutateCreate(target: target, input: input)
@@ -191,8 +217,20 @@ extension ZFSMutationTool {
         case "zfs-set-mountpoint":
             guard let text = trimmed(input.text) else { return nil }
             return .setMountpoint(dataset: target, path: text)
+        default:
+            return nil
+        }
+    }
+
+    /// The verbs that act on the standing dataset with no gathered input at all.
+    private func fieldLessMutation(for verbId: String, target: String) -> ZFSMutation? {
+        switch verbId {
         case "zfs-clear-mountpoint":
             return .clearMountpoint(dataset: target)
+        case "zfs-mount":
+            return .mount(dataset: target)
+        case "zfs-unmount":
+            return .unmount(dataset: target)
         default:
             return nil
         }
