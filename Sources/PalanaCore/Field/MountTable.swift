@@ -96,6 +96,22 @@ public enum MountTable {
         )
     }
 
+    /// The mount target containing `path` — longest prefix wins.
+    ///
+    /// The filesystem analog of `ZFSTopology.datasetContaining`: proves
+    /// two paths share one filesystem so a same-host move can be a
+    /// rename instead of a copy-verify-delete. Nil when no absolute
+    /// target contains the path.
+    public static func mountContaining(_ path: String, in mounts: [Mount]) -> String? {
+        let normalized = normalize(path)
+        return
+            mounts
+            .filter { $0.target.hasPrefix("/") }
+            .map { normalize($0.target) }
+            .filter { $0 == "/" || normalized == $0 || normalized.hasPrefix($0 + "/") }
+            .max { $0.count < $1.count }
+    }
+
     // MARK: - Private helpers
 
     // Decodes /proc/mounts octal escape sequences — \NNN where NNN is a

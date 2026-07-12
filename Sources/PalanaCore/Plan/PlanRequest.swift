@@ -65,6 +65,11 @@ public struct PlanFacts: Sendable, Equatable {
     public var sourceDataset: ZFSDataset?
     /// The dataset containing the destination directory, where known.
     public var destinationDataset: ZFSDataset?
+    /// The mount target (any filesystem) containing the source
+    /// directory, where known — proves same-filesystem moves.
+    public var sourceMountTarget: String?
+    /// The mount target containing the destination directory, where known.
+    public var destinationMountTarget: String?
     /// Non-nil when the selection is a single directory entry whose
     /// path is exactly this dataset's mountpoint — the whole-dataset
     /// gate for zfs send/receive.
@@ -101,6 +106,8 @@ public struct PlanFacts: Sendable, Equatable {
     public init(
         sourceDataset: ZFSDataset? = nil,
         destinationDataset: ZFSDataset? = nil,
+        sourceMountTarget: String? = nil,
+        destinationMountTarget: String? = nil,
         selectionWholeDataset: ZFSDataset? = nil,
         sourceCapability: HostCapability? = nil,
         destinationCapability: HostCapability? = nil,
@@ -111,6 +118,8 @@ public struct PlanFacts: Sendable, Equatable {
     ) {
         self.sourceDataset = sourceDataset
         self.destinationDataset = destinationDataset
+        self.sourceMountTarget = sourceMountTarget
+        self.destinationMountTarget = destinationMountTarget
         self.selectionWholeDataset = selectionWholeDataset
         self.sourceCapability = sourceCapability
         self.destinationCapability = destinationCapability

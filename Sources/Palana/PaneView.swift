@@ -524,6 +524,14 @@ extension PaneView {
         Button("touch — update modified") { operate(.touch, ids: ids) }
             .keyboardShortcut("t", modifiers: [])
         Divider()
+        // Creation lives in the empty-space instinct too — name/ makes a
+        // directory, same field as `a` (his round: 'need to put create
+        // file/directory in right click').
+        Button("new file or directory… — name/ for a directory") { operate(.create, ids: []) }
+            .keyboardShortcut("a", modifiers: [])
+        Button("rename…") { operate(.rename, ids: ids) }
+            .keyboardShortcut("R", modifiers: [])
+        Divider()
         Button("copy path      cc") { model.copyToClipboard(.copyPath, ids: ids) }
         Button("copy filename      cf") { model.copyToClipboard(.copyFilename, ids: ids) }
         Button("copy name without extension      cn") {

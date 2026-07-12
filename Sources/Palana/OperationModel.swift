@@ -216,16 +216,11 @@ final class OperationModel {
                     engine.isLocal(destination.host)
                     ? await localCapability() : destinationFacts?.capability?.value
             }
-            if let topology = sourceFacts?.zfsTopology?.value {
-                facts.sourceDataset = ZFSTopology.datasetContaining(
-                    source.directory, in: topology)
-                facts.selectionWholeDataset = ZFSTopology.wholeDatasetSelection(
-                    entries: subjects, sourceDirectory: source.directory, datasets: topology)
-            }
-            if let destination, let topology = destinationFacts?.zfsTopology?.value {
-                facts.destinationDataset = ZFSTopology.datasetContaining(
-                    destination.directory, in: topology)
-            }
+            addPlacementFacts(
+                &facts,
+                source: (source, sourceFacts),
+                destination: (destination, destinationFacts),
+                subjects: subjects)
             if let destination, needsForwardingFact(source: source, destination: destination) {
                 note("asking whether \(source.host) reaches \(destination.host)…")
                 facts.agentForwarding = await engine.field.forwardingFact(
@@ -676,6 +671,41 @@ extension OperationModel {
             echo.appendLine(Self.describe(error), kind: .failure)
             phase = .failed
             panelShowing = true
+        }
+    }
+}
+
+// MARK: - Placement facts
+
+extension OperationModel {
+    /// Where each end LIVES: containing dataset, whole-dataset selection,
+    /// and the any-filesystem mount target (ho-9.3's fact).
+    ///
+    /// The mount proof lets a same-host move be a rename even off ZFS.
+    /// Extracted from `gather` for the body-length budget.
+    private func addPlacementFacts(
+        _ facts: inout PlanFacts,
+        source: (locus: Locus, facts: HostFacts?),
+        destination: (locus: Locus?, facts: HostFacts?),
+        subjects: [FileEntry]
+    ) {
+        if let topology = source.facts?.zfsTopology?.value {
+            facts.sourceDataset = ZFSTopology.datasetContaining(
+                source.locus.directory, in: topology)
+            facts.selectionWholeDataset = ZFSTopology.wholeDatasetSelection(
+                entries: subjects, sourceDirectory: source.locus.directory, datasets: topology)
+        }
+        if let dest = destination.locus, let topology = destination.facts?.zfsTopology?.value {
+            facts.destinationDataset = ZFSTopology.datasetContaining(
+                dest.directory, in: topology)
+        }
+        if let mounts = source.facts?.mounts?.value {
+            facts.sourceMountTarget = MountTable.mountContaining(
+                source.locus.directory, in: mounts)
+        }
+        if let dest = destination.locus, let mounts = destination.facts?.mounts?.value {
+            facts.destinationMountTarget = MountTable.mountContaining(
+                dest.directory, in: mounts)
         }
     }
 }

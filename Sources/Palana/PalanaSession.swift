@@ -216,6 +216,12 @@ final class PalanaSession {
             operation.beginTouch(source: focusedPane)
             return
         }
+        // The naming kinds gather a name, no destination — routed here so
+        // the context menu's create/rename ride the same door as a/R.
+        guard operationKind != .create, operationKind != .rename else {
+            beginNaming(operationKind)
+            return
+        }
         let destination = focusedSide == .left ? right : left
         operation.begin(operationKind, source: focusedPane, destination: destination)
     }
