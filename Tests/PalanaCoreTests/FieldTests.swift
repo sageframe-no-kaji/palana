@@ -66,8 +66,12 @@ struct FieldTests {
             entry("jodo", CapabilityProbe.command, stdout: gnuProbeStdout),
             entry("jodo", ZFSTopology.listCommand, stdout: zfsListStdout),
             entry("jodo", MountTable.command(forKernel: "Linux"), stdout: linuxMountsStdout),
+            // jodo grants passwordless sudo — exit 0.
+            entry("jodo", "sudo -n true", exit: 0),
             entry("mac", CapabilityProbe.command, stdout: bsdProbeStdout),
             entry("mac", MountTable.command(forKernel: "Darwin"), stdout: darwinMountsStdout),
+            // mac refuses passwordless sudo — nonzero exit, no stdout.
+            entry("mac", "sudo -n true", exit: 1),
             entry(
                 "koan",
                 CapabilityProbe.command,
@@ -81,6 +85,7 @@ struct FieldTests {
                 MountTable.command(forKernel: "Linux"),
                 stderr: "cat: /proc/mounts: Permission denied",
                 exit: 1),
+            entry("nomount", "sudo -n true", exit: 0),
         ])
     }
 
@@ -125,6 +130,8 @@ struct FieldTests {
         #expect(facts.zfsTopology?.value.count == 3)
         #expect(facts.mounts?.value.isEmpty == false, "mounts read records at least one entry")
         #expect(facts.mounts?.discoveredAt == Self.clock())
+        #expect(facts.sudoNoPassword?.value == true, "jodo grants passwordless sudo")
+        #expect(facts.sudoNoPassword?.discoveredAt == Self.clock())
         #expect(await field.facts(for: "jodo") == facts)
     }
 
@@ -136,6 +143,7 @@ struct FieldTests {
         #expect(facts.capability?.value.zfs == nil)
         #expect(facts.zfsTopology == nil)
         #expect(facts.mounts?.value.isEmpty == false, "mounts read runs regardless of zfs")
+        #expect(facts.sudoNoPassword?.value == false, "mac's sudo -n true exits nonzero")
     }
 
     @Test("a door-level failure records as unreachable, earlier facts remembered")

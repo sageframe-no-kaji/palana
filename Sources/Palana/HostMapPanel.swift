@@ -318,6 +318,7 @@ struct HostSectionView: View {
                 }
                 if section.hasZFS { Text("zfs").foregroundStyle(Theme.inkFaint) }
                 if section.hasRsync { Text("rsync").foregroundStyle(Theme.inkFaint) }
+                if section.hasSudoNoPassword { Text("sudo").foregroundStyle(Theme.inkFaint) }
             }
             .font(.system(size: 11))
         }

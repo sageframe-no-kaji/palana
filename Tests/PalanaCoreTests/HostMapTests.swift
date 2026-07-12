@@ -44,7 +44,8 @@ struct HostMapTests {
             reachability: Dated(value: .reachable, discoveredAt: stamp),
             capability: Dated(value: capability, discoveredAt: stamp),
             zfsTopology: Dated(value: jodoDatasets, discoveredAt: stamp),
-            mounts: Dated(value: jodoMounts, discoveredAt: stamp)
+            mounts: Dated(value: jodoMounts, discoveredAt: stamp),
+            sudoNoPassword: Dated(value: true, discoveredAt: stamp)
         )
     }
 
@@ -84,6 +85,7 @@ struct HostMapTests {
         #expect(local.flavor == nil)
         #expect(local.hasZFS == false)
         #expect(local.hasRsync == false)
+        #expect(local.hasSudoNoPassword == false)
         #expect(local.mounts.isEmpty)
         #expect(local.systemMountCount == 0)
         #expect(local.mountsRememberedAt == nil)
@@ -113,6 +115,7 @@ struct HostMapTests {
         #expect(jodo.flavor == .gnu)
         #expect(jodo.hasZFS == true)
         #expect(jodo.hasRsync == true)
+        #expect(jodo.hasSudoNoPassword == true)
         #expect(jodo.mountsRememberedAt == Self.stamp)
     }
 
