@@ -1,0 +1,7 @@
+# Pālana — description
+
+An operational workbench for the homelab — a dual-pane file manager with true server-side operations, ZFS-aware cross-dataset handling, and a field view of machine topology.
+
+Pālana is the peak of Kṣetra-Ops, a suite built on one conviction: power and responsibility over your own machines should not require the ceremony of Linux exclusionism. It is a layer on top of pure scripting and the CLI that keeps full transparency, power, and responsibility intact — GUI tools that fully support the command line beneath them, so that rolling your own and going CLI-only become unnecessary rather than mandatory. Concretely, it provides dual-pane file management with true server-side operations, ZFS-aware cross-dataset handling, a topological field view of the machine fleet, and Forteller's declarative configuration push built in as a plugin. The deeper argument is about the black box: trading the black box of server-side control for the black box of local control gains nothing, so Kṣetra-Ops opens the box and keeps it — clarity and insight without letting things sprawl. It speaks to three users at once: the traditional developer who wants some luxury without losing the roots, the new AI-age developer who should understand the tools they run, and the home labber who does complicated things and wants real clarity into what they are doing.
+
+Built with Tauri for the desktop shell, a Rust backend, and a Svelte frontend. In development.
