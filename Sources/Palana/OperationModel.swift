@@ -82,6 +82,17 @@ final class OperationModel {
         isNaming && pendingZFSVerb != nil && !zfsGatherWantsText
     }
 
+    /// True while a ZFS gather whose verb offers recursive is showing —
+    /// field-less or text, destroy, snapshot, or rollback alike.
+    ///
+    /// Ho-10.4-AT-03: space flips `zfsRecursive` whenever this is true. The
+    /// text-gather routing checks this ahead of the "every key belongs to
+    /// the field" guard so space is swallowed as the toggle, never typed —
+    /// safe because no ZFS dataset or snapshot name may contain a space.
+    var isRecursiveOfferingZFSGather: Bool {
+        isNaming && pendingZFSVerb?.gather?.offersRecursive == true
+    }
+
     /// Whether the panel is on screen — the view, not the work.
     ///
     /// An enactment keeps running when the panel hides (second hands

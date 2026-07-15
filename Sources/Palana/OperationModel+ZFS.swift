@@ -27,6 +27,21 @@ extension OperationModel {
         namingContextLines = []
     }
 
+    // MARK: - The recursive toggle's keyboard path
+
+    /// Flips `zfsRecursive` when the pending gather offers the choice.
+    ///
+    /// A no-op passthrough when no ZFS gather is pending or its verb does
+    /// not offer recursive (`offersRecursive == false`) — space during a
+    /// destroy-only or clear-mountpoint gather touches nothing. Shared by
+    /// both key routes: `handleFieldlessZFSGatherKey` (destroy) and
+    /// `handleTextEntryPriority`'s ZFS branch (snapshot, rollback) —
+    /// see Ho-10.4-AT-03's decision for why space and not `r`.
+    func toggleZFSRecursiveIfOffered() {
+        guard pendingZFSVerb?.gather?.offersRecursive == true else { return }
+        zfsRecursive.toggle()
+    }
+
     // MARK: - Begin
 
     /// Opens a ZFS mutation gather for the given verb, tool, host, and dataset.

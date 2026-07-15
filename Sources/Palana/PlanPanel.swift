@@ -263,9 +263,12 @@ struct PlanPanel: View {
                         set: { operation.zfsRecursive = $0 }
                     )
                 ) {
+                    // [space] names the keyboard path (Ho-10.4-AT-03) — the
+                    // checkbox stays mouse-reachable too, this is additive.
                     Text(
-                        operation.pendingZFSVerb?.gather?.toggleLabel
-                            ?? "recursive — includes everything beneath"
+                        "[space] "
+                            + (operation.pendingZFSVerb?.gather?.toggleLabel
+                                ?? "recursive — includes everything beneath")
                     )
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.ink)

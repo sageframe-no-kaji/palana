@@ -125,6 +125,14 @@ extension PalanaSession {
         if operation.isFieldlessZFSGather {
             return .handled(handleFieldlessZFSGatherKey(event))
         }
+        // Text ZFS gather (snapshot, rollback) whose verb offers recursive:
+        // space flips the toggle and is swallowed here, ahead of the field,
+        // so it never lands as a typed character. Safe unconditionally — no
+        // ZFS name may contain a space (Ho-10.4-AT-03).
+        if operation.isRecursiveOfferingZFSGather, Grammar.token(for: event) == "space" {
+            operation.toggleZFSRecursiveIfOffered()
+            return .handled(true)
+        }
         // The jump owns every plain key while it is open (round 10) —
         // text entry like the rest, routed here to keep handle() within
         // its complexity budget.
@@ -262,11 +270,13 @@ extension PalanaSession {
 extension PalanaSession {
     /// Handles keys during a field-less ZFS gather (e.g. destroy).
     ///
-    /// Return commits the gather; Esc dismisses. Every other plain key is
-    /// swallowed — there is no field to receive it, and an unconsumed arrow
-    /// would reach the Table's native handling and move its selection behind
-    /// the grammar's back. ⌘-chords pass through untouched: no surface
-    /// swallows them (ho-9.7's law — ⌘Q, ⌘, and the menus keep working).
+    /// Return commits the gather; Esc dismisses. Space flips the recursive
+    /// toggle when the verb offers one (Ho-10.4-AT-03) — a no-op passthrough
+    /// otherwise. Every other plain key is swallowed — there is no field to
+    /// receive it, and an unconsumed arrow would reach the Table's native
+    /// handling and move its selection behind the grammar's back. ⌘-chords
+    /// pass through untouched: no surface swallows them (ho-9.7's law —
+    /// ⌘Q, ⌘, and the menus keep working).
     func handleFieldlessZFSGatherKey(_ event: NSEvent) -> Bool {
         guard !event.modifierFlags.contains(.command) else { return false }
         guard let token = Grammar.token(for: event) else { return true }
@@ -276,6 +286,10 @@ extension PalanaSession {
         }
         if token == "esc" {
             operation.dismissOrCancel()
+            return true
+        }
+        if token == "space" {
+            operation.toggleZFSRecursiveIfOffered()
             return true
         }
         // Swallowed — the gather owns the keyboard until it commits or dies.
