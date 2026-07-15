@@ -162,7 +162,10 @@ extension PlanEngine {
     /// the property change and `sudo -n zfs mount` after it — zfs's implicit
     /// unmount is root-only for the delegated user, and the trailing mount
     /// restores the dataset to mounted at its new path, matching what root
-    /// does automatically (ho-10.4-AT-02).
+    /// does automatically (ho-10.4-AT-02). setMountpoint additionally carries
+    /// `-u` on the `zfs set` itself, suppressing that command's own implicit
+    /// auto-mount attempt (ho-10.4-AT-04); `zfs inherit` has no `-u`, so
+    /// clearMountpoint keeps its cosmetic mid-plan warning on mounted targets.
     private static func composeZFSSnapshotAndPropertyMutation(
         _ mutation: ZFSMutation,
         on host: Runner,
@@ -201,14 +204,23 @@ extension PlanEngine {
         case .setMountpoint(let dataset, let path):
             let dsPart = ShellQuote.quote(dataset)
             let pathPart = ShellQuote.quote(path)
+            // -u sets the property without zfs's own auto-mount attempt —
+            // that auto-mount is root-only for the delegated user and would
+            // otherwise warn mid-plan even when the set succeeds (ho-10.4-AT-04).
+            // The unmount-before / mount-after steps below (mounted case
+            // only) do all the mounting; -u just keeps set-mountpoint quiet.
             return mountedWrappedProperty(
-                command: "zfs set mountpoint=\(pathPart) \(dsPart)",
+                command: "zfs set -u mountpoint=\(pathPart) \(dsPart)",
                 verifyCommand: "zfs get -H -o value mountpoint -- \(dsPart)",
                 dsPart: dsPart,
                 on: host,
                 targetMounted: targetMounted)
         case .clearMountpoint(let dataset):
             let dsPart = ShellQuote.quote(dataset)
+            // zfs inherit has no -u (only -rS on 2.4.1), so this keeps its
+            // own auto-mount attempt and the same cosmetic mid-plan warning
+            // on a mounted target — the explicit sudo -n zfs mount below
+            // still lands it at the inherited path either way (ho-10.4-AT-04).
             return mountedWrappedProperty(
                 command: "zfs inherit mountpoint \(dsPart)",
                 verifyCommand: "zfs get -H -o value mountpoint -- \(dsPart)",

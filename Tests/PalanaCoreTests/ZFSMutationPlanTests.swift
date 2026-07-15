@@ -229,12 +229,12 @@ struct ZFSSetMountpointComposeTests {
         }
     }
 
-    @Test("setMountpoint composes zfs set mountpoint and a get verify")
+    @Test("setMountpoint composes zfs set -u mountpoint and a get verify")
     func setMountpoint() throws {
         let plan = try planZfs(.setMountpoint(dataset: "tank/data", path: "/mnt/data"))
         #expect(
             plan.steps.map(\.command) == [
-                "zfs set mountpoint=/mnt/data tank/data",
+                "zfs set -u mountpoint=/mnt/data tank/data",
                 "zfs get -H -o value mountpoint -- tank/data",
             ])
         #expect(plan.steps.map(\.role) == [.property, .verify])
@@ -243,32 +243,32 @@ struct ZFSSetMountpointComposeTests {
     @Test("setMountpoint quotes spaced path and dataset")
     func setMountpointSpaced() throws {
         let plan = try planZfs(.setMountpoint(dataset: "tank/my data", path: "/mnt/my data"))
-        #expect(plan.steps[0].command == "zfs set mountpoint='/mnt/my data' 'tank/my data'")
+        #expect(plan.steps[0].command == "zfs set -u mountpoint='/mnt/my data' 'tank/my data'")
         #expect(plan.steps[1].command == "zfs get -H -o value mountpoint -- 'tank/my data'")
     }
 
     @Test(
-        "setMountpoint mounted weaves unmount · set · sudo -n zfs mount (ho-10.4-AT-02)")
+        "setMountpoint mounted weaves unmount · set -u · sudo -n zfs mount (ho-10.4-AT-04)")
     func setMountpointMounted() throws {
         let plan = try planZfs(
             .setMountpoint(dataset: "tank/data", path: "/mnt/data"), targetMounted: true)
         #expect(
             plan.steps.map(\.command) == [
                 "sudo -n zfs unmount tank/data",
-                "zfs set mountpoint=/mnt/data tank/data",
+                "zfs set -u mountpoint=/mnt/data tank/data",
                 "sudo -n zfs mount tank/data",
                 "zfs get -H -o value mountpoint -- tank/data",
             ])
         #expect(plan.steps.map(\.role) == [.property, .property, .property, .verify])
     }
 
-    @Test("setMountpoint unmounted composes unchanged — set only, no remount")
+    @Test("setMountpoint unmounted composes unchanged — set -u only, no remount")
     func setMountpointUnmounted() throws {
         let plan = try planZfs(
             .setMountpoint(dataset: "tank/data", path: "/mnt/data"), targetMounted: false)
         #expect(
             plan.steps.map(\.command) == [
-                "zfs set mountpoint=/mnt/data tank/data",
+                "zfs set -u mountpoint=/mnt/data tank/data",
                 "zfs get -H -o value mountpoint -- tank/data",
             ])
     }
