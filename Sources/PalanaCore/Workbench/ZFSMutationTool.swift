@@ -172,7 +172,8 @@ public struct ZFSMutationTool: WorkbenchTool {
             source: Locus(host: host, directory: target),
             entries: [],
             destination: nil,
-            zfs: mutation
+            zfs: mutation,
+            targetMounted: input.mounted
         )
     }
 }

@@ -10,7 +10,9 @@ import Testing
 
 private let jodo = Locus(host: "jodo", directory: "/")
 
-private func planZfs(_ mutation: ZFSMutation, token: String = "t-unit") throws -> Plan {
+private func planZfs(
+    _ mutation: ZFSMutation, token: String = "t-unit", targetMounted: Bool = false
+) throws -> Plan {
     try PlanEngine.plan(
         PlanRequest(
             operation: .zfs,
@@ -18,7 +20,8 @@ private func planZfs(_ mutation: ZFSMutation, token: String = "t-unit") throws -
             entries: [],
             destination: nil,
             token: token,
-            zfs: mutation),
+            zfs: mutation,
+            targetMounted: targetMounted),
         facts: PlanFacts())
 }
 
@@ -87,6 +90,42 @@ struct ZFSDestroyDatasetComposeTests {
         let plan = try planZfs(.destroyDataset(name: "tank/my data", recursive: false))
         #expect(plan.steps[0].command == "zfs destroy 'tank/my data'")
         #expect(plan.steps[1].command == "! zfs list -H -o name -- 'tank/my data'")
+    }
+
+    @Test("destroyDataset mounted weaves sudo -n zfs unmount ahead of destroy (ho-10.4-AT-02)")
+    func destroyMounted() throws {
+        let plan = try planZfs(
+            .destroyDataset(name: "tank/data", recursive: false), targetMounted: true)
+        #expect(
+            plan.steps.map(\.command) == [
+                "sudo -n zfs unmount tank/data",
+                "zfs destroy tank/data",
+                "! zfs list -H -o name -- tank/data",
+            ])
+        #expect(plan.steps.map(\.role) == [.property, .delete, .verify])
+    }
+
+    @Test("destroyDataset unmounted composes unchanged — no unmount step")
+    func destroyUnmounted() throws {
+        let plan = try planZfs(
+            .destroyDataset(name: "tank/data", recursive: false), targetMounted: false)
+        #expect(
+            plan.steps.map(\.command) == [
+                "zfs destroy tank/data",
+                "! zfs list -H -o name -- tank/data",
+            ])
+    }
+
+    @Test("destroyDataset mounted recursive: unmount then zfs destroy -r")
+    func destroyMountedRecursive() throws {
+        let plan = try planZfs(
+            .destroyDataset(name: "tank/data", recursive: true), targetMounted: true)
+        #expect(
+            plan.steps.map(\.command) == [
+                "sudo -n zfs unmount tank/data",
+                "zfs destroy -r tank/data",
+                "! zfs list -H -o name -- tank/data",
+            ])
     }
 }
 
@@ -207,6 +246,32 @@ struct ZFSSetMountpointComposeTests {
         #expect(plan.steps[0].command == "zfs set mountpoint='/mnt/my data' 'tank/my data'")
         #expect(plan.steps[1].command == "zfs get -H -o value mountpoint -- 'tank/my data'")
     }
+
+    @Test(
+        "setMountpoint mounted weaves unmount · set · sudo -n zfs mount (ho-10.4-AT-02)")
+    func setMountpointMounted() throws {
+        let plan = try planZfs(
+            .setMountpoint(dataset: "tank/data", path: "/mnt/data"), targetMounted: true)
+        #expect(
+            plan.steps.map(\.command) == [
+                "sudo -n zfs unmount tank/data",
+                "zfs set mountpoint=/mnt/data tank/data",
+                "sudo -n zfs mount tank/data",
+                "zfs get -H -o value mountpoint -- tank/data",
+            ])
+        #expect(plan.steps.map(\.role) == [.property, .property, .property, .verify])
+    }
+
+    @Test("setMountpoint unmounted composes unchanged — set only, no remount")
+    func setMountpointUnmounted() throws {
+        let plan = try planZfs(
+            .setMountpoint(dataset: "tank/data", path: "/mnt/data"), targetMounted: false)
+        #expect(
+            plan.steps.map(\.command) == [
+                "zfs set mountpoint=/mnt/data tank/data",
+                "zfs get -H -o value mountpoint -- tank/data",
+            ])
+    }
 }
 
 @Suite("ZFSMutation compose — clearMountpoint")
@@ -220,6 +285,29 @@ struct ZFSClearMountpointComposeTests {
                 "zfs get -H -o value mountpoint -- tank/data",
             ])
         #expect(plan.steps.map(\.role) == [.property, .verify])
+    }
+
+    @Test("clearMountpoint mounted weaves unmount · inherit · sudo -n zfs mount (ho-10.4-AT-02)")
+    func clearMountpointMounted() throws {
+        let plan = try planZfs(.clearMountpoint(dataset: "tank/data"), targetMounted: true)
+        #expect(
+            plan.steps.map(\.command) == [
+                "sudo -n zfs unmount tank/data",
+                "zfs inherit mountpoint tank/data",
+                "sudo -n zfs mount tank/data",
+                "zfs get -H -o value mountpoint -- tank/data",
+            ])
+        #expect(plan.steps.map(\.role) == [.property, .property, .property, .verify])
+    }
+
+    @Test("clearMountpoint unmounted composes unchanged — inherit only, no remount")
+    func clearMountpointUnmounted() throws {
+        let plan = try planZfs(.clearMountpoint(dataset: "tank/data"), targetMounted: false)
+        #expect(
+            plan.steps.map(\.command) == [
+                "zfs inherit mountpoint tank/data",
+                "zfs get -H -o value mountpoint -- tank/data",
+            ])
     }
 }
 

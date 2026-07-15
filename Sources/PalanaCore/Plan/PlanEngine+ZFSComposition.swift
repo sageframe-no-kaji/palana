@@ -91,18 +91,25 @@ extension PlanEngine {
         let host = Runner.host(request.source.host)
         switch mutation {
         case .createDataset, .destroyDataset, .renameDataset:
-            return composeZFSDatasetMutation(mutation, on: host)
+            return composeZFSDatasetMutation(mutation, on: host, targetMounted: request.targetMounted)
         case .snapshot, .destroySnapshot, .rollback, .setMountpoint, .clearMountpoint:
-            return composeZFSSnapshotAndPropertyMutation(mutation, on: host)
+            return composeZFSSnapshotAndPropertyMutation(
+                mutation, on: host, targetMounted: request.targetMounted)
         case .mount, .unmount:
             return composeZFSMountMutation(mutation, on: host)
         }
     }
 
     /// Dataset create / destroy / rename — all operate on the dataset name directly.
+    ///
+    /// A mounted destroy weaves `sudo -n zfs unmount` ahead of `zfs destroy`
+    /// — on Linux, destroying a mounted dataset triggers an implicit unmount
+    /// that is root-only for the delegated user (ho-10.4-AT-02). Destroy has
+    /// no remount step; the dataset is gone.
     private static func composeZFSDatasetMutation(
         _ mutation: ZFSMutation,
-        on host: Runner
+        on host: Runner,
+        targetMounted: Bool
     ) -> [PlanStep] {
         switch mutation {
         case .createDataset(let name, let mountpoint):
@@ -122,11 +129,18 @@ extension PlanEngine {
         case .destroyDataset(let name, let recursive):
             let namePart = ShellQuote.quote(name)
             let flag = recursive ? " -r" : ""
-            return [
-                PlanStep(runsOn: host, command: "zfs destroy\(flag) \(namePart)", role: .delete),
+            var steps: [PlanStep] = []
+            if targetMounted {
+                steps.append(
+                    PlanStep(
+                        runsOn: host, command: "sudo -n zfs unmount \(namePart)", role: .property))
+            }
+            steps.append(
+                PlanStep(runsOn: host, command: "zfs destroy\(flag) \(namePart)", role: .delete))
+            steps.append(
                 PlanStep(
-                    runsOn: host, command: "! zfs list -H -o name -- \(namePart)", role: .verify),
-            ]
+                    runsOn: host, command: "! zfs list -H -o name -- \(namePart)", role: .verify))
+            return steps
         case .renameDataset(let from, let to):
             let fromPart = ShellQuote.quote(from)
             let toPart = ShellQuote.quote(to)
@@ -143,9 +157,16 @@ extension PlanEngine {
     }
 
     /// Snapshot, destroySnapshot, rollback, setMountpoint, clearMountpoint.
+    ///
+    /// A mounted set/clear-mountpoint weaves `sudo -n zfs unmount` ahead of
+    /// the property change and `sudo -n zfs mount` after it — zfs's implicit
+    /// unmount is root-only for the delegated user, and the trailing mount
+    /// restores the dataset to mounted at its new path, matching what root
+    /// does automatically (ho-10.4-AT-02).
     private static func composeZFSSnapshotAndPropertyMutation(
         _ mutation: ZFSMutation,
-        on host: Runner
+        on host: Runner,
+        targetMounted: Bool
     ) -> [PlanStep] {
         switch mutation {
         case .snapshot(let dataset, let name, let recursive):
@@ -180,29 +201,51 @@ extension PlanEngine {
         case .setMountpoint(let dataset, let path):
             let dsPart = ShellQuote.quote(dataset)
             let pathPart = ShellQuote.quote(path)
-            return [
-                PlanStep(
-                    runsOn: host,
-                    command: "zfs set mountpoint=\(pathPart) \(dsPart)",
-                    role: .property),
-                PlanStep(
-                    runsOn: host,
-                    command: "zfs get -H -o value mountpoint -- \(dsPart)",
-                    role: .verify),
-            ]
+            return mountedWrappedProperty(
+                command: "zfs set mountpoint=\(pathPart) \(dsPart)",
+                verifyCommand: "zfs get -H -o value mountpoint -- \(dsPart)",
+                dsPart: dsPart,
+                on: host,
+                targetMounted: targetMounted)
         case .clearMountpoint(let dataset):
             let dsPart = ShellQuote.quote(dataset)
-            return [
-                PlanStep(
-                    runsOn: host, command: "zfs inherit mountpoint \(dsPart)", role: .property),
-                PlanStep(
-                    runsOn: host,
-                    command: "zfs get -H -o value mountpoint -- \(dsPart)",
-                    role: .verify),
-            ]
+            return mountedWrappedProperty(
+                command: "zfs inherit mountpoint \(dsPart)",
+                verifyCommand: "zfs get -H -o value mountpoint -- \(dsPart)",
+                dsPart: dsPart,
+                on: host,
+                targetMounted: targetMounted)
         default:
             return []
         }
+    }
+
+    /// Wraps a `.property` mutation command with the implicit-unmount heal.
+    ///
+    /// When the target is mounted: `sudo -n zfs unmount` before, `sudo -n
+    /// zfs mount` after, restoring the dataset to mounted at its new
+    /// mountpoint fact — matching what root does automatically
+    /// (ho-10.4-AT-02). Unmounted composes unchanged: the property command
+    /// and its verify, nothing woven in.
+    private static func mountedWrappedProperty(
+        command: String,
+        verifyCommand: String,
+        dsPart: String,
+        on host: Runner,
+        targetMounted: Bool
+    ) -> [PlanStep] {
+        var steps: [PlanStep] = []
+        if targetMounted {
+            steps.append(
+                PlanStep(runsOn: host, command: "sudo -n zfs unmount \(dsPart)", role: .property))
+        }
+        steps.append(PlanStep(runsOn: host, command: command, role: .property))
+        if targetMounted {
+            steps.append(
+                PlanStep(runsOn: host, command: "sudo -n zfs mount \(dsPart)", role: .property))
+        }
+        steps.append(PlanStep(runsOn: host, command: verifyCommand, role: .verify))
+        return steps
     }
 
     /// Mount / unmount — the escalation reads in the plan like every other

@@ -96,12 +96,20 @@ public struct MutationInput: Sendable, Equatable {
     public var text: String?
     /// The recursive flag, for verbs that offer it. false otherwise.
     public var recursive: Bool
+    /// Whether the target dataset is currently mounted — the surface
+    /// already knows this (`dataset.mounted`); it rides along so the
+    /// engine can weave the implicit-unmount heal into destroy and
+    /// mountpoint mutations (ho-10.4-AT-02).
+    public var mounted: Bool
 
     /// Assembles a mutation input.
-    public init(target: String, text: String? = nil, recursive: Bool = false) {
+    public init(
+        target: String, text: String? = nil, recursive: Bool = false, mounted: Bool = false
+    ) {
         self.target = target
         self.text = text
         self.recursive = recursive
+        self.mounted = mounted
     }
 }
 

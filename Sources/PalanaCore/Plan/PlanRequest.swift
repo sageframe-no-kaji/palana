@@ -23,6 +23,12 @@ public struct PlanRequest: Sendable, Equatable {
     /// The ZFS mutation payload — non-nil only for `.zfs` operations,
     /// nil for every file operation.
     public var zfs: ZFSMutation?
+    /// Whether the `.zfs` mutation's target dataset is currently mounted.
+    ///
+    /// Defaults false like the rest of this bundle's ZFS context. The
+    /// composer reads this to weave the implicit-unmount heal ahead of
+    /// destroy and mountpoint mutations on a mounted target (ho-10.4-AT-02).
+    public var targetMounted: Bool
 
     /// Assembles a request.
     public init(
@@ -32,7 +38,8 @@ public struct PlanRequest: Sendable, Equatable {
         destination: Locus? = nil,
         token: String = "palana-transfer",
         targetName: String? = nil,
-        zfs: ZFSMutation? = nil
+        zfs: ZFSMutation? = nil,
+        targetMounted: Bool = false
     ) {
         self.operation = operation
         self.source = source
@@ -41,6 +48,7 @@ public struct PlanRequest: Sendable, Equatable {
         self.token = token
         self.targetName = targetName
         self.zfs = zfs
+        self.targetMounted = targetMounted
     }
 }
 

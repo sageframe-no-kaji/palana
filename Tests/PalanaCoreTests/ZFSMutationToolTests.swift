@@ -16,9 +16,10 @@ private let target = "tank/data"
 private func input(
     target: String = "tank/data",
     text: String? = nil,
-    recursive: Bool = false
+    recursive: Bool = false,
+    mounted: Bool = false
 ) -> MutationInput {
-    MutationInput(target: target, text: text, recursive: recursive)
+    MutationInput(target: target, text: text, recursive: recursive, mounted: mounted)
 }
 
 private func matchedVerb(_ id: String) throws -> WorkbenchVerb {
@@ -502,5 +503,40 @@ struct ZFSMutationToolRoundTripTests {
         let plan = try planVia(verbId: "zfs-unmount")
         #expect(!plan.steps.isEmpty)
         #expect(plan.classification == .zfsMutation)
+    }
+}
+
+// MARK: - mounted round-trip (ho-10.4-AT-02)
+
+@Suite("mounted round-trip — MutationInput and PlanRequest default to false")
+struct ZFSMountedRoundTripTests {
+    @Test("MutationInput.mounted defaults to false")
+    func mutationInputDefaultsFalse() {
+        #expect(MutationInput(target: target).mounted == false)
+    }
+
+    @Test("PlanRequest.targetMounted defaults to false")
+    func planRequestDefaultsFalse() {
+        let request = PlanRequest(
+            operation: .zfs,
+            source: Locus(host: host, directory: "/"),
+            entries: [],
+            zfs: .destroyDataset(name: target, recursive: false)
+        )
+        #expect(request.targetMounted == false)
+    }
+
+    @Test("ZFSMutationTool.planRequest carries input.mounted into targetMounted")
+    func toolCarriesMountedThroughToRequest() throws {
+        let destroyVerb = try matchedVerb("zfs-destroy")
+        let mountedRequest = try #require(
+            tool.planRequest(
+                for: destroyVerb, on: host, input: input(target: target, mounted: true)))
+        #expect(mountedRequest.targetMounted == true)
+
+        let unmountedRequest = try #require(
+            tool.planRequest(
+                for: destroyVerb, on: host, input: input(target: target, mounted: false)))
+        #expect(unmountedRequest.targetMounted == false)
     }
 }

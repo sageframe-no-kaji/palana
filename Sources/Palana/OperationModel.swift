@@ -122,6 +122,10 @@ final class OperationModel {
     var pendingZFSHost: String?
     /// The dataset the ZFS mutation targets — the one containing the pane's path.
     var pendingZFSDataset: String?
+    /// Whether the pending ZFS mutation's target dataset is currently
+    /// mounted — carried from the surface's `dataset.mounted` fact so the
+    /// composed plan can weave the implicit-unmount heal (ho-10.4-AT-02).
+    var pendingZFSMounted: Bool = false
     /// The recursive flag gathered from the operator.
     ///
     /// Reset to false on each `beginZFSMutation` call.
@@ -433,6 +437,7 @@ final class OperationModel {
         pendingZFSTool = nil
         pendingZFSHost = nil
         pendingZFSDataset = nil
+        pendingZFSMounted = false
         zfsRecursive = false
         zfsGatherWantsText = false
     }

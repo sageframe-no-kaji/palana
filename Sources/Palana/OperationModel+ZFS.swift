@@ -21,6 +21,7 @@ extension OperationModel {
         pendingZFSTool = nil
         pendingZFSHost = nil
         pendingZFSDataset = nil
+        pendingZFSMounted = false
         zfsRecursive = false
         zfsGatherWantsText = false
         namingContextLines = []
@@ -39,7 +40,8 @@ extension OperationModel {
         _ verb: WorkbenchVerb,
         tool: ZFSMutationTool,
         host: String,
-        dataset: String
+        dataset: String,
+        mounted: Bool = false
     ) {
         if phase == .enacting {
             panelShowing = true
@@ -65,6 +67,7 @@ extension OperationModel {
         pendingZFSTool = tool
         pendingZFSHost = host
         pendingZFSDataset = dataset
+        pendingZFSMounted = mounted
         zfsRecursive = false
 
         let spec = verb.gather
@@ -173,7 +176,8 @@ extension OperationModel {
                 reset()
                 return
             }
-            let input = MutationInput(target: dataset, text: nil, recursive: zfsRecursive)
+            let input = MutationInput(
+                target: dataset, text: nil, recursive: zfsRecursive, mounted: pendingZFSMounted)
             compose(verb: verb, tool: tool, host: host, input: input)
             return
         }
@@ -204,11 +208,13 @@ extension OperationModel {
                 reset()
                 return
             }
-            let input = MutationInput(target: dataset, text: txt, recursive: zfsRecursive)
+            let input = MutationInput(
+                target: dataset, text: txt, recursive: zfsRecursive, mounted: pendingZFSMounted)
             compose(verb: verb, tool: tool, host: host, input: input)
         } else {
             // Field-less gather — the recursive toggle is the only operator input.
-            let input = MutationInput(target: dataset, text: nil, recursive: zfsRecursive)
+            let input = MutationInput(
+                target: dataset, text: nil, recursive: zfsRecursive, mounted: pendingZFSMounted)
             compose(verb: verb, tool: tool, host: host, input: input)
         }
     }

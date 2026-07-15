@@ -252,7 +252,8 @@ extension PalanaSession {
     /// is always this pane's cursor, focus or not (Finder's manners).
     func runZFSPaneModeVerb(_ verb: WorkbenchVerb, on pane: PaneModel) {
         guard let host = pane.state.host, let dataset = pane.zfsSelectedDataset else { return }
-        runWorkbenchMutation(verb, on: host, dataset: dataset)
+        let mounted = pane.zfsSelectedFullDataset?.mounted ?? false
+        runWorkbenchMutation(verb, on: host, dataset: dataset, mounted: mounted)
     }
 }
 
@@ -302,11 +303,17 @@ extension PalanaSession {
     /// This is the primary path when the ZFS panel is open — the caller has
     /// already resolved which dataset to target from the tree selection.
     /// Skips the `datasetContaining` path-search used by the pane-anchored variant.
-    func runWorkbenchMutation(_ verb: WorkbenchVerb, on host: String, dataset: String) {
+    /// `mounted` carries the dataset's mounted fact so the composed plan can
+    /// weave the implicit-unmount heal (ho-10.4-AT-02); defaults false for
+    /// callers that have not resolved it.
+    func runWorkbenchMutation(
+        _ verb: WorkbenchVerb, on host: String, dataset: String, mounted: Bool = false
+    ) {
         Task {
             guard await zfsMutationGuard(verb: verb, on: host) else { return }
             guard !refusesPoolRoot(verb, dataset: dataset) else { return }
-            operation.beginZFSMutation(verb, tool: zfsTool, host: host, dataset: dataset)
+            operation.beginZFSMutation(
+                verb, tool: zfsTool, host: host, dataset: dataset, mounted: mounted)
         }
     }
 
@@ -327,7 +334,8 @@ extension PalanaSession {
                 return
             }
             guard !refusesPoolRoot(verb, dataset: dataset.name) else { return }
-            operation.beginZFSMutation(verb, tool: zfsTool, host: host, dataset: dataset.name)
+            operation.beginZFSMutation(
+                verb, tool: zfsTool, host: host, dataset: dataset.name, mounted: dataset.mounted)
         }
     }
 

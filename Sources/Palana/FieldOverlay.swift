@@ -281,6 +281,7 @@ struct FieldOverlay: View {
                 }
                 if hl.hasZFS { Text("zfs").foregroundStyle(Theme.inkFaint) }
                 if hl.hasRsync { Text("rsync").foregroundStyle(Theme.inkFaint) }
+                if hl.hasSudoNoPassword { Text("sudo").foregroundStyle(Theme.inkFaint) }
                 if hl.datasetCount > 0 {
                     // The cue that l has something to expand.
                     Text("\(hl.datasetCount) datasets")
