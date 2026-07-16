@@ -21,6 +21,11 @@ final class PreviewController {
     /// the session so this stays free of the engine. `nil` on failure.
     typealias RemoteReader = @MainActor (_ host: String, _ path: String, _ limit: Int) async -> Data?
 
+    /// Reads a remote file whole — the size-gated binary fetch (ho-18).
+    ///
+    /// Only ever called for a file already known under the cap. `nil` on failure.
+    typealias RemoteFileReader = @MainActor (_ host: String, _ path: String) async -> Data?
+
     /// What the preview pane should render right now.
     enum State: Equatable {
         /// The left pane has no cursor — nothing to preview.
@@ -41,8 +46,15 @@ final class PreviewController {
     /// The current preview state — the pane observes this.
     private(set) var state: State = .empty
 
-    /// The reader for remote files, set by the session after the engine exists.
+    /// The bounded-head reader for remote text, set by the session.
     var remoteReader: RemoteReader?
+
+    /// The whole-file reader for remote binaries (ho-18), set by the session.
+    var remoteFileReader: RemoteFileReader?
+
+    /// The single ephemeral cache file for the current remote-binary preview —
+    /// evicted on every load and on clear, so at most one exists.
+    private var cacheURL: URL?
 
     /// The debounce window before a cursor move loads (design system §6 micro-
     /// interaction window) — arrow-spam within it never thrashes the preview.
@@ -79,6 +91,7 @@ final class PreviewController {
     func clear() {
         loadTask?.cancel()
         loadTask = nil
+        evictCache()
         state = .empty
     }
 
@@ -86,6 +99,8 @@ final class PreviewController {
     private func load(
         entry: FileEntry, host: String?, directory: String, isLocal: Bool, url: URL?
     ) async {
+        // One cache file at a time — the previous preview's fetch is stale now.
+        evictCache()
         if isLocal {
             await loadLocal(entry: entry, url: url)
         } else {
@@ -113,39 +128,86 @@ final class PreviewController {
         }
     }
 
-    /// The remote branch — human-readable text is fetched with a bounded
-    /// `head -c` and shown; a remote binary (or a read we can't make) stays the
-    /// info card plus the local-only line (ho-16 review: remote *text* is in,
-    /// remote binary is still local-only).
+    /// The remote branch — ho-16 text plus ho-18 binary, size-gated on facts.
+    ///
+    /// Gated on facts we already hold, so no fetch is started that we'd abort
+    /// for size. Text reads a bounded head; a small image/PDF is fetched whole
+    /// to a cache and quick-looked; everything else stays info-only.
     private func loadRemote(entry: FileEntry, host: String?, directory: String) async {
-        guard entry.kind == .file else {
+        guard let host else {
             state = .infoOnly(entry)
             return
         }
-        // Only fetch what could be text: a text extension, or an extensionless
-        // file we can sniff from the head. A known non-text extension (image,
-        // PDF, archive) is not fetched — it stays local-only.
-        let ext = PreviewRouter.fileExtension(of: entry.name)
-        let couldBeText = ext.map { PreviewRouter.textExtensions.contains($0) } ?? true
-        guard couldBeText, let host, let reader = remoteReader else {
+        let path = PaneModel.childPath(of: directory, name: entry.name)
+        switch PreviewRouter.remotePlan(entry: entry) {
+        case .text:
+            await loadRemoteText(entry: entry, host: host, path: path)
+        case .fetchBinary:
+            await loadRemoteBinary(entry: entry, host: host, path: path)
+        case .infoOnly:
+            state = .remote(entry)
+        }
+    }
+
+    /// Remote text — a bounded `head -c` read, then extension-or-sniff routing.
+    private func loadRemoteText(entry: FileEntry, host: String, path: String) async {
+        guard let reader = remoteReader else {
             state = .remote(entry)
             return
         }
         state = .loading(entry)
-        let path = PaneModel.childPath(of: directory, name: entry.name)
         let data = await reader(host, path, PreviewRouter.textCap + 1)
         guard !Task.isCancelled else { return }
         guard let data else {
             state = .remote(entry)
             return
         }
-        // With an extension it is text (we only fetched text extensions);
-        // extensionless we sniff the head we just read.
-        if ext != nil || PreviewRouter.looksLikeText(head: data) {
+        // A text extension is text; an extensionless file is sniffed.
+        let hasExtension = PreviewRouter.fileExtension(of: entry.name) != nil
+        if hasExtension || PreviewRouter.looksLikeText(head: data) {
             state = .text(entry, PreviewRouter.decodeCapped(data))
         } else {
             state = .remote(entry)
         }
+    }
+
+    /// Remote binary (ho-18) — fetch the whole file (already known under the
+    /// cap), write it to the ephemeral cache, and quick-look the local copy.
+    private func loadRemoteBinary(entry: FileEntry, host: String, path: String) async {
+        guard let reader = remoteFileReader else {
+            state = .remote(entry)
+            return
+        }
+        state = .loading(entry)
+        let data = await reader(host, path)
+        guard !Task.isCancelled else { return }
+        guard let data, let url = cacheRemote(data, name: entry.name) else {
+            state = .remote(entry)
+            return
+        }
+        state = .quickLook(entry, url)
+    }
+
+    /// Writes fetched remote bytes to a single temp cache file.
+    ///
+    /// The file carries the entry's extension so QuickLook infers the type; any
+    /// prior cache file is evicted first.
+    private func cacheRemote(_ data: Data, name: String) -> URL? {
+        evictCache()
+        let ext = (name as NSString).pathExtension
+        var url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("palana-remote-preview-\(UUID().uuidString)")
+        if !ext.isEmpty { url.appendPathExtension(ext) }
+        guard (try? data.write(to: url)) != nil else { return nil }
+        cacheURL = url
+        return url
+    }
+
+    /// Removes the cached remote-binary file, if any.
+    private func evictCache() {
+        guard let url = cacheURL else { return }
+        try? FileManager.default.removeItem(at: url)
+        cacheURL = nil
     }
 
     /// Reads up to `limit` bytes off the front of a local file, or `nil` on

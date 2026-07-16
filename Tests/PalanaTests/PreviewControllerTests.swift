@@ -55,11 +55,11 @@ struct PaneModelPreviewModeTests {
 @MainActor
 @Suite("PreviewController — debounced local load")
 struct PreviewControllerTests {
-    private func entry(_ name: String, kind: FileEntry.Kind = .file) -> FileEntry {
+    private func entry(_ name: String, size: Int64 = 0, kind: FileEntry.Kind = .file) -> FileEntry {
         FileEntry(
             nameData: Data(name.utf8),
             kind: kind,
-            size: 0,
+            size: size,
             modified: Date(timeIntervalSince1970: 0),
             permissions: "644",
             owner: "me",
@@ -126,20 +126,48 @@ struct PreviewControllerTests {
         #expect(preview.text == "remote: true\nkey: val\n")
     }
 
-    @Test("a remote binary is not fetched — stays the local-only card")
-    func remoteBinaryStaysLocalOnly() async {
+    @Test("a small remote image is fetched to a cache and quick-looked (ho-18)")
+    func remoteBinaryFetches() async throws {
+        let controller = PreviewController()
+        let bytes = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A])  // PNG-ish
+        controller.remoteFileReader = { _, _ in bytes }
+        let file = entry("photo.png", size: 2000)
+        controller.follow(entry: file, host: "koan", directory: "/pics", isLocal: false, url: nil)
+        await settle(controller)
+        guard case .quickLook(let resolvedEntry, let url) = controller.state else {
+            Issue.record("expected .quickLook, got \(controller.state)")
+            return
+        }
+        #expect(resolvedEntry == file)
+        #expect(url.pathExtension == "png")
+        #expect(try Data(contentsOf: url) == bytes)
+        controller.clear()  // evicts the cache
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+    }
+
+    @Test("a remote image over the cap is never fetched — the local-only card")
+    func remoteBinaryOverCapNotFetched() async {
         let controller = PreviewController()
         var readerCalled = false
-        controller.remoteReader = { _, _, _ in
+        controller.remoteFileReader = { _, _ in
             readerCalled = true
-            return Data([0x89, 0x50, 0x4E, 0x47])
+            return Data([0x89])
         }
-        let file = entry("photo.png")  // non-text extension → never fetched
-        controller.follow(
-            entry: file, host: "koan", directory: "/pics", isLocal: false, url: nil)
+        let big = Int64(PreviewRouter.remoteBinaryCap) + 1
+        let file = entry("huge.tiff", size: big)
+        controller.follow(entry: file, host: "koan", directory: "/pics", isLocal: false, url: nil)
         await settle(controller)
         #expect(controller.state == .remote(file))
-        #expect(!readerCalled, "a remote binary must not be read over the wire")
+        #expect(!readerCalled, "an over-cap remote binary must not be read over the wire")
+    }
+
+    @Test("a remote binary with no binary reader wired → the local-only card")
+    func remoteBinaryNoReader() async {
+        let controller = PreviewController()  // remoteFileReader stays nil
+        let file = entry("photo.png", size: 2000)
+        controller.follow(entry: file, host: "koan", directory: "/pics", isLocal: false, url: nil)
+        await settle(controller)
+        #expect(controller.state == .remote(file))
     }
 
     @Test("a local directory resolves to info-only")

@@ -29,7 +29,10 @@ extension PaneView {
         case .infoOnly(let entry):
             previewLayout(entry) { quietLine("no content preview for this kind") }
         case .remote(let entry):
-            previewLayout(entry) { quietLine("binary preview is local-only for now") }
+            // Text and small images/PDF preview over the wire now (ho-16/18);
+            // this is the honest fallback for the rest — too large, or a kind
+            // QuickLook can't stream remotely (video, archive).
+            previewLayout(entry) { quietLine("no preview for this remote file — it's local-only") }
         }
     }
 

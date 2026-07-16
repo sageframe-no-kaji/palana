@@ -189,3 +189,65 @@ struct PreviewRouterTests {
         #expect(PreviewRouter.textCap == 256 * 1024)
     }
 }
+
+@Suite("PreviewRouter — the remote plan (ho-18)")
+struct PreviewRemotePlanTests {
+    private func file(_ name: String, size: Int64 = 1000) -> FileEntry {
+        FileEntry(
+            nameData: Data(name.utf8),
+            kind: .file,
+            size: size,
+            modified: Date(timeIntervalSince1970: 0),
+            permissions: "644",
+            owner: "me",
+            group: "staff")
+    }
+
+    @Test("a remote text file → text")
+    func remoteText() {
+        #expect(PreviewRouter.remotePlan(entry: file("notes.md")) == .text)
+        #expect(PreviewRouter.remotePlan(entry: file("config.yaml")) == .text)
+    }
+
+    @Test("an extensionless remote file → text (sniffed via the head read)")
+    func remoteExtensionless() {
+        #expect(PreviewRouter.remotePlan(entry: file("Makefile")) == .text)
+    }
+
+    @Test("a small remote image or PDF → fetchBinary")
+    func remoteSmallBinary() {
+        #expect(PreviewRouter.remotePlan(entry: file("photo.png", size: 2_000_000)) == .fetchBinary)
+        #expect(PreviewRouter.remotePlan(entry: file("scan.pdf", size: 5_000_000)) == .fetchBinary)
+    }
+
+    @Test("a remote image over the cap → infoOnly, never a fetch")
+    func remoteBinaryOverCap() {
+        let big = Int64(PreviewRouter.remoteBinaryCap) + 1
+        #expect(PreviewRouter.remotePlan(entry: file("huge.tiff", size: big)) == .infoOnly)
+    }
+
+    @Test("a remote image exactly at the cap → fetchBinary")
+    func remoteBinaryAtCap() {
+        let atCap = Int64(PreviewRouter.remoteBinaryCap)
+        #expect(PreviewRouter.remotePlan(entry: file("edge.jpg", size: atCap)) == .fetchBinary)
+    }
+
+    @Test("a remote video or archive → infoOnly (never fetched)")
+    func remoteNonPreviewableBinary() {
+        #expect(PreviewRouter.remotePlan(entry: file("clip.mov", size: 1000)) == .infoOnly)
+        #expect(PreviewRouter.remotePlan(entry: file("bundle.zip", size: 1000)) == .infoOnly)
+    }
+
+    @Test("a remote directory → infoOnly")
+    func remoteDirectory() {
+        let dir = FileEntry(
+            nameData: Data("src".utf8),
+            kind: .directory,
+            size: 0,
+            modified: Date(timeIntervalSince1970: 0),
+            permissions: "755",
+            owner: "me",
+            group: "staff")
+        #expect(PreviewRouter.remotePlan(entry: dir) == .infoOnly)
+    }
+}
