@@ -29,6 +29,10 @@ struct SettingsForm: View {
     @AppStorage(AppAppearance.storageKey)
     private var appearance: AppAppearance = .system
 
+    /// The launch update-check opt-out (ho-12), default on.
+    @AppStorage(UpdateChecker.storageKey)
+    private var checkForUpdates = true
+
     @FocusState private var flagsFocused: Bool
     @State private var hostHelpShowing = false
     @State private var configViewShowing = false
@@ -74,6 +78,8 @@ struct SettingsForm: View {
             zfsMountSection
             Divider().opacity(0.35)
             appearanceSection
+            Divider().opacity(0.35)
+            updatesSection
         }
         .onChange(of: flagsFocused) { _, focused in
             session.settingsFieldFocused = focused
@@ -404,68 +410,57 @@ extension SettingsForm {
     }
 }
 
-// MARK: - ZFS mount privileges section
+// MARK: - Updates section
 
 extension SettingsForm {
-    /// The sudo-explainer (ho-17): the narrow sudoers line that unlocks
-    /// mount/unmount, prefilled with the focused host's login when the ssh
-    /// config names it, else the clear `<user>` placeholder.
-    var zfsMountSection: some View {
+    /// The launch update signal (ho-12): current version, the opt-out, the
+    /// result, and a manual check — one outbound call to GitHub, never an
+    /// install.
+    var updatesSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("ZFS mount & unmount")
+            Text("Updates")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
-            Text(
-                "Mounting is root's on Linux. pālana can mount and unmount for you if "
-                    + "the host grants passwordless sudo for just those two commands — add "
-                    + "this to the host's sudoers (visudo), then reprobe the host:"
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(Theme.ink)
-            .fixedSize(horizontal: false, vertical: true)
-            HStack(alignment: .top, spacing: 8) {
-                Text(sudoersLine)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Theme.ink)
-                    .textSelection(.enabled)
-                    .padding(6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.groundDeep)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                Button("copy") { copySudoersLine() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Theme.accent)
-            }
-            Text(sudoersHint)
+            Toggle("Check for updates on launch", isOn: $checkForUpdates)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(Theme.accent)
+                .font(.system(size: 12))
+            HStack(spacing: 8) {
+                Text("Version \(session.updateChecker.currentVersion ?? "dev build")")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.inkFaint)
+                Button("check now") {
+                    Task { await session.updateChecker.check() }
+                }
+                .buttonStyle(.plain)
                 .font(.system(size: 10))
-                .foregroundStyle(Theme.inkFaint)
-                .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(Theme.accent)
+                .disabled(session.updateChecker.checking)
+            }
+            updatesStatus
         }
     }
 
-    /// The login for the line: the focused host's ssh-config `User`, or the
-    /// placeholder when it isn't known — never a wrong guess in a root grant.
-    private var sudoersUser: String {
-        session.focusedPane.state.host
-            .flatMap { SSHConfigParser.user(for: $0, in: model.configText) }
-            ?? SudoGuidance.userPlaceholder
-    }
-
-    private var sudoersLine: String { SudoGuidance.sudoersLine(user: sudoersUser) }
-
-    private var sudoersHint: String {
-        let base =
-            "Check the path with `which zfs` (it's /sbin/zfs on some distros). "
-            + "Optional — or just mount from the shell (⌘`)."
-        return sudoersUser == SudoGuidance.userPlaceholder
-            ? "Replace <user> with your login on that host. " + base
-            : base
-    }
-
-    private func copySudoersLine() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(sudoersLine, forType: .string)
+    @ViewBuilder private var updatesStatus: some View {
+        if let update = session.updateChecker.available {
+            Button {
+                NSWorkspace.shared.open(update.url)
+            } label: {
+                Text("\(update.version) is available — open the release ↗")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.accent)
+            }
+            .buttonStyle(.plain)
+        } else if session.updateChecker.checking {
+            Text("checking…")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.inkFaint)
+        } else if session.updateChecker.lastChecked != nil {
+            Text("up to date")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.inkFaint)
+        }
     }
 }
 

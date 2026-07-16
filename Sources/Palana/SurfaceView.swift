@@ -292,6 +292,18 @@ struct SurfaceView: View {
                 .foregroundStyle(session.shellFocused ? Theme.accent : Theme.inkFaint)
             }
             Spacer()
+            if let update = session.updateChecker.available {
+                // The quiet update signal (ho-12) — one line, click to open the
+                // release. Never a modal, never a nag.
+                Button {
+                    NSWorkspace.shared.open(update.url)
+                } label: {
+                    Text("\(update.version) available ↗")
+                        .foregroundStyle(Theme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("a newer pālana is out — open the release")
+            }
             if !session.pendingPrefix.isEmpty {
                 Text(session.pendingPrefix)
                     .fontWeight(.semibold)

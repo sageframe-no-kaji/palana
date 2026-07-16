@@ -69,6 +69,8 @@ final class PalanaSession {
     /// The preview pane's loader (ho-16) — holds what the preview pane shows and
     /// follows the opposite pane's cursor with a debounce.
     let previewController = PreviewController()
+    /// The launch-time update signal (ho-12) — checks GitHub for a newer release.
+    let updateChecker = UpdateChecker()
     /// True while the keyboard points into the terminal strip.
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
@@ -192,6 +194,8 @@ final class PalanaSession {
     /// the filter is a curtain, not a lock.
     func start() async {
         reloadHosts()
+        // The launch update check (ho-12) — opt-out, one call, off the hot path.
+        Task { await updateChecker.checkIfEnabled() }
         guard let snapshot = SessionStore.load(from: SessionStore.defaultURL()) else { return }
         focusedSide = snapshot.focused
         left.restore(snapshot.left)
