@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-07-10
+updated: 2026-07-16
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,37 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-07-16, eleventh block — PHASE 6 (THE V1 POLISH) BUILT AUTONOMOUS + HANDS-HARDENED; v0.6 ON MAIN
+
+**COMPLETED**
+- **The four Phase-6 hos built end-to-end in one autonomous run** (`agent-tasks/v1-polish-run-all.md`), each to its sealed ho doc, one atomic commit each, full rhythm green:
+  - **ho-13 (`46652d2`) universal text-scale** — `Theme.font(_:)` factory the whole in-window surface draws through; pure `TypeScale` (multiply/clamp `[0.8,1.6]`/step) in core, `TextScale` @Observable holds+persists the factor; ~150 call sites swept.
+  - **ho-15 (`f4a9b1e`) dark mode** — Sharibako's `RGBA`/`Palette`/dynamic-NSColor ported into `Theme`, all eight tokens light+dark (tests pin each), `AppAppearance` + `.preferredColorScheme` + Settings picker; hue-literal audit closed.
+  - **ho-14 (`30c6f6e`) drag into folders** — `DropDecision.decideOntoFolder` (core, tested): a directory row is a drop target resolving to the folder path; accent hover wash; self/same-place refusals.
+  - **ho-16 (`33c2480`) preview pane** — `PreviewRouter` (core, 100% line: text-vs-quicklook by ext + UTF-8/NUL sniff, 256 KB cap) + `PreviewController` (debounced follow, bounded read); `v` toggles, QLPreviewView, info card.
+- **His hands review drove a long hardening pass** (commits `2b92d14`→`67138ae`), all rhythm-green:
+  - **PERF (mine to own):** dark mode made every color token a computed property allocating a fresh dynamic `NSColor` per access → the Table's per-cell reads = a seconds-long nav stutter. Cached each token `static let` (still appearance-aware — the NSColor stays dynamic). Gone.
+  - **Finder → folder** lands inside the folder (row target accepts `.fileURL` too, `routeFinderDrop` with a destination override).
+  - **Preview reshaped:** `v` forces the RIGHT pane to preview, snaps focus LEFT and LOCKS it (nothing to click right); `v`/esc exits. **Remote text** now previews over the wire via a bounded `Listing.readFileHead` (`head -c`); remote binary stays info-only.
+  - **ONE MASTER ⌘+/−:** the keys and zfs panels dropped their bespoke ⌘1–5 stepping and follow the global factor, resizing their window `base×factor` on change (one-way setFrame — none of the old resize-delegate crash). **The flat in-window `?` card is gone** — `?` opens the floating popout directly (helpVisible/floatingHelpTick/handleHelpKey all removed).
+  - The `?` card went **three columns + a scrim**; the **floating panels no longer follow across desktops** (dropped `.canJoinAllSpaces`); the **host map follows global zoom**; the `?` card lists the **live zfs verbs**; and **the floating panels obey light/dark** via `NSApp.appearance` (his last note — `.preferredColorScheme` governs only the SwiftUI window).
+- **v0.6 tagged; `phase-6-v1-polish` merged to main (`7fc13fd`).** 844 tests, PalanaCore line coverage 96.71%.
+
+**NEXT**
+- **ho-12 (the ship) → v1.0.** The pipeline already exists (built ahead at v0.4-beta: `scripts/build_macos.sh`, notarize, `RELEASING.md`); ho-12 formalizes it and cuts v1.0. Re-export a true 1024² icon (the beta one was padded).
+- **The help pages** — web, in `sageframe-dharma/palana` (the website home); Fable writes them (native/in-app help retired in favor of the site). The `?` popout stays as the fast in-app reference.
+- Banked, unchanged: **remote-binary preview** (fetch-to-cache on ho-9.10 machinery, its own Think); the **snapshot-history surface** ("Time Machine for the homelab" — his highest-energy seed, likely reorders the roadmap); the **shell-UX rethink** (follow-the-host feel); the **sudo-explainer** (dead number 10.2, give it a fresh one).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. **Tag v0.6 is LOCAL — not pushed** (push to the public repo is outward-facing, waits on his word). Branch `phase-6-v1-polish` merged; safe to delete once pushed.
+- The ~17–19 SSH/ZFS fixture-integration tests fail when Docker/Lima are down (environmental, pre-existing) — CI-green with the fixtures up. The ~825 non-fixture + all new suites pass.
+- His hands verdicts this phase, all YES: master zoom "boom boom," flat card gone, dark mode "GREAT," preview good — "Its GOOD now!"
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; **v0.6 = Phase 6, the v1 polish, hands-hardened, on main**; v1.0 = ho-12 (the ship) after.
 
 ---
 
@@ -747,3 +778,4 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 | v0.4 | Surface UX run complete — favorites, host onboarding, settings, mounts |
 | **v0.4-beta** | First public build — signed, notarized `.dmg` on Releases |
 | **v0.5** | Phase 4 (Workbench — ZFS tool, pane mode, mount seam) + Phase 5 (interactive terminal) complete — the mutating ZFS story hands-hardened; integration branch merged to main (`8004eb2`), 781 tests |
+| **v0.6** | Phase 6 — the v1 polish: universal text-scale, dark mode, drag-into-folders, preview pane; hands-hardened (one master ⌘+/−, the ? popout, Finder-into-folders, remote text preview, floating-panel appearance + desktop, host-map zoom). Merged to main (`7fc13fd`), 844 tests, PalanaCore 96.71% line |
