@@ -16,7 +16,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
-## State summary — 2026-07-15, tenth block — THE MOUNT SEAM PROVEN AND CLOSED; 10.3 CLOSED
+## State summary — 2026-07-15, tenth block — THE MOUNT SEAM PROVEN AND CLOSED; 10.3, 10.1, 11 CLOSED — PHASE 4/5 DONE
 
 **COMPLETED**
 - **ho-10.4 (The Mount Seam) fully proven on his hands and CLOSED.** Three ATs
@@ -39,19 +39,31 @@ session (and any hook) knows exactly where the build stands. Newest block on top
     state (unmounted stays unmounted — `m` mounts if wanted).
 - **ho-10.3 (pane mode) CLOSED** — proven by all-session use; Reflect corrects
   Decision 3 (Z is the ONE zfs key, panel is click-only, umber badge).
+- **ho-10.1 (zfs tool) and ho-11 (terminal) CLOSED on his hands.** 10.1 "is lean"
+  — the snapshot loop, typed destroy, rename, create all read right; the
+  seventh-block **second-press mystery did NOT resurface** (closed unreproduced,
+  reopen forward if it returns). 11 — all seven criteria pass (shell summons,
+  vim/htop/⌃C, ⌘\` focus in/out, ⌘-chords off the PTY, `exit` survives, failure
+  over the shell). **Banked feel-question:** the shell binds to the summoning
+  pane's host and does NOT follow pane focus ("stuck there… something weird,
+  might just be comfort") — deliberate (a shell is a place), but a candidate for
+  a future shell-UX rethink ho if it keeps reading wrong.
+- **With these, every ho-10.x + ho-11 is closed — Phase 4 (Workbench) and Phase 5
+  (terminal) are DONE.** Only the ship (ho-12) remains before v1.0.
 - **Housekeeping:** the integration worktree was reaped from `/tmp` by macOS —
   branch ref lost but ALL commits intact; recreated `integration-shell-panemode`
   at `492e06a` in a DURABLE worktree `../palana-integration`. Three fully-contained
   per-ho pointer branches (10.3/10.4/11) deleted.
 
 **NEXT**
-- **His ho-10.1 verdicts** (snapshot-loop feel) + a **ho-11 terminal** hands pass
-  → close both. Then THE CLOSE CASCADE: **tag v0.5** on main → **merge integration
-  → main** → v1.0 = ho-12.
+- **THE CLOSE CASCADE, now unblocked** (all ho-10.x + 11 closed): **tag v0.5** on
+  main → **merge `integration-shell-panemode` → main** (carries ho-11 + 10.3 +
+  10.4 + the AT-02/03/04 heal work) → then **ho-12** (the ship) = v1.0.
 - Fresh hos to open when he wants: **global UI text-scale** (⌘+/− everywhere,
   scales ALL chrome — a font-factory refactor, its own ho); the **sudo-explainer**
   (sudoers line at the refusal + settings reference — the last live piece of
-  ho-10.2's old scope; `10.2` is a dead number, give it a fresh one).
+  ho-10.2's old scope; `10.2` is a dead number, give it a fresh one); and a
+  possible **shell-UX rethink** (the follow-the-host feel-question).
 
 **ACTION ITEMS / BLOCKS**
 - No blocks. App runs the integration build via HIS shell launch (`!` prefix —

@@ -1,6 +1,6 @@
 ---
 created: 2026-07-10
-status: in-progress
+status: complete
 type: ho-document
 project: palana
 ho: 11
@@ -68,8 +68,41 @@ One agent task — the shape is one seam (the terminal view + mode plumbing), no
 
 ## Phase 3 — Reflect
 
-_Waits on execution and the hands session._
+**Built** (AT-01, `a4df114`): SwiftTerm 1.14.0 (app-target only, first project
+dependency); a per-host `LocalProcessTerminalView` running the operator's own
+`ssh <alias>` (same config, same masters); the plan panel's third mode; the
+failure law wired (`onEnactmentFailed` surfaces the transcript over an open shell).
+
+**Corrected in the eighth-block hands session** (the grammar reality):
+- **⌘\` is the shell key, not ⌘Esc/`t`.** ⌘Esc provably never reaches the app (the
+  system eats ⌘Esc and ⌘.), and `t` fired file-touch. ⌘\` toggles the keyboard
+  into the shell and home; ⌘Esc also comes home from within.
+- **`exit` is an ending, not a murder** (`0591f4e`): the store is the process
+  delegate and drops dead sessions firing `onSessionEnded`; shell mode exits with
+  a transcript note; SIGPIPE ignored app-wide. `exit` used to silently kill the
+  whole app.
+- **The focus model** (`682250f`): `shellMode` (the view) splits from
+  `shellFocused` (the keyboard); ⌘\` MOVES the keyboard while the view stays. One
+  law replaced the failure hook's special case — the plan owns the panel whenever
+  an operation exists, the shell shows in the idle gaps.
+
+**His hands verdicts (2026-07-15, fixture):** shell summons and types (1); vim /
+htop render, ⌃C interrupts (2); ⌘\` focus in/out (3); ⌘-chords stay off the PTY
+(5); `exit` dies clean and the app survives (6); a failing enactment surfaces its
+transcript over the terminal (7). All pass.
+
+**Open feel-question, banked (not a blocker):** the shell binds to the focused
+pane's host at summon and does NOT follow pane focus — per-host, stateful,
+switch by ⌘\`-home → focus the other pane → ⌘\`. His read: "shelled into whatever
+pane you were in and then stuck there… something weird about the shell, might
+just be comfort." Deliberate (a shell is a place, not a view that teleports
+hosts), but if it keeps reading wrong it's a **design rethink** — should the shell
+follow the focused host, should host-switching be one keystroke — and that's its
+own future ho, not a patch.
 
 ---
 
-_Authored: 2026-07-10 (Think phase, top tier). Runs in a worktree parallel to ho-10.3; merges after the v0.5 tag. The practitioner ratified the parallel run mid-session ("I DO want to wire up the terminal and the pane solution")._
+_Authored: 2026-07-10 (Think phase, top tier). Ran in a worktree parallel to
+ho-10.3; merged into `integration-shell-panemode` (2161be8). The practitioner
+ratified the parallel run mid-session ("I DO want to wire up the terminal and the
+pane solution"). Closed 2026-07-15 on his hands verdicts._
