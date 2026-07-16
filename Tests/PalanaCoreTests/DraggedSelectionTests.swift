@@ -299,3 +299,149 @@ struct DropDecisionTests {
         #expect(decision == .compose(.copy))
     }
 }
+
+@Suite("DropDecision onto a folder row (ho-14)")
+struct DropDecisionOntoFolderTests {
+    /// A one-file drag from `koan:/tank/media`.
+    private func drag(
+        host: String = "koan",
+        directory: String = "/tank/media",
+        names: [Data] = [Data("file.mkv".utf8)]
+    ) -> DraggedSelection {
+        DraggedSelection(host: host, directory: directory, names: names)
+    }
+
+    // MARK: - Destination resolves to the folder, not the pane cwd
+
+    @Test("the destination is the folder path, so a drag that would refuse at the pane cwd composes")
+    func folderPathBeatsPaneCwd() {
+        // Source and the target pane share host + directory — a pane-level drop
+        // here refuses (same place). Dropping onto a subfolder must NOT refuse:
+        // its destination is /tank/media/sub, a genuine elsewhere.
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(),
+            targetHost: "koan",
+            folderPath: "/tank/media/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .compose(.copy))
+    }
+
+    @Test("a plain pane-level drop of the same drag refuses — proving the folder path is what differs")
+    func paneCwdRefusesWhereFolderComposes() {
+        let decision = DropDecision.decide(
+            payload: drag(),
+            targetHost: "koan",
+            targetDirectory: "/tank/media",
+            optionHeld: false
+        )
+        #expect(decision == .refuseSamePlace)
+    }
+
+    @Test("option held onto a folder → compose(.move)")
+    func optionHeldOntoFolderMoves() {
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(),
+            targetHost: "koan",
+            folderPath: "/tank/media/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: true
+        )
+        #expect(decision == .compose(.move))
+    }
+
+    @Test("a folder on a different host → compose(.copy)")
+    func differentHostFolderComposes() {
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(),
+            targetHost: "jodo",
+            folderPath: "/rpool/cold/incoming",
+            folderNameData: Data("incoming".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .compose(.copy))
+    }
+
+    // MARK: - Refusals
+
+    @Test("dropping onto a folder that is itself in the selection → refuseSamePlace")
+    func folderInSelectionRefuses() {
+        // The drag carries the folder "sub" (from /tank/media); dropping it onto
+        // its own "sub" row is a self-into-self drop.
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(names: [Data("sub".utf8), Data("other.txt".utf8)]),
+            targetHost: "koan",
+            folderPath: "/tank/media/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .refuseSamePlace)
+    }
+
+    @Test("the folder is in the selection but the pane's dir differs — not a self-drop, composes")
+    func folderNameMatchesButDifferentParent() {
+        // A folder named "sub" is dragged from /tank/media, but the target pane
+        // sits at /tank/backup showing a different "sub" — different parent, so
+        // it is a real destination, not the dragged folder itself.
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(names: [Data("sub".utf8)]),
+            targetHost: "koan",
+            folderPath: "/tank/backup/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .compose(.copy))
+    }
+
+    @Test("files already living in the folder → refuseSamePlace (delegated same-place check)")
+    func filesAlreadyInFolderRefuses() {
+        // Source is /tank/media/sub; dropping onto the "sub" folder shown in the
+        // pane at /tank/media resolves to /tank/media/sub — the source itself.
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(directory: "/tank/media/sub"),
+            targetHost: "koan",
+            folderPath: "/tank/media/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .refuseSamePlace)
+    }
+
+    @Test("self-in-selection check is byte-honest — a trailing slash on the parent still refuses")
+    func selfCheckNormalizesParent() {
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(directory: "/tank/media/", names: [Data("sub".utf8)]),
+            targetHost: "koan",
+            folderPath: "/tank/media/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .refuseSamePlace)
+    }
+
+    @Test("empty names onto a folder → refuseEmpty")
+    func emptyNamesOntoFolderRefuses() {
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(names: []),
+            targetHost: "koan",
+            folderPath: "/tank/media/sub",
+            folderNameData: Data("sub".utf8),
+            optionHeld: false
+        )
+        #expect(decision == .refuseEmpty)
+    }
+
+    @Test("a non-UTF-8 folder name matches by bytes, not by string")
+    func nonUTF8FolderNameMatches() {
+        let weird = Data([0xFF, 0xFE, 0x41])
+        let decision = DropDecision.decideOntoFolder(
+            payload: drag(names: [weird]),
+            targetHost: "koan",
+            folderPath: "/tank/media/\u{FFFD}",
+            folderNameData: weird,
+            optionHeld: false
+        )
+        #expect(decision == .refuseSamePlace)
+    }
+}

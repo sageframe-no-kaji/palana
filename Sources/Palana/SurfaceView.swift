@@ -231,6 +231,10 @@ struct SurfaceView: View {
                 session.handleSelectionDrop(
                     payload: payload, targetPane: model, optionHeld: optionHeld)
             },
+            onDropSelectionOntoFolder: { payload, folder, optionHeld in
+                session.handleSelectionDropOntoFolder(
+                    payload: payload, targetPane: model, folder: folder, optionHeld: optionHeld)
+            },
             onFinderDrop: { urls, optionHeld in
                 session.handleFinderDrop(urls: urls, targetPane: model, optionHeld: optionHeld)
             },

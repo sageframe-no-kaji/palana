@@ -135,6 +135,59 @@ func routeDropDecision(
     }
 }
 
+/// Routes a folder-row ``DropDecision`` (ho-14) — like ``routeDropDecision``,
+/// but `destination` is the folder's full path, not the pane's cwd.
+///
+/// Resolves the source pane and the dragged cohort from live rows, then hands
+/// them to ``OperationModel/beginFromFinderDrop(_:source:destination:entries:)``
+/// — the generic "already-resolved entries + explicit destination Locus" begin
+/// (its name is historical; a pane-to-pane folder drop resolves its cohort the
+/// same way a Finder drop does). Nothing enacts; the panel is the gate.
+///
+/// - Parameters:
+///   - decision: The outcome of ``DropDecision/decideOntoFolder(payload:targetHost:folderPath:folderNameData:optionHeld:)``.
+///   - payload: The drag payload from the source pane.
+///   - destination: The folder as a ``Locus`` — the destination host and the
+///     folder's full path, resolved by the caller.
+///   - sourcePanes: Both pane models, to locate the source pane.
+///   - operation: The ``OperationModel`` that owns the panel.
+@MainActor
+func routeFolderDrop(
+    _ decision: DropDecision,
+    payload: DraggedSelection,
+    destination: Locus,
+    sourcePanes: [PaneModel],
+    operation: OperationModel
+) {
+    switch decision {
+    case .refuseSamePlace:
+        operation.note("drop refused — same location")
+    case .refuseEmpty:
+        break
+    case .compose(let planOperation):
+        guard
+            let sourcePane = sourcePanes.first(where: {
+                $0.state.host == payload.host && $0.state.path == payload.directory
+            })
+        else {
+            operation.note("drop refused — source pane not found")
+            return
+        }
+        let draggedNames = Set(payload.names)
+        let cohort = sourcePane.rows.filter { draggedNames.contains($0.nameData) }
+        guard !cohort.isEmpty else {
+            operation.note("drop refused — dragged entries no longer present at the source")
+            return
+        }
+        operation.beginFromFinderDrop(
+            planOperation,
+            source: Locus(host: payload.host, directory: payload.directory),
+            destination: destination,
+            entries: cohort
+        )
+    }
+}
+
 // MARK: - Unified drop handler support
 
 /// The resolved outcome of a unified drop, delivered asynchronously to the pane's `.onDrop` handler.
@@ -275,6 +328,52 @@ func handleUnifiedDrop(
             case .urls(let urls, let held):
                 onFinderDrop(urls, held)
             }
+        }
+    }
+    return true
+}
+
+// MARK: - Folder-row drop handler
+
+/// Row-level `.onDrop` handler for a folder row (ho-14).
+///
+/// Accepts only the pane-to-pane `public.json` payload — a Finder URL drag over
+/// a folder row is not consumed here, so it falls through to the pane-level drop
+/// and lands in the pane's cwd (folder-drop is scoped to the selection path).
+///
+/// Returns `true` when a promising json drag is present so the row consumes the
+/// drop and the pane-level handler does not also fire (Decision 4 — no
+/// double-plan). The decoded payload is delivered on the main queue to
+/// `onDropOntoFolder` with the folder entry and the option-held flag.
+///
+/// - Parameters:
+///   - providers: The `NSItemProvider` array from the row's `.onDrop` closure.
+///   - model: The pane hosting the folder row.
+///   - folder: The directory entry the drop landed on.
+///   - onDropOntoFolder: Called on the main queue with the payload, the folder,
+///     and whether Option was held.
+/// - Returns: `true` when the row consumes a json drag; `false` otherwise.
+@MainActor
+func handleFolderSelectionDrop(
+    providers: [NSItemProvider],
+    model: PaneModel,
+    folder: FileEntry,
+    onDropOntoFolder: @escaping (DraggedSelection, FileEntry, Bool) -> Void
+) -> Bool {
+    guard model.status == .ready, model.state.host != nil else { return false }
+    guard
+        providers.contains(where: {
+            $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
+        })
+    else {
+        return false
+    }
+    let optionHeld = NSEvent.modifierFlags.contains(.option)
+    Task {
+        let result = await resolveDropProviders(providers: providers, optionHeld: optionHeld)
+        guard case .selection(let payload, let held) = result else { return }
+        DispatchQueue.main.async {
+            onDropOntoFolder(payload, folder, held)
         }
     }
     return true

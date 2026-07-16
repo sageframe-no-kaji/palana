@@ -85,9 +85,15 @@ extension PaneView {
     @TableColumnBuilder<FileEntry, KeyPathComparator<FileEntry>>
     func coreColumns() -> some TableColumnContent<FileEntry, KeyPathComparator<FileEntry>> {
         TableColumn("name", value: \.name) { entry in
-            nameCell(entry)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(cursorWash(entry))
+            // A directory row is a drop target — a selection dropped here lands
+            // inside the folder (ho-14). The name cell carries it (the widest,
+            // stretching column); the wash paints the whole row via cursorWash.
+            folderDropTarget(
+                entry,
+                nameCell(entry)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            )
+            .background(cursorWash(entry))
         }
         .customizationID(PaneColumns.idName)
         // The name column is always visible — the platform's `.required` marks it

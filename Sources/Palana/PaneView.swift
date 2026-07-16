@@ -47,6 +47,11 @@ struct PaneView: View {
     /// The session resolves it through the standing gather path. The Bool is
     /// whether Option was held at drop time.
     let onDropSelection: (DraggedSelection, Bool) -> Void
+    /// Called when a ``DraggedSelection`` is dropped onto a **folder row** (ho-14).
+    ///
+    /// The session resolves the destination to that folder's path. The
+    /// `FileEntry` is the folder; the Bool is whether Option was held.
+    let onDropSelectionOntoFolder: (DraggedSelection, FileEntry, Bool) -> Void
     /// Called when Finder file URLs are dropped onto this pane.
     ///
     /// The session resolves them through the local listing and the gather path.
@@ -69,6 +74,12 @@ struct PaneView: View {
     @FocusState private var pathFieldFocused: Bool
     @State private var starHovering = false
     @State private var dropTargeted = false
+    /// The folder row a valid drag is hovering, if any (ho-14).
+    ///
+    /// Drives the accent wash on that row; cleared the instant the drag leaves
+    /// or drops. Internal (not `private`) so the drop wiring in
+    /// `PaneView+FolderDrop.swift` can read and clear it.
+    @State var folderDropHoverID: FileEntry.ID?
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
@@ -670,16 +681,5 @@ extension PaneView {
     /// Sizes as facts — `0 bytes`, never `Zero kB`.
     static func sizeText(_ size: Int64) -> String {
         size.formatted(.byteCount(style: .file, spellsOutZero: false))
-    }
-}
-
-// MARK: - Row wash
-
-extension PaneView {
-    /// The cursor row's own paint — moss wash, not the system accent.
-    func cursorWash(_ entry: FileEntry) -> some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Theme.accent.opacity(model.state.cursor == entry.id ? 0.18 : 0))
-            .padding(.horizontal, -6)
     }
 }
