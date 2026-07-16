@@ -46,22 +46,21 @@ The beta icon was 1024×1059, padded to a transparent square to avoid squish.
 Re-export a real 1024² master and rebuild the `.icns` (the build already
 generates it at build time; the generated file stays gitignored).
 
-### Decision 3 — Auto-update: Sparkle, signalled on a tag (his ask)
-The Sparkle slot the deployment model named gets built:
-- **Sparkle** (apple-notarizable, the standard) embedded in the app; a
-  `SUFeedURL` pointing at a static **`appcast.xml`** hosted on the pālana site
-  (`sageframe-dharma/palana`) or the GitHub release, and `SUPublicEDKey` for
-  EdDSA update signing (updates are signed independently of Developer ID).
-- **The signal is the tag.** Cutting a release tag (`vX.Y`) is what publishes a
-  new appcast entry: the release step signs the `.dmg` with the Sparkle EdDSA
-  key, appends the item (version, URL, notes, min-OS) to `appcast.xml`, and
-  deploys it. The running app polls the feed and offers the update — the
-  operator always chooses; nothing installs unattended.
-- **In-app:** a "Check for Updates…" menu item and a quiet automatic check
-  (respecting the notebook register — no nagging). A Settings toggle for the
-  automatic check, defaulting on.
-- **Honesty:** the appcast and the update are public and verifiable; the
-  operator sees the version and the notes before accepting.
+### Decision 3 — Auto-update: a launch-time signal on the tag, not Sparkle
+The M4Bookmaker shape, chosen over Sparkle: no framework, no appcast to host, no
+EdDSA keys — and it ships **in v1.0 now** rather than delaying it. On launch (and
+on demand), pālana asks GitHub for the latest release tag and, if it's newer than
+the running build, **announces** it with a link to the release page. It never
+installs anything — the operator clicks through and updates by hand.
+- **The signal is the tag.** Cutting a release (a `vX.Y` GitHub Release) is what
+  a running older build sees; the compare is `ReleaseVersion` (pinned in core).
+- **In-app:** a quiet footer line (`vX.Y available ↗`, click to open) and a
+  Settings › Updates section — current version, "Check now", the result.
+- **bīja-consistent:** opt-out (`checkForUpdates`, default on), launch-only (no
+  poll), one outbound call to GitHub, transparent in Settings. A dev build (no
+  bundle version) never announces a phantom update.
+- Sparkle (silent in-app install) stays a *later* option if the cadence ever
+  wants it; the tag-announce is the right weight for v1.
 
 ### Decision 4 — The release cut
 Tag **v1.0**, build, notarize, sign the dmg for Sparkle, publish the GitHub
