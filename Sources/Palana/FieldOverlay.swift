@@ -125,7 +125,9 @@ struct FieldOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.12)
+            // The dimming scrim — ink over the world (design system §4), a
+            // token, not a raw hue (ho-15).
+            Theme.ink.opacity(0.12)
             card
         }
     }

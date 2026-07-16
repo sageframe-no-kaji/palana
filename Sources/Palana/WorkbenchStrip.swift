@@ -206,10 +206,11 @@ private struct PluginChip: View {
                             .padding(.horizontal, 10)
                     }
                 }
-                // Solid burnt-umber fill; hover adds a white sheen.
+                // Solid burnt-umber fill; hover adds a paper sheen (a token,
+                // not a raw white — ho-15).
                 .background(
                     Theme.plugin
-                        .overlay(hovering && enabled ? Color.white.opacity(0.12) : Color.clear)
+                        .overlay(hovering && enabled ? Theme.ground.opacity(0.12) : Color.clear)
                 )
                 .contentShape(Rectangle())
         }
