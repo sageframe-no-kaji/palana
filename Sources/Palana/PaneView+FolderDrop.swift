@@ -42,7 +42,7 @@ extension PaneView {
     func folderDropTarget(_ entry: FileEntry, _ content: some View) -> some View {
         if entry.kind == .directory {
             content.onDrop(
-                of: [.json],
+                of: [.json, .fileURL],
                 isTargeted: Binding(
                     get: { folderDropHoverID == entry.id },
                     set: { targeted in
@@ -51,11 +51,12 @@ extension PaneView {
                 )
             ) { providers in
                 folderDropHoverID = nil
-                return handleFolderSelectionDrop(
+                return handleFolderDrop(
                     providers: providers,
                     model: model,
                     folder: entry,
-                    onDropOntoFolder: onDropSelectionOntoFolder
+                    onSelectionOntoFolder: onDropSelectionOntoFolder,
+                    onFinderOntoFolder: onFinderDropOntoFolder
                 )
             }
         } else {

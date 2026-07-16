@@ -14,10 +14,10 @@ struct SurfaceView: View {
         panes
             .overlay {
                 if session.helpVisible {
-                    // The in-window card rides the global factor through
-                    // HelpOverlay's own scale param (ho-13) — the floating keys
-                    // panel keeps its independent stepped scale.
-                    HelpOverlay(scale: session.fontScale)
+                    // Summoned cards stay natural size — scaling them overflowed
+                    // the window (ho-13 review). ⌘+/− zooms the working surface,
+                    // not the glances.
+                    HelpOverlay()
                         .onDismiss { session.helpVisible = false }
                 }
             }
@@ -208,11 +208,11 @@ struct SurfaceView: View {
             model: model,
             isFocused: session.focusedSide == side,
             hosts: session.hosts,
-            onFocus: { session.focusedSide = side },
+            onFocus: { session.focusPane(side) },
             onEditConfig: { session.editSSHConfig() },
             onReloadHosts: { session.reloadHosts() },
             onOperation: { operation in
-                session.focusedSide = side
+                session.focusPane(side)
                 session.beginOperation(operation)
             },
             fontScale: session.fontScale,
@@ -240,6 +240,10 @@ struct SurfaceView: View {
             onDropSelectionOntoFolder: { payload, folder, optionHeld in
                 session.handleSelectionDropOntoFolder(
                     payload: payload, targetPane: model, folder: folder, optionHeld: optionHeld)
+            },
+            onFinderDropOntoFolder: { urls, folder, optionHeld in
+                session.handleFinderDropOntoFolder(
+                    urls: urls, targetPane: model, folder: folder, optionHeld: optionHeld)
             },
             onFinderDrop: { urls, optionHeld in
                 session.handleFinderDrop(urls: urls, targetPane: model, optionHeld: optionHeld)

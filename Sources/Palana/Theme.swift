@@ -68,31 +68,38 @@ struct Palette: Sendable, Equatable {
 
 /// The surface's colors — appearance-aware tokens, per the design language.
 enum Theme {
+    // Each token is resolved ONCE into a `Color` that wraps a *dynamic*
+    // `NSColor` — so it stays appearance-aware (re-resolving on the light/dark
+    // flip) while costing nothing per access. Computed accessors here allocated
+    // a fresh dynamic `NSColor` on every read, which the Table's per-cell color
+    // reads turned into a navigation stutter (ho-13/15 review). `let`, not
+    // `var`, is the fix.
+
     /// The ground every view sits on — warm paper, never white.
-    static var ground: Color { Token.ground.color }
+    static let ground: Color = Token.ground.color
 
     /// A slightly deeper ground for headers and the footer.
-    static var groundDeep: Color { Token.groundDeep.color }
+    static let groundDeep: Color = Token.groundDeep.color
 
     /// The ink — near-black light, warm off-white dark; never pure.
-    static var ink: Color { Token.ink.color }
+    static let ink: Color = Token.ink.color
 
     /// Receded ink for secondary facts — paths, dates, counts.
-    static var inkFaint: Color { Token.inkFaint.color }
+    static let inkFaint: Color = Token.inkFaint.color
 
     /// The one interactive accent — quiet moss.
     ///
     /// Cursor row, selection marks, the focused pane's indicator.
-    static var accent: Color { Token.accent.color }
+    static let accent: Color = Token.accent.color
 
     /// The plan panel's ground — the notebook gone a shade cooler.
-    static var panelGround: Color { Token.panelGround.color }
+    static let panelGround: Color = Token.panelGround.color
 
     /// Failure ink — quiet rust, the panel's only other voice.
-    static var alarm: Color { Token.alarm.color }
+    static let alarm: Color = Token.alarm.color
 
     /// The plugin category tint — burnt umber beside the moss accent.
-    static var plugin: Color { Token.plugin.color }
+    static let plugin: Color = Token.plugin.color
 
     /// The light/dark values per token — the pure, unit-tested seam.
     ///

@@ -19,7 +19,7 @@ extension PaneView {
     @ViewBuilder var previewContent: some View {
         switch previewState {
         case .empty:
-            quietLine("point the other pane at a file — this pane previews it")
+            quietLine("point the left pane at a file — this pane previews it")
         case .loading(let entry):
             previewLayout(entry) { quietLine("reading…") }
         case .text(let entry, let text):
@@ -29,7 +29,7 @@ extension PaneView {
         case .infoOnly(let entry):
             previewLayout(entry) { quietLine("no content preview for this kind") }
         case .remote(let entry):
-            previewLayout(entry) { quietLine("content preview is local-only for now") }
+            previewLayout(entry) { quietLine("binary preview is local-only for now") }
         }
     }
 

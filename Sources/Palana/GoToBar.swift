@@ -35,7 +35,7 @@ struct GoToBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("go to")
-                .font(Theme.font(12, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             Picker("host", selection: $host) {
                 ForEach(menuHosts, id: \.self) { name in

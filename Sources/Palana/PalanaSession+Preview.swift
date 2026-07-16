@@ -1,48 +1,62 @@
-// PalanaSession+Preview — the preview pane's grammar and follow wiring (ho-16).
+// PalanaSession+Preview — the preview pane's grammar and follow wiring (ho-16,
+// reshaped in review).
 //
-// `v` toggles preview on the focused pane; the pane then shows the OTHER pane's
-// cursor. The follow is driven from the surface (which watches the source
-// cursor) through `updatePreviewFollow`, which resolves the source file and
-// hands it to the debounced `PreviewController`. The mode flag lives on the
-// pane; nothing here touches the file cursor underneath.
+// `v` puts the RIGHT pane into preview and follows the LEFT pane's cursor; the
+// keyboard is forced to the left and locked there (there is nothing to click on
+// the right). `v` or Esc exits the whole viewer. The mode flag lives on the
+// right pane; the left pane's file cursor underneath is never touched.
 
 import Foundation
 import PalanaCore
 
 extension PalanaSession {
-    /// `v`: toggles preview mode on the focused pane.
+    /// True while the viewer is engaged — the right pane previews and the left
+    /// is locked as the driver.
+    var previewActive: Bool { right.paneMode == .preview }
+
+    /// `v`: engages or exits the viewer.
     ///
-    /// A second `v` (or Esc) exits. Entering preview leaves zfs mode if it was
-    /// up — a pane holds one special mode at a time. On entry the follow fires
-    /// once so the pane fills immediately, before the first cursor move.
+    /// Engage → the right pane previews the left pane's cursor, focus snaps to
+    /// the left and locks there. A second `v` (or Esc) exits and unlocks. The
+    /// left pane keeps whatever it was showing; only the right pane's mode flag
+    /// moves.
     func togglePreviewMode() {
-        let pane = focusedPane
-        if pane.paneMode == .preview {
-            pane.exitPreviewMode()
-            previewController.clear()
+        if previewActive {
+            exitPreview()
             return
         }
-        if pane.paneMode == .zfs { pane.exitZFSMode() }
-        pane.enterPreviewMode()
+        if right.paneMode == .zfs { right.exitZFSMode() }
+        right.enterPreviewMode()
+        focusedSide = .left
         updatePreviewFollow()
     }
 
-    /// Points the preview at the current opposite-pane cursor.
+    /// Exits the viewer: the right pane returns to files, focus unlocks.
+    func exitPreview() {
+        right.exitPreviewMode()
+        previewController.clear()
+    }
+
+    /// Honors a focus request from a click, enforcing the viewer lock.
     ///
-    /// Called on entry and whenever the source cursor moves (the surface
-    /// watches it). Resolves the source pane — the one NOT in preview — and its
-    /// cursor file, local URL and all, then hands it to the debounced loader.
-    /// No pane in preview clears the loader.
+    /// While previewing, the keyboard is pinned to the left — a click on the
+    /// right pane (which shows no rows) never steals focus.
+    func focusPane(_ side: SessionSnapshot.Side) {
+        if previewActive, side == .right { return }
+        focusedSide = side
+    }
+
+    /// Points the preview at the current LEFT-pane cursor.
+    ///
+    /// Called on engage and whenever the left cursor moves (the surface watches
+    /// it). Resolves the left pane's cursor file — local URL or remote address —
+    /// and hands it to the debounced loader.
     func updatePreviewFollow() {
-        let source: PaneModel
-        if left.paneMode == .preview {
-            source = right
-        } else if right.paneMode == .preview {
-            source = left
-        } else {
+        guard previewActive else {
             previewController.clear()
             return
         }
+        let source = left
         let entry = source.cursorEntry
         let host = source.state.host
         let isLocal = host == PalanaCore.localHostName
@@ -51,27 +65,21 @@ extension PalanaSession {
             url = URL(
                 fileURLWithPath: PaneModel.childPath(of: source.state.path, name: entry.name))
         }
-        previewController.follow(entry: entry, isLocal: isLocal, url: url)
+        previewController.follow(
+            entry: entry,
+            host: host,
+            directory: source.state.path,
+            isLocal: isLocal,
+            url: url)
     }
 
-    /// A change-detection key for the preview follow — encodes which pane is
-    /// previewing and where the source cursor sits, so the surface reloads only
-    /// when one of those actually moves.
+    /// A change-detection key for the preview follow — encodes the left cursor's
+    /// address, so the surface reloads only when it actually moves.
     var previewFollowKey: String {
-        let source: PaneModel
-        let side: String
-        if left.paneMode == .preview {
-            source = right
-            side = "L"
-        } else if right.paneMode == .preview {
-            source = left
-            side = "R"
-        } else {
-            return "none"
-        }
+        guard previewActive else { return "none" }
         // base64 of the name bytes — a stable key without a lossy Data→String
         // conversion, so byte-distinct names never collide on the follow key.
-        let cursor = source.cursorEntry.map { $0.nameData.base64EncodedString() } ?? "-"
-        return "\(side)|\(source.state.host ?? "-")|\(source.state.path)|\(cursor)"
+        let cursor = left.cursorEntry.map { $0.nameData.base64EncodedString() } ?? "-"
+        return "\(left.state.host ?? "-")|\(left.state.path)|\(cursor)"
     }
 }

@@ -52,6 +52,9 @@ struct PaneView: View {
     /// The session resolves the destination to that folder's path. The
     /// `FileEntry` is the folder; the Bool is whether Option was held.
     let onDropSelectionOntoFolder: (DraggedSelection, FileEntry, Bool) -> Void
+    /// Called when Finder file URLs are dropped onto a **folder row** — the
+    /// files land inside that folder.
+    let onFinderDropOntoFolder: ([URL], FileEntry, Bool) -> Void
     /// Called when Finder file URLs are dropped onto this pane.
     ///
     /// The session resolves them through the local listing and the gather path.
@@ -165,7 +168,7 @@ struct PaneView: View {
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
             } else if model.paneMode == .preview {
-                Text("previewing the other pane · v or esc exits · local files only")
+                Text("previewing the left pane · v or esc exits")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
             }
@@ -241,7 +244,7 @@ struct PaneView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
                     .background(Theme.plugin, in: RoundedRectangle(cornerRadius: 4))
-                Text("follows the other pane's cursor")
+                Text("follows the left pane's cursor")
                     .foregroundStyle(Theme.inkFaint)
             }
         } else if model.pathEditing {

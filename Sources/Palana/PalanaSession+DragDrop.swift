@@ -68,6 +68,25 @@ extension PalanaSession {
         )
     }
 
+    /// Handles a Finder URL drop onto a **folder row** in `targetPane` (ho-14
+    /// review) — the files land inside the folder, not in the pane's cwd.
+    func handleFinderDropOntoFolder(
+        urls: [URL],
+        targetPane: PaneModel,
+        folder: FileEntry,
+        optionHeld: Bool
+    ) {
+        let folderPath = PaneModel.childPath(of: targetPane.state.path, name: folder.name)
+        routeFinderDrop(
+            urls: urls,
+            targetPane: targetPane,
+            engine: sessionEngine,
+            operation: operation,
+            optionHeld: optionHeld,
+            destinationDirectory: folderPath
+        )
+    }
+
     /// Handles a Finder URL drop onto `targetPane`.
     ///
     /// Queries the local listing for the dropped URLs' parent directory,

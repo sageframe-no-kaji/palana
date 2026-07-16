@@ -99,10 +99,19 @@ struct HelpOverlay: View {
                 HelpRow(keys: "f", what: "field view"),
                 HelpRow(keys: "F", what: "host map — floats"),
                 HelpRow(keys: "*", what: "favorites panel"),
+                HelpRow(keys: "v", what: "preview — right pane follows left"),
                 HelpRow(keys: "`", what: "terminal"),
                 HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
                 HelpRow(keys: "?", what: "this card · ? again floats it"),
                 HelpRow(keys: "⌘,", what: "settings"),
+            ]),
+        HelpSection(
+            title: "zfs mode",
+            rows: [
+                HelpRow(keys: "Z", what: "enter / exit the dataset tree"),
+                HelpRow(keys: "↑ ↓", what: "walk datasets · a letter fires its verb"),
+                HelpRow(keys: "⏎", what: "open a mounted dataset in the pane"),
+                HelpRow(keys: "esc", what: "leave zfs mode"),
             ]),
         HelpSection(
             title: "app",

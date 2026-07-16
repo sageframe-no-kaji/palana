@@ -100,7 +100,7 @@ struct HostAddForm: View {
             livePreviewView
             if let err = writeError {
                 Text(err)
-                    .font(Theme.font(11))
+                    .font(.system(size: 11))
                     .foregroundStyle(Theme.alarm)
             }
             formButtons
@@ -167,10 +167,10 @@ struct HostAddForm: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(label)
                 .frame(width: 52, alignment: .trailing)
-                .font(Theme.font(11))
+                .font(.system(size: 11))
                 .foregroundStyle(hasError ? Theme.alarm : Theme.inkFaint)
             TextField(placeholder, text: text)
-                .font(Theme.font(12, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .focused(isFocused)
                 .onExitCommand { isFocused.wrappedValue = false }
                 .overlay(
@@ -185,10 +185,10 @@ struct HostAddForm: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("identity")
                 .frame(width: 52, alignment: .trailing)
-                .font(Theme.font(11))
+                .font(.system(size: 11))
                 .foregroundStyle(Theme.inkFaint)
             TextField("optional — e.g. id_ed25519 or ~/.ssh/id_ed25519", text: $identityFile)
-                .font(Theme.font(12, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .focused($identityFileFocused)
                 .onExitCommand { identityFileFocused = false }
             Button("Browse…") {
@@ -196,7 +196,7 @@ struct HostAddForm: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .font(Theme.font(11))
+            .font(.system(size: 11))
         }
     }
 
@@ -206,7 +206,7 @@ struct HostAddForm: View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(validationErrors.enumerated()), id: \.offset) { _, error in
                 Text("· \(describe(error))")
-                    .font(Theme.font(11))
+                    .font(.system(size: 11))
                     .foregroundStyle(Theme.alarm)
             }
         }
@@ -228,10 +228,10 @@ struct HostAddForm: View {
     private var livePreviewView: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("block that will be written:")
-                .font(Theme.font(10))
+                .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
             Text(currentBlock.compose())
-                .font(Theme.font(11, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .padding(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.groundDeep)
@@ -248,7 +248,7 @@ struct HostAddForm: View {
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
-            .font(Theme.font(12, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
             .controlSize(.regular)
             Button("Cancel") {
                 onCancel()
@@ -256,7 +256,7 @@ struct HostAddForm: View {
             .buttonStyle(.bordered)
             .tint(Theme.alarm)
             .foregroundStyle(Theme.alarm)
-            .font(Theme.font(12))
+            .font(.system(size: 12))
             .controlSize(.regular)
         }
     }
@@ -332,23 +332,23 @@ struct KeySetupGuidanceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("no usable ssh key — key setup needed")
-                .font(Theme.font(11, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Theme.alarm)
             Text("generate a key (if you don't have one yet):")
-                .font(Theme.font(10))
+                .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
             CopyableCommandView(command: "ssh-keygen -t ed25519")
             Text("then install it on \(alias):")
-                .font(Theme.font(10))
+                .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
             CopyableCommandView(command: "ssh-copy-id \(alias)")
             Text("the \(alias) block is written — run these in your terminal, then probe again.")
-                .font(Theme.font(10))
+                .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
             // TODO: firm up the deep-link target when the guide ships.
             if let guideURL = URL(string: "https://ssh-actually.sageframe.net") {
                 Link("key setup guide →", destination: guideURL)
-                    .font(Theme.font(10))
+                    .font(.system(size: 10))
                     .foregroundStyle(Theme.accent)
             }
         }
@@ -367,7 +367,7 @@ struct CopyableCommandView: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(command)
-                .font(Theme.font(11, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
             Button {
@@ -375,7 +375,7 @@ struct CopyableCommandView: View {
                 NSPasteboard.general.setString(command, forType: .string)
             } label: {
                 Image(systemName: "doc.on.doc")
-                    .font(Theme.font(10))
+                    .font(.system(size: 10))
                     .foregroundStyle(Theme.inkFaint)
             }
             .buttonStyle(.plain)
@@ -405,12 +405,12 @@ struct HostRemoveConfirmation: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("remove \(alias)?")
-                .font(Theme.font(12, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.ink)
             blockPreview
             if let err = writeError {
                 Text(err)
-                    .font(Theme.font(11))
+                    .font(.system(size: 11))
                     .foregroundStyle(Theme.alarm)
             }
             actions
@@ -423,10 +423,10 @@ struct HostRemoveConfirmation: View {
     private var blockPreview: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("block that will be stripped:")
-                .font(Theme.font(10))
+                .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
             Text(blockText)
-                .font(Theme.font(11, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .padding(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.ground)
@@ -472,13 +472,13 @@ struct HostRemoveConfirmation: View {
                 }
             }
             .buttonStyle(.plain)
-            .font(Theme.font(11))
+            .font(.system(size: 11))
             .foregroundStyle(Theme.alarm)
             Button("cancel") {
                 onDismiss()
             }
             .buttonStyle(.plain)
-            .font(Theme.font(11))
+            .font(.system(size: 11))
             .foregroundStyle(Theme.inkFaint)
         }
     }

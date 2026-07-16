@@ -145,6 +145,12 @@ final class PalanaSession {
         self.left = PaneModel(engine: self.engine)
         self.right = PaneModel(engine: self.engine)
         self.operation = OperationModel(engine: self.engine, configuration: configuration, settings: settingsModel)
+        // The preview pane's remote reader — a bounded head read over the wire
+        // (ho-16 review). Engine is a Sendable value, captured by copy.
+        let engine = self.engine
+        previewController.remoteReader = { host, path, limit in
+            try? await engine.listing(for: host).readFileHead(on: host, path: path, limit: limit)
+        }
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
         settingsModel.onConfigChanged = { [weak self] in self?.reloadHosts() }
@@ -487,6 +493,9 @@ extension PalanaSession {
     private func dispatch(_ intent: PaneIntent) {
         switch intent {
         case .switchPane:
+            // The viewer locks the keyboard to the left pane — nothing to drive
+            // on the right while it previews (ho-16 review).
+            guard !previewActive else { return }
             focusedSide = focusedSide == .left ? .right : .left
             persist()
         case .goTo:
@@ -514,11 +523,12 @@ extension PalanaSession {
     /// Decision 3), then a pending prefix dies, then a bare Esc clears the
     /// selection.
     private func handleEscInMainPath() {
-        if focusedPane.paneMode == .zfs {
+        if previewActive {
+            // The viewer exits whole — the right pane previews, not the focused
+            // (locked-left) pane, so check the viewer directly (ho-16 review).
+            exitPreview()
+        } else if focusedPane.paneMode == .zfs {
             focusedPane.exitZFSMode()
-        } else if focusedPane.paneMode == .preview {
-            focusedPane.exitPreviewMode()
-            previewController.clear()
         } else if pendingPrefix.isEmpty {
             focusedPane.apply(.clearSelection)
         } else {

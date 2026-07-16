@@ -87,29 +87,67 @@ struct PreviewControllerTests {
         }
     }
 
+    /// Follows a LOCAL file at `url` (host/dir are unused on the local path).
+    private func followLocal(_ controller: PreviewController, _ file: FileEntry, url: URL?) {
+        controller.follow(
+            entry: file, host: "local", directory: "/tmp", isLocal: true, url: url)
+    }
+
     @Test("a nil cursor clears to empty immediately")
     func nilClearsToEmpty() {
         let controller = PreviewController()
-        controller.follow(entry: nil, isLocal: true, url: nil)
+        controller.follow(entry: nil, host: "local", directory: "/", isLocal: true, url: nil)
         #expect(controller.state == .empty)
     }
 
-    @Test("a remote source resolves to the local-only card")
-    func remoteResolvesToRemote() async {
-        let controller = PreviewController()
+    @Test("a remote file with no reader wired → the local-only card")
+    func remoteNoReaderIsLocalOnly() async {
+        let controller = PreviewController()  // remoteReader stays nil
         let file = entry("notes.md")
-        controller.follow(entry: file, isLocal: false, url: nil)
+        controller.follow(
+            entry: file, host: "koan", directory: "/tank", isLocal: false, url: nil)
         await settle(controller)
         #expect(controller.state == .remote(file))
+    }
+
+    @Test("a remote text file with a reader → text over the wire")
+    func remoteTextReads() async {
+        let controller = PreviewController()
+        controller.remoteReader = { _, _, _ in Data("remote: true\nkey: val\n".utf8) }
+        let file = entry("config.yaml")
+        controller.follow(
+            entry: file, host: "koan", directory: "/etc", isLocal: false, url: nil)
+        await settle(controller)
+        guard case .text(let resolvedEntry, let preview) = controller.state else {
+            Issue.record("expected .text, got \(controller.state)")
+            return
+        }
+        #expect(resolvedEntry == file)
+        #expect(preview.text == "remote: true\nkey: val\n")
+    }
+
+    @Test("a remote binary is not fetched — stays the local-only card")
+    func remoteBinaryStaysLocalOnly() async {
+        let controller = PreviewController()
+        var readerCalled = false
+        controller.remoteReader = { _, _, _ in
+            readerCalled = true
+            return Data([0x89, 0x50, 0x4E, 0x47])
+        }
+        let file = entry("photo.png")  // non-text extension → never fetched
+        controller.follow(
+            entry: file, host: "koan", directory: "/pics", isLocal: false, url: nil)
+        await settle(controller)
+        #expect(controller.state == .remote(file))
+        #expect(!readerCalled, "a remote binary must not be read over the wire")
     }
 
     @Test("a local directory resolves to info-only")
     func localDirectoryInfoOnly() async {
         let controller = PreviewController()
-        let dir = entry("src", kind: .directory)
-        controller.follow(entry: dir, isLocal: true, url: URL(fileURLWithPath: "/tmp/src"))
+        followLocal(controller, entry("src", kind: .directory), url: URL(fileURLWithPath: "/tmp/src"))
         await settle(controller)
-        #expect(controller.state == .infoOnly(dir))
+        #expect(controller.state == .infoOnly(entry("src", kind: .directory)))
     }
 
     @Test("a local text file resolves to text with its content")
@@ -118,7 +156,7 @@ struct PreviewControllerTests {
         let url = try tempFile(Data("hello preview\n".utf8), ext: "md")
         defer { try? FileManager.default.removeItem(at: url) }
         let file = entry("notes.md")
-        controller.follow(entry: file, isLocal: true, url: url)
+        followLocal(controller, file, url: url)
         await settle(controller)
         guard case .text(let resolvedEntry, let preview) = controller.state else {
             Issue.record("expected .text, got \(controller.state)")
@@ -135,8 +173,7 @@ struct PreviewControllerTests {
         let big = Data(repeating: UInt8(ascii: "x"), count: PreviewRouter.textCap + 500)
         let url = try tempFile(big, ext: "log")
         defer { try? FileManager.default.removeItem(at: url) }
-        let file = entry("huge.log")
-        controller.follow(entry: file, isLocal: true, url: url)
+        followLocal(controller, entry("huge.log"), url: url)
         await settle(controller)
         guard case .text(_, let preview) = controller.state else {
             Issue.record("expected .text, got \(controller.state)")
@@ -152,7 +189,7 @@ struct PreviewControllerTests {
         let url = try tempFile(Data([0x00, 0x01, 0x02, 0xFF]))  // NUL → binary
         defer { try? FileManager.default.removeItem(at: url) }
         let file = entry("blob")  // extensionless → sniff decides
-        controller.follow(entry: file, isLocal: true, url: url)
+        followLocal(controller, file, url: url)
         await settle(controller)
         guard case .quickLook(let resolvedEntry, let resolved) = controller.state else {
             Issue.record("expected .quickLook, got \(controller.state)")
@@ -165,11 +202,12 @@ struct PreviewControllerTests {
     @Test("the debounce is last-wins — a rapid second follow cancels the first")
     func debounceLastWins() async {
         let controller = PreviewController()
-        let first = entry("first.md")
-        let second = entry("second.md")
-        controller.follow(entry: first, isLocal: false, url: nil)
+        controller.follow(
+            entry: entry("first.md"), host: "koan", directory: "/a", isLocal: false, url: nil)
         // Immediately supersede before the debounce elapses.
-        controller.follow(entry: second, isLocal: false, url: nil)
+        let second = entry("second.md")
+        controller.follow(
+            entry: second, host: "koan", directory: "/a", isLocal: false, url: nil)
         await settle(controller)
         #expect(controller.state == .remote(second))
     }
@@ -179,7 +217,7 @@ struct PreviewControllerTests {
         let controller = PreviewController()
         let url = try tempFile(Data("x".utf8), ext: "txt")
         defer { try? FileManager.default.removeItem(at: url) }
-        controller.follow(entry: entry("x.txt"), isLocal: true, url: url)
+        followLocal(controller, entry("x.txt"), url: url)
         controller.clear()
         #expect(controller.state == .empty)
     }

@@ -335,45 +335,52 @@ func handleUnifiedDrop(
 
 // MARK: - Folder-row drop handler
 
-/// Row-level `.onDrop` handler for a folder row (ho-14).
+/// Row-level `.onDrop` handler for a folder row (ho-14, extended in review).
 ///
-/// Accepts only the pane-to-pane `public.json` payload — a Finder URL drag over
-/// a folder row is not consumed here, so it falls through to the pane-level drop
-/// and lands in the pane's cwd (folder-drop is scoped to the selection path).
+/// Consumes both drag currencies onto the folder: the pane-to-pane
+/// `public.json` selection AND Finder file URLs — a file dragged in from Finder
+/// onto a folder row lands *inside* that folder, not in the pane's cwd. The
+/// pane-level drop is left for drops off any folder row.
 ///
-/// Returns `true` when a promising json drag is present so the row consumes the
-/// drop and the pane-level handler does not also fire (Decision 4 — no
-/// double-plan). The decoded payload is delivered on the main queue to
-/// `onDropOntoFolder` with the folder entry and the option-held flag.
+/// Returns `true` when a promising drag is present so the row consumes the drop
+/// and the pane-level handler does not also fire (no double-plan). The resolved
+/// payload or URLs are delivered on the main queue with the folder entry and
+/// the option-held flag.
 ///
 /// - Parameters:
 ///   - providers: The `NSItemProvider` array from the row's `.onDrop` closure.
 ///   - model: The pane hosting the folder row.
 ///   - folder: The directory entry the drop landed on.
-///   - onDropOntoFolder: Called on the main queue with the payload, the folder,
-///     and whether Option was held.
-/// - Returns: `true` when the row consumes a json drag; `false` otherwise.
+///   - onSelectionOntoFolder: Called for a pane-to-pane drop onto the folder.
+///   - onFinderOntoFolder: Called for a Finder URL drop onto the folder.
+/// - Returns: `true` when the row consumes the drag; `false` otherwise.
 @MainActor
-func handleFolderSelectionDrop(
+func handleFolderDrop(
     providers: [NSItemProvider],
     model: PaneModel,
     folder: FileEntry,
-    onDropOntoFolder: @escaping (DraggedSelection, FileEntry, Bool) -> Void
+    onSelectionOntoFolder: @escaping (DraggedSelection, FileEntry, Bool) -> Void,
+    onFinderOntoFolder: @escaping ([URL], FileEntry, Bool) -> Void
 ) -> Bool {
     guard model.status == .ready, model.state.host != nil else { return false }
-    guard
-        providers.contains(where: {
-            $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
-        })
-    else {
-        return false
+    let hasJSON = providers.contains {
+        $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
     }
+    let hasURLs = providers.contains {
+        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+    }
+    guard hasJSON || hasURLs else { return false }
     let optionHeld = NSEvent.modifierFlags.contains(.option)
     Task {
         let result = await resolveDropProviders(providers: providers, optionHeld: optionHeld)
-        guard case .selection(let payload, let held) = result else { return }
+        guard let result else { return }
         DispatchQueue.main.async {
-            onDropOntoFolder(payload, folder, held)
+            switch result {
+            case .selection(let payload, let held):
+                onSelectionOntoFolder(payload, folder, held)
+            case .urls(let urls, let held):
+                onFinderOntoFolder(urls, folder, held)
+            }
         }
     }
     return true
@@ -396,13 +403,17 @@ func handleFolderSelectionDrop(
 ///   - engine: The session's engine (for the local listing).
 ///   - operation: The ``OperationModel`` that owns the panel and the transcript.
 ///   - optionHeld: Whether Option was held at drop time.
+///   - destinationDirectory: When non-nil, the plan targets this directory on
+///     the destination host instead of the pane's cwd — a Finder drop onto a
+///     folder row (ho-14 review) passes the folder's full path.
 @MainActor
 func routeFinderDrop(
     urls: [URL],
     targetPane: PaneModel,
     engine: Engine,
     operation: OperationModel,
-    optionHeld: Bool
+    optionHeld: Bool,
+    destinationDirectory: String? = nil
 ) {
     guard !urls.isEmpty else { return }
     // Group by parent path — keep the first parent's cohort.
@@ -441,7 +452,8 @@ func routeFinderDrop(
                 operation.note("finder drop: destination pane is not ready")
                 return
             }
-            let destinationLocus = Locus(host: destHost, directory: targetPane.state.path)
+            let destinationLocus = Locus(
+                host: destHost, directory: destinationDirectory ?? targetPane.state.path)
             operation.beginFromFinderDrop(
                 planOperation,
                 source: sourceLocus,
