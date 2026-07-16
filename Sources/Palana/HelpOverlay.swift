@@ -7,6 +7,7 @@
 // and balanced across two columns.
 
 import AppKit
+import PalanaCore
 import SwiftUI
 
 /// One keystroke's worth of help.
@@ -27,6 +28,9 @@ private struct HelpSection: Identifiable {
 struct HelpOverlay: View {
     /// Text scale — the card passes 1, the window passes its fit.
     var scale = 1.0
+    /// The live zfs mode verbs — rendered with their real key hints so the
+    /// card never drifts from `zfsTool.verbs` (his review: put the keys in ?).
+    var zfsVerbs: [WorkbenchVerb] = []
     /// The quiet last line — the card and the window say different things.
     var footer = "? floats this card · esc closes"
     /// Called when the operator taps the ✕ close button.
@@ -106,14 +110,6 @@ struct HelpOverlay: View {
                 HelpRow(keys: "⌘,", what: "settings"),
             ]),
         HelpSection(
-            title: "zfs mode",
-            rows: [
-                HelpRow(keys: "Z", what: "enter / exit the dataset tree"),
-                HelpRow(keys: "↑ ↓", what: "walk datasets · a letter fires its verb"),
-                HelpRow(keys: "⏎", what: "open a mounted dataset in the pane"),
-                HelpRow(keys: "esc", what: "leave zfs mode"),
-            ]),
-        HelpSection(
             title: "app",
             rows: [
                 HelpRow(keys: "⌘R", what: "refresh"),
@@ -133,6 +129,21 @@ struct HelpOverlay: View {
             ]),
     ]
 
+    /// The zfs-mode grammar plus its live verbs — built from `zfsVerbs` so the
+    /// key hints track `zfsTool.verbs` and never drift (his review).
+    private var zfsSection: HelpSection {
+        var rows = [
+            HelpRow(keys: "Z", what: "enter / exit the dataset tree"),
+            HelpRow(keys: "⏎", what: "open a mounted dataset · esc leaves"),
+        ]
+        rows += zfsVerbs.map { HelpRow(keys: $0.keyHint, what: $0.label) }
+        return HelpSection(title: "zfs mode", rows: rows)
+    }
+
+    /// The left column plus the live zfs section (kept here, not right, so the
+    /// two columns stay roughly balanced in height).
+    private var leftSections: [HelpSection] { Self.leftColumn + [zfsSection] }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             OverlayHeader(title: "the keys", onClose: dismissAction)
@@ -140,7 +151,7 @@ struct HelpOverlay: View {
                 column([Self.prelude])
                 Divider()
                 HStack(alignment: .top, spacing: 32 * scale) {
-                    column(Self.leftColumn)
+                    column(leftSections)
                     column(Self.rightColumn)
                 }
                 marksLegend

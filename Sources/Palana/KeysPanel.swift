@@ -14,6 +14,7 @@
 // authority, no feedback loop, nothing to fight.
 
 import AppKit
+import PalanaCore
 import SwiftUI
 
 /// Owns the one floating keys panel.
@@ -31,6 +32,8 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     /// The card's natural size at scale 1, measured from the content.
     private var base = CGSize(width: 640, height: 420)
+    /// The live zfs verbs to render in the floating card — set by `show`.
+    private var zfsVerbs: [WorkbenchVerb] = []
 
     private static let stepKey = "palana.keysStep"
 
@@ -45,10 +48,15 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         set { UserDefaults.standard.set(newValue, forKey: Self.stepKey) }
     }
 
-    /// Summons the panel, measuring the card first so the frame is the
-    /// card and nothing else.
-    func show() {
+    /// Summons the panel, measuring the card first so the frame is the card.
+    ///
+    /// The live zfs verbs render in the card.
+    func show(zfsVerbs: [WorkbenchVerb] = []) {
+        self.zfsVerbs = zfsVerbs
         if let panel {
+            // Already up — refresh the content so the verbs are current.
+            (panel.contentView as? NSHostingView<KeysPanelContent>)?.rootView =
+                content(scale: Self.steps[stepIndex])
             panel.makeKeyAndOrderFront(nil)
             return
         }
@@ -123,7 +131,7 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
     // MARK: - Content
 
     private func content(scale: Double) -> KeysPanelContent {
-        KeysPanelContent(scale: scale) { [weak self] delta in
+        KeysPanelContent(scale: scale, zfsVerbs: zfsVerbs) { [weak self] delta in
             self?.step(by: delta)
         }
     }
@@ -139,18 +147,22 @@ private final class KeysPanel: NSPanel {
 struct KeysPanelContent: View {
     /// Text scale, driven by the panel's step.
     let scale: Double
+    /// The live zfs verbs to render in the card.
+    let zfsVerbs: [WorkbenchVerb]
     /// One size step, forwarded to the panel — ±1.
     let onStep: (Int) -> Void
 
     /// Builds the face.
-    init(scale: Double, onStep: @escaping (Int) -> Void) {
+    init(scale: Double, zfsVerbs: [WorkbenchVerb], onStep: @escaping (Int) -> Void) {
         self.scale = scale
+        self.zfsVerbs = zfsVerbs
         self.onStep = onStep
     }
 
     var body: some View {
         HelpOverlay(
             scale: scale,
+            zfsVerbs: zfsVerbs,
             footer: "esc closes · ⌘1–⌘5 pick a size · ⌘ + / − or the icons step",
             chromeless: true
         )

@@ -16,8 +16,9 @@ struct SurfaceView: View {
                 if session.helpVisible {
                     // Summoned cards stay natural size — scaling them overflowed
                     // the window (ho-13 review). ⌘+/− zooms the working surface,
-                    // not the glances.
-                    HelpOverlay()
+                    // not the glances. The live zfs verbs ride along so the card
+                    // shows their real keys.
+                    HelpOverlay(zfsVerbs: session.zfsTool.verbs)
                         .onDismiss { session.helpVisible = false }
                 }
             }
@@ -43,7 +44,7 @@ struct SurfaceView: View {
             }
             .onChange(of: session.floatingHelpTick) {
                 // ? ? — the card trades itself for the panel that stays.
-                KeysPanelController.shared.show()
+                KeysPanelController.shared.show(zfsVerbs: session.zfsTool.verbs)
             }
             .onChange(of: session.helpVisible) { _, visible in
                 // Never both: help summons, the field, settings, and panel yield.
