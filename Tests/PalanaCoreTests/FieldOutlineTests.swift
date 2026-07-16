@@ -30,6 +30,7 @@ private func makeFacts(
     zfsVersion: String? = nil,
     rsyncVersion: String? = "rsync 3.2.7",
     datasets: [ZFSDataset] = [],
+    sudoNoPassword: Bool = false,
     at date: Date = epoch
 ) -> HostFacts {
     let cap = makeCapability(flavor: flavor, zfsVersion: zfsVersion, rsyncVersion: rsyncVersion)
@@ -38,10 +39,14 @@ private func makeFacts(
     if !datasets.isEmpty {
         topology = Dated(value: datasets, discoveredAt: date)
     }
+    // false stays unprobed (nil) — matching `datasets`' empty-means-no-fact
+    // pattern; true records a fact, the only shape the F1 test needs.
+    let sudoFact: Dated<Bool>? = sudoNoPassword ? Dated(value: true, discoveredAt: date) : nil
     return HostFacts(
         reachability: Dated(value: reachValue, discoveredAt: date),
         capability: Dated(value: cap, discoveredAt: date),
-        zfsTopology: topology
+        zfsTopology: topology,
+        sudoNoPassword: sudoFact
     )
 }
 
@@ -64,6 +69,7 @@ struct FieldOutlineLineBuildingTests {
         #expect(hl.flavor == nil)
         #expect(!hl.hasZFS)
         #expect(!hl.hasRsync)
+        #expect(!hl.hasSudoNoPassword)
         #expect(!hl.expanded)
         #expect(hl.datasetCount == 0)
     }
@@ -74,7 +80,8 @@ struct FieldOutlineLineBuildingTests {
             ZFSDataset(name: "tank", mountpoint: "/tank", mounted: true),
             ZFSDataset(name: "tank/data", mountpoint: "/tank/data", mounted: true),
         ]
-        let facts = makeFacts(zfsVersion: "zfs-2.2.2", datasets: datasets)
+        let facts = makeFacts(
+            zfsVersion: "zfs-2.2.2", datasets: datasets, sudoNoPassword: true)
         let outline = FieldOutline(hosts: ["local", "jodo"], facts: ["jodo": facts], localHost: "local")
         guard case .host(let hl) = outline.lines[1] else {
             Issue.record("expected host line at index 1")
@@ -88,8 +95,20 @@ struct FieldOutlineLineBuildingTests {
         #expect(hl.flavor == .gnu)
         #expect(hl.hasZFS)
         #expect(hl.hasRsync)
+        #expect(hl.hasSudoNoPassword)
         #expect(!hl.expanded)
         #expect(hl.datasetCount == 2)
+    }
+
+    @Test("visited host row without a sudo probe reads hasSudoNoPassword false (ho-10.4-AT-02, F1)")
+    func visitedHostRowNoSudoFact() {
+        let facts = makeFacts(zfsVersion: "zfs-2.2.2")
+        let outline = FieldOutline(hosts: ["local", "jodo"], facts: ["jodo": facts], localHost: "local")
+        guard case .host(let hl) = outline.lines[1] else {
+            Issue.record("expected host line at index 1")
+            return
+        }
+        #expect(!hl.hasSudoNoPassword)
     }
 
     @Test("never-visited host row appears with visited false and nil fields")

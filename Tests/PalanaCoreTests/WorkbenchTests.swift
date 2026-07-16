@@ -104,6 +104,56 @@ struct CapabilityRequirementEvaluateTests {
     }
 }
 
+// MARK: - CapabilityRequirement.zfsMount (pure)
+
+@Suite("CapabilityRequirement.zfsMount evaluate")
+struct CapabilityRequirementZfsMountEvaluateTests {
+    @Test("zfsMount: unmet with not-yet-probed message when facts are nil")
+    func unprobed() {
+        #expect(
+            CapabilityRequirement.zfsMount.evaluate(host: "jodo", facts: nil)
+                == .unmet("jodo not yet probed—probe from the field or map")
+        )
+    }
+    @Test("zfsMount: unmet with no-zfs message when facts exist but have no topology")
+    func factsNoTopology() {
+        var facts = HostFacts()
+        facts.reachability = Dated(value: .reachable, discoveredAt: Date())
+        #expect(
+            CapabilityRequirement.zfsMount.evaluate(host: "jodo", facts: facts)
+                == .unmet("jodo has no zfs")
+        )
+    }
+    @Test("zfsMount: nil sudo fact is 'not asked yet', never the root-wall claim")
+    func zfsButSudoNil() {
+        var facts = HostFacts()
+        facts.zfsTopology = Dated(value: [], discoveredAt: Date())
+        #expect(
+            CapabilityRequirement.zfsMount.evaluate(host: "jodo", facts: facts)
+                == .unmet("jodo not asked about sudo yet — r in the field view asks")
+        )
+    }
+    @Test("zfsMount: unmet with the sudo refusal when sudoNoPassword is false")
+    func zfsButSudoFalse() {
+        var facts = HostFacts()
+        facts.zfsTopology = Dated(value: [], discoveredAt: Date())
+        facts.sudoNoPassword = Dated(value: false, discoveredAt: Date())
+        #expect(
+            CapabilityRequirement.zfsMount.evaluate(host: "jodo", facts: facts)
+                == .unmet(
+                    "mounting needs root on Linux — grant passwordless sudo for zfs, or use the shell"
+                )
+        )
+    }
+    @Test("zfsMount: available when zfs-bearing and sudoNoPassword is true")
+    func available() {
+        var facts = HostFacts()
+        facts.zfsTopology = Dated(value: [], discoveredAt: Date())
+        facts.sudoNoPassword = Dated(value: true, discoveredAt: Date())
+        #expect(CapabilityRequirement.zfsMount.evaluate(host: "jodo", facts: facts) == .available)
+    }
+}
+
 // MARK: - SystemReadsTool
 
 @Suite("SystemReadsTool")

@@ -77,6 +77,28 @@ final class PalanaSession {
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
     var fontScale: CGFloat = 1.0
+    /// Per-host live shell sessions — ho-11's interactive terminal.
+    ///
+    /// Lazy per host, kept alive across mode exits, torn down at quit
+    /// (`closeDoors()`'s partner, wired from the app delegate).
+    let terminalSessions = TerminalSessionStore()
+    /// True while the operator has a shell summoned (ho-11).
+    ///
+    /// The standing choice — the panel shows the shell whenever the plan
+    /// does not own it (`shellVisible`). Distinct from `terminalFocused`,
+    /// which only means the strip's tool letters are armed.
+    var shellMode = false
+    /// The live type-to-jump buffer — nil when the jump is closed.
+    ///
+    /// Non-nil stands the whole verb grammar down (`handleJumpKey`);
+    /// the footer renders the buffer so the operator sees what the
+    /// cursor is chasing.
+    var jumpBuffer: String?
+    /// True while the KEYBOARD belongs to the shell.
+    ///
+    /// ⌘` toggles this without tearing the view down — the shell can sit
+    /// visible and dimmed while the operator drives the panes.
+    var shellFocused = false
 
     private let conduit: SSHConduit
     private let field: Field
@@ -134,6 +156,10 @@ final class PalanaSession {
             left.apply(.refresh)
             right.apply(.refresh)
         }
+        operation.onEnactmentFailed = { [weak self] in
+            self?.resurfaceTranscriptOnFailure()
+        }
+        wireShellLifecycle()
         // Wire the round-trip center into pane callbacks and the finish hook.
         wireRoundTripCenter()
     }
@@ -188,6 +214,12 @@ final class PalanaSession {
     func beginOperation(_ operationKind: PlanOperation) {
         guard operationKind != .touch else {
             operation.beginTouch(source: focusedPane)
+            return
+        }
+        // The naming kinds gather a name, no destination — routed here so
+        // the context menu's create/rename ride the same door as a/R.
+        guard operationKind != .create, operationKind != .rename else {
+            beginNaming(operationKind)
             return
         }
         let destination = focusedSide == .left ? right : left
@@ -271,7 +303,11 @@ final class PalanaSession {
     }
 
     /// Closes every ControlMaster — the quit path owns this.
+    ///
+    /// Also tears down every live shell session (ho-11) — nothing outlives
+    /// the window, the terminal included.
     func closeDoors() async {
+        terminalSessions.teardownAll()
         await conduit.closeAll()
     }
 }
@@ -319,6 +355,16 @@ extension PalanaSession {
                 }
                 return consumed ? nil : event
             }
+            // ho-11: while the shell holds the panel, it is the key first
+            // responder in the same window — no window identifier
+            // distinguishes it, so the stand-down is checked here by the
+            // session's own flag before `handle` ever sees the event.
+            if self?.shellVisible == true, self?.shellFocused == true {
+                let consumed = MainActor.assumeIsolated {
+                    self?.handleShellModeKey(event) == true
+                }
+                return consumed ? nil : event
+            }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
         }
@@ -328,24 +374,23 @@ extension PalanaSession {
     ///
     /// True means consumed.
     func handle(_ event: NSEvent) -> Bool {
+        // ho-11's stand-down is checked in `installKeyMonitor`'s closure,
+        // ahead of this call, since the shell is the key first responder
+        // in the same window and needs no window-identity branch here —
+        // `handle` is never invoked at all while shell mode holds the panel.
         guard gotoTarget == nil else { return false }
-        // Field-less ZFS gather: isNaming stands the monitor down so typed
-        // keys never reach the panes. Return and Esc are handled here,
-        // extracted to keep cyclomatic complexity in budget. The model's
-        // flag decides, not the verb's static spec — destroy grows a field
-        // when the typed confirmation is on.
-        if operation.isNaming, operation.pendingZFSVerb != nil, !operation.zfsGatherWantsText {
-            return handleFieldlessZFSGatherKey(event)
-        }
-        // While any text field is live, every key belongs to the field.
-        guard !left.pathEditing, !right.pathEditing, !operation.isNaming,
-            !settingsFieldFocused
-        else { return false }
+        if case .handled(let consumed) = handleTextEntryPriority(event) { return consumed }
         guard let token = Grammar.token(for: event) else { return false }
         // ⌘, reaches settings even while help or the field view is up.
         if handleGlobalChord(token) { return true }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
+        // A pane in zfs mode is its own mutation surface (ho-10.3 Decision 4):
+        // a zfs verb's keyHint fires on the pane's tree cursor regardless of
+        // terminal focus — checked first so it takes priority over the file
+        // grammar's own bindings for the same letters (k/m/r collide by
+        // design: the vocabularies are disjoint only within each mode).
+        if handleZFSPaneModeLetterKey(token) { return true }
         // While the terminal holds focus, a tool hint fires its verb — but every
         // other key still flows to the panes, so the operator keeps acting there.
         // Key hints are disjoint by construction; first-match over both tools.
@@ -392,16 +437,7 @@ extension PalanaSession {
     private func handlePanelPriorityKey(_ token: String) -> Bool {
         switch token {
         case "esc":
-            // Esc out of a command cancels it and drops into terminal focus —
-            // the tool keys are live for the next move. On a resting terminal
-            // it is a pure hide; the Esc that follows clears the selection.
-            if operation.terminalBusy {
-                operation.cancelCommand()
-                terminalFocused = true
-            } else {
-                terminalFocused = false
-                operation.hidePanel()
-            }
+            handlePanelPriorityEsc()
             return true
         case "`":
             // Backtick stashes — the command keeps running, peek away and back.
@@ -465,10 +501,13 @@ extension PalanaSession {
         }
     }
 
-    /// Handles Esc in the main grammar path — a pending prefix dies first;
-    /// a bare Esc clears the selection.
+    /// Handles Esc in the main grammar path — zfs mode exits first (ho-10.3
+    /// Decision 3), then a pending prefix dies, then a bare Esc clears the
+    /// selection.
     private func handleEscInMainPath() {
-        if pendingPrefix.isEmpty {
+        if focusedPane.paneMode == .zfs {
+            focusedPane.exitZFSMode()
+        } else if pendingPrefix.isEmpty {
             focusedPane.apply(.clearSelection)
         } else {
             recognizer.reset()
@@ -509,13 +548,23 @@ extension PalanaSession {
     /// Global chords — settings and the text zoom.
     ///
     /// Fired regardless of overlay or focus, and extracted from `handle` to
-    /// keep that method within the complexity limit.
-    private func handleGlobalChord(_ token: String) -> Bool {
+    /// keep that method within the complexity limit. Not private: ho-11's
+    /// shell-mode stand-down (`PalanaSession+Shell.swift`) reuses it so
+    /// `cmd-,`/menus keep working while the PTY holds the panel.
+    func handleGlobalChord(_ token: String) -> Bool {
         switch token {
         case "cmd-,":
             helpVisible = false
             fieldVisible = false
             settingsVisible.toggle()
+        case "cmd-`":
+            // The shell KEYBOARD toggle (ho-11 hands session, twice
+            // corrected). ⌘Esc never reaches the app — the system eats
+            // it — and a letter summon shadowed the file grammar. ⌘`
+            // moves the keyboard between shell and panes; the view
+            // stays. Focus-off rides handleShellModeKey (a focused
+            // shell never reaches this switch); everything else here.
+            toggleShellKeyboard()
         case "cmd-=", "cmd-+":
             adjustFontScale(by: 0.1)
         case "cmd--":
@@ -546,8 +595,11 @@ extension PalanaSession {
     /// All are gated on `pendingPrefix.isEmpty` so multi-key chords
     /// (`c f` = copyFilename) are not intercepted. Returns true when consumed.
     /// Backtick (`` ` ``) shows the plan panel; phase and work are untouched.
-    /// Z toggles the ZFS panel — only fires while the terminal holds focus,
-    /// where it acts as a launcher not a WorkbenchVerb.
+    /// Z enters zfs mode on the focused pane — from PANE focus too; a
+    /// pane mode key gated on the strip was the hands session's 'jumps
+    /// to z' confusion (the Table's type-ahead ate it).
+    /// The glance-only floating panel has NO chord — its strip chip is the
+    /// door (the ⌘⇧Z experiment read as gibberish on his hands).
     private func handleMainSpecialKey(_ token: String) -> Bool {
         guard pendingPrefix.isEmpty else { return false }
         if token == "f" {
@@ -557,6 +609,10 @@ extension PalanaSession {
         }
         if token == "F" {
             HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
+            return true
+        }
+        if token == "/", !terminalFocused, focusedPane.paneMode == .files {
+            beginJump()
             return true
         }
         if token == "`" {
@@ -582,10 +638,10 @@ extension PalanaSession {
             terminalFocused.toggle()
             return true
         }
-        // Z — ZFS panel launcher. Active only while the terminal holds focus so
+        // Z — zfs pane mode. Active only while the terminal holds focus so
         // the key does not collide with pane navigation in the main flow.
-        if token == "Z", terminalFocused {
-            ZFSPanelController.shared.toggle(session: self)
+        if token == "Z" {
+            toggleZFSPaneMode()
             return true
         }
         return false
@@ -695,49 +751,5 @@ extension PalanaSession {
             fieldVisible = false
         default: break
         }
-    }
-}
-
-// MARK: - Workbench and terminal focus
-
-extension PalanaSession {
-    /// Runs a Workbench verb against the focused host.
-    ///
-    /// Read verbs: checks availability, starts the read, drains raw output into
-    /// the transcript. Phase is never touched — a read is not an operation.
-    ///
-    /// Mutation verbs: resolves the target dataset from the focused pane's path,
-    /// checks availability, then hands off to the operation gather.
-    ///
-    /// The read and mutation helpers live in `PalanaSession+ZFS.swift`.
-    func runWorkbenchVerb(_ verb: WorkbenchVerb) {
-        guard !operation.terminalBusy else { return }
-        guard let host = focusedPane.state.host else {
-            operation.appendToolError("point a pane at a host first")
-            return
-        }
-        // Local honesty: zfs verbs are not applicable on this Mac.
-        guard !(verb.requirement == .zfs && host == PalanaCore.localHostName) else { return }
-        switch verb.kind {
-        case .read:
-            runWorkbenchRead(verb, on: host)
-        case .mutation:
-            runWorkbenchMutation(verb, on: host)
-        }
-    }
-}
-
-// MARK: - Host onboarding probe
-
-extension PalanaSession {
-    /// First-reach probe offered after a guided add.
-    func probeHost(alias: String) async -> OnboardingProbeOutcome {
-        guard alias != Engine.localHost else { return .connected }
-        guard let facts = try? await engine.field.discover(alias),
-            case .unreachable(let detail) = facts.reachability?.value
-        else { return .connected }
-        let low = detail.lowercased()
-        let denied = low.contains("authentication denied") || low.contains("permission denied")
-        return denied ? .authDenied(detail: detail) : .unreachable(detail: detail)
     }
 }

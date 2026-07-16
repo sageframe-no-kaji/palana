@@ -43,6 +43,9 @@ public struct FieldOutline: Equatable, Sendable {
         public let hasZFS: Bool
         /// True when the last probe found rsync.
         public let hasRsync: Bool
+        /// True when the last probe found passwordless sudo — matches the
+        /// host map's `sudoNoPassword` fact (ho-10.4-AT-02, F1).
+        public let hasSudoNoPassword: Bool
         /// True when this host's dataset rows are visible below.
         public let expanded: Bool
         /// The count of remembered datasets — 0 when none known.
@@ -354,6 +357,7 @@ extension FieldOutline {
             flavor: nil,
             hasZFS: false,
             hasRsync: false,
+            hasSudoNoPassword: false,
             expanded: false,
             datasetCount: 0)
     }
@@ -370,6 +374,7 @@ extension FieldOutline {
             flavor: facts?.capability?.value.flavor,
             hasZFS: facts?.capability?.value.zfs != nil,
             hasRsync: facts?.capability?.value.rsync != nil,
+            hasSudoNoPassword: facts?.sudoNoPassword?.value ?? false,
             expanded: isExpanded,
             datasetCount: datasets.count)
     }

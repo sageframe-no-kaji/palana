@@ -94,6 +94,8 @@ public struct HostMap: Equatable, Sendable {
         public let hasZFS: Bool
         /// True when the last probe found rsync.
         public let hasRsync: Bool
+        /// True when the last probe found passwordless sudo granted.
+        public let hasSudoNoPassword: Bool
         /// Display lines for this host's mounts — pool headers and mount rows.
         ///
         /// ZFS mounts group under `.pool` header lines; all other storage and
@@ -286,6 +288,7 @@ extension HostMap {
             flavor: nil,
             hasZFS: false,
             hasRsync: false,
+            hasSudoNoPassword: false,
             mounts: [],
             systemMountCount: 0,
             mountsRememberedAt: nil)
@@ -315,6 +318,7 @@ extension HostMap {
             flavor: hostFacts?.capability?.value.flavor,
             hasZFS: hostFacts?.capability?.value.zfs != nil,
             hasRsync: hostFacts?.capability?.value.rsync != nil,
+            hasSudoNoPassword: hostFacts?.sudoNoPassword?.value ?? false,
             mounts: lines,
             systemMountCount: systemCount,
             mountsRememberedAt: hostFacts?.mounts?.discoveredAt)

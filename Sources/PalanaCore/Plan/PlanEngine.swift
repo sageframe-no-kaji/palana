@@ -152,7 +152,8 @@ public enum PlanEngine {
         case .move:
             let sameHost = request.source.host == request.destination?.host
             guard sameHost else { return .crossHostTransfer }
-            return provenSameDataset(facts) ? .withinDatasetRename : .crossDatasetCopyPlusDelete
+            return provenSameFilesystem(facts, request: request)
+                ? .withinDatasetRename : .crossDatasetCopyPlusDelete
         case .copy:
             let sameHost = request.source.host == request.destination?.host
             return sameHost ? .withinHostCopy : .crossHostCopy

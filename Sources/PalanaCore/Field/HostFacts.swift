@@ -153,6 +153,13 @@ public struct HostFacts: Codable, Sendable, Equatable {
     /// Keyed on the kernel's own table — `/proc/mounts` on Linux, `mount`
     /// on BSD. Every filesystem, not just ZFS. Nil means unread.
     public var mounts: Dated<[Mount]>?
+    /// Whether the host grants passwordless sudo for the zfs verbs —
+    /// blanket (`sudo -n true`) or scoped (`sudo -n -l zfs mount`).
+    ///
+    /// Probed on every discovery regardless of zfs presence: the fact is
+    /// host-general, not zfs-specific. A host without sudo installed at all
+    /// reads as `false`, never a thrown discovery.
+    public var sudoNoPassword: Dated<Bool>?
     /// Whether this host can reach others with the operator's forwarded
     /// agent, keyed by destination alias — the system design's "probed
     /// once, remembered." Absent means unprobed, and unprobed selects
@@ -165,12 +172,14 @@ public struct HostFacts: Codable, Sendable, Equatable {
         capability: Dated<HostCapability>? = nil,
         zfsTopology: Dated<[ZFSDataset]>? = nil,
         mounts: Dated<[Mount]>? = nil,
+        sudoNoPassword: Dated<Bool>? = nil,
         forwarding: [String: Dated<ForwardingFact>]? = nil
     ) {
         self.reachability = reachability
         self.capability = capability
         self.zfsTopology = zfsTopology
         self.mounts = mounts
+        self.sudoNoPassword = sudoNoPassword
         self.forwarding = forwarding
     }
 }

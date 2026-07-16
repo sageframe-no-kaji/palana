@@ -58,6 +58,12 @@ struct PaneView: View {
     let onBack: () -> Void
     /// Called when the forward chevron is tapped.
     let onForward: () -> Void
+    /// Fires a zfs verb on this pane's tree cursor — the context menu's
+    /// route, mirroring the letter-key path (ho-10.3 Decision 4).
+    let onZFSVerb: (WorkbenchVerb) -> Void
+    /// The zfs mutation verbs, for the pane's context menu in zfs mode —
+    /// the session's shared `zfsTool.verbs` list, never hardcoded here.
+    let zfsVerbs: [WorkbenchVerb]
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -74,7 +80,15 @@ struct PaneView: View {
             content
             paneFooter
         }
+        // zfs mode washes the ground toward the plugin hue at low opacity —
+        // the loud, unmistakable boundary ho-10.3 Decision 2 calls for.
+        // Layered under Theme.ground so files-mode is untouched.
         .background(Theme.ground)
+        .background {
+            if model.paneMode == .zfs {
+                Theme.plugin.opacity(0.12)
+            }
+        }
         .overlay {
             if !isFocused {
                 Theme.ink.opacity(0.045)
@@ -124,9 +138,16 @@ struct PaneView: View {
     /// The pane's bottom strip — one terminal popout button, right-pinned.
     ///
     /// Wired to the same show path backtick uses so the operator can
-    /// summon the terminal from wherever the mouse happens to be.
+    /// summon the terminal from wherever the mouse happens to be. In zfs
+    /// mode this line names the exits instead (ho-10.3 Decision 2) — no
+    /// mistaking which activity the pane is in from any distance.
     private var paneFooter: some View {
         HStack {
+            if model.paneMode == .zfs {
+                Text("↑↓ walk · letter fires verb · ⏎ opens mounted · esc/Z exits zfs mode")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.plugin)
+            }
             Spacer()
             ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
                 onShowPanel()
@@ -170,9 +191,26 @@ struct PaneView: View {
     /// The whole address — text until clicked, one typeable field after.
     ///
     /// `host:path` is the vocabulary, same as the terminal's. A pane
-    /// pointed nowhere is one click and one address from somewhere.
+    /// pointed nowhere is one click and one address from somewhere. In
+    /// zfs mode the header reads `zfs · <host>` instead — no path to
+    /// show or type (ho-10.3 Decision 2), untypeable while the mode holds.
     @ViewBuilder private var addressReadout: some View {
-        if model.pathEditing {
+        if model.paneMode == .zfs {
+            // The boundary wears the plugin chip's own clothes — solid
+            // umber, cream letters — so the mode is unmistakable from
+            // across the room (his ask, pointing at the strip chip).
+            HStack(spacing: 8) {
+                Text("ZFS")
+                    .fontWeight(.bold)
+                    .foregroundStyle(Theme.ground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Theme.plugin, in: RoundedRectangle(cornerRadius: 4))
+                Text(model.state.host ?? "—")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.plugin)
+            }
+        } else if model.pathEditing {
             TextField("host:path — local: for this Mac, ~ for home", text: $pathDraft)
                 .textFieldStyle(.plain)
                 .focused($pathFieldFocused)
@@ -299,18 +337,25 @@ struct PaneView: View {
     // MARK: - Content
 
     @ViewBuilder private var content: some View {
-        switch model.status {
-        case .unpointed:
-            quietLine(model.lastError ?? "⇧⌘G to go somewhere — or click the bar above and type host:path")
-        case .loading:
-            quietLine("reading…")
-        case .ready:
-            table
-                .overlay(alignment: .bottom) {
-                    if let error = model.lastError {
-                        errorBanner(error)
+        if model.paneMode == .zfs {
+            // The dataset tree replaces the file Table entirely — the
+            // machinery lives in PaneView+ZFSMode.swift to keep this file
+            // under the line-length budget.
+            zfsTreeContent
+        } else {
+            switch model.status {
+            case .unpointed:
+                quietLine(model.lastError ?? "⇧⌘G to go somewhere — or click the bar above and type host:path")
+            case .loading:
+                quietLine("reading…")
+            case .ready:
+                table
+                    .overlay(alignment: .bottom) {
+                        if let error = model.lastError {
+                            errorBanner(error)
+                        }
                     }
-                }
+            }
         }
     }
 
@@ -326,7 +371,7 @@ struct PaneView: View {
             .allowsHitTesting(false)
     }
 
-    private func quietLine(_ text: String) -> some View {
+    func quietLine(_ text: String) -> some View {
         VStack {
             Spacer()
             Text(text)
@@ -393,7 +438,8 @@ extension PaneView {
                         let payload = dragPayload(for: entry, selectedNames: selectedNames)
                         // Qualify the global to resolve the name collision with the
                         // .itemProvider(_:) modifier method on TableRow.
-                        return Palana.itemProvider(for: payload)
+                        return Palana.itemProvider(
+                            for: payload, localFileURL: localDragURL(for: entry))
                     }
             }
         }
@@ -478,6 +524,14 @@ extension PaneView {
         Button("touch — update modified") { operate(.touch, ids: ids) }
             .keyboardShortcut("t", modifiers: [])
         Divider()
+        // Creation lives in the empty-space instinct too — name/ makes a
+        // directory, same field as `a` (his round: 'need to put create
+        // file/directory in right click').
+        Button("new file or directory… — name/ for a directory") { operate(.create, ids: []) }
+            .keyboardShortcut("a", modifiers: [])
+        Button("rename…") { operate(.rename, ids: ids) }
+            .keyboardShortcut("R", modifiers: [])
+        Divider()
         Button("copy path      cc") { model.copyToClipboard(.copyPath, ids: ids) }
         Button("copy filename      cf") { model.copyToClipboard(.copyFilename, ids: ids) }
         Button("copy name without extension      cn") {
@@ -525,6 +579,19 @@ extension PaneView {
             model.state.cursor = ids.first
         }
         onOperation(operation)
+    }
+
+    /// The real file URL for a drag leaving the app — local pane only.
+    ///
+    /// A remote entry returns nil: no URL on this Mac can honor it (the
+    /// file-promise download drag is a banked follow-up). The URL rides
+    /// the drag beside the pane-to-pane payload so files land on any
+    /// outside target — a browser upload, Finder, Mail.
+    func localDragURL(for entry: FileEntry) -> URL? {
+        guard model.state.host == PalanaCore.localHostName else { return nil }
+        let base = model.state.path
+        let path = base == "/" ? "/\(entry.name)" : "\(base)/\(entry.name)"
+        return URL(fileURLWithPath: path)
     }
 
     func nameCell(_ entry: FileEntry) -> some View {
@@ -584,7 +651,12 @@ extension PaneView {
                 // carry Finder's selection manners: shift extends from
                 // the cursor, ⌘ or ⌥ toggles one row. Keyed moves write
                 // the state directly and never pass through here.
-                let flags = NSApp.currentEvent?.modifierFlags ?? []
+                // NSEvent.modifierFlags (the class property, live hardware
+                // state) — NOT NSApp.currentEvent: the Table delivers this
+                // set AFTER the click event has passed, so currentEvent's
+                // flags read empty and shift-click degraded to a plain
+                // click (round 9: 'I cant shift selecet').
+                let flags = NSEvent.modifierFlags
                 if let clicked, flags.contains(.shift) {
                     model.extendSelection(to: clicked)
                 } else if let clicked, !flags.isDisjoint(with: [.command, .option]) {

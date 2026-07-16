@@ -26,6 +26,10 @@ public enum CapabilityRequirement: Sendable, Equatable {
     /// Enabled only when a `zfsTopology` fact is present for the host —
     /// probed and zfs-bearing. Absent facts mean "not yet probed", not "no zfs".
     case zfs
+    /// Enabled only when the host is zfs-bearing AND grants passwordless
+    /// sudo — mount/unmount need root on Linux, and pālana never composes
+    /// toward a guaranteed failure.
+    case zfsMount
 
     /// Whether the requirement is met, given cached facts for the host.
     ///
@@ -47,6 +51,27 @@ public enum CapabilityRequirement: Sendable, Equatable {
             }
             guard facts.zfsTopology != nil else {
                 return .unmet("\(host) has no zfs")
+            }
+            return .available
+
+        case .zfsMount:
+            guard let facts else {
+                return .unmet("\(host) not yet probed—probe from the field or map")
+            }
+            guard facts.zfsTopology != nil else {
+                return .unmet("\(host) has no zfs")
+            }
+            // Nil is 'never asked', not 'refused' — a host probed before
+            // this fact existed must not wear the root-wall sentence
+            // (his question: 'why not probe on load?' — facts arrive on
+            // engagement, so name the real state until they do).
+            guard let sudo = facts.sudoNoPassword else {
+                return .unmet("\(host) not asked about sudo yet — r in the field view asks")
+            }
+            guard sudo.value else {
+                return .unmet(
+                    "mounting needs root on Linux — grant passwordless sudo for zfs, or use the shell"
+                )
             }
             return .available
         }
@@ -71,12 +96,20 @@ public struct MutationInput: Sendable, Equatable {
     public var text: String?
     /// The recursive flag, for verbs that offer it. false otherwise.
     public var recursive: Bool
+    /// Whether the target dataset is currently mounted — the surface
+    /// already knows this (`dataset.mounted`); it rides along so the
+    /// engine can weave the implicit-unmount heal into destroy and
+    /// mountpoint mutations (ho-10.4-AT-02).
+    public var mounted: Bool
 
     /// Assembles a mutation input.
-    public init(target: String, text: String? = nil, recursive: Bool = false) {
+    public init(
+        target: String, text: String? = nil, recursive: Bool = false, mounted: Bool = false
+    ) {
         self.target = target
         self.text = text
         self.recursive = recursive
+        self.mounted = mounted
     }
 }
 
@@ -88,12 +121,24 @@ public struct GatherSpec: Sendable, Equatable {
     public var needsText: Bool
     /// Whether the verb offers a recursive choice.
     public var offersRecursive: Bool
+    /// The toggle's label when `offersRecursive` is on.
+    ///
+    /// Nil takes the surface's default wording. Verbs whose flag means
+    /// something sharper than 'recursive' (rollback's -r destroys newer
+    /// snapshots) say so here, plainly.
+    public var toggleLabel: String?
 
     /// Assembles a gather spec.
-    public init(prompt: String, needsText: Bool, offersRecursive: Bool = false) {
+    public init(
+        prompt: String,
+        needsText: Bool,
+        offersRecursive: Bool = false,
+        toggleLabel: String? = nil
+    ) {
         self.prompt = prompt
         self.needsText = needsText
         self.offersRecursive = offersRecursive
+        self.toggleLabel = toggleLabel
     }
 }
 

@@ -88,6 +88,19 @@ final class PaneModel {
     private(set) var mountTargets: Set<String> = []
     /// Rows a page move jumps — the view updates it from geometry.
     var pageSize = 25
+    /// Whether this pane renders files or a host's dataset tree (ho-10.3).
+    ///
+    /// App-level only — `PaneState`/`PaneIntent` never learn about this.
+    /// Mutated only from `PaneModel+ZFSMode.swift`'s entry/exit/walk API —
+    /// `internal(set)` (the default) rather than `private(set)` because
+    /// Swift's `private` is file-scoped and that machinery lives in its
+    /// own extension file.
+    var paneMode = Mode.files
+    /// The dataset tree, populated while `paneMode == .zfs` — empty otherwise.
+    var zfsDatasets: [ZFSDataset] = []
+    /// The selected dataset's name while `paneMode == .zfs` — nil otherwise
+    /// or before the tree has read anything.
+    var zfsSelectedDataset: String?
     /// True while the header's path field is being typed in — the key
     /// monitor stands down so the letters reach the field.
     var pathEditing = false
@@ -140,8 +153,16 @@ final class PaneModel {
 
     /// Applies one intent.
     ///
-    /// Cursor and selection moves mutate synchronously; reads spawn.
+    /// Cursor and selection moves mutate synchronously; reads spawn. In
+    /// zfs mode the file-cursor intents redirect to the tree walk instead
+    /// (`PaneModel+ZFSMode.swift`) — everything else that has no meaning
+    /// on a dataset row (sort, selection, ascend/descend, clipboard) is a
+    /// quiet no-op rather than reaching the file state underneath.
     func apply(_ intent: PaneIntent) {
+        if paneMode == .zfs {
+            applyZFSModeIntent(intent)
+            return
+        }
         if applyCursorOrSelection(intent) { return }
         switch intent {
         case .toggleHidden: applyDisplayChange { $0.toggleHidden() }
@@ -342,6 +363,13 @@ final class PaneModel {
         status = .ready
         isReading = false
         lastError = nil
+        // A zfs-mode pane whose HOST just landed somewhere new shows that
+        // host's tree. This lives here, not in point(): reads are async,
+        // and refreshing before the host commits refreshed the OLD host
+        // (the hands round's stale-tree screenshots, twice).
+        if paneMode == .zfs, moved {
+            Task { await refreshZFSTree(engine: engine) }
+        }
         onDisplayChange()
     }
 

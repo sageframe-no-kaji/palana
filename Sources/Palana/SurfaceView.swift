@@ -236,7 +236,9 @@ struct SurfaceView: View {
                 session.terminalFocused = true
             },
             onBack: { model.historyBack() },
-            onForward: { model.historyForward() }
+            onForward: { model.historyForward() },
+            onZFSVerb: { verb in session.runZFSPaneModeVerb(verb, on: model) },
+            zfsVerbs: session.zfsTool.verbs
         )
         .frame(minWidth: 320)
     }
@@ -258,6 +260,20 @@ struct SurfaceView: View {
                 // The hidden terminal's heartbeat — the work continues.
                 Text("transfer running — ` brings the panel back")
                     .foregroundStyle(Theme.accent)
+            }
+            if let buffer = session.jumpBuffer {
+                Text("jump: \(buffer.isEmpty ? "type a name…" : buffer) · ⏎ stays · esc cancels")
+                    .foregroundStyle(Theme.accent)
+            }
+            if session.shellVisible {
+                // ho-11's keyboard, named plainly — Esc itself goes to
+                // the shell (vim needs it); ⌘` moves the keyboard.
+                Text(
+                    session.shellFocused
+                        ? "the shell has the keyboard · ⌘` hands it to the panes · ⌘ shortcuts still work"
+                        : "the panes have the keyboard · ⌘` speaks to the shell"
+                )
+                .foregroundStyle(session.shellFocused ? Theme.accent : Theme.inkFaint)
             }
             Spacer()
             if !session.pendingPrefix.isEmpty {

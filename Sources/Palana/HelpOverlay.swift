@@ -62,6 +62,7 @@ struct HelpOverlay: View {
             HelpRow(keys: "gg / G", what: "top / bottom"),
             HelpRow(keys: "⌃d / ⌃u", what: "half page · space select"),
             HelpRow(keys: "⌘A / esc", what: "select all / clear · tab switch pane"),
+            HelpRow(keys: "/", what: "jump — type a name, the cursor chases it"),
         ])
 
     private static let leftColumn = [
@@ -99,6 +100,7 @@ struct HelpOverlay: View {
                 HelpRow(keys: "F", what: "host map — floats"),
                 HelpRow(keys: "*", what: "favorites panel"),
                 HelpRow(keys: "`", what: "terminal"),
+                HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
                 HelpRow(keys: "?", what: "this card · ? again floats it"),
                 HelpRow(keys: "⌘,", what: "settings"),
             ]),

@@ -87,17 +87,19 @@ struct WorkbenchStrip: View {
         }
     }
 
-    /// The ZFS panel launcher — one chip, key hint "Z", toggles the panel.
+    /// The ZFS overview launcher — one chip, click-only, toggles the
+    /// glance-only floating panel. ho-10.3 gave the bare `Z` key to pane
+    /// zfs mode, the mutation surface; the panel earns no chord of its
+    /// own (the ⌘⇧Z experiment read as gibberish on his hands).
     ///
-    /// Solid plugin chip: burnt-umber ground, cream text and key hint,
-    /// hover slightly lighter.
+    /// Solid plugin chip: burnt-umber ground, cream text, hover lighter.
     private var zfsLauncher: some View {
         PluginChip(
             label: "zfs…",
-            keyHint: "Z",
+            keyHint: "",
             enabled: !terminalBusy,
-            showKey: session.terminalFocused,
-            help: "open the zfs panel"
+            showKey: false,
+            help: "open the zfs overview panel — Z on a pane enters zfs mode"
         ) {
             ZFSPanelController.shared.toggle(session: session)
         }

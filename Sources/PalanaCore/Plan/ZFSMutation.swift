@@ -30,10 +30,23 @@ public enum ZFSMutation: Sendable, Equatable, Codable {
     /// Destroy a snapshot.
     case destroySnapshot(dataset: String, name: String)
     /// Roll a dataset back to a snapshot, discarding newer state.
-    case rollback(dataset: String, name: String)
+    ///
+    /// When `destroysNewer` is true the composer appends `-r`, which
+    /// DESTROYS every snapshot newer than the target on the way back —
+    /// zfs refuses the rollback otherwise. Never defaulted on: the
+    /// operator opts in through a plainly-worded toggle and reads the
+    /// `-r` in the plan (the hands round asked 'Do we want this?!' —
+    /// yes, but only out loud).
+    case rollback(dataset: String, name: String, destroysNewer: Bool)
     /// Set the mountpoint property on a dataset.
     case setMountpoint(dataset: String, path: String)
     /// Clear the mountpoint property so the dataset inherits from its
     /// parent (`zfs inherit mountpoint`).
     case clearMountpoint(dataset: String)
+    /// Mount a dataset — `sudo -n zfs mount`. The pool root is legal here;
+    /// mounting is never destructive.
+    case mount(dataset: String)
+    /// Unmount a dataset — `sudo -n zfs unmount`. The pool root is legal
+    /// here; unmounting is never destructive.
+    case unmount(dataset: String)
 }

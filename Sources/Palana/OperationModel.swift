@@ -74,6 +74,25 @@ final class OperationModel {
     /// True while the naming field is live — the key monitor stands down.
     var isNaming: Bool { phase == .naming }
 
+    /// True during a field-less ZFS gather — destroy's typed-confirmation setting off.
+    ///
+    /// The key monitor routes to `handleFieldlessZFSGatherKey` instead of
+    /// the field, since there is no field to hold focus.
+    var isFieldlessZFSGather: Bool {
+        isNaming && pendingZFSVerb != nil && !zfsGatherWantsText
+    }
+
+    /// True while a ZFS gather whose verb offers recursive is showing —
+    /// field-less or text, destroy, snapshot, or rollback alike.
+    ///
+    /// Ho-10.4-AT-03: space flips `zfsRecursive` whenever this is true. The
+    /// text-gather routing checks this ahead of the "every key belongs to
+    /// the field" guard so space is swallowed as the toggle, never typed —
+    /// safe because no ZFS dataset or snapshot name may contain a space.
+    var isRecursiveOfferingZFSGather: Bool {
+        isNaming && pendingZFSVerb?.gather?.offersRecursive == true
+    }
+
     /// Whether the panel is on screen — the view, not the work.
     ///
     /// An enactment keeps running when the panel hides (second hands
@@ -84,6 +103,13 @@ final class OperationModel {
     ///
     /// Set once, right after construction.
     var onFinished: @MainActor () -> Void = {}
+
+    /// Fires when a running enactment fails.
+    ///
+    /// ho-11's failure law: the session forces the transcript back over
+    /// an open shell regardless of mode. Set once, right after
+    /// construction, alongside `onFinished`.
+    var onEnactmentFailed: @MainActor () -> Void = {}
 
     let engine: Engine
     private let configuration: SSHConfiguration
@@ -107,6 +133,10 @@ final class OperationModel {
     var pendingZFSHost: String?
     /// The dataset the ZFS mutation targets — the one containing the pane's path.
     var pendingZFSDataset: String?
+    /// Whether the pending ZFS mutation's target dataset is currently
+    /// mounted — carried from the surface's `dataset.mounted` fact so the
+    /// composed plan can weave the implicit-unmount heal (ho-10.4-AT-02).
+    var pendingZFSMounted: Bool = false
     /// The recursive flag gathered from the operator.
     ///
     /// Reset to false on each `beginZFSMutation` call.
@@ -201,16 +231,11 @@ final class OperationModel {
                     engine.isLocal(destination.host)
                     ? await localCapability() : destinationFacts?.capability?.value
             }
-            if let topology = sourceFacts?.zfsTopology?.value {
-                facts.sourceDataset = ZFSTopology.datasetContaining(
-                    source.directory, in: topology)
-                facts.selectionWholeDataset = ZFSTopology.wholeDatasetSelection(
-                    entries: subjects, sourceDirectory: source.directory, datasets: topology)
-            }
-            if let destination, let topology = destinationFacts?.zfsTopology?.value {
-                facts.destinationDataset = ZFSTopology.datasetContaining(
-                    destination.directory, in: topology)
-            }
+            addPlacementFacts(
+                &facts,
+                source: (source, sourceFacts),
+                destination: (destination, destinationFacts),
+                subjects: subjects)
             if let destination, needsForwardingFact(source: source, destination: destination) {
                 note("asking whether \(source.host) reaches \(destination.host)…")
                 facts.agentForwarding = await engine.field.forwardingFact(
@@ -273,6 +298,9 @@ final class OperationModel {
                 phase = .failed
                 // A failure never stays off-screen.
                 panelShowing = true
+                // ho-11: nor behind an open shell — the transcript comes
+                // forward regardless of mode.
+                onEnactmentFailed()
             }
         }
     }
@@ -420,6 +448,7 @@ final class OperationModel {
         pendingZFSTool = nil
         pendingZFSHost = nil
         pendingZFSDataset = nil
+        pendingZFSMounted = false
         zfsRecursive = false
         zfsGatherWantsText = false
     }
@@ -480,6 +509,11 @@ extension OperationModel {
             return "permission denied: \(path)"
         case ListingError.listingFailed(_, let stderr):
             return "a fact could not be gathered: \(stderr)"
+        case ConduitError.sshFailure(let exitStatus, let stderr):
+            // A struct dump is not a sentence (the hands round saw
+            // sshFailure(exitStatus: 255, ...) verbatim in the panel).
+            let tail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "the host refused (exit \(exitStatus))\(tail.isEmpty ? "" : ": \(tail)")"
         case let conduitError as ConduitError:
             return "\(conduitError)"
         default:
@@ -510,6 +544,8 @@ extension OperationModel {
             return "rename and create stay in the source directory — no destination"
         case PlanError.zfsPoolRootRefused:
             return "that is the pool root — pālana manages datasets, never the pool itself"
+        case PlanError.zfsMountpointNotAbsolute:
+            return "a mountpoint must be an absolute path — /like/this, not ~ or relative"
         default:
             return nil
         }
@@ -655,51 +691,37 @@ extension OperationModel {
     }
 }
 
-// MARK: - Gather helpers (moved from class body for type_body_length budget)
+// MARK: - Placement facts
 
 extension OperationModel {
-    /// The forwarding question exists only between two distinct
-    /// remotes — this machine at either end authenticates itself.
-    func needsForwardingFact(source: Locus, destination: Locus) -> Bool {
-        destination.host != source.host
-            && !engine.isLocal(source.host)
-            && !engine.isLocal(destination.host)
-    }
-
-    /// This Mac's own capability — probed once per session, in memory.
+    /// Where each end LIVES: containing dataset, whole-dataset selection,
+    /// and the any-filesystem mount target (ho-9.3's fact).
     ///
-    /// The engine flags rsync commands by the running side's rsync;
-    /// this machine's answer decides whether progress2 rides.
-    func localCapability() async -> HostCapability? {
-        if let probedLocalCapability { return probedLocalCapability }
-        guard
-            let result = try? await engine.localConduit
-                .run(on: PalanaCore.localHostName, CapabilityProbe.command).collect(),
-            let capability = try? CapabilityProbe.parse(result.stdoutText)
-        else { return nil }
-        probedLocalCapability = capability
-        return capability
-    }
-
-    /// Remembered facts, or one discovery when the host was never met.
-    func ensureFacts(_ host: String) async throws -> HostFacts? {
-        guard !engine.isLocal(host) else { return nil }
-        if let facts = await engine.field.facts(for: host) { return facts }
-        note("discovering \(host)…")
-        return try await engine.field.discover(host)
-    }
-
-    /// The flavor fact — this Mac is BSD, remotes answer from memory or
-    /// one discovery round trip.
-    func resolveFlavor(_ host: String) async throws -> UserlandFlavor {
-        if engine.isLocal(host) { return .bsd }
-        if let flavor = await engine.field.facts(for: host)?.capability?.value.flavor {
-            return flavor
+    /// The mount proof lets a same-host move be a rename even off ZFS.
+    /// Extracted from `gather` for the body-length budget.
+    private func addPlacementFacts(
+        _ facts: inout PlanFacts,
+        source: (locus: Locus, facts: HostFacts?),
+        destination: (locus: Locus?, facts: HostFacts?),
+        subjects: [FileEntry]
+    ) {
+        if let topology = source.facts?.zfsTopology?.value {
+            facts.sourceDataset = ZFSTopology.datasetContaining(
+                source.locus.directory, in: topology)
+            facts.selectionWholeDataset = ZFSTopology.wholeDatasetSelection(
+                entries: subjects, sourceDirectory: source.locus.directory, datasets: topology)
         }
-        let facts = try await engine.field.discover(host)
-        guard let flavor = facts.capability?.value.flavor else {
-            throw ListingError.listingFailed(exitStatus: -1, stderr: "no capability fact")
+        if let dest = destination.locus, let topology = destination.facts?.zfsTopology?.value {
+            facts.destinationDataset = ZFSTopology.datasetContaining(
+                dest.directory, in: topology)
         }
-        return flavor
+        if let mounts = source.facts?.mounts?.value {
+            facts.sourceMountTarget = MountTable.mountContaining(
+                source.locus.directory, in: mounts)
+        }
+        if let dest = destination.locus, let mounts = destination.facts?.mounts?.value {
+            facts.destinationMountTarget = MountTable.mountContaining(
+                dest.directory, in: mounts)
+        }
     }
 }

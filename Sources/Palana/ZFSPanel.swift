@@ -1,8 +1,14 @@
 // The floating ZFS panel — the first Workbench plugin panel. AppKit-owned,
 // borderless, on the FavoritesPanel lineage: NSPanel + SwiftUI content view,
 // shared singleton controller, toggle/close API, key handling by window
-// identity. The strip keeps only a launcher chip; this panel carries the
-// eight verb rows that were invisible when the plan panel was short.
+// identity.
+//
+// DEMOTED (ho-10.3): the panel is a glance-overview and a launcher now, not
+// a mutation surface — its eight verb rows are gone. A pane entering zfs
+// mode (the `Z` key, capability-gated) is the one place a zfs verb can
+// fire; the panel's tree still shows the topology and opens datasets into
+// a pane, either as an ordinary file view or directly into zfs mode. One
+// mutation surface, one cursor per pane.
 //
 // Target line: reads cached facts from the Field (synchronously via the actor)
 // to find the dataset the focused pane stands in. Recomputes when the panel
@@ -51,6 +57,11 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     private weak var session: PalanaSession?
 
     private static let stepKey = "palana.zfsPanelStep"
+    /// The hand-persisted window origin — "x,y".
+    ///
+    /// See show() for why the system frame autosave is not trusted
+    /// with this window.
+    private static let originKey = "palana.zfsPanelOrigin"
 
     /// The persisted step index, clamped on read — persisted state that
     /// crashes must never crash twice (the crash-loop lesson from the keys panel).
@@ -96,11 +107,35 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
         hosting.sizingOptions = []
         made.contentView = hosting
         made.delegate = self
-        // setFrameAutosaveName persists position only; size is step-authored.
-        made.setFrameAutosaveName("palana-zfs-position")
-        made.center()
+        // The panel owns its persistence outright. Frame autosave burned
+        // us twice — a stale legacy key, then a frame saved on a
+        // disconnected external display — so the machinery loses the
+        // pen: origin remembered by hand (clamped to a live screen),
+        // size ALWAYS step-authored.
+        made.setContentSize(size)
+        var placed = false
+        if let saved = UserDefaults.standard.string(forKey: Self.originKey) {
+            let parts = saved.split(separator: ",").compactMap { Double($0) }
+            if parts.count == 2 {
+                let origin = NSPoint(x: parts[0], y: parts[1])
+                if NSScreen.screens.contains(where: { $0.visibleFrame.contains(origin) }) {
+                    made.setFrameOrigin(origin)
+                    placed = true
+                }
+            }
+        }
+        if !placed { made.center() }
         panel = made
         made.makeKeyAndOrderFront(nil)
+        // Something in the first layout pass squeezes the window to the
+        // content's fitting height (width survives, height collapses —
+        // the hands round's squat panel, third appearance). The step is
+        // the only sizing authority: reassert after ordering front, and
+        // once more a turn later for whatever lays out after us.
+        made.setContentSize(size)
+        DispatchQueue.main.async { [weak made] in
+            made?.setContentSize(size)
+        }
     }
 
     /// Toggles the panel — closes when up, opens when not.
@@ -153,6 +188,9 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
+        if let origin = panel?.frame.origin {
+            UserDefaults.standard.set("\(origin.x),\(origin.y)", forKey: Self.originKey)
+        }
         panel = nil
     }
 }
@@ -173,7 +211,7 @@ struct ZFSPanelContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            OverlayHeader(title: "zfs", scale: scale) { ZFSPanelController.shared.close() }
+            OverlayHeader(title: "zfs overview", scale: scale) { ZFSPanelController.shared.close() }
             ZFSPanelView(
                 session: session,
                 selection: ZFSPanelController.shared.selection,
@@ -187,16 +225,18 @@ struct ZFSPanelContent: View {
 
 // MARK: - ZFSPanelView
 
-/// The dataset tree, target line, and verb rows — the panel's working area.
+/// The dataset tree and target line — the panel's working area.
 ///
-/// The dataset tree (``ZFSDatasetTree``) sits between the header and the verb
-/// rows. Verbs now fire on the SELECTED dataset from the tree rather than on
-/// the dataset containing the focused pane's path — this is the change that
-/// makes unmounted datasets reachable for the first time.
+/// Demoted by ho-10.3: the panel is a glance-overview and a launcher now,
+/// not a mutation surface. Its verb rows are gone — every zfs mutation
+/// routes through a pane in zfs mode, one cursor, one place a destroy can
+/// aim. The tree still shows the topology and still opens mounted
+/// datasets into a pane; it has gained "open as zfs mode" alongside
+/// "open in pane" (``ZFSDatasetTree``'s row context menu).
 ///
 /// No wire contact — all cache reads are actor-hops to `field.facts(for:)`.
 struct ZFSPanelView: View {
-    /// The root session — verbs, availability, focused pane, engine.
+    /// The root session — focused pane, engine, mode-entry route.
     let session: PalanaSession
     /// The selection model — shared with the controller's key handler.
     let selection: ZFSPanelSelection
@@ -204,15 +244,9 @@ struct ZFSPanelView: View {
     /// row heights all multiply by it (the keys-panel ruling).
     var scale: Double = 1.0
 
-    /// Cached availabilities for the focused host — refreshed when the host changes.
-    @State private var availabilities: [String: VerbAvailability] = [:]
-
     // MARK: - Derived state
 
     private var focusedHost: String? { session.focusedPane.state.host }
-    private var terminalBusy: Bool { session.operation.terminalBusy }
-    /// True when the tree has no selection — disables text (mutation) verbs.
-    private var noSelection: Bool { selection.selectedDataset == nil }
 
     // MARK: - Body
 
@@ -225,21 +259,7 @@ struct ZFSPanelView: View {
             Divider().opacity(0.35)
             ZFSDatasetTree(session: session, selection: selection, scale: scale)
                 .padding(.top, 4 * scale)
-            Divider().opacity(0.35)
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(session.zfsTool.verbs, id: \.id) { verb in
-                        verbRow(verb)
-                        Divider().opacity(0.18)
-                    }
-                }
-                .padding(.vertical, 4 * scale)
-            }
             panelFooter
-        }
-        // Refresh availabilities when the focused host changes.
-        .task(id: focusedHost ?? "") {
-            await refreshAvailabilities()
         }
     }
 
@@ -248,7 +268,7 @@ struct ZFSPanelView: View {
     /// Shows the selected dataset and host, or guidance when none is selected.
     @ViewBuilder private var targetLine: some View {
         if let dataset = selection.selectedDataset, let host = focusedHost {
-            Text("operates on \(dataset) · \(host)")
+            Text("\(dataset) · \(host) — a glance, nothing more. Z makes the focused pane the zfs surface")
                 .font(.system(size: 11 * scale, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -262,118 +282,18 @@ struct ZFSPanelView: View {
         }
     }
 
-    // MARK: - Verb rows
-
-    /// One full-width verb row — label left, key hint right.
-    ///
-    /// Verbs fire on the selected dataset from the tree. Mutation verbs are
-    /// additionally disabled when there is no tree selection (no-topology host).
-    /// The panel does NOT close when a verb fires — it closes only via Esc or ✕.
-    /// After firing, keyboard focus returns to the main window so the gather
-    /// field (which appears at `.naming` phase in PlanPanel) becomes key
-    /// immediately: `NSApp.mainWindow?.makeKeyAndOrderFront(nil)` re-asserts
-    /// the main window — PlanPanel's `.task(id: operation.phase)` then sets
-    /// `namingFieldFocused = true` via the SwiftUI focus system.
-    private func verbRow(_ verb: WorkbenchVerb) -> some View {
-        let avail = resolvedAvailability(for: verb)
-        let enabled = !terminalBusy && avail == .available && !(verb.kind == .mutation && noSelection)
-        return ZFSVerbRow(
-            label: verb.label,
-            keyHint: verb.keyHint,
-            enabled: enabled,
-            help: helpText(for: verb, avail: avail),
-            scale: scale
-        ) {
-            guard let host = focusedHost, let dataset = selection.selectedDataset else { return }
-            // Panel stays open — Esc or ✕ closes it.
-            session.runWorkbenchMutation(verb, on: host, dataset: dataset)
-            // Return focus to the main window so the gather field receives input.
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-        }
-    }
-
-    private func resolvedAvailability(for verb: WorkbenchVerb) -> VerbAvailability {
-        // Local honesty: zfs verbs are not applicable on this Mac.
-        guard focusedHost != PalanaCore.localHostName else {
-            return .unmet("no zfs on this Mac")
-        }
-        return availabilities[verb.id] ?? .available
-    }
-
-    private func helpText(for verb: WorkbenchVerb, avail: VerbAvailability) -> String {
-        guard !terminalBusy else { return "\(verb.label) — terminal busy" }
-        if case .unmet(let reason) = avail { return reason }
-        if verb.kind == .mutation, noSelection { return "\(verb.label) — no dataset selected" }
-        return "\(verb.label) on \(focusedHost ?? "—")"
-    }
-
     // MARK: - Footer
 
     private var panelFooter: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
             Text(
-                "↑↓ choose · letter fires verb · ⇧⌘←/→ opens in pane · esc closes · Z opens · ⌘1–⌘5 size · ⌘+/− step"
+                "↑↓ choose · ⇧⌘←/→ open in pane · Z zfs pane mode · esc closes · ⌘1–⌘5 size · ⌘+/− step"
             )
             .font(.system(size: 10 * scale))
             .foregroundStyle(Theme.inkFaint)
             .padding(.horizontal, 16 * scale)
             .padding(.vertical, 8 * scale)
         }
-    }
-
-    // MARK: - Async helpers
-
-    /// Refreshes verb availabilities from the Workbench cache.
-    private func refreshAvailabilities() async {
-        guard let host = focusedHost else { return }
-        for verb in session.zfsTool.verbs {
-            availabilities[verb.id] = await session.workbench.availability(of: verb, on: host)
-        }
-    }
-}
-
-// MARK: - ZFSVerbRow
-
-/// One full-width verb row in the ZFS panel.
-///
-/// Mirrors `StripChip`'s shape scaled up: label left in 12pt semibold,
-/// key hint right in accent, hover wash on the whole row. Disabled rows
-/// dim and show a tooltip with the unmet reason.
-private struct ZFSVerbRow: View {
-    let label: String
-    let keyHint: String
-    let enabled: Bool
-    let help: String
-    var scale: Double = 1.0
-    let action: () -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Text(label)
-                    .font(.system(size: 12 * scale, weight: .semibold))
-                    .foregroundStyle(enabled ? Theme.ink : Theme.inkFaint)
-                Spacer()
-                Text(keyHint)
-                    .font(.system(size: 13 * scale, weight: .regular))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.horizontal, 16 * scale)
-            .frame(minHeight: 34 * scale)
-            .background(
-                hovering && enabled
-                    ? Theme.accent.opacity(0.10)
-                    : Color.clear
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .opacity(enabled ? 1 : 0.5)
-        .onHover { hovering = $0 }
-        .help(help)
-        .disabled(!enabled)
     }
 }

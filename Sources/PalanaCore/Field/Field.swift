@@ -105,6 +105,10 @@ public actor Field {
                     : MountTable.parseBSD(mountsResult.stdoutText)
                 facts.mounts = Dated(value: parsed, discoveredAt: now())
             }
+            facts.sudoNoPassword = Dated(
+                value: await Self.probeSudoNoPassword(conduit: conduit, host: host),
+                discoveredAt: now()
+            )
         } catch let error as ConduitError {
             facts.reachability = Dated(
                 value: .unreachable(detail: Self.describe(error)),
@@ -171,6 +175,26 @@ public actor Field {
         memory[source] = facts
         try? cache.save(memory)
         return fact
+    }
+
+    /// Probes passwordless sudo — blanket or scoped to the zfs verbs.
+    ///
+    /// One round trip, two questions chained: `sudo -n true` detects a
+    /// blanket grant; when that fails, `sudo -n -l zfs mount` asks
+    /// whether the SCOPED grant exists (a sudoers line naming only
+    /// `zfs mount *`/`zfs unmount *` — the recommended posture — makes
+    /// `true` refuse while the zfs verbs are allowed). `-l` only asks,
+    /// runs nothing. Exit 0 from either grants. Never throws: any
+    /// failure of this round trip reads as `false` rather than
+    /// aborting the rest of discovery.
+    private static func probeSudoNoPassword(conduit: any Conduit, host: String) async -> Bool {
+        do {
+            let probe = "sudo -n true 2>/dev/null || sudo -n -l zfs mount"
+            let result = try await conduit.run(on: host, probe).collect()
+            return result.exitStatus == 0
+        } catch {
+            return false
+        }
     }
 
     /// A short human line for the unreachable fact's detail.

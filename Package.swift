@@ -18,7 +18,10 @@ let package = Package(
         ),
     ],
     dependencies: [
-        // None at scaffold stage. Dependencies arrive with the ho that needs them.
+        // SwiftTerm arrives at ho-11 for the interactive terminal — the
+        // Palana app target's dependency only. PalanaCore stays
+        // dependency-free: the emulator is chrome, not engine.
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.14.0"),
     ],
     targets: [
         .target(
@@ -29,7 +32,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "Palana",
-            dependencies: ["PalanaCore"],
+            dependencies: [
+                "PalanaCore",
+                .product(name: "SwiftTerm", package: "SwiftTerm"),
+            ],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
@@ -40,6 +46,13 @@ let package = Package(
             // Transcripts are read via #filePath, not the bundle — exclude
             // them so SwiftPM stops warning about unhandled resources.
             exclude: ["Fixtures"]
+        ),
+        .testTarget(
+            name: "PalanaTests",
+            dependencies: ["Palana"],
+            swiftSettings: [
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

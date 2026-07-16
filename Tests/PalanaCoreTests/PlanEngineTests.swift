@@ -61,7 +61,7 @@ struct PlanClassificationTests {
         #expect(classification == .crossDatasetCopyPlusDelete)
     }
 
-    @Test("same host, any dataset unknown — conservative, never a claimed rename")
+    @Test("same host, any dataset unknown, remote — conservative, never a claimed rename")
     func unknownIsConservative() {
         for facts in [
             PlanFacts(sourceDataset: tankMedia),
@@ -72,6 +72,31 @@ struct PlanClassificationTests {
                 request(.move, to: sameHostDest), facts: facts)
             #expect(classification == .crossDatasetCopyPlusDelete)
         }
+    }
+
+    @Test("same host, same mount target — a rename off ZFS (the weird-rsync fix)")
+    func sameMountRenames() {
+        let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/")
+        let classification = PlanEngine.classify(
+            request(.move, to: sameHostDest), facts: facts)
+        #expect(classification == .withinDatasetRename)
+    }
+
+    @Test("same host, different mount targets — the copy-then-gated-delete stands")
+    func differentMountsStayConservative() {
+        let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/srv")
+        let classification = PlanEngine.classify(
+            request(.move, to: sameHostDest), facts: facts)
+        #expect(classification == .crossDatasetCopyPlusDelete)
+    }
+
+    @Test("the local Mac with no facts — mv is honest, a local move never rsyncs")
+    func localUnprovenRenames() {
+        let localSource = Locus(host: "local", directory: "/tmp/palana")
+        let localDest = Locus(host: "local", directory: "/tmp/palana/subdir")
+        let classification = PlanEngine.classify(
+            request(.move, from: localSource, to: localDest), facts: PlanFacts())
+        #expect(classification == .withinDatasetRename)
     }
 
     @Test("different hosts — cross-host transfer, datasets irrelevant")

@@ -21,9 +21,25 @@ extension OperationModel {
         pendingZFSTool = nil
         pendingZFSHost = nil
         pendingZFSDataset = nil
+        pendingZFSMounted = false
         zfsRecursive = false
         zfsGatherWantsText = false
         namingContextLines = []
+    }
+
+    // MARK: - The recursive toggle's keyboard path
+
+    /// Flips `zfsRecursive` when the pending gather offers the choice.
+    ///
+    /// A no-op passthrough when no ZFS gather is pending or its verb does
+    /// not offer recursive (`offersRecursive == false`) — space during a
+    /// destroy-only or clear-mountpoint gather touches nothing. Shared by
+    /// both key routes: `handleFieldlessZFSGatherKey` (destroy) and
+    /// `handleTextEntryPriority`'s ZFS branch (snapshot, rollback) —
+    /// see Ho-10.4-AT-03's decision for why space and not `r`.
+    func toggleZFSRecursiveIfOffered() {
+        guard pendingZFSVerb?.gather?.offersRecursive == true else { return }
+        zfsRecursive.toggle()
     }
 
     // MARK: - Begin
@@ -39,7 +55,8 @@ extension OperationModel {
         _ verb: WorkbenchVerb,
         tool: ZFSMutationTool,
         host: String,
-        dataset: String
+        dataset: String,
+        mounted: Bool = false
     ) {
         if phase == .enacting {
             panelShowing = true
@@ -65,6 +82,7 @@ extension OperationModel {
         pendingZFSTool = tool
         pendingZFSHost = host
         pendingZFSDataset = dataset
+        pendingZFSMounted = mounted
         zfsRecursive = false
 
         let spec = verb.gather
@@ -114,10 +132,23 @@ extension OperationModel {
                     guard let at = line.firstIndex(of: "@") else { return nil }
                     return String(line[line.index(after: at)...])
                 }
-            namingContextLines =
-                names.isEmpty
-                ? ["(no snapshots on \(dataset))"]
-                : names
+            if names.isEmpty {
+                // A field that can only fail is a dead end — dismiss the
+                // gather and say why in the transcript instead (the hands
+                // round sat in front of '(no snapshots)' with nothing
+                // sensible to type).
+                if phase == .naming, pendingZFSVerb != nil {
+                    reset()
+                    // reset() hides the panel — re-show it so the
+                    // explanation is READ, not buried (the hands round
+                    // watched the panel flash and vanish, then found
+                    // the note later by hand).
+                    showPanel()
+                    note("no snapshots on \(dataset) — nothing to act on")
+                }
+                return
+            }
+            namingContextLines = names
         }
     }
 
@@ -160,7 +191,8 @@ extension OperationModel {
                 reset()
                 return
             }
-            let input = MutationInput(target: dataset, text: nil, recursive: zfsRecursive)
+            let input = MutationInput(
+                target: dataset, text: nil, recursive: zfsRecursive, mounted: pendingZFSMounted)
             compose(verb: verb, tool: tool, host: host, input: input)
             return
         }
@@ -171,16 +203,33 @@ extension OperationModel {
                 reset()
                 return
             }
+            // The snapshot verbs validate against the listed truth: a name
+            // not in the list composes a plan that can only fail (the
+            // hands round typed the confirm word 'destroy' into a
+            // rollback's NAME field and met 'dataset does not exist').
+            // Context lines starting with "(" are notes, not names.
+            if verb.id == "zfs-rollback" || verb.id == "zfs-destroy-snapshot" {
+                let known = namingContextLines.filter { !$0.hasPrefix("(") }
+                if !known.isEmpty, !known.contains(txt) {
+                    reset()
+                    appendToolError(
+                        "no snapshot named \(txt) on \(dataset) — it has: \(known.joined(separator: ", "))"
+                    )
+                    return
+                }
+            }
             // Rename: unchanged name dismisses quietly (the prefill unedited).
             if verb.id == "zfs-rename", txt == dataset {
                 reset()
                 return
             }
-            let input = MutationInput(target: dataset, text: txt, recursive: zfsRecursive)
+            let input = MutationInput(
+                target: dataset, text: txt, recursive: zfsRecursive, mounted: pendingZFSMounted)
             compose(verb: verb, tool: tool, host: host, input: input)
         } else {
             // Field-less gather — the recursive toggle is the only operator input.
-            let input = MutationInput(target: dataset, text: nil, recursive: zfsRecursive)
+            let input = MutationInput(
+                target: dataset, text: nil, recursive: zfsRecursive, mounted: pendingZFSMounted)
             compose(verb: verb, tool: tool, host: host, input: input)
         }
     }
@@ -192,12 +241,26 @@ extension OperationModel {
     /// Refreshes panes pointed at the affected host (mountpoint moves and
     /// destroys change what listings show), and kicks one field re-discovery
     /// so the topology fact — dataset names, mountpoints, the ◆ markers,
-    /// future verb targeting — carries the new truth. Fire-and-forget.
+    /// future verb targeting — carries the new truth. A pane in zfs mode on
+    /// the affected host re-renders its own tree from the same fresh
+    /// topology instead of a file refresh (ho-10.3 Decision 5) — the
+    /// created dataset appears, the destroyed one goes, without leaving
+    /// the mode. Fire-and-forget.
     func afterZFSFinished(host: String, left: PaneModel, right: PaneModel) {
-        if left.state.host == host { left.apply(.refresh) }
-        if right.state.host == host { right.apply(.refresh) }
+        let leftInZFSMode = left.state.host == host && left.paneMode == .zfs
+        let rightInZFSMode = right.state.host == host && right.paneMode == .zfs
+        if left.state.host == host, left.paneMode == .files { left.apply(.refresh) }
+        if right.state.host == host, right.paneMode == .files { right.apply(.refresh) }
         Task {
-            _ = try? await engine.field.discover(host)
+            // A pane in zfs mode re-reads its own tree — its refresh already
+            // runs a cache-then-discover-then-cache pass, so the plain
+            // top-level discover below only needs to fire when neither pane
+            // is doing that work itself.
+            if leftInZFSMode { await left.refreshZFSTree(engine: engine) }
+            if rightInZFSMode { await right.refreshZFSTree(engine: engine) }
+            if !leftInZFSMode, !rightInZFSMode {
+                _ = try? await engine.field.discover(host)
+            }
         }
     }
 
@@ -240,7 +303,7 @@ extension OperationModel {
             return "name the new dataset — a child of \(dataset)  (⏎ shows the plan)"
         case "zfs-destroy":
             return confirmDestroyTyped
-                ? "type destroy to arm — \(dataset)  (⏎ shows the plan, nothing runs yet)"
+                ? "type DESTROY to arm — \(dataset)  (⏎ shows the plan, nothing runs yet)"
                 : "destroy \(dataset) — ⏎ shows the plan, nothing runs yet"
         case "zfs-rename":
             return "type the full new name — ⏎ shows the plan"

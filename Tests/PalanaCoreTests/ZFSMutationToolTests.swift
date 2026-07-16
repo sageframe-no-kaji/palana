@@ -16,9 +16,10 @@ private let target = "tank/data"
 private func input(
     target: String = "tank/data",
     text: String? = nil,
-    recursive: Bool = false
+    recursive: Bool = false,
+    mounted: Bool = false
 ) -> MutationInput {
-    MutationInput(target: target, text: text, recursive: recursive)
+    MutationInput(target: target, text: text, recursive: recursive, mounted: mounted)
 }
 
 private func matchedVerb(_ id: String) throws -> WorkbenchVerb {
@@ -48,9 +49,9 @@ struct ZFSMutationToolIdentityTests {
         #expect(tool.label == "zfs")
     }
 
-    @Test("exactly eight verbs")
+    @Test("exactly ten verbs")
     func verbCount() {
-        #expect(tool.verbs.count == 8)
+        #expect(tool.verbs.count == 10)
     }
 
     @Test("all verbs are mutation kind")
@@ -60,10 +61,12 @@ struct ZFSMutationToolIdentityTests {
         }
     }
 
-    @Test("all verbs require zfs capability")
-    func allRequireZfs() {
+    @Test("every verb's capability requirement matches its declared shape")
+    func requirementsPerVerb() {
+        let zfsMountIds: Set<String> = ["zfs-mount", "zfs-unmount"]
         for verb in tool.verbs {
-            #expect(verb.requirement == .zfs)
+            let expected: CapabilityRequirement = zfsMountIds.contains(verb.id) ? .zfsMount : .zfs
+            #expect(verb.requirement == expected, "\(verb.id) should require \(expected)")
         }
     }
 
@@ -78,8 +81,17 @@ struct ZFSMutationToolIdentityTests {
             "zfs-rollback",
             "zfs-set-mountpoint",
             "zfs-clear-mountpoint",
+            "zfs-mount",
+            "zfs-unmount",
         ]
         #expect(tool.verbs.map(\.id) == expectedIds)
+    }
+
+    @Test("zfs-set-mountpoint's keyHint moved to p; zfs-mount and zfs-unmount claim m and u")
+    func keyHints() throws {
+        #expect(try matchedVerb("zfs-set-mountpoint").keyHint == "p")
+        #expect(try matchedVerb("zfs-mount").keyHint == "m")
+        #expect(try matchedVerb("zfs-unmount").keyHint == "u")
     }
 }
 
@@ -122,11 +134,12 @@ struct ZFSMutationToolGatherSpecTests {
         #expect(spec.offersRecursive == false)
     }
 
-    @Test("zfs-rollback: needsText true, offersRecursive false")
+    @Test("zfs-rollback: needsText true, offers the destroys-newer toggle")
     func gatherRollback() throws {
         let spec = try #require(try matchedVerb("zfs-rollback").gather)
         #expect(spec.needsText == true)
-        #expect(spec.offersRecursive == false)
+        #expect(spec.offersRecursive == true)
+        #expect(spec.toggleLabel == "roll back past newer snapshots — destroys them")
     }
 
     @Test("zfs-set-mountpoint: needsText true, offersRecursive false")
@@ -139,6 +152,20 @@ struct ZFSMutationToolGatherSpecTests {
     @Test("zfs-clear-mountpoint: needsText false, offersRecursive false")
     func gatherClearMountpoint() throws {
         let spec = try #require(try matchedVerb("zfs-clear-mountpoint").gather)
+        #expect(spec.needsText == false)
+        #expect(spec.offersRecursive == false)
+    }
+
+    @Test("zfs-mount: needsText false, offersRecursive false")
+    func gatherMount() throws {
+        let spec = try #require(try matchedVerb("zfs-mount").gather)
+        #expect(spec.needsText == false)
+        #expect(spec.offersRecursive == false)
+    }
+
+    @Test("zfs-unmount: needsText false, offersRecursive false")
+    func gatherUnmount() throws {
+        let spec = try #require(try matchedVerb("zfs-unmount").gather)
         #expect(spec.needsText == false)
         #expect(spec.offersRecursive == false)
     }
@@ -176,6 +203,8 @@ struct ZFSMutationToolCompositionTests {
         VerbCase("zfs-rollback", text: "snap1"),
         VerbCase("zfs-set-mountpoint", text: "/mnt/data"),
         VerbCase("zfs-clear-mountpoint"),
+        VerbCase("zfs-mount"),
+        VerbCase("zfs-unmount"),
     ]
 
     @Test("every verb: operation is .zfs, entries empty, destination nil")
@@ -265,7 +294,7 @@ struct ZFSMutationToolCompositionTests {
     @Test("rollback: dataset and snapshot name compose correctly")
     func rollback() throws {
         let request = try compose("zfs-rollback", text: "snap1")
-        #expect(request.zfs == .rollback(dataset: target, name: "snap1"))
+        #expect(request.zfs == .rollback(dataset: target, name: "snap1", destroysNewer: false))
     }
 
     // MARK: zfs-set-mountpoint
@@ -282,6 +311,22 @@ struct ZFSMutationToolCompositionTests {
     func clearMountpoint() throws {
         let request = try compose("zfs-clear-mountpoint")
         #expect(request.zfs == .clearMountpoint(dataset: target))
+    }
+
+    // MARK: zfs-mount
+
+    @Test("mount: no text needed, composes correctly")
+    func mount() throws {
+        let request = try compose("zfs-mount")
+        #expect(request.zfs == .mount(dataset: target))
+    }
+
+    // MARK: zfs-unmount
+
+    @Test("unmount: no text needed, composes correctly")
+    func unmount() throws {
+        let request = try compose("zfs-unmount")
+        #expect(request.zfs == .unmount(dataset: target))
     }
 }
 
@@ -444,5 +489,54 @@ struct ZFSMutationToolRoundTripTests {
         let plan = try planVia(verbId: "zfs-clear-mountpoint")
         #expect(!plan.steps.isEmpty)
         #expect(plan.classification == .zfsMutation)
+    }
+
+    @Test("mount: tool-built request yields steps from PlanEngine")
+    func mountRoundTrip() throws {
+        let plan = try planVia(verbId: "zfs-mount")
+        #expect(!plan.steps.isEmpty)
+        #expect(plan.classification == .zfsMutation)
+    }
+
+    @Test("unmount: tool-built request yields steps from PlanEngine")
+    func unmountRoundTrip() throws {
+        let plan = try planVia(verbId: "zfs-unmount")
+        #expect(!plan.steps.isEmpty)
+        #expect(plan.classification == .zfsMutation)
+    }
+}
+
+// MARK: - mounted round-trip (ho-10.4-AT-02)
+
+@Suite("mounted round-trip — MutationInput and PlanRequest default to false")
+struct ZFSMountedRoundTripTests {
+    @Test("MutationInput.mounted defaults to false")
+    func mutationInputDefaultsFalse() {
+        #expect(MutationInput(target: target).mounted == false)
+    }
+
+    @Test("PlanRequest.targetMounted defaults to false")
+    func planRequestDefaultsFalse() {
+        let request = PlanRequest(
+            operation: .zfs,
+            source: Locus(host: host, directory: "/"),
+            entries: [],
+            zfs: .destroyDataset(name: target, recursive: false)
+        )
+        #expect(request.targetMounted == false)
+    }
+
+    @Test("ZFSMutationTool.planRequest carries input.mounted into targetMounted")
+    func toolCarriesMountedThroughToRequest() throws {
+        let destroyVerb = try matchedVerb("zfs-destroy")
+        let mountedRequest = try #require(
+            tool.planRequest(
+                for: destroyVerb, on: host, input: input(target: target, mounted: true)))
+        #expect(mountedRequest.targetMounted == true)
+
+        let unmountedRequest = try #require(
+            tool.planRequest(
+                for: destroyVerb, on: host, input: input(target: target, mounted: false)))
+        #expect(unmountedRequest.targetMounted == false)
     }
 }
