@@ -48,6 +48,23 @@ public enum PreviewRouter {
     /// How much of a file's head the text sniff inspects.
     public static let sniffWindow = 8192
 
+    /// The ceiling for fetching a remote binary to preview (ho-18) — 25 MB.
+    ///
+    /// Catches virtually every photo and PDF, skips videos and disk images. A
+    /// remote binary above this stays the info card + local-only line, never a
+    /// fetch. Gated on the listing's known `size`, before any wire read.
+    public static let remoteBinaryCap = 25 * 1024 * 1024
+
+    /// The binary extensions worth fetching from a remote host to preview —
+    /// images, PDF, SVG (ho-18).
+    ///
+    /// Video, audio, and archives are deliberately absent: too large, and
+    /// QuickLook can't stream them over the wire.
+    public static let previewableBinaryExtensions: Set<String> = [
+        "png", "jpg", "jpeg", "gif", "heic", "heif", "tiff", "tif",
+        "bmp", "webp", "ico", "pdf", "svg",
+    ]
+
     /// The text-family extensions (lowercased, no leading dot) — ho-16 Decision 2.
     ///
     /// `.md`, configs, code, logs, and kin. Extensionless files (dotfiles,
@@ -157,5 +174,37 @@ public enum PreviewRouter {
         // rather than blanking the preview (same idiom as FileEntry.name).
         // swiftlint:disable:next optional_data_string_conversion
         return PreviewText(text: String(decoding: data, as: UTF8.self), truncated: false)
+    }
+
+    /// What to do for the file under a **remote** cursor (ho-18).
+    public enum RemotePlan: Equatable, Sendable {
+        /// Read a bounded head over the wire and show text (or sniff an
+        /// extensionless file's head).
+        case text
+        /// Fetch the whole file (it is under the cap) and show it via QuickLook.
+        case fetchBinary
+        /// Show the info card + the honest local-only line — too big, not
+        /// previewable, or not a file. Never a fetch.
+        case infoOnly
+    }
+
+    /// Routes a remote cursor's file, size-gated on facts already held.
+    ///
+    /// Text (by extension) and extensionless files read a bounded head; a
+    /// previewable-binary extension under ``remoteBinaryCap`` is fetched whole;
+    /// everything else stays info-only. No fetch is ever planned that would have
+    /// to be aborted for size.
+    ///
+    /// - Parameter entry: The ``FileEntry`` under the remote cursor.
+    /// - Returns: The ``RemotePlan``.
+    public static func remotePlan(entry: FileEntry) -> RemotePlan {
+        guard entry.kind == .file else { return .infoOnly }
+        // Extensionless → sniff via the head read (the text branch handles it).
+        guard let ext = fileExtension(of: entry.name) else { return .text }
+        if textExtensions.contains(ext) { return .text }
+        if previewableBinaryExtensions.contains(ext), entry.size <= Int64(remoteBinaryCap) {
+            return .fetchBinary
+        }
+        return .infoOnly
     }
 }

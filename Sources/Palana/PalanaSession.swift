@@ -144,6 +144,11 @@ final class PalanaSession {
         previewController.remoteReader = { host, path, limit in
             try? await engine.listing(for: host).readFileHead(on: host, path: path, limit: limit)
         }
+        // The whole-file fetch for remote binary preview (ho-18) — only ever
+        // called for a file the router already size-gated under the cap.
+        previewController.remoteFileReader = { host, path in
+            try? await engine.listing(for: host).readFile(on: host, path: path)
+        }
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
         settingsModel.onConfigChanged = { [weak self] in self?.reloadHosts() }
