@@ -371,10 +371,34 @@ extension PalanaSession {
     /// Shared availability and busy guard for all mutation routes.
     ///
     /// Returns `true` when the verb may proceed; `false` when it should abort.
+    /// On a mount/unmount refusal, surfaces the exact sudoers line the operator
+    /// needs (ho-17) so the fix is right there, not hunted for.
     private func zfsMutationGuard(verb: WorkbenchVerb, on host: String) async -> Bool {
         let avail = await workbench.availability(of: verb, on: host)
-        guard case .available = avail else { return false }
+        guard case .available = avail else {
+            if case .unmet(let reason) = avail {
+                surfaceMutationRefusal(verb: verb, host: host, reason: reason)
+            }
+            return false
+        }
         guard !operation.terminalBusy else { return false }
         return true
+    }
+
+    /// Writes a refused mutation into the transcript — the reason, and for the
+    /// mount/unmount root wall, the exact sudoers line to grant it (ho-17).
+    ///
+    /// The line is prefilled with the host's login when the ssh config names it,
+    /// else the clear `<user>` placeholder — never a wrong guess baked into a
+    /// root grant.
+    private func surfaceMutationRefusal(verb: WorkbenchVerb, host: String, reason: String) {
+        operation.appendToolError(reason)
+        guard verb.requirement == .zfsMount else { return }
+        let user =
+            SSHConfigParser.user(for: host, in: settings.configText)
+            ?? SudoGuidance.userPlaceholder
+        operation.note("add to \(host)'s sudoers (visudo), then reprobe:")
+        operation.note(SudoGuidance.sudoersLine(user: user))
+        operation.note("or mount from the shell — ⌘` · full guide in Settings › Workbench")
     }
 }
