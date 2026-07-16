@@ -96,38 +96,38 @@ struct HelpOverlay: View {
             ]),
     ]
 
-    private static let rightColumn = [
-        HelpSection(
-            title: "surfaces",
-            rows: [
-                HelpRow(keys: "f", what: "field view"),
-                HelpRow(keys: "F", what: "host map — floats"),
-                HelpRow(keys: "*", what: "favorites panel"),
-                HelpRow(keys: "v", what: "preview — right pane follows left"),
-                HelpRow(keys: "`", what: "terminal"),
-                HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
-                HelpRow(keys: "?", what: "this card · ? again floats it"),
-                HelpRow(keys: "⌘,", what: "settings"),
-            ]),
-        HelpSection(
-            title: "app",
-            rows: [
-                HelpRow(keys: "⌘R", what: "refresh"),
-                HelpRow(keys: "⌘← / ⌘→", what: "back / forward"),
-                HelpRow(keys: "⌘+ / ⌘− / ⌘0", what: "zoom in / out / reset"),
-                HelpRow(keys: "⌘K", what: "clear terminal"),
-                HelpRow(keys: "⇧⌘G", what: "go to host : path"),
-                HelpRow(keys: "⇧⌘L", what: "operations log"),
-                HelpRow(keys: "8", what: "star highlighted entry"),
-                HelpRow(keys: "⌘8", what: "star this folder"),
-            ]),
-        HelpSection(
-            title: "terminal reads",
-            rows: [
-                HelpRow(keys: "⇧tab", what: "engage · tool reads"),
-                HelpRow(keys: "d z s p", what: "df · zfs list · zpool status · zpool list"),
-            ]),
-    ]
+    private static let surfacesSection = HelpSection(
+        title: "surfaces",
+        rows: [
+            HelpRow(keys: "f", what: "field view"),
+            HelpRow(keys: "F", what: "host map — floats"),
+            HelpRow(keys: "*", what: "favorites panel"),
+            HelpRow(keys: "v", what: "preview — right pane follows left"),
+            HelpRow(keys: "`", what: "terminal"),
+            HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
+            HelpRow(keys: "?", what: "this card · ? again floats it"),
+            HelpRow(keys: "⌘,", what: "settings"),
+        ])
+
+    private static let appSection = HelpSection(
+        title: "app",
+        rows: [
+            HelpRow(keys: "⌘R", what: "refresh"),
+            HelpRow(keys: "⌘← / ⌘→", what: "back / forward"),
+            HelpRow(keys: "⌘+ / ⌘− / ⌘0", what: "zoom in / out / reset"),
+            HelpRow(keys: "⌘K", what: "clear terminal"),
+            HelpRow(keys: "⇧⌘G", what: "go to host : path"),
+            HelpRow(keys: "⇧⌘L", what: "operations log"),
+            HelpRow(keys: "8", what: "star highlighted entry"),
+            HelpRow(keys: "⌘8", what: "star this folder"),
+        ])
+
+    private static let terminalReadsSection = HelpSection(
+        title: "terminal reads",
+        rows: [
+            HelpRow(keys: "⇧tab", what: "engage · tool reads"),
+            HelpRow(keys: "d z s p", what: "df · zfs list · zpool status · zpool list"),
+        ])
 
     /// The zfs-mode grammar plus its live verbs — built from `zfsVerbs` so the
     /// key hints track `zfsTool.verbs` and never drift (his review).
@@ -140,19 +140,33 @@ struct HelpOverlay: View {
         return HelpSection(title: "zfs mode", rows: rows)
     }
 
-    /// The left column plus the live zfs section (kept here, not right, so the
-    /// two columns stay roughly balanced in height).
-    private var leftSections: [HelpSection] { Self.leftColumn + [zfsSection] }
-
     var body: some View {
+        if chromeless {
+            // The floating panel's own window IS the chrome — no scrim.
+            card
+        } else {
+            // The in-window card dims the panes behind it (design system §4),
+            // so the glance reads as one surface instead of bleeding into the
+            // panes at its edges (his review). The scrim swallows stray clicks.
+            ZStack {
+                Theme.ink.opacity(0.12)
+                card
+            }
+        }
+    }
+
+    /// The card itself — three balanced columns under the navigate prelude, so
+    /// the whole vocabulary fits without towering (his review: too tall).
+    private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
             OverlayHeader(title: "the keys", onClose: dismissAction)
             VStack(alignment: .leading, spacing: 14 * scale) {
                 column([Self.prelude])
                 Divider()
-                HStack(alignment: .top, spacing: 32 * scale) {
-                    column(leftSections)
-                    column(Self.rightColumn)
+                HStack(alignment: .top, spacing: 28 * scale) {
+                    column(Self.leftColumn)
+                    column([Self.surfacesSection, Self.appSection])
+                    column([zfsSection, Self.terminalReadsSection])
                 }
                 marksLegend
                 Text("the terminal — a plan before Enter, its live output after; the tool reads land here too")

@@ -75,9 +75,10 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         made.hasShadow = true
         made.level = .floating
         made.isMovableByWindowBackground = true
-        // A fullscreen main window stranded the panel out of reach — joining
-        // all Spaces and allowing fullscreen auxiliary prevents this.
-        made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Fullscreen-auxiliary keeps the panel reachable over a fullscreen main
+        // window; it no longer joins all Spaces, so it stays on the desktop it
+        // was summoned on instead of following across every one (his ask).
+        made.collectionBehavior = [.fullScreenAuxiliary]
         let hosting = NSHostingView(rootView: content(scale: scale))
         // The panel's frame is the one truth — the hosting view must not
         // push content size into the window's constraint system.
