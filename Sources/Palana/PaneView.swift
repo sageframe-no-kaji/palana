@@ -69,6 +69,12 @@ struct PaneView: View {
     /// The zfs mutation verbs, for the pane's context menu in zfs mode —
     /// the session's shared `zfsTool.verbs` list, never hardcoded here.
     let zfsVerbs: [WorkbenchVerb]
+    /// The resolved preview state (ho-16).
+    ///
+    /// Meaningful only while this pane is in `.preview` mode; `.empty` for every
+    /// other pane. The surface drives it off the opposite pane's cursor through
+    /// the `PreviewController`.
+    let previewState: PreviewController.State
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
@@ -158,6 +164,10 @@ struct PaneView: View {
                 Text("↑↓ walk · letter fires verb · ⏎ opens mounted · esc/Z exits zfs mode")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
+            } else if model.paneMode == .preview {
+                Text("previewing the other pane · v or esc exits · local files only")
+                    .font(Theme.font(11))
+                    .foregroundStyle(Theme.plugin)
             }
             Spacer()
             ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
@@ -220,6 +230,19 @@ struct PaneView: View {
                 Text(model.state.host ?? "—")
                     .fontWeight(.semibold)
                     .foregroundStyle(Theme.plugin)
+            }
+        } else if model.paneMode == .preview {
+            // The preview boundary — a plugin-hued chip like zfs mode's, so the
+            // mode is unmistakable (ho-16 Decision 1).
+            HStack(spacing: 8) {
+                Text("VIEW")
+                    .fontWeight(.bold)
+                    .foregroundStyle(Theme.ground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Theme.plugin, in: RoundedRectangle(cornerRadius: 4))
+                Text("follows the other pane's cursor")
+                    .foregroundStyle(Theme.inkFaint)
             }
         } else if model.pathEditing {
             TextField("host:path — local: for this Mac, ~ for home", text: $pathDraft)
@@ -353,6 +376,10 @@ struct PaneView: View {
             // machinery lives in PaneView+ZFSMode.swift to keep this file
             // under the line-length budget.
             zfsTreeContent
+        } else if model.paneMode == .preview {
+            // The preview of the opposite pane's cursor — content in
+            // PaneView+Preview.swift, same line-budget reason.
+            previewContent
         } else {
             switch model.status {
             case .unpointed:

@@ -73,6 +73,9 @@ final class PalanaSession {
     let readsTool: SystemReadsTool
     /// The ZFS mutation tool — stateless, shared with the strip and the gather.
     let zfsTool = ZFSMutationTool()
+    /// The preview pane's loader (ho-16) — holds what the preview pane shows and
+    /// follows the opposite pane's cursor with a debounce.
+    let previewController = PreviewController()
     /// True while the keyboard points into the terminal strip.
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
@@ -513,6 +516,9 @@ extension PalanaSession {
     private func handleEscInMainPath() {
         if focusedPane.paneMode == .zfs {
             focusedPane.exitZFSMode()
+        } else if focusedPane.paneMode == .preview {
+            focusedPane.exitPreviewMode()
+            previewController.clear()
         } else if pendingPrefix.isEmpty {
             focusedPane.apply(.clearSelection)
         } else {
@@ -643,6 +649,12 @@ extension PalanaSession {
         // the key does not collide with pane navigation in the main flow.
         if token == "Z" {
             toggleZFSPaneMode()
+            return true
+        }
+        // v — preview pane (ho-16): the focused pane previews the other pane's
+        // cursor; a second v (or Esc) exits. Mirrors Z's pane-focus grammar.
+        if token == "v" {
+            togglePreviewMode()
             return true
         }
         return false

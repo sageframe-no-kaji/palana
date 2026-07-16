@@ -12,12 +12,15 @@
 import PalanaCore
 
 extension PaneModel {
-    /// What a pane renders: its files, or a host's dataset tree.
+    /// What a pane renders: its files, a host's dataset tree, or a preview of
+    /// the *other* pane's cursor (ho-16).
     enum Mode: Equatable {
         /// The ordinary file listing.
         case files
         /// The dataset tree — verbs target `zfsSelectedDataset`.
         case zfs
+        /// The preview of the opposite pane's cursor — no listing of its own.
+        case preview
     }
 
     // MARK: - Entry and exit

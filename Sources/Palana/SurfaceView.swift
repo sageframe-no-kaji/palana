@@ -70,6 +70,12 @@ struct SurfaceView: View {
                     session.settingsVisible = false
                 }
             }
+            .onChange(of: session.previewFollowKey) {
+                // The preview follows the opposite pane's cursor (ho-16); the
+                // key changes when that cursor — or the source pane — moves, and
+                // PreviewController debounces the actual load.
+                session.updatePreviewFollow()
+            }
             .task {
                 session.installKeyMonitor()
                 await session.start()
@@ -245,7 +251,9 @@ struct SurfaceView: View {
             onBack: { model.historyBack() },
             onForward: { model.historyForward() },
             onZFSVerb: { verb in session.runZFSPaneModeVerb(verb, on: model) },
-            zfsVerbs: session.zfsTool.verbs
+            zfsVerbs: session.zfsTool.verbs,
+            previewState: model.paneMode == .preview
+                ? session.previewController.state : .empty
         )
         .frame(minWidth: 320)
     }
