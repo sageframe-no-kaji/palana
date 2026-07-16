@@ -2,6 +2,7 @@
 // go-to sheet. The key monitor installs here and the session restore
 // runs here, once, when the surface appears.
 
+import AppKit
 import PalanaCore
 import SwiftUI
 
@@ -9,6 +10,12 @@ import SwiftUI
 struct SurfaceView: View {
     /// The root object.
     @Bindable var session: PalanaSession
+
+    /// The appearance override — read here so flipping it live re-points
+    /// `NSApp.appearance`, dragging the floating panels into light/dark with the
+    /// main window (ho-15 review).
+    @AppStorage(AppAppearance.storageKey)
+    private var appearanceRaw = AppAppearance.system.rawValue
 
     var body: some View {
         panes
@@ -55,6 +62,10 @@ struct SurfaceView: View {
                 // factor (his review). No-op when a panel is closed.
                 KeysPanelController.shared.applyScale()
                 ZFSPanelController.shared.applyScale()
+            }
+            .onChange(of: appearanceRaw) {
+                // Flip the whole app — panels included — to the new override.
+                NSApp.appearance = (AppAppearance(rawValue: appearanceRaw) ?? .system).nsAppearance
             }
             .onChange(of: session.previewFollowKey) {
                 // The preview follows the opposite pane's cursor (ho-16); the

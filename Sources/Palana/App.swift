@@ -56,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         signal(SIGPIPE, SIG_IGN)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Force the whole app — main window AND the floating panels — to the
+        // stored appearance override, so the cards obey light/dark too (ho-15
+        // review). `.system` (nil) follows the OS.
+        NSApp.appearance = AppAppearance.current.nsAppearance
     }
 
     /// Persist, close the doors, then go — nothing outlives the window.
