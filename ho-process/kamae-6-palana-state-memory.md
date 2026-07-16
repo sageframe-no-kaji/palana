@@ -746,3 +746,4 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 | v0.3 | Phase 3 — the Surface: panes, plan → enact, field view |
 | v0.4 | Surface UX run complete — favorites, host onboarding, settings, mounts |
 | **v0.4-beta** | First public build — signed, notarized `.dmg` on Releases |
+| **v0.5** | Phase 4 (Workbench — ZFS tool, pane mode, mount seam) + Phase 5 (interactive terminal) complete — the mutating ZFS story hands-hardened; integration branch merged to main (`8004eb2`), 781 tests |
