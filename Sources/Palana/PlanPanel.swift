@@ -28,9 +28,10 @@ struct PlanPanel: View {
     @FocusState private var namingFieldFocused: Bool
     @State private var nameText = ""
 
-    private var mono: Font { .system(size: 13 * session.fontScale, design: .monospaced) }
-    // The header chrome stays fixed — only the transcript zooms with ⌘+/⌘-.
-    private let monoSmall = Font.system(size: 12, design: .monospaced)
+    // Both zoom with ⌘+/⌘−/⌘0 now that the whole surface rides one factor
+    // (ho-13): computed so each body evaluation re-reads the live scale.
+    private var mono: Font { Theme.font(13, design: .monospaced) }
+    private var monoSmall: Font { Theme.font(12, design: .monospaced) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -72,7 +73,7 @@ struct PlanPanel: View {
                                             operation.readyCallout
                                                 ?? "⏎ press enter to run this plan · esc dismisses it"
                                         )
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(Theme.font(13, weight: .semibold))
                                         .foregroundStyle(Theme.accent)
                                         .padding(.bottom, 4)
                                     }
@@ -194,7 +195,7 @@ struct PlanPanel: View {
                 // Wider block, bigger type than the header line — the armed
                 // Return is the one thing the operator must not miss.
                 Text(callout)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .font(Theme.font(14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Theme.ground)
                     .padding(.horizontal, 14)
                     .frame(maxHeight: .infinity)
@@ -204,7 +205,7 @@ struct PlanPanel: View {
                 // 'esc hides' would be a lie here — esc types into the
                 // shell. The rail yields to the shell's one sentence.
                 Text("esc types into the shell · ⌘` hands the keyboard back")
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                     .foregroundStyle(Theme.inkFaint)
             } else {
                 VerbChipRow(
@@ -270,7 +271,7 @@ struct PlanPanel: View {
                             + (operation.pendingZFSVerb?.gather?.toggleLabel
                                 ?? "recursive — includes everything beneath")
                     )
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.ink)
                 }
                 .toggleStyle(.checkbox)

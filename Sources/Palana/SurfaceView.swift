@@ -14,7 +14,10 @@ struct SurfaceView: View {
         panes
             .overlay {
                 if session.helpVisible {
-                    HelpOverlay()
+                    // The in-window card rides the global factor through
+                    // HelpOverlay's own scale param (ho-13) — the floating keys
+                    // panel keeps its independent stepped scale.
+                    HelpOverlay(scale: session.fontScale)
                         .onDismiss { session.helpVisible = false }
                 }
             }
@@ -149,7 +152,7 @@ struct SurfaceView: View {
     /// fight the glass, let it be the design).
     private var nameMark: some View {
         Text("पालन")
-            .font(.system(size: 15, weight: .regular))
+            .font(Theme.font(15, weight: .regular))
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
@@ -284,7 +287,7 @@ struct SurfaceView: View {
             Text(sortLine)
             Text("? keys")
         }
-        .font(.system(size: 12))
+        .font(Theme.font(12))
         .foregroundStyle(Theme.inkFaint)
         .padding(.horizontal, 20)  // 20 clears the window's rounded corners (was 12)
         .padding(.vertical, 5)
@@ -338,7 +341,7 @@ struct ToolbarGlyphButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(13, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 5)

@@ -191,7 +191,7 @@ struct FieldOverlay: View {
             Spacer()
             hostTokens(hl)
         }
-        .font(.system(size: 12))
+        .font(Theme.font(12))
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
         .background(cursorWash(isCursor))
@@ -213,7 +213,7 @@ struct FieldOverlay: View {
     private func disclosureTriangle(_ hl: FieldOutline.HostLine, index: Int) -> some View {
         if hl.datasetCount > 0 {
             Text(Image(systemName: "chevron.right"))
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .rotationEffect(.degrees(hl.expanded ? 90 : 0))
                 .frame(width: 18, alignment: .center)
@@ -288,7 +288,7 @@ struct FieldOverlay: View {
                         .foregroundStyle(Theme.inkFaint)
                 }
             }
-            .font(.system(size: 11))
+            .font(Theme.font(11))
         }
     }
 
@@ -301,7 +301,7 @@ struct FieldOverlay: View {
                 .foregroundStyle(Theme.inkFaint)
             Spacer()
         }
-        .font(.system(size: 12))
+        .font(Theme.font(12))
         .opacity(dl.pointable ? 1.0 : 0.6)
         .padding(.vertical, 3)
         .padding(.horizontal, 8)
@@ -329,7 +329,7 @@ struct FieldOverlay: View {
     private func datasetDisclosureTriangle(_ dl: FieldOutline.DatasetLine, index: Int) -> some View {
         if dl.childCount > 0 {
             Text(Image(systemName: "chevron.right"))
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .rotationEffect(.degrees(dl.expanded ? 90 : 0))
                 .frame(width: 18, alignment: .center)
@@ -352,10 +352,10 @@ struct FieldOverlay: View {
     private var cardFooter: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("↵ / dbl-click point  ·  l toggle  ·  r re-probe  ·  esc dismiss")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
             Text("~ is the remote user's home  ·  grey = unmounted, not a place")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
         }
     }

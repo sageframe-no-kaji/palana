@@ -145,7 +145,7 @@ struct PaneView: View {
         HStack {
             if model.paneMode == .zfs {
                 Text("↑↓ walk · letter fires verb · ⏎ opens mounted · esc/Z exits zfs mode")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
             }
             Spacer()
@@ -180,7 +180,7 @@ struct PaneView: View {
             starButton
             hostMenu
         }
-        .font(.system(size: 12))
+        .font(Theme.font(12))
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(Theme.groundDeep)
@@ -249,7 +249,7 @@ struct PaneView: View {
             let filled = isFav || starHovering
             Button(action: onToggleFavorite) {
                 Image(systemName: filled ? "star.fill" : "star")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(filled ? Theme.accent : Theme.inkFaint)
             }
             .buttonStyle(.plain)
@@ -362,7 +362,7 @@ struct PaneView: View {
     /// A failed read over a live listing — say it, stay put.
     private func errorBanner(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11))
+            .font(Theme.font(11))
             .foregroundStyle(Theme.ground)
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
@@ -375,7 +375,7 @@ struct PaneView: View {
         VStack {
             Spacer()
             Text(text)
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.inkFaint)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -453,7 +453,7 @@ extension PaneView {
             columnStore.persist()
         }
         .tableStyle(.inset)
-        .font(.system(size: 13 * fontScale))
+        .font(Theme.font(13))
         .alternatingRowBackgrounds(.disabled)
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
@@ -625,12 +625,12 @@ extension PaneView {
         switch model.boundaryMark(for: entry) {
         case .dataset:
             Text(Image(systemName: "externaldrive.fill"))
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.accent)
                 .help("dataset mountpoint — a filesystem boundary")
         case .mount:
             Text(Image(systemName: "externaldrive"))
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .help("mount point — a filesystem boundary")
         case nil:

@@ -76,7 +76,13 @@ final class PalanaSession {
     /// True while the keyboard points into the terminal strip.
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
-    var fontScale: CGFloat = 1.0
+    ///
+    /// A read-only view onto the app-scope ``TextScale`` authority (ho-13), so
+    /// the few call sites that still take an explicit scale (the panes, the
+    /// SwiftTerm strip) read the same persisted factor `Theme.font(_:)` draws
+    /// through. Reading it in a view body registers a dependency on the factor,
+    /// so those sites re-render on ⌘+/⌘−/⌘0 like the rest of the surface.
+    var fontScale: CGFloat { CGFloat(TextScale.shared.factor) }
     /// Per-host live shell sessions — ho-11's interactive terminal.
     ///
     /// Lazy per host, kept alive across mode exits, torn down at quit
@@ -566,11 +572,11 @@ extension PalanaSession {
             // shell never reaches this switch); everything else here.
             toggleShellKeyboard()
         case "cmd-=", "cmd-+":
-            adjustFontScale(by: 0.1)
+            TextScale.shared.stepUp()
         case "cmd--":
-            adjustFontScale(by: -0.1)
+            TextScale.shared.stepDown()
         case "cmd-0":
-            fontScale = 1.0
+            TextScale.shared.reset()
         case "cmd-k":
             operation.clearTranscript()
         case "cmd-8":
@@ -583,11 +589,6 @@ extension PalanaSession {
             return false
         }
         return true
-    }
-
-    /// Nudges the text zoom, clamped to a legible range.
-    private func adjustFontScale(by delta: CGFloat) {
-        fontScale = min(max(fontScale + delta, 0.75), 1.8)
     }
 
     /// Handles f, F, backtick, Z, and other tokens that bypass the recognizer.

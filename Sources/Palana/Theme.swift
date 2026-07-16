@@ -4,6 +4,7 @@
 // appears nowhere in this file on purpose: it is reserved for ho-08's
 // plan panel.
 
+import PalanaCore
 import SwiftUI
 
 /// The surface's colors — two or three, per the design language.
@@ -43,4 +44,36 @@ enum Theme {
     /// without competing with accent or alarm. Cream text and key hints
     /// sit on this ground in solid plugin chips.
     static let plugin = Color(red: 0.58, green: 0.36, blue: 0.18)
+}
+
+extension Theme {
+    /// The one font factory the whole in-window surface draws through.
+    ///
+    /// ⌘+ / ⌘− / ⌘0 zoom every chip, footer, path, row, and panel by the one
+    /// persisted factor (ho-13; design system §3 — "thread a single scale
+    /// factor rather than hard-coding sizes"). `size` is the design-system
+    /// point size; the multiply is `TypeScale`'s pure math over the live
+    /// factor.
+    ///
+    /// Reading `TextScale.shared.factor` (an `@Observable` property) inside a
+    /// view's body registers that view as a dependency of the factor, so the
+    /// surface re-renders live on every zoom — no threading a scale param
+    /// through the tree.
+    ///
+    /// The floating AppKit panels (the keys panel, the zfs and host-map
+    /// overlays) keep their own stepped `* scale` sizing and deliberately do
+    /// NOT route here — ⌘+ must never double-scale a window that resizes
+    /// itself. SwiftTerm's terminal font is likewise its own path (ho-13
+    /// out-of-scope).
+    @MainActor
+    static func font(
+        _ size: Double,
+        weight: Font.Weight = .regular,
+        design: Font.Design = .default
+    ) -> Font {
+        .system(
+            size: TypeScale.scaled(size, by: TextScale.shared.factor),
+            weight: weight,
+            design: design)
+    }
 }

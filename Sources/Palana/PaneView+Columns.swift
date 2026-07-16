@@ -133,7 +133,7 @@ extension PaneView {
         TableColumn("permissions", value: \.permissions) { entry in
             Text(entry.permissions)
                 .foregroundStyle(Theme.inkFaint)
-                .font(.system(size: 12 * fontScale, design: .monospaced))
+                .font(Theme.font(12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cursorWash(entry))
         }
@@ -144,7 +144,7 @@ extension PaneView {
         TableColumn("owner", value: \.owner) { entry in
             Text(entry.owner)
                 .foregroundStyle(Theme.inkFaint)
-                .font(.system(size: 12 * fontScale, design: .monospaced))
+                .font(Theme.font(12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cursorWash(entry))
         }
@@ -155,7 +155,7 @@ extension PaneView {
         TableColumn("group", value: \.group) { entry in
             Text(entry.group)
                 .foregroundStyle(Theme.inkFaint)
-                .font(.system(size: 12 * fontScale, design: .monospaced))
+                .font(Theme.font(12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cursorWash(entry))
         }
@@ -249,7 +249,7 @@ extension PaneView {
                 action: { onStarEntry(entryPath) },
                 label: {
                     Image(systemName: isStarred ? "star.fill" : "star")
-                        .font(.system(size: 10))
+                        .font(Theme.font(10))
                         .foregroundStyle(isStarred ? Theme.accent : Theme.inkFaint.opacity(0.4))
                 }
             )

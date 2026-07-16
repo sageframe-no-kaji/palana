@@ -81,7 +81,7 @@ private struct ZFSPaneDatasetRow: View {
         Button(action: onSelect) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(leafName)
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                 mountpointAnnotation
@@ -120,22 +120,22 @@ private struct ZFSPaneDatasetRow: View {
         if dataset.mountpoint.isEmpty || dataset.mountpoint == "none" {
             if !mounted {
                 Text("· unmounted")
-                    .font(.system(size: 10))
+                    .font(Theme.font(10))
                     .foregroundStyle(Theme.inkFaint)
             }
         } else if dataset.mountpoint == "legacy" {
             Text("legacy")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
         } else if mounted {
             Text(dataset.mountpoint)
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
         } else {
             Text("\(dataset.mountpoint) · unmounted")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
         }

@@ -74,7 +74,7 @@ struct SettingsForm: View {
     private var hostsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Hosts")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             ScrollViewReader { proxy in
                 ScrollView {
@@ -117,7 +117,7 @@ struct SettingsForm: View {
             }
             if let notice = model.includedFileNotice {
                 Text(notice)
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.alarm)
                     .padding(.leading, 8)
             }
@@ -162,7 +162,7 @@ struct SettingsForm: View {
     private func hostRow(_ entry: (alias: String, isHidden: Bool)) -> some View {
         HStack {
             Text(entry.alias)
-                .font(.system(size: 14))
+                .font(Theme.font(14))
                 .foregroundStyle(entry.isHidden ? Theme.inkFaint : Theme.ink)
             Spacer()
             // Remove affordance — distinct from the hide toggle.
@@ -171,7 +171,7 @@ struct SettingsForm: View {
                 removingAlias = removingAlias == entry.alias ? nil : entry.alias
             } label: {
                 Image(systemName: "minus.circle")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(
                         removingAlias == entry.alias ? Theme.alarm : Theme.inkFaint.opacity(0.5)
                     )
@@ -201,7 +201,7 @@ struct SettingsForm: View {
             // Added confirmation — shown briefly after a successful write.
             if let confirmation = addedConfirmation {
                 Text(confirmation)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Theme.font(11, weight: .medium))
                     .foregroundStyle(Theme.accent)
                     .padding(.horizontal, 8)
             }
@@ -217,13 +217,13 @@ struct SettingsForm: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Theme.font(12, weight: .medium))
                     .controlSize(.regular)
                     Button("View config") {
                         configViewShowing.toggle()
                     }
                     .buttonStyle(.bordered)
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .controlSize(.small)
                     .popover(isPresented: $configViewShowing, arrowEdge: .bottom) {
                         SSHConfigViewer(configText: model.configText)
@@ -233,14 +233,14 @@ struct SettingsForm: View {
                         model.refreshConfigText()
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.inkFaint)
                     .controlSize(.small)
                     Button {
                         hostHelpShowing.toggle()
                     } label: {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 11))
+                            .font(Theme.font(11))
                             .foregroundStyle(Theme.inkFaint)
                     }
                     .buttonStyle(.plain)
@@ -260,7 +260,7 @@ struct SettingsForm: View {
             EmptyView()
         case .probing:
             Text("probing \(probeAlias ?? "")…")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.horizontal, 8)
         case .done(let outcome):
@@ -275,15 +275,15 @@ struct SettingsForm: View {
         switch outcome {
         case .connected:
             Text("\(name) is reachable — key works")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
         case .unreachable(let detail):
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(name) is not reachable — \(detail)")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.alarm)
                 Text("the host may be down or the address may be wrong")
-                    .font(.system(size: 10))
+                    .font(Theme.font(10))
                     .foregroundStyle(Theme.inkFaint)
             }
         case .authDenied:
@@ -297,16 +297,16 @@ struct SettingsForm: View {
     private var hostHelp: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("pālana's hosts are your ssh hosts — the same file your terminal uses.")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
             Text("Use \"Add a host\" above, or add a block directly to ~/.ssh/config:")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
             Text("Host mybox\n    HostName 192.168.1.50\n    User me")
-                .font(.system(size: 11, design: .monospaced))
+                .font(Theme.font(11, design: .monospaced))
                 .padding(6)
                 .background(Theme.groundDeep)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             Text("The − button removes a host's block from the file. The toggle hides it without removing.")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
             Divider().opacity(0.3)
             Button("Edit ~/.ssh/config externally") {
@@ -315,7 +315,7 @@ struct SettingsForm: View {
                 NSWorkspace.shared.open(configPath)
             }
             .buttonStyle(.plain)
-            .font(.system(size: 10))
+            .font(Theme.font(10))
             .foregroundStyle(Theme.accent)
         }
         .padding(12)
@@ -329,41 +329,41 @@ extension SettingsForm {
     var transfersSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Transfers")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             Toggle("skip .DS_Store", isOn: $model.excludeDSStore)
                 .toggleStyle(.checkbox)
                 .controlSize(.mini)
                 .tint(Theme.accent)
-                .font(.system(size: 12))
+                .font(Theme.font(12))
             Toggle("skip AppleDouble files (._*)", isOn: $model.excludeAppleDouble)
                 .toggleStyle(.checkbox)
                 .controlSize(.mini)
                 .tint(Theme.accent)
-                .font(.system(size: 12))
+                .font(Theme.font(12))
             Divider().opacity(0.25)
             VStack(alignment: .leading, spacing: 2) {
                 Toggle("ask before sending saved edits back", isOn: $model.askBeforeSendingBack)
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .tint(Theme.accent)
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                 Text("off: save is save — edits go back to the server on their own")
-                    .font(.system(size: 10))
+                    .font(Theme.font(10))
                     .foregroundStyle(Theme.inkFaint)
                     .padding(.leading, 2)
             }
             HStack(spacing: 8) {
                 Text("more flags")
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                     .foregroundStyle(Theme.inkFaint)
                 TextField("e.g. --checksum", text: $model.rsyncFlags)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(Theme.font(12, design: .monospaced))
                     .focused($flagsFocused)
                     .onExitCommand { flagsFocused = false }
             }
             Text("always on: -a, --partial resume · progress when the rsync speaks it")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 8)
         }
@@ -376,16 +376,16 @@ extension SettingsForm {
     var workbenchSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Workbench")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             VStack(alignment: .leading, spacing: 2) {
                 Toggle("zfs destroy asks you to type it", isOn: $model.confirmDestroyTyped)
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .tint(Theme.accent)
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                 Text("on: the word destroy arms the verb · off: Enter shows the plan directly")
-                    .font(.system(size: 10))
+                    .font(Theme.font(10))
                     .foregroundStyle(Theme.inkFaint)
                     .padding(.leading, 2)
             }
@@ -414,7 +414,12 @@ struct SettingsCard: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
-            OverlayHeader(title: "settings") { session.settingsVisible = false }
+            // Header rides the global factor too, so the card zooms evenly with
+            // its body (ho-13); OverlayHeader keeps its `* scale` seam for the
+            // floating panels.
+            OverlayHeader(title: "settings", scale: session.fontScale) {
+                session.settingsVisible = false
+            }
             VStack(alignment: .leading, spacing: 14) {
                 SettingsForm(model: model, session: session)
                 Divider().opacity(0.35)
@@ -432,7 +437,7 @@ struct SettingsCard: View {
 
     private var cardFooter: some View {
         Text("esc closes")
-            .font(.system(size: 10))
+            .font(Theme.font(10))
             .foregroundStyle(Theme.inkFaint)
     }
 }
@@ -448,12 +453,12 @@ struct SSHConfigViewer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("~/.ssh/config")
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.inkFaint)
             Divider().opacity(0.4)
             ScrollView([.vertical, .horizontal]) {
                 Text(configText.isEmpty ? "(empty)" : configText)
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(Theme.font(11, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
