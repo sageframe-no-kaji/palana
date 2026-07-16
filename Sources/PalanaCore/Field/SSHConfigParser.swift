@@ -183,9 +183,10 @@ public enum SSHConfigParser {
             && !token.contains("*") && !token.contains("?")
     }
 
-    /// Splits a config line on whitespace or `=`, honoring double quotes —
-    /// `Host "my host"` is one token.
-    private static func tokenize(_ line: String) -> [String] {
+    /// Splits a config line on whitespace or `=`, honoring double quotes.
+    ///
+    /// `Host "my host"` is one token. Internal so the `+User` extension shares it.
+    static func tokenize(_ line: String) -> [String] {
         var tokens: [String] = []
         var current = ""
         var quoted = false
