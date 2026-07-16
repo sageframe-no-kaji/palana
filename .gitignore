@@ -62,5 +62,9 @@ dist/
 # ─── Project-specific (add below) ───────────────────────────────────────
 .fixtures/
 
+# Design assets — icon sources, iconsets, design-system doc (not code, not
+# part of the build; kept locally).
+design/
+
 # Generated app icon (built from packaging/palana.png at build time)
 packaging/*.icns
