@@ -14,6 +14,7 @@
 // authority, no feedback loop, nothing to fight.
 
 import AppKit
+import PalanaCore
 import SwiftUI
 
 /// Owns the one floating keys panel.
@@ -25,36 +26,31 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
     /// The name the key monitor recognizes.
     static let identifier = "palana-keys-window"
 
-    /// The five sizes — text and window scale together, one value.
-    static let steps: [Double] = [0.7, 0.85, 1.0, 1.2, 1.4]
-
     private var panel: NSPanel?
     /// The card's natural size at scale 1, measured from the content.
     private var base = CGSize(width: 640, height: 420)
+    /// The live zfs verbs to render in the floating card — set by `show`.
+    private var zfsVerbs: [WorkbenchVerb] = []
 
-    private static let stepKey = "palana.keysStep"
+    /// The one master text-zoom factor, shared with the whole surface (his review).
+    ///
+    /// The window sizes to `base * factor`; there is no bespoke per-panel step.
+    private var scale: Double { TextScale.shared.factor }
 
-    /// The persisted step index, clamped on read — persisted state that
-    /// misbehaves must never misbehave twice (the crash-loop lesson).
-    private var stepIndex: Int {
-        get {
-            guard UserDefaults.standard.object(forKey: Self.stepKey) != nil else { return 2 }
-            let stored = UserDefaults.standard.integer(forKey: Self.stepKey)
-            return min(max(stored, 0), Self.steps.count - 1)
-        }
-        set { UserDefaults.standard.set(newValue, forKey: Self.stepKey) }
-    }
-
-    /// Summons the panel, measuring the card first so the frame is the
-    /// card and nothing else.
-    func show() {
+    /// Summons the panel, measuring the card first so the frame is the card.
+    ///
+    /// The live zfs verbs render in the card.
+    func show(zfsVerbs: [WorkbenchVerb] = []) {
+        self.zfsVerbs = zfsVerbs
         if let panel {
+            // Already up — refresh the content so the verbs are current.
+            (panel.contentView as? NSHostingView<KeysPanelContent>)?.rootView =
+                content(scale: scale)
             panel.makeKeyAndOrderFront(nil)
             return
         }
         let probe = NSHostingView(rootView: content(scale: 1))
         base = probe.fittingSize
-        let scale = Self.steps[stepIndex]
         let size = CGSize(width: base.width * scale, height: base.height * scale)
         let made = KeysPanel(
             contentRect: CGRect(origin: .zero, size: size),
@@ -67,9 +63,10 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         made.hasShadow = true
         made.level = .floating
         made.isMovableByWindowBackground = true
-        // A fullscreen main window stranded the panel out of reach — joining
-        // all Spaces and allowing fullscreen auxiliary prevents this.
-        made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Fullscreen-auxiliary keeps the panel reachable over a fullscreen main
+        // window; it no longer joins all Spaces, so it stays on the desktop it
+        // was summoned on instead of following across every one (his ask).
+        made.collectionBehavior = [.fullScreenAuxiliary]
         let hosting = NSHostingView(rootView: content(scale: scale))
         // The panel's frame is the one truth — the hosting view must not
         // push content size into the window's constraint system.
@@ -86,29 +83,29 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         panel?.close()
     }
 
-    /// Jumps to one of the five sizes — ⌘1 through ⌘5.
-    func select(step: Int) {
-        apply(step: step)
-    }
-
-    /// One size step up or down — the icons and ⌘ + / − land here.
-    func step(by delta: Int) {
-        apply(step: stepIndex + delta)
-    }
-
-    /// The one place size changes: text scale and window frame together,
-    /// top-left corner held.
-    private func apply(step: Int) {
-        guard let panel else { return }
-        let clamped = min(max(step, 0), Self.steps.count - 1)
-        guard clamped != stepIndex || panel.frame.width != base.width * Self.steps[clamped] else {
-            return
+    /// Opens the panel, or closes it if already up — the single `?` toggle now
+    /// that the in-window card is gone (his review: one help surface).
+    func toggle(zfsVerbs: [WorkbenchVerb] = []) {
+        if panel != nil {
+            close()
+        } else {
+            show(zfsVerbs: zfsVerbs)
         }
-        stepIndex = clamped
-        let scale = Self.steps[clamped]
+    }
+
+    /// Re-applies the current global factor to the open panel.
+    ///
+    /// Resizes the window to `base * factor` (top-left held) and re-renders the
+    /// content. The surface calls this when ⌘+/−/0 changes the factor. One-way
+    /// (factor → frame), no resize delegate — none of the old two-authority
+    /// feedback that crashed the continuous system; the setFrame is the same
+    /// clean move the stepped code made.
+    func applyScale() {
+        guard let panel else { return }
+        let size = CGSize(width: base.width * scale, height: base.height * scale)
+        guard panel.frame.size != size else { return }
         (panel.contentView as? NSHostingView<KeysPanelContent>)?.rootView = content(scale: scale)
         var frame = panel.frame
-        let size = CGSize(width: base.width * scale, height: base.height * scale)
         frame.origin.y += frame.height - size.height
         frame.size = size
         panel.setFrame(frame, display: true, animate: false)
@@ -123,8 +120,9 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
     // MARK: - Content
 
     private func content(scale: Double) -> KeysPanelContent {
-        KeysPanelContent(scale: scale) { [weak self] delta in
-            self?.step(by: delta)
+        KeysPanelContent(scale: scale, zfsVerbs: zfsVerbs) { delta in
+            // The ± icons drive the one master zoom, same as ⌘+/− (his review).
+            if delta > 0 { TextScale.shared.stepUp() } else { TextScale.shared.stepDown() }
         }
     }
 }
@@ -139,19 +137,23 @@ private final class KeysPanel: NSPanel {
 struct KeysPanelContent: View {
     /// Text scale, driven by the panel's step.
     let scale: Double
+    /// The live zfs verbs to render in the card.
+    let zfsVerbs: [WorkbenchVerb]
     /// One size step, forwarded to the panel — ±1.
     let onStep: (Int) -> Void
 
     /// Builds the face.
-    init(scale: Double, onStep: @escaping (Int) -> Void) {
+    init(scale: Double, zfsVerbs: [WorkbenchVerb], onStep: @escaping (Int) -> Void) {
         self.scale = scale
+        self.zfsVerbs = zfsVerbs
         self.onStep = onStep
     }
 
     var body: some View {
         HelpOverlay(
             scale: scale,
-            footer: "esc closes · ⌘1–⌘5 pick a size · ⌘ + / − or the icons step",
+            zfsVerbs: zfsVerbs,
+            footer: "esc closes · ⌘ + / − / 0 zoom — the one master size",
             chromeless: true
         )
         .onDismiss { KeysPanelController.shared.close() }

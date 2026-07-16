@@ -47,6 +47,14 @@ struct PaneView: View {
     /// The session resolves it through the standing gather path. The Bool is
     /// whether Option was held at drop time.
     let onDropSelection: (DraggedSelection, Bool) -> Void
+    /// Called when a ``DraggedSelection`` is dropped onto a **folder row** (ho-14).
+    ///
+    /// The session resolves the destination to that folder's path. The
+    /// `FileEntry` is the folder; the Bool is whether Option was held.
+    let onDropSelectionOntoFolder: (DraggedSelection, FileEntry, Bool) -> Void
+    /// Called when Finder file URLs are dropped onto a **folder row** — the
+    /// files land inside that folder.
+    let onFinderDropOntoFolder: ([URL], FileEntry, Bool) -> Void
     /// Called when Finder file URLs are dropped onto this pane.
     ///
     /// The session resolves them through the local listing and the gather path.
@@ -64,11 +72,23 @@ struct PaneView: View {
     /// The zfs mutation verbs, for the pane's context menu in zfs mode —
     /// the session's shared `zfsTool.verbs` list, never hardcoded here.
     let zfsVerbs: [WorkbenchVerb]
+    /// The resolved preview state (ho-16).
+    ///
+    /// Meaningful only while this pane is in `.preview` mode; `.empty` for every
+    /// other pane. The surface drives it off the opposite pane's cursor through
+    /// the `PreviewController`.
+    let previewState: PreviewController.State
 
     @State private var pathDraft = ""
     @FocusState private var pathFieldFocused: Bool
     @State private var starHovering = false
     @State private var dropTargeted = false
+    /// The folder row a valid drag is hovering, if any (ho-14).
+    ///
+    /// Drives the accent wash on that row; cleared the instant the drag leaves
+    /// or drops. Internal (not `private`) so the drop wiring in
+    /// `PaneView+FolderDrop.swift` can read and clear it.
+    @State var folderDropHoverID: FileEntry.ID?
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
@@ -145,7 +165,11 @@ struct PaneView: View {
         HStack {
             if model.paneMode == .zfs {
                 Text("↑↓ walk · letter fires verb · ⏎ opens mounted · esc/Z exits zfs mode")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
+                    .foregroundStyle(Theme.plugin)
+            } else if model.paneMode == .preview {
+                Text("previewing the left pane · v or esc exits")
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
             }
             Spacer()
@@ -180,7 +204,7 @@ struct PaneView: View {
             starButton
             hostMenu
         }
-        .font(.system(size: 12))
+        .font(Theme.font(12))
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(Theme.groundDeep)
@@ -209,6 +233,19 @@ struct PaneView: View {
                 Text(model.state.host ?? "—")
                     .fontWeight(.semibold)
                     .foregroundStyle(Theme.plugin)
+            }
+        } else if model.paneMode == .preview {
+            // The preview boundary — a plugin-hued chip like zfs mode's, so the
+            // mode is unmistakable (ho-16 Decision 1).
+            HStack(spacing: 8) {
+                Text("VIEW")
+                    .fontWeight(.bold)
+                    .foregroundStyle(Theme.ground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Theme.plugin, in: RoundedRectangle(cornerRadius: 4))
+                Text("follows the left pane's cursor")
+                    .foregroundStyle(Theme.inkFaint)
             }
         } else if model.pathEditing {
             TextField("host:path — local: for this Mac, ~ for home", text: $pathDraft)
@@ -249,7 +286,7 @@ struct PaneView: View {
             let filled = isFav || starHovering
             Button(action: onToggleFavorite) {
                 Image(systemName: filled ? "star.fill" : "star")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(filled ? Theme.accent : Theme.inkFaint)
             }
             .buttonStyle(.plain)
@@ -342,6 +379,10 @@ struct PaneView: View {
             // machinery lives in PaneView+ZFSMode.swift to keep this file
             // under the line-length budget.
             zfsTreeContent
+        } else if model.paneMode == .preview {
+            // The preview of the opposite pane's cursor — content in
+            // PaneView+Preview.swift, same line-budget reason.
+            previewContent
         } else {
             switch model.status {
             case .unpointed:
@@ -362,7 +403,7 @@ struct PaneView: View {
     /// A failed read over a live listing — say it, stay put.
     private func errorBanner(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11))
+            .font(Theme.font(11))
             .foregroundStyle(Theme.ground)
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
@@ -375,7 +416,7 @@ struct PaneView: View {
         VStack {
             Spacer()
             Text(text)
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.inkFaint)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
@@ -453,7 +494,7 @@ extension PaneView {
             columnStore.persist()
         }
         .tableStyle(.inset)
-        .font(.system(size: 13 * fontScale))
+        .font(Theme.font(13))
         .alternatingRowBackgrounds(.disabled)
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
@@ -625,12 +666,12 @@ extension PaneView {
         switch model.boundaryMark(for: entry) {
         case .dataset:
             Text(Image(systemName: "externaldrive.fill"))
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.accent)
                 .help("dataset mountpoint — a filesystem boundary")
         case .mount:
             Text(Image(systemName: "externaldrive"))
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .help("mount point — a filesystem boundary")
         case nil:
@@ -670,16 +711,5 @@ extension PaneView {
     /// Sizes as facts — `0 bytes`, never `Zero kB`.
     static func sizeText(_ size: Int64) -> String {
         size.formatted(.byteCount(style: .file, spellsOutZero: false))
-    }
-}
-
-// MARK: - Row wash
-
-extension PaneView {
-    /// The cursor row's own paint — moss wash, not the system accent.
-    func cursorWash(_ entry: FileEntry) -> some View {
-        RoundedRectangle(cornerRadius: 3)
-            .fill(Theme.accent.opacity(model.state.cursor == entry.id ? 0.18 : 0))
-            .padding(.horizontal, -6)
     }
 }

@@ -2,6 +2,7 @@
 // go-to sheet. The key monitor installs here and the session restore
 // runs here, once, when the surface appears.
 
+import AppKit
 import PalanaCore
 import SwiftUI
 
@@ -10,14 +11,14 @@ struct SurfaceView: View {
     /// The root object.
     @Bindable var session: PalanaSession
 
+    /// The appearance override — read here so flipping it live re-points
+    /// `NSApp.appearance`, dragging the floating panels into light/dark with the
+    /// main window (ho-15 review).
+    @AppStorage(AppAppearance.storageKey)
+    private var appearanceRaw = AppAppearance.system.rawValue
+
     var body: some View {
         panes
-            .overlay {
-                if session.helpVisible {
-                    HelpOverlay()
-                        .onDismiss { session.helpVisible = false }
-                }
-            }
             .overlay {
                 if session.settingsVisible {
                     SettingsCard(model: session.settings, session: session)
@@ -38,22 +39,11 @@ struct SurfaceView: View {
             .sheet(item: $session.gotoTarget) { side in
                 gotoBar(for: side)
             }
-            .onChange(of: session.floatingHelpTick) {
-                // ? ? — the card trades itself for the panel that stays.
-                KeysPanelController.shared.show()
-            }
-            .onChange(of: session.helpVisible) { _, visible in
-                // Never both: help summons, the field, settings, and panel yield.
+            .onChange(of: session.settingsVisible) { _, visible in
+                // Settings and the field card are mutually exclusive; the keys
+                // popout yields to settings too.
                 if visible {
                     KeysPanelController.shared.close()
-                    session.fieldVisible = false
-                    session.settingsVisible = false
-                }
-            }
-            .onChange(of: session.settingsVisible) { _, visible in
-                // Settings card and help/field are mutually exclusive.
-                if visible {
-                    session.helpVisible = false
                     session.fieldVisible = false
                     session.settings.refreshConfigText()
                 } else {
@@ -66,6 +56,22 @@ struct SurfaceView: View {
                 if visible {
                     session.settingsVisible = false
                 }
+            }
+            .onChange(of: session.fontScale) {
+                // One master zoom — resize the open floating panels to the new
+                // factor (his review). No-op when a panel is closed.
+                KeysPanelController.shared.applyScale()
+                ZFSPanelController.shared.applyScale()
+            }
+            .onChange(of: appearanceRaw) {
+                // Flip the whole app — panels included — to the new override.
+                NSApp.appearance = (AppAppearance(rawValue: appearanceRaw) ?? .system).nsAppearance
+            }
+            .onChange(of: session.previewFollowKey) {
+                // The preview follows the opposite pane's cursor (ho-16); the
+                // key changes when that cursor — or the source pane — moves, and
+                // PreviewController debounces the actual load.
+                session.updatePreviewFollow()
             }
             .task {
                 session.installKeyMonitor()
@@ -149,7 +155,7 @@ struct SurfaceView: View {
     /// fight the glass, let it be the design).
     private var nameMark: some View {
         Text("पालन")
-            .font(.system(size: 15, weight: .regular))
+            .font(Theme.font(15, weight: .regular))
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
@@ -171,14 +177,14 @@ struct SurfaceView: View {
                 )
             }
             paneVerb("gearshape", help: "settings — ⌘,") {
-                session.helpVisible = false
+                KeysPanelController.shared.close()
                 session.fieldVisible = false
                 session.settingsVisible.toggle()
             }
             paneVerb("questionmark", help: "the keys — ? on the keyboard") {
                 session.settingsVisible = false
                 session.fieldVisible = false
-                session.helpVisible.toggle()
+                KeysPanelController.shared.toggle(zfsVerbs: session.zfsTool.verbs)
             }
         }
         .background(Capsule().fill(Theme.groundDeep))
@@ -199,11 +205,11 @@ struct SurfaceView: View {
             model: model,
             isFocused: session.focusedSide == side,
             hosts: session.hosts,
-            onFocus: { session.focusedSide = side },
+            onFocus: { session.focusPane(side) },
             onEditConfig: { session.editSSHConfig() },
             onReloadHosts: { session.reloadHosts() },
             onOperation: { operation in
-                session.focusedSide = side
+                session.focusPane(side)
                 session.beginOperation(operation)
             },
             fontScale: session.fontScale,
@@ -228,6 +234,14 @@ struct SurfaceView: View {
                 session.handleSelectionDrop(
                     payload: payload, targetPane: model, optionHeld: optionHeld)
             },
+            onDropSelectionOntoFolder: { payload, folder, optionHeld in
+                session.handleSelectionDropOntoFolder(
+                    payload: payload, targetPane: model, folder: folder, optionHeld: optionHeld)
+            },
+            onFinderDropOntoFolder: { urls, folder, optionHeld in
+                session.handleFinderDropOntoFolder(
+                    urls: urls, targetPane: model, folder: folder, optionHeld: optionHeld)
+            },
             onFinderDrop: { urls, optionHeld in
                 session.handleFinderDrop(urls: urls, targetPane: model, optionHeld: optionHeld)
             },
@@ -238,7 +252,9 @@ struct SurfaceView: View {
             onBack: { model.historyBack() },
             onForward: { model.historyForward() },
             onZFSVerb: { verb in session.runZFSPaneModeVerb(verb, on: model) },
-            zfsVerbs: session.zfsTool.verbs
+            zfsVerbs: session.zfsTool.verbs,
+            previewState: model.paneMode == .preview
+                ? session.previewController.state : .empty
         )
         .frame(minWidth: 320)
     }
@@ -284,7 +300,7 @@ struct SurfaceView: View {
             Text(sortLine)
             Text("? keys")
         }
-        .font(.system(size: 12))
+        .font(Theme.font(12))
         .foregroundStyle(Theme.inkFaint)
         .padding(.horizontal, 20)  // 20 clears the window's rounded corners (was 12)
         .padding(.vertical, 5)
@@ -338,7 +354,7 @@ struct ToolbarGlyphButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(Theme.font(13, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 5)

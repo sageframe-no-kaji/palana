@@ -24,8 +24,6 @@ final class PalanaSession {
     var focusedSide = SessionSnapshot.Side.left
     /// Non-nil while the go-to bar is up, naming the pane it points.
     var gotoTarget: SessionSnapshot.Side?
-    /// Whether the vocabulary card is up.
-    var helpVisible = false
     /// Whether the settings card is up.
     var settingsVisible = false
     /// True while a text field inside the settings card is focused.
@@ -33,11 +31,6 @@ final class PalanaSession {
     /// The key monitor stands down while this is true — typed characters
     /// belong to the field, not the grammar.
     var settingsFieldFocused = false
-    /// Asks the surface to open the floating keys window.
-    ///
-    /// Bumped by a second ? while the card is up — the surface watches
-    /// for the change.
-    private(set) var floatingHelpTick = 0
     /// The one operation in flight — verb to plan to enactment.
     let operation: OperationModel
     /// The pending multi-key prefix, for the footer.
@@ -73,10 +66,19 @@ final class PalanaSession {
     let readsTool: SystemReadsTool
     /// The ZFS mutation tool — stateless, shared with the strip and the gather.
     let zfsTool = ZFSMutationTool()
+    /// The preview pane's loader (ho-16) — holds what the preview pane shows and
+    /// follows the opposite pane's cursor with a debounce.
+    let previewController = PreviewController()
     /// True while the keyboard points into the terminal strip.
     var terminalFocused = false
     /// Text zoom for the panes and the terminal — ⌘+ / ⌘- / ⌘0.
-    var fontScale: CGFloat = 1.0
+    ///
+    /// A read-only view onto the app-scope ``TextScale`` authority (ho-13), so
+    /// the few call sites that still take an explicit scale (the panes, the
+    /// SwiftTerm strip) read the same persisted factor `Theme.font(_:)` draws
+    /// through. Reading it in a view body registers a dependency on the factor,
+    /// so those sites re-render on ⌘+/⌘−/⌘0 like the rest of the surface.
+    var fontScale: CGFloat { CGFloat(TextScale.shared.factor) }
     /// Per-host live shell sessions — ho-11's interactive terminal.
     ///
     /// Lazy per host, kept alive across mode exits, torn down at quit
@@ -136,6 +138,12 @@ final class PalanaSession {
         self.left = PaneModel(engine: self.engine)
         self.right = PaneModel(engine: self.engine)
         self.operation = OperationModel(engine: self.engine, configuration: configuration, settings: settingsModel)
+        // The preview pane's remote reader — a bounded head read over the wire
+        // (ho-16 review). Engine is a Sendable value, captured by copy.
+        let engine = self.engine
+        previewController.remoteReader = { host, path, limit in
+            try? await engine.listing(for: host).readFileHead(on: host, path: path, limit: limit)
+        }
         left.onDisplayChange = { [weak self] in self?.persist() }
         right.onDisplayChange = { [weak self] in self?.persist() }
         settingsModel.onConfigChanged = { [weak self] in self?.reloadHosts() }
@@ -253,7 +261,7 @@ final class PalanaSession {
     /// Where y and m would send, visible before any verb goes down —
     /// nil when there is nothing to say.
     var sendLine: String? {
-        guard !operation.active, gotoTarget == nil, !helpVisible else { return nil }
+        guard !operation.active, gotoTarget == nil else { return nil }
         guard focusedPane.status == .ready, !focusedPane.operationSubjects.isEmpty else {
             return nil
         }
@@ -459,10 +467,10 @@ extension PalanaSession {
             }
             return true
         case "?":
-            helpVisible = true
+            KeysPanelController.shared.toggle(zfsVerbs: zfsTool.verbs)
             return true
         case "f":
-            helpVisible = false
+            KeysPanelController.shared.close()
             fieldVisible = true
             fieldViewModel.summon(hosts: hosts)
             return true
@@ -478,12 +486,15 @@ extension PalanaSession {
     private func dispatch(_ intent: PaneIntent) {
         switch intent {
         case .switchPane:
+            // The viewer locks the keyboard to the left pane — nothing to drive
+            // on the right while it previews (ho-16 review).
+            guard !previewActive else { return }
             focusedSide = focusedSide == .left ? .right : .left
             persist()
         case .goTo:
             gotoTarget = focusedSide
         case .help:
-            helpVisible = true
+            KeysPanelController.shared.toggle(zfsVerbs: zfsTool.verbs)
         case .operationCopy:
             beginOperation(.copy)
         case .operationMove:
@@ -505,7 +516,11 @@ extension PalanaSession {
     /// Decision 3), then a pending prefix dies, then a bare Esc clears the
     /// selection.
     private func handleEscInMainPath() {
-        if focusedPane.paneMode == .zfs {
+        if previewActive {
+            // The viewer exits whole — the right pane previews, not the focused
+            // (locked-left) pane, so check the viewer directly (ho-16 review).
+            exitPreview()
+        } else if focusedPane.paneMode == .zfs {
             focusedPane.exitZFSMode()
         } else if pendingPrefix.isEmpty {
             focusedPane.apply(.clearSelection)
@@ -517,7 +532,8 @@ extension PalanaSession {
 
     /// Routes a key event while the keys panel is active.
     ///
-    /// The keys panel has Esc, ⌘1–5, and ⌘+/−. Everything else is untouched.
+    /// Esc closes; ⌘+/−/0 drive the one master zoom (his review) — the same
+    /// factor the whole surface rides. Everything else is untouched.
     private func handleKeysPanelKey(_ event: NSEvent) -> Bool {
         let keyCode = event.keyCode
         let chars = event.charactersIgnoringModifiers
@@ -526,19 +542,20 @@ extension PalanaSession {
             KeysPanelController.shared.close()
             return true
         }
-        if hasCommand, chars == "=" || chars == "+" {
-            KeysPanelController.shared.step(by: 1)
+        guard hasCommand else { return false }
+        switch chars {
+        case "=", "+":
+            TextScale.shared.stepUp()
             return true
-        }
-        if hasCommand, chars == "-" {
-            KeysPanelController.shared.step(by: -1)
+        case "-":
+            TextScale.shared.stepDown()
             return true
-        }
-        if hasCommand, let chars, let digit = Int(chars), (1...5).contains(digit) {
-            KeysPanelController.shared.select(step: digit - 1)
+        case "0":
+            TextScale.shared.reset()
             return true
+        default:
+            return false
         }
-        return false
     }
 }
 
@@ -554,7 +571,7 @@ extension PalanaSession {
     func handleGlobalChord(_ token: String) -> Bool {
         switch token {
         case "cmd-,":
-            helpVisible = false
+            KeysPanelController.shared.close()
             fieldVisible = false
             settingsVisible.toggle()
         case "cmd-`":
@@ -566,11 +583,11 @@ extension PalanaSession {
             // shell never reaches this switch); everything else here.
             toggleShellKeyboard()
         case "cmd-=", "cmd-+":
-            adjustFontScale(by: 0.1)
+            TextScale.shared.stepUp()
         case "cmd--":
-            adjustFontScale(by: -0.1)
+            TextScale.shared.stepDown()
         case "cmd-0":
-            fontScale = 1.0
+            TextScale.shared.reset()
         case "cmd-k":
             operation.clearTranscript()
         case "cmd-8":
@@ -583,11 +600,6 @@ extension PalanaSession {
             return false
         }
         return true
-    }
-
-    /// Nudges the text zoom, clamped to a legible range.
-    private func adjustFontScale(by delta: CGFloat) {
-        fontScale = min(max(fontScale + delta, 0.75), 1.8)
     }
 
     /// Handles f, F, backtick, Z, and other tokens that bypass the recognizer.
@@ -644,6 +656,12 @@ extension PalanaSession {
             toggleZFSPaneMode()
             return true
         }
+        // v — preview pane (ho-16): the focused pane previews the other pane's
+        // cursor; a second v (or Esc) exits. Mirrors Z's pane-focus grammar.
+        if token == "v" {
+            togglePreviewMode()
+            return true
+        }
         return false
     }
 
@@ -659,12 +677,6 @@ extension PalanaSession {
     /// everything else falls through to the main grammar path so navigation
     /// and verbs work exactly as when the panel is hidden.
     private func handleActiveOverlay(_ token: String) -> (handled: Bool, consumed: Bool) {
-        if helpVisible {
-            // The vocabulary card holds the keyboard above everything;
-            // app chords pass through, everything else waits.
-            handleHelpKey(token)
-            return (true, !token.contains("cmd-"))
-        }
         if settingsVisible {
             // The settings card holds the keyboard; app chords pass through.
             handleSettingsKey(token)
@@ -681,31 +693,6 @@ extension PalanaSession {
             return (false, false)
         }
         return (false, false)
-    }
-
-    /// Routes one keystroke while the vocabulary card is up.
-    ///
-    /// Esc closes; ? trades the card for the floating panel; f trades it
-    /// for the field; F closes help and toggles the host map panel.
-    private func handleHelpKey(_ token: String) {
-        if token == "esc" { helpVisible = false }
-        if token == "?" {
-            helpVisible = false
-            floatingHelpTick += 1
-        }
-        if token == "f" {
-            helpVisible = false
-            fieldVisible = true
-            fieldViewModel.summon(hosts: hosts)
-        }
-        if token == "F" {
-            helpVisible = false
-            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
-        }
-        if token == "*" {
-            helpVisible = false
-            toggleFavoritesPanel()
-        }
     }
 
     /// Routes one keystroke while the settings card is up.

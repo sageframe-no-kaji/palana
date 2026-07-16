@@ -22,6 +22,11 @@ struct SettingsForm: View {
     /// The session — receives the field-focused stand-down signal.
     var session: PalanaSession
 
+    /// The appearance override — bound to the same key the window root reads
+    /// (ho-15), so flipping it here recolors the whole surface at once.
+    @AppStorage(AppAppearance.storageKey)
+    private var appearance: AppAppearance = .system
+
     @FocusState private var flagsFocused: Bool
     @State private var hostHelpShowing = false
     @State private var configViewShowing = false
@@ -63,6 +68,8 @@ struct SettingsForm: View {
             transfersSection
             Divider().opacity(0.35)
             workbenchSection
+            Divider().opacity(0.35)
+            appearanceSection
         }
         .onChange(of: flagsFocused) { _, focused in
             session.settingsFieldFocused = focused
@@ -370,6 +377,29 @@ extension SettingsForm {
     }
 }
 
+// MARK: - Appearance section
+
+extension SettingsForm {
+    var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Appearance")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
+            Picker("", selection: $appearance) {
+                ForEach(AppAppearance.allCases) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Text("System follows the Mac; Light and Dark override it.")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.inkFaint)
+                .padding(.leading, 2)
+        }
+    }
+}
+
 // MARK: - Workbench section
 
 extension SettingsForm {
@@ -407,7 +437,9 @@ struct SettingsCard: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.12)
+            // The dimming scrim — ink over the world, the design system's
+            // depth idiom (§4), so no view spells a raw hue (ho-15).
+            Theme.ink.opacity(0.12)
             card
         }
     }

@@ -62,4 +62,14 @@ struct ListingReadFileTests {
         #expect(command.hasPrefix("cat "))
         #expect(command.contains("a name'\\''with quote"))
     }
+
+    @Test("the capped head command uses head -c and quotes hostile paths (ho-16 review)")
+    func headCommand() {
+        #expect(
+            Listing.readFileHeadCommand(for: "/srv/big.log", limit: 262_145)
+                == "head -c 262145 /srv/big.log")
+        let hostile = Listing.readFileHeadCommand(for: "/srv/a name'x", limit: 10)
+        #expect(hostile.hasPrefix("head -c 10 "))
+        #expect(hostile.contains("a name'\\''x"))
+    }
 }

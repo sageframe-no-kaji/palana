@@ -131,9 +131,10 @@ final class HostMapPanelController: NSObject, NSWindowDelegate {
         made.hasShadow = true
         made.level = .floating
         made.isMovableByWindowBackground = true
-        // A fullscreen main window stranded the panel out of reach — joining
-        // all Spaces and allowing fullscreen auxiliary prevents this.
-        made.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        // Fullscreen-auxiliary keeps the panel reachable over a fullscreen main
+        // window; it no longer joins all Spaces, so it stays on the desktop it
+        // was summoned on instead of following across every one (his ask).
+        made.collectionBehavior = [.fullScreenAuxiliary]
         made.minSize = CGSize(width: 360, height: 260)
         made.contentView = NSHostingView(rootView: HostMapContent(model: model))
         made.delegate = self
@@ -212,7 +213,7 @@ struct HostMapContent: View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
             legend
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -259,7 +260,7 @@ struct HostSectionView: View {
     private var sectionHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(section.alias)
-                .font(.system(size: 14, weight: .medium))
+                .font(Theme.font(14, weight: .medium))
                 .foregroundStyle(Theme.ink)
             verdict
             Spacer()
@@ -271,19 +272,19 @@ struct HostSectionView: View {
     @ViewBuilder private var verdict: some View {
         if section.isLocal {
             Text("this machine")
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.inkFaint)
         } else if probing.contains(section.alias) {
             Text("probing…")
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.inkFaint)
         } else if let refused = probeErrors[section.alias] {
             Text(refused)
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.alarm)
         } else if !section.visited {
             Text("never visited")
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.inkFaint)
         } else if let reachability = section.reachability {
             reachabilityVerdict(reachability)
@@ -296,16 +297,16 @@ struct HostSectionView: View {
         case .reachable:
             if let date = section.rememberedAt {
                 Text("reachable · \(FieldAge.describe(date, now: Date()))")
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                     .foregroundStyle(Theme.inkFaint)
             } else {
                 Text("reachable")
-                    .font(.system(size: 12))
+                    .font(Theme.font(12))
                     .foregroundStyle(Theme.inkFaint)
             }
         case .unreachable(let detail):
             Text("unreachable · \(FieldOverlay.plainRefusal(detail))")
-                .font(.system(size: 12))
+                .font(Theme.font(12))
                 .foregroundStyle(Theme.alarm)
         }
     }
@@ -320,7 +321,7 @@ struct HostSectionView: View {
                 if section.hasRsync { Text("rsync").foregroundStyle(Theme.inkFaint) }
                 if section.hasSudoNoPassword { Text("sudo").foregroundStyle(Theme.inkFaint) }
             }
-            .font(.system(size: 11))
+            .font(Theme.font(11))
         }
     }
 
@@ -328,12 +329,12 @@ struct HostSectionView: View {
         if !section.isLocal {
             if probing.contains(section.alias) {
                 Text("probing…")
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.inkFaint)
             } else {
                 Button("probe") { onProbe(section.alias) }
                     .buttonStyle(.plain)
-                    .font(.system(size: 11))
+                    .font(Theme.font(11))
                     .foregroundStyle(Theme.inkFaint)
             }
         }
@@ -366,19 +367,19 @@ struct HostSectionView: View {
     @ViewBuilder private var mountFooter: some View {
         if !section.isLocal, section.mountsRememberedAt == nil {
             Text("not yet asked — probe gathers the ground")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 16)
         }
         if section.systemMountCount > 0 {
             Text("\(section.systemMountCount) system mounts not shown")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 16)
         }
         if let age = section.mountsRememberedAt {
             Text("ground as of \(FieldAge.describe(age, now: Date()))")
-                .font(.system(size: 10))
+                .font(Theme.font(10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.leading, 16)
         }
@@ -401,13 +402,13 @@ struct PoolLineView: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             poolChevron
             Text(poolLine.name)
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.font(12, weight: .medium))
                 .foregroundStyle(Theme.ink)
             Text("zfs pool")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
             Text("\(poolLine.visibleMountCount)")
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
             Spacer()
         }
@@ -420,7 +421,7 @@ struct PoolLineView: View {
     @ViewBuilder private var poolChevron: some View {
         if poolLine.visibleMountCount > 0 {
             Text(Image(systemName: "chevron.right"))
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .rotationEffect(.degrees(poolLine.expanded ? 90 : 0))
                 .frame(width: 18, alignment: .center)
@@ -446,19 +447,19 @@ struct MountRowView: View {
             mountChevron
             driveMark
             Text(row.target)
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.font(12, weight: .medium))
                 .foregroundStyle(Theme.ink)
             Text(row.fstype)
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
             Text(row.source)
-                .font(.system(size: 11))
+                .font(Theme.font(11))
                 .foregroundStyle(Theme.inkFaint)
                 .lineLimit(1)
                 .truncationMode(.middle)
             if row.readOnly {
                 Text("ro")
-                    .font(.system(size: 10))
+                    .font(Theme.font(10))
                     .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
@@ -475,7 +476,7 @@ struct MountRowView: View {
     @ViewBuilder private var mountChevron: some View {
         if row.childCount > 0 {
             Text(Image(systemName: "chevron.right"))
-                .font(.system(size: 11, weight: .semibold))
+                .font(Theme.font(11, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .rotationEffect(.degrees(row.expanded ? 90 : 0))
                 .frame(width: 18, alignment: .center)
@@ -496,6 +497,6 @@ struct MountRowView: View {
                 Text(Image(systemName: "externaldrive")).foregroundStyle(Theme.inkFaint)
             }
         }
-        .font(.system(size: 10))
+        .font(Theme.font(10))
     }
 }

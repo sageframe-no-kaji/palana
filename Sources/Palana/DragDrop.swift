@@ -135,6 +135,59 @@ func routeDropDecision(
     }
 }
 
+/// Routes a folder-row ``DropDecision`` (ho-14) — like ``routeDropDecision``,
+/// but `destination` is the folder's full path, not the pane's cwd.
+///
+/// Resolves the source pane and the dragged cohort from live rows, then hands
+/// them to ``OperationModel/beginFromFinderDrop(_:source:destination:entries:)``
+/// — the generic "already-resolved entries + explicit destination Locus" begin
+/// (its name is historical; a pane-to-pane folder drop resolves its cohort the
+/// same way a Finder drop does). Nothing enacts; the panel is the gate.
+///
+/// - Parameters:
+///   - decision: The outcome of ``DropDecision/decideOntoFolder(payload:targetHost:folderPath:folderNameData:optionHeld:)``.
+///   - payload: The drag payload from the source pane.
+///   - destination: The folder as a ``Locus`` — the destination host and the
+///     folder's full path, resolved by the caller.
+///   - sourcePanes: Both pane models, to locate the source pane.
+///   - operation: The ``OperationModel`` that owns the panel.
+@MainActor
+func routeFolderDrop(
+    _ decision: DropDecision,
+    payload: DraggedSelection,
+    destination: Locus,
+    sourcePanes: [PaneModel],
+    operation: OperationModel
+) {
+    switch decision {
+    case .refuseSamePlace:
+        operation.note("drop refused — same location")
+    case .refuseEmpty:
+        break
+    case .compose(let planOperation):
+        guard
+            let sourcePane = sourcePanes.first(where: {
+                $0.state.host == payload.host && $0.state.path == payload.directory
+            })
+        else {
+            operation.note("drop refused — source pane not found")
+            return
+        }
+        let draggedNames = Set(payload.names)
+        let cohort = sourcePane.rows.filter { draggedNames.contains($0.nameData) }
+        guard !cohort.isEmpty else {
+            operation.note("drop refused — dragged entries no longer present at the source")
+            return
+        }
+        operation.beginFromFinderDrop(
+            planOperation,
+            source: Locus(host: payload.host, directory: payload.directory),
+            destination: destination,
+            entries: cohort
+        )
+    }
+}
+
 // MARK: - Unified drop handler support
 
 /// The resolved outcome of a unified drop, delivered asynchronously to the pane's `.onDrop` handler.
@@ -280,6 +333,59 @@ func handleUnifiedDrop(
     return true
 }
 
+// MARK: - Folder-row drop handler
+
+/// Row-level `.onDrop` handler for a folder row (ho-14, extended in review).
+///
+/// Consumes both drag currencies onto the folder: the pane-to-pane
+/// `public.json` selection AND Finder file URLs — a file dragged in from Finder
+/// onto a folder row lands *inside* that folder, not in the pane's cwd. The
+/// pane-level drop is left for drops off any folder row.
+///
+/// Returns `true` when a promising drag is present so the row consumes the drop
+/// and the pane-level handler does not also fire (no double-plan). The resolved
+/// payload or URLs are delivered on the main queue with the folder entry and
+/// the option-held flag.
+///
+/// - Parameters:
+///   - providers: The `NSItemProvider` array from the row's `.onDrop` closure.
+///   - model: The pane hosting the folder row.
+///   - folder: The directory entry the drop landed on.
+///   - onSelectionOntoFolder: Called for a pane-to-pane drop onto the folder.
+///   - onFinderOntoFolder: Called for a Finder URL drop onto the folder.
+/// - Returns: `true` when the row consumes the drag; `false` otherwise.
+@MainActor
+func handleFolderDrop(
+    providers: [NSItemProvider],
+    model: PaneModel,
+    folder: FileEntry,
+    onSelectionOntoFolder: @escaping (DraggedSelection, FileEntry, Bool) -> Void,
+    onFinderOntoFolder: @escaping ([URL], FileEntry, Bool) -> Void
+) -> Bool {
+    guard model.status == .ready, model.state.host != nil else { return false }
+    let hasJSON = providers.contains {
+        $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
+    }
+    let hasURLs = providers.contains {
+        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+    }
+    guard hasJSON || hasURLs else { return false }
+    let optionHeld = NSEvent.modifierFlags.contains(.option)
+    Task {
+        let result = await resolveDropProviders(providers: providers, optionHeld: optionHeld)
+        guard let result else { return }
+        DispatchQueue.main.async {
+            switch result {
+            case .selection(let payload, let held):
+                onSelectionOntoFolder(payload, folder, held)
+            case .urls(let urls, let held):
+                onFinderOntoFolder(urls, folder, held)
+            }
+        }
+    }
+    return true
+}
+
 // MARK: - Finder URL resolution
 
 /// Resolves a Finder URL drop onto a pane into a copy plan composed
@@ -297,13 +403,17 @@ func handleUnifiedDrop(
 ///   - engine: The session's engine (for the local listing).
 ///   - operation: The ``OperationModel`` that owns the panel and the transcript.
 ///   - optionHeld: Whether Option was held at drop time.
+///   - destinationDirectory: When non-nil, the plan targets this directory on
+///     the destination host instead of the pane's cwd — a Finder drop onto a
+///     folder row (ho-14 review) passes the folder's full path.
 @MainActor
 func routeFinderDrop(
     urls: [URL],
     targetPane: PaneModel,
     engine: Engine,
     operation: OperationModel,
-    optionHeld: Bool
+    optionHeld: Bool,
+    destinationDirectory: String? = nil
 ) {
     guard !urls.isEmpty else { return }
     // Group by parent path — keep the first parent's cohort.
@@ -342,7 +452,8 @@ func routeFinderDrop(
                 operation.note("finder drop: destination pane is not ready")
                 return
             }
-            let destinationLocus = Locus(host: destHost, directory: targetPane.state.path)
+            let destinationLocus = Locus(
+                host: destHost, directory: destinationDirectory ?? targetPane.state.path)
             operation.beginFromFinderDrop(
                 planOperation,
                 source: sourceLocus,

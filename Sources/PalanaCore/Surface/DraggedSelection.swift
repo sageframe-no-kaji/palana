@@ -83,9 +83,72 @@ public enum DropDecision: Equatable, Sendable {
         return optionHeld ? .compose(.move) : .compose(.copy)
     }
 
+    /// The drop decision for a drag that lands on a **folder row** (ho-14).
+    ///
+    /// The destination is the folder itself, not the pane's current directory:
+    /// the caller resolves `folderPath` to the pane's directory + the folder's
+    /// name. Two refusals sit ahead of the standard decision:
+    /// - **Self-into-self** — the folder is one of the dragged items (same host,
+    ///   the folder lives in the drag's own source directory, and its name is in
+    ///   the selection). Refused the same way any self-drop is.
+    /// - **Files already here** — the folder *is* the source directory; this
+    ///   falls through to ``decide(payload:targetHost:targetDirectory:optionHeld:)``,
+    ///   whose same-place check catches it.
+    ///
+    /// Otherwise the folder is a genuine destination and the decision is
+    /// `.compose(.move)` under Option or `.compose(.copy)` — the exact
+    /// vocabulary the pane-level drop already speaks.
+    ///
+    /// - Parameters:
+    ///   - payload: The drag payload from the source pane.
+    ///   - targetHost: The ssh alias of the pane hosting the folder row.
+    ///   - folderPath: The folder's full path (its parent is the target pane's
+    ///     current directory).
+    ///   - folderNameData: The folder's name bytes, for the self-in-selection
+    ///     check — byte-honest, matching ``FileEntry/nameData`` and `payload.names`.
+    ///   - optionHeld: Whether Option was held at the moment of drop.
+    /// - Returns: The resolved ``DropDecision``.
+    public static func decideOntoFolder(
+        payload: DraggedSelection,
+        targetHost: String,
+        folderPath: String,
+        folderNameData: Data,
+        optionHeld: Bool
+    ) -> Self {
+        guard !payload.names.isEmpty else { return .refuseEmpty }
+
+        // The folder is itself one of the dragged items — same host, the folder
+        // lives in the drag's own source directory, and its name is in the
+        // selection. Refuse the self-drop.
+        let folderIsInSelection =
+            payload.host == targetHost
+            && normalizePath(payload.directory) == parentDirectory(of: folderPath)
+            && payload.names.contains(folderNameData)
+        if folderIsInSelection {
+            return .refuseSamePlace
+        }
+
+        // Otherwise the folder is the destination; the standard decision draws
+        // the copy/move line and catches "the files already live here".
+        return decide(
+            payload: payload,
+            targetHost: targetHost,
+            targetDirectory: folderPath,
+            optionHeld: optionHeld)
+    }
+
     /// Strips a trailing slash unless the path is exactly `/`.
     private static func normalizePath(_ path: String) -> String {
         guard path != "/" else { return path }
         return path.hasSuffix("/") ? String(path.dropLast()) : path
+    }
+
+    /// The parent directory of a path — the folder's containing directory,
+    /// normalized (no trailing slash, `/` for a top-level child).
+    private static func parentDirectory(of path: String) -> String {
+        let trimmed = normalizePath(path)
+        guard let cut = trimmed.lastIndex(of: "/") else { return trimmed }
+        let parent = String(trimmed[..<cut])
+        return parent.isEmpty ? "/" : parent
     }
 }

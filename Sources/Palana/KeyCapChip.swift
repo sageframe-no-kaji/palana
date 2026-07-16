@@ -36,7 +36,7 @@ struct KeyCapChip: View {
     /// The visual chip — shared between interactive and display-only forms.
     private var chip: some View {
         Text(label)
-            .font(.system(size: fontSize, design: .monospaced))
+            .font(Theme.font(fontSize, design: .monospaced))
             .foregroundStyle(Theme.inkFaint)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
@@ -96,27 +96,27 @@ struct VerbChipRow: View {
         HStack(spacing: 4) {
             if let hint = hintText {
                 Text(hint)
-                    .font(.system(size: fontSize))
+                    .font(Theme.font(fontSize))
                     .foregroundStyle(Theme.inkFaint)
                 Text("·")
-                    .font(.system(size: fontSize))
+                    .font(Theme.font(fontSize))
                     .foregroundStyle(Theme.inkFaint)
             }
             // esc fires the hide path — same as the panel-priority esc handler.
             KeyCapChip(label: "esc", fontSize: fontSize, onTap: enabled ? { onVerbKey("esc") } : nil)
                 .help(enabled ? "hide" : "hide (not available while running)")
             Text("hides")
-                .font(.system(size: fontSize))
+                .font(Theme.font(fontSize))
                 .foregroundStyle(Theme.inkFaint)
             Text("·")
-                .font(.system(size: fontSize))
+                .font(Theme.font(fontSize))
                 .foregroundStyle(Theme.inkFaint)
             ForEach(verbChips, id: \.key) { chip in
                 KeyCapChip(label: chip.key, fontSize: fontSize, onTap: enabled ? { onVerbKey(chip.key) } : nil)
                     .help(enabled ? chip.tip : "\(chip.tip) (not available while running)")
             }
             Text("go again")
-                .font(.system(size: fontSize))
+                .font(Theme.font(fontSize))
                 .foregroundStyle(Theme.inkFaint)
         }
         .fixedSize()

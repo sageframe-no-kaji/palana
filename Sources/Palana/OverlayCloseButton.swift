@@ -30,7 +30,9 @@ struct OverlayCloseButton: View {
                     .font(.system(size: 6, weight: .bold))
                     .foregroundStyle(
                         hovering
-                            ? Color.white
+                            // The paper token punched through the rust — warm,
+                            // not a raw white, and appearance-aware (ho-15).
+                            ? Theme.ground
                             : Theme.alarm.opacity(0.6)
                     )
             }

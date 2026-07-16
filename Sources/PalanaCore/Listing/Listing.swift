@@ -100,6 +100,27 @@ public struct Listing: Sendable {
         return result.stdout
     }
 
+    /// The exact command a capped head read runs — exposed so tests pin it.
+    ///
+    /// `head -c` (bytes) is portable across GNU and BSD userlands.
+    public static func readFileHeadCommand(for path: String, limit: Int) -> String {
+        "head -c \(limit) \(ShellQuote.quote(path))"
+    }
+
+    /// Reads at most `limit` bytes off the front of a remote file, one round trip.
+    ///
+    /// The preview pane's bounded remote read (ho-16 review), so a huge remote
+    /// log is never `cat`'d whole across the wire.
+    public func readFileHead(on host: String, path: String, limit: Int) async throws -> Data {
+        let command = Self.readFileHeadCommand(for: path, limit: limit)
+        let result = try await conduit.run(on: host, command).collect()
+        guard result.exitStatus == 0 else {
+            throw ListingError.classify(
+                path: path, exitStatus: result.exitStatus, stderr: result.stderrText)
+        }
+        return result.stdout
+    }
+
     /// The recursive size fact for each path, one round trip.
     ///
     /// The plan gathers these fresh, per plan — a size promise with a

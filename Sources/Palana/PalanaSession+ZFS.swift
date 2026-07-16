@@ -47,17 +47,18 @@ extension PalanaSession {
                 return true
             }
         }
-        // Sizing keys — ⌘+/= step up, ⌘− step down, ⌘1–⌘5 jump.
+        // ⌘+/−/0 drive the one master zoom (his review) — same factor as the
+        // whole surface; the surface resizes the open panel to match.
         if hasCommand, chars == "=" || chars == "+" {
-            ZFSPanelController.shared.step(by: 1)
+            TextScale.shared.stepUp()
             return true
         }
         if hasCommand, chars == "-" {
-            ZFSPanelController.shared.step(by: -1)
+            TextScale.shared.stepDown()
             return true
         }
-        if hasCommand, let chars, let digit = Int(chars), (1...5).contains(digit) {
-            ZFSPanelController.shared.select(step: digit - 1)
+        if hasCommand, chars == "0" {
+            TextScale.shared.reset()
             return true
         }
         return false

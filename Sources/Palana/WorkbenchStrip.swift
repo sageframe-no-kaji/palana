@@ -154,13 +154,13 @@ private struct StripChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(Theme.font(10, weight: .semibold))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 28)
                 .overlay(alignment: .trailing) {
                     if showKey {
                         Text(keyHint)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(Theme.font(12, weight: .regular))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 10)
                     }
@@ -195,21 +195,22 @@ private struct PluginChip: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(Theme.font(10, weight: .semibold))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 28)
                 .overlay(alignment: .trailing) {
                     if showKey {
                         Text(keyHint)
-                            .font(.system(size: 12, weight: .regular))
+                            .font(Theme.font(12, weight: .regular))
                             .foregroundStyle(Theme.ground)
                             .padding(.horizontal, 10)
                     }
                 }
-                // Solid burnt-umber fill; hover adds a white sheen.
+                // Solid burnt-umber fill; hover adds a paper sheen (a token,
+                // not a raw white — ho-15).
                 .background(
                     Theme.plugin
-                        .overlay(hovering && enabled ? Color.white.opacity(0.12) : Color.clear)
+                        .overlay(hovering && enabled ? Theme.ground.opacity(0.12) : Color.clear)
                 )
                 .contentShape(Rectangle())
         }

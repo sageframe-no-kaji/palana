@@ -7,6 +7,7 @@
 // and balanced across two columns.
 
 import AppKit
+import PalanaCore
 import SwiftUI
 
 /// One keystroke's worth of help.
@@ -27,14 +28,17 @@ private struct HelpSection: Identifiable {
 struct HelpOverlay: View {
     /// Text scale — the card passes 1, the window passes its fit.
     var scale = 1.0
+    /// The live zfs mode verbs — rendered with their real key hints so the
+    /// card never drifts from `zfsTool.verbs` (his review: put the keys in ?).
+    var zfsVerbs: [WorkbenchVerb] = []
     /// The quiet last line — the card and the window say different things.
     var footer = "? floats this card · esc closes"
     /// Called when the operator taps the ✕ close button.
     ///
     /// Set via the `.onDismiss(_:)` modifier — keeps the primary properties
-    /// clean and avoids trailing-closure ambiguity at the call site.
-    /// The card caller wires this to `session.helpVisible = false`.
-    /// The floating panel leaves it nil — the panel manages its own lifecycle.
+    /// clean and avoids trailing-closure ambiguity at the call site. The
+    /// floating panel wires it to its own close; there is no in-window card any
+    /// more (his review: one help surface).
     var dismissAction: (() -> Void)?
     /// True when a floating panel hosts the card — the panel owns the
     /// ground, the rounded clip, and the window shadow, so the card must
@@ -92,47 +96,77 @@ struct HelpOverlay: View {
             ]),
     ]
 
-    private static let rightColumn = [
-        HelpSection(
-            title: "surfaces",
-            rows: [
-                HelpRow(keys: "f", what: "field view"),
-                HelpRow(keys: "F", what: "host map — floats"),
-                HelpRow(keys: "*", what: "favorites panel"),
-                HelpRow(keys: "`", what: "terminal"),
-                HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
-                HelpRow(keys: "?", what: "this card · ? again floats it"),
-                HelpRow(keys: "⌘,", what: "settings"),
-            ]),
-        HelpSection(
-            title: "app",
-            rows: [
-                HelpRow(keys: "⌘R", what: "refresh"),
-                HelpRow(keys: "⌘← / ⌘→", what: "back / forward"),
-                HelpRow(keys: "⌘+ / ⌘− / ⌘0", what: "zoom in / out / reset"),
-                HelpRow(keys: "⌘K", what: "clear terminal"),
-                HelpRow(keys: "⇧⌘G", what: "go to host : path"),
-                HelpRow(keys: "⇧⌘L", what: "operations log"),
-                HelpRow(keys: "8", what: "star highlighted entry"),
-                HelpRow(keys: "⌘8", what: "star this folder"),
-            ]),
-        HelpSection(
-            title: "terminal reads",
-            rows: [
-                HelpRow(keys: "⇧tab", what: "engage · tool reads"),
-                HelpRow(keys: "d z s p", what: "df · zfs list · zpool status · zpool list"),
-            ]),
-    ]
+    private static let surfacesSection = HelpSection(
+        title: "surfaces",
+        rows: [
+            HelpRow(keys: "f", what: "field view"),
+            HelpRow(keys: "F", what: "host map — floats"),
+            HelpRow(keys: "*", what: "favorites panel"),
+            HelpRow(keys: "v", what: "preview — right pane follows left"),
+            HelpRow(keys: "`", what: "terminal"),
+            HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
+            HelpRow(keys: "?", what: "this card · ? again floats it"),
+            HelpRow(keys: "⌘,", what: "settings"),
+        ])
+
+    private static let appSection = HelpSection(
+        title: "app",
+        rows: [
+            HelpRow(keys: "⌘R", what: "refresh"),
+            HelpRow(keys: "⌘← / ⌘→", what: "back / forward"),
+            HelpRow(keys: "⌘+ / ⌘− / ⌘0", what: "zoom in / out / reset"),
+            HelpRow(keys: "⌘K", what: "clear terminal"),
+            HelpRow(keys: "⇧⌘G", what: "go to host : path"),
+            HelpRow(keys: "⇧⌘L", what: "operations log"),
+            HelpRow(keys: "8", what: "star highlighted entry"),
+            HelpRow(keys: "⌘8", what: "star this folder"),
+        ])
+
+    private static let terminalReadsSection = HelpSection(
+        title: "terminal reads",
+        rows: [
+            HelpRow(keys: "⇧tab", what: "engage · tool reads"),
+            HelpRow(keys: "d z s p", what: "df · zfs list · zpool status · zpool list"),
+        ])
+
+    /// The zfs-mode grammar plus its live verbs — built from `zfsVerbs` so the
+    /// key hints track `zfsTool.verbs` and never drift (his review).
+    private var zfsSection: HelpSection {
+        var rows = [
+            HelpRow(keys: "Z", what: "enter / exit the dataset tree"),
+            HelpRow(keys: "⏎", what: "open a mounted dataset · esc leaves"),
+        ]
+        rows += zfsVerbs.map { HelpRow(keys: $0.keyHint, what: $0.label) }
+        return HelpSection(title: "zfs mode", rows: rows)
+    }
 
     var body: some View {
+        if chromeless {
+            // The floating panel's own window IS the chrome — no scrim.
+            card
+        } else {
+            // The in-window card dims the panes behind it (design system §4),
+            // so the glance reads as one surface instead of bleeding into the
+            // panes at its edges (his review). The scrim swallows stray clicks.
+            ZStack {
+                Theme.ink.opacity(0.12)
+                card
+            }
+        }
+    }
+
+    /// The card itself — three balanced columns under the navigate prelude, so
+    /// the whole vocabulary fits without towering (his review: too tall).
+    private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
             OverlayHeader(title: "the keys", onClose: dismissAction)
             VStack(alignment: .leading, spacing: 14 * scale) {
                 column([Self.prelude])
                 Divider()
-                HStack(alignment: .top, spacing: 32 * scale) {
+                HStack(alignment: .top, spacing: 28 * scale) {
                     column(Self.leftColumn)
-                    column(Self.rightColumn)
+                    column([Self.surfacesSection, Self.appSection])
+                    column([zfsSection, Self.terminalReadsSection])
                 }
                 marksLegend
                 Text("the terminal — a plan before Enter, its live output after; the tool reads land here too")

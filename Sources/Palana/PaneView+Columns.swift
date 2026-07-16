@@ -85,9 +85,15 @@ extension PaneView {
     @TableColumnBuilder<FileEntry, KeyPathComparator<FileEntry>>
     func coreColumns() -> some TableColumnContent<FileEntry, KeyPathComparator<FileEntry>> {
         TableColumn("name", value: \.name) { entry in
-            nameCell(entry)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(cursorWash(entry))
+            // A directory row is a drop target — a selection dropped here lands
+            // inside the folder (ho-14). The name cell carries it (the widest,
+            // stretching column); the wash paints the whole row via cursorWash.
+            folderDropTarget(
+                entry,
+                nameCell(entry)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            )
+            .background(cursorWash(entry))
         }
         .customizationID(PaneColumns.idName)
         // The name column is always visible — the platform's `.required` marks it
@@ -133,7 +139,7 @@ extension PaneView {
         TableColumn("permissions", value: \.permissions) { entry in
             Text(entry.permissions)
                 .foregroundStyle(Theme.inkFaint)
-                .font(.system(size: 12 * fontScale, design: .monospaced))
+                .font(Theme.font(12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cursorWash(entry))
         }
@@ -144,7 +150,7 @@ extension PaneView {
         TableColumn("owner", value: \.owner) { entry in
             Text(entry.owner)
                 .foregroundStyle(Theme.inkFaint)
-                .font(.system(size: 12 * fontScale, design: .monospaced))
+                .font(Theme.font(12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cursorWash(entry))
         }
@@ -155,7 +161,7 @@ extension PaneView {
         TableColumn("group", value: \.group) { entry in
             Text(entry.group)
                 .foregroundStyle(Theme.inkFaint)
-                .font(.system(size: 12 * fontScale, design: .monospaced))
+                .font(Theme.font(12, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(cursorWash(entry))
         }
@@ -249,7 +255,7 @@ extension PaneView {
                 action: { onStarEntry(entryPath) },
                 label: {
                     Image(systemName: isStarred ? "star.fill" : "star")
-                        .font(.system(size: 10))
+                        .font(Theme.font(10))
                         .foregroundStyle(isStarred ? Theme.accent : Theme.inkFaint.opacity(0.4))
                 }
             )

@@ -14,13 +14,16 @@ struct PalanaApp: App {
     private var delegate
     @State private var session = PalanaSession()
 
+    /// The appearance override — System / Light / Dark, off one stored key the
+    /// Settings picker also binds (ho-15). `.system` (nil) follows the OS live.
+    @AppStorage(AppAppearance.storageKey)
+    private var appearance: AppAppearance = .system
+
     var body: some Scene {
         WindowGroup("pālana") {
             SurfaceView(session: session)
                 .frame(minWidth: 720, minHeight: 420)
-                // The notebook is light-first for v1 — a dark variant is
-                // post-hands work, not a free system toggle.
-                .preferredColorScheme(.light)
+                .preferredColorScheme(appearance.colorScheme)
                 .onAppear { delegate.session = session }
         }
         .defaultSize(width: 1120, height: 700)
@@ -32,7 +35,7 @@ struct PalanaApp: App {
             SettingsForm(model: session.settings, session: session)
                 .padding(24)
                 .frame(minWidth: 360)
-                .preferredColorScheme(.light)
+                .preferredColorScheme(appearance.colorScheme)
         }
     }
 }
@@ -53,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         signal(SIGPIPE, SIG_IGN)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        // Force the whole app — main window AND the floating panels — to the
+        // stored appearance override, so the cards obey light/dark too (ho-15
+        // review). `.system` (nil) follows the OS.
+        NSApp.appearance = AppAppearance.current.nsAppearance
     }
 
     /// Persist, close the doors, then go — nothing outlives the window.
