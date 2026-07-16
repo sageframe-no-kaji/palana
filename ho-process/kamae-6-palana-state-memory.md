@@ -16,6 +16,60 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-07-15, tenth block — THE MOUNT SEAM PROVEN AND CLOSED; 10.3 CLOSED
+
+**COMPLETED**
+- **ho-10.4 (The Mount Seam) fully proven on his hands and CLOSED.** Three ATs
+  beyond AT-01, each built by agent (sonnet), reviewed from the diff, hands-verified:
+  - **AT-02 (`b49e42f`)** — the implicit-unmount heal. destroy / set-mountpoint /
+    clear-mountpoint on a MOUNTED dataset weave `sudo -n zfs unmount` ahead (+ a
+    trailing `sudo -n zfs mount` for the two mountpoint verbs); `MutationInput` +
+    `PlanRequest.targetMounted` carry the mounted fact from the surface to the pure
+    composer. **F1**: the field view grew the `sudo` chip to match the host map.
+  - **AT-03 (`dc6abf7`)** — `space` flips the recursive toggle (was mouse-only) in
+    both the field-less (destroy) and text (snapshot/rollback) gathers; space over
+    `r` because a typed name can hold `r`, never a space.
+  - **AT-04 (`869763d`)** — set-mountpoint composes `zfs set -u` (no auto-mount →
+    kills the mid-plan "insufficient privileges" warning). `zfs inherit` has no `-u`
+    (only `-rS` on 2.4.1) so clear-mountpoint keeps its cosmetic warning; the
+    explicit mount still lands it.
+  - Verdicts: heal fired on a pane-driven destroy (`palana/armedguard`, "It worked");
+    F1 chip shows; space toggle ("SMOOP"); `-u` set-mountpoint clean, no warning.
+    Accepted as correct: clear = inherit parent path; set-mountpoint preserves mount
+    state (unmounted stays unmounted — `m` mounts if wanted).
+- **ho-10.3 (pane mode) CLOSED** — proven by all-session use; Reflect corrects
+  Decision 3 (Z is the ONE zfs key, panel is click-only, umber badge).
+- **Housekeeping:** the integration worktree was reaped from `/tmp` by macOS —
+  branch ref lost but ALL commits intact; recreated `integration-shell-panemode`
+  at `492e06a` in a DURABLE worktree `../palana-integration`. Three fully-contained
+  per-ho pointer branches (10.3/10.4/11) deleted.
+
+**NEXT**
+- **His ho-10.1 verdicts** (snapshot-loop feel) + a **ho-11 terminal** hands pass
+  → close both. Then THE CLOSE CASCADE: **tag v0.5** on main → **merge integration
+  → main** → v1.0 = ho-12.
+- Fresh hos to open when he wants: **global UI text-scale** (⌘+/− everywhere,
+  scales ALL chrome — a font-factory refactor, its own ho); the **sudo-explainer**
+  (sudoers line at the refusal + settings reference — the last live piece of
+  ho-10.2's old scope; `10.2` is a dead number, give it a fresh one).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. App runs the integration build via HIS shell launch (`!` prefix —
+  my background launches get reaped at turn boundaries; the `!`-owned one survives).
+  Fixture VM `palana-zfs` UP.
+- Pool is littered with `@save-it` snapshots on nearly every dataset — plain
+  destroy hits "has children / use -r"; the space-toggle now reaches `-r`.
+  `armedguard` destroyed this session; `children`/`pjb`/etc. remain as targets.
+- Deferred (named in 10.4 Reflect): recursive-destroy of mounted CHILDREN;
+  set-mountpoint auto-mount-on-unmounted (a preference, his call); `-u` version-gate
+  for pre-2.2 hosts; sudo fixture `zfs-pool.json` re-capture.
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.4-beta public; mount seam (10.4) + pane mode (10.3) CLOSED on the
+  integration branch; v0.5 = his 10.1/11 verdicts + the merge away; v1.0 = ho-12.
+
+---
+
 ## State summary — 2026-07-12, ninth block — THE VERDICT MARATHON: SHELL GREEN, ZFS HARDENED, THE MOUNT SEAM LANDS
 
 **COMPLETED**
