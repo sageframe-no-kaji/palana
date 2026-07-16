@@ -13,16 +13,6 @@ struct SurfaceView: View {
     var body: some View {
         panes
             .overlay {
-                if session.helpVisible {
-                    // Summoned cards stay natural size — scaling them overflowed
-                    // the window (ho-13 review). ⌘+/− zooms the working surface,
-                    // not the glances. The live zfs verbs ride along so the card
-                    // shows their real keys.
-                    HelpOverlay(zfsVerbs: session.zfsTool.verbs)
-                        .onDismiss { session.helpVisible = false }
-                }
-            }
-            .overlay {
                 if session.settingsVisible {
                     SettingsCard(model: session.settings, session: session)
                 }
@@ -42,22 +32,11 @@ struct SurfaceView: View {
             .sheet(item: $session.gotoTarget) { side in
                 gotoBar(for: side)
             }
-            .onChange(of: session.floatingHelpTick) {
-                // ? ? — the card trades itself for the panel that stays.
-                KeysPanelController.shared.show(zfsVerbs: session.zfsTool.verbs)
-            }
-            .onChange(of: session.helpVisible) { _, visible in
-                // Never both: help summons, the field, settings, and panel yield.
+            .onChange(of: session.settingsVisible) { _, visible in
+                // Settings and the field card are mutually exclusive; the keys
+                // popout yields to settings too.
                 if visible {
                     KeysPanelController.shared.close()
-                    session.fieldVisible = false
-                    session.settingsVisible = false
-                }
-            }
-            .onChange(of: session.settingsVisible) { _, visible in
-                // Settings card and help/field are mutually exclusive.
-                if visible {
-                    session.helpVisible = false
                     session.fieldVisible = false
                     session.settings.refreshConfigText()
                 } else {
@@ -70,6 +49,12 @@ struct SurfaceView: View {
                 if visible {
                     session.settingsVisible = false
                 }
+            }
+            .onChange(of: session.fontScale) {
+                // One master zoom — resize the open floating panels to the new
+                // factor (his review). No-op when a panel is closed.
+                KeysPanelController.shared.applyScale()
+                ZFSPanelController.shared.applyScale()
             }
             .onChange(of: session.previewFollowKey) {
                 // The preview follows the opposite pane's cursor (ho-16); the
@@ -181,14 +166,14 @@ struct SurfaceView: View {
                 )
             }
             paneVerb("gearshape", help: "settings — ⌘,") {
-                session.helpVisible = false
+                KeysPanelController.shared.close()
                 session.fieldVisible = false
                 session.settingsVisible.toggle()
             }
             paneVerb("questionmark", help: "the keys — ? on the keyboard") {
                 session.settingsVisible = false
                 session.fieldVisible = false
-                session.helpVisible.toggle()
+                KeysPanelController.shared.toggle(zfsVerbs: session.zfsTool.verbs)
             }
         }
         .background(Capsule().fill(Theme.groundDeep))

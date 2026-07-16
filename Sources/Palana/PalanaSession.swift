@@ -24,8 +24,6 @@ final class PalanaSession {
     var focusedSide = SessionSnapshot.Side.left
     /// Non-nil while the go-to bar is up, naming the pane it points.
     var gotoTarget: SessionSnapshot.Side?
-    /// Whether the vocabulary card is up.
-    var helpVisible = false
     /// Whether the settings card is up.
     var settingsVisible = false
     /// True while a text field inside the settings card is focused.
@@ -33,11 +31,6 @@ final class PalanaSession {
     /// The key monitor stands down while this is true — typed characters
     /// belong to the field, not the grammar.
     var settingsFieldFocused = false
-    /// Asks the surface to open the floating keys window.
-    ///
-    /// Bumped by a second ? while the card is up — the surface watches
-    /// for the change.
-    private(set) var floatingHelpTick = 0
     /// The one operation in flight — verb to plan to enactment.
     let operation: OperationModel
     /// The pending multi-key prefix, for the footer.
@@ -268,7 +261,7 @@ final class PalanaSession {
     /// Where y and m would send, visible before any verb goes down —
     /// nil when there is nothing to say.
     var sendLine: String? {
-        guard !operation.active, gotoTarget == nil, !helpVisible else { return nil }
+        guard !operation.active, gotoTarget == nil else { return nil }
         guard focusedPane.status == .ready, !focusedPane.operationSubjects.isEmpty else {
             return nil
         }
@@ -474,10 +467,10 @@ extension PalanaSession {
             }
             return true
         case "?":
-            helpVisible = true
+            KeysPanelController.shared.toggle(zfsVerbs: zfsTool.verbs)
             return true
         case "f":
-            helpVisible = false
+            KeysPanelController.shared.close()
             fieldVisible = true
             fieldViewModel.summon(hosts: hosts)
             return true
@@ -501,7 +494,7 @@ extension PalanaSession {
         case .goTo:
             gotoTarget = focusedSide
         case .help:
-            helpVisible = true
+            KeysPanelController.shared.toggle(zfsVerbs: zfsTool.verbs)
         case .operationCopy:
             beginOperation(.copy)
         case .operationMove:
@@ -539,7 +532,8 @@ extension PalanaSession {
 
     /// Routes a key event while the keys panel is active.
     ///
-    /// The keys panel has Esc, ⌘1–5, and ⌘+/−. Everything else is untouched.
+    /// Esc closes; ⌘+/−/0 drive the one master zoom (his review) — the same
+    /// factor the whole surface rides. Everything else is untouched.
     private func handleKeysPanelKey(_ event: NSEvent) -> Bool {
         let keyCode = event.keyCode
         let chars = event.charactersIgnoringModifiers
@@ -548,19 +542,20 @@ extension PalanaSession {
             KeysPanelController.shared.close()
             return true
         }
-        if hasCommand, chars == "=" || chars == "+" {
-            KeysPanelController.shared.step(by: 1)
+        guard hasCommand else { return false }
+        switch chars {
+        case "=", "+":
+            TextScale.shared.stepUp()
             return true
-        }
-        if hasCommand, chars == "-" {
-            KeysPanelController.shared.step(by: -1)
+        case "-":
+            TextScale.shared.stepDown()
             return true
-        }
-        if hasCommand, let chars, let digit = Int(chars), (1...5).contains(digit) {
-            KeysPanelController.shared.select(step: digit - 1)
+        case "0":
+            TextScale.shared.reset()
             return true
+        default:
+            return false
         }
-        return false
     }
 }
 
@@ -576,7 +571,7 @@ extension PalanaSession {
     func handleGlobalChord(_ token: String) -> Bool {
         switch token {
         case "cmd-,":
-            helpVisible = false
+            KeysPanelController.shared.close()
             fieldVisible = false
             settingsVisible.toggle()
         case "cmd-`":
@@ -682,12 +677,6 @@ extension PalanaSession {
     /// everything else falls through to the main grammar path so navigation
     /// and verbs work exactly as when the panel is hidden.
     private func handleActiveOverlay(_ token: String) -> (handled: Bool, consumed: Bool) {
-        if helpVisible {
-            // The vocabulary card holds the keyboard above everything;
-            // app chords pass through, everything else waits.
-            handleHelpKey(token)
-            return (true, !token.contains("cmd-"))
-        }
         if settingsVisible {
             // The settings card holds the keyboard; app chords pass through.
             handleSettingsKey(token)
@@ -704,31 +693,6 @@ extension PalanaSession {
             return (false, false)
         }
         return (false, false)
-    }
-
-    /// Routes one keystroke while the vocabulary card is up.
-    ///
-    /// Esc closes; ? trades the card for the floating panel; f trades it
-    /// for the field; F closes help and toggles the host map panel.
-    private func handleHelpKey(_ token: String) {
-        if token == "esc" { helpVisible = false }
-        if token == "?" {
-            helpVisible = false
-            floatingHelpTick += 1
-        }
-        if token == "f" {
-            helpVisible = false
-            fieldVisible = true
-            fieldViewModel.summon(hosts: hosts)
-        }
-        if token == "F" {
-            helpVisible = false
-            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
-        }
-        if token == "*" {
-            helpVisible = false
-            toggleFavoritesPanel()
-        }
     }
 
     /// Routes one keystroke while the settings card is up.

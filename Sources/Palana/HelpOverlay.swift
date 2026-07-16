@@ -36,9 +36,9 @@ struct HelpOverlay: View {
     /// Called when the operator taps the ✕ close button.
     ///
     /// Set via the `.onDismiss(_:)` modifier — keeps the primary properties
-    /// clean and avoids trailing-closure ambiguity at the call site.
-    /// The card caller wires this to `session.helpVisible = false`.
-    /// The floating panel leaves it nil — the panel manages its own lifecycle.
+    /// clean and avoids trailing-closure ambiguity at the call site. The
+    /// floating panel wires it to its own close; there is no in-window card any
+    /// more (his review: one help surface).
     var dismissAction: (() -> Void)?
     /// True when a floating panel hosts the card — the panel owns the
     /// ground, the rounded clip, and the window shadow, so the card must
