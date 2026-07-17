@@ -20,7 +20,8 @@ final class UpdateChecker {
     struct Available: Equatable {
         /// The release tag, e.g. `v1.1`.
         let version: String
-        /// The release page to open.
+        /// Where to get it — the product site (the binary is on Payhip; the
+        /// site is the hub), not a GitHub download.
         let url: URL
     }
 
@@ -63,41 +64,36 @@ final class UpdateChecker {
             checking = false
             lastChecked = Date()
         }
-        guard let latest = await Self.fetchLatest() else { return }
+        guard let tag = await Self.fetchLatestTag() else { return }
         available =
-            ReleaseVersion.isNewer(latest.tag, than: current)
-            ? Available(version: latest.tag, url: latest.url) : nil
+            ReleaseVersion.isNewer(tag, than: current)
+            ? Available(version: tag, url: Links.website) : nil
     }
 
-    /// Fetches the latest release's tag and page URL, or `nil` on any failure —
-    /// an update check that can't reach GitHub is silent, never an error.
-    private static func fetchLatest() async -> LatestReleaseFacts? {
+    /// Fetches the latest release's tag from GitHub, or `nil` on any failure.
+    ///
+    /// Reads only the version — where to *get* the update is the site
+    /// (``Links/website``), since the binary is sold on Payhip. An update check
+    /// that can't reach GitHub is silent, never an error. Requires a published
+    /// GitHub Release per version (notes only; no binary attached).
+    private static func fetchLatestTag() async -> String? {
         guard let endpoint = URL(string: "https://api.github.com/repos/\(repoSlug)/releases/latest")
         else { return nil }
         var request = URLRequest(url: endpoint)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 8
         guard let (data, _) = try? await URLSession.shared.data(for: request),
-            let release = try? JSONDecoder().decode(GitHubRelease.self, from: data),
-            let releaseURL = URL(string: release.htmlURL)
+            let release = try? JSONDecoder().decode(GitHubRelease.self, from: data)
         else { return nil }
-        return LatestReleaseFacts(tag: release.tagName, url: releaseURL)
+        return release.tagName
     }
-}
-
-/// The tag + page URL of the latest release.
-private struct LatestReleaseFacts {
-    let tag: String
-    let url: URL
 }
 
 /// The slice of GitHub's release JSON the check reads.
 private struct GitHubRelease: Decodable {
     let tagName: String
-    let htmlURL: String
 
     enum CodingKeys: String, CodingKey {
         case tagName = "tag_name"
-        case htmlURL = "html_url"
     }
 }

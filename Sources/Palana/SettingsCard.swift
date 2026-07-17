@@ -447,7 +447,7 @@ extension SettingsForm {
             Button {
                 NSWorkspace.shared.open(update.url)
             } label: {
-                Text("\(update.version) is available — open the release ↗")
+                Text("\(update.version) is available — open the site ↗")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.accent)
             }

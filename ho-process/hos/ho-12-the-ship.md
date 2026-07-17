@@ -62,10 +62,15 @@ installs anything — the operator clicks through and updates by hand.
 - Sparkle (silent in-app install) stays a *later* option if the cadence ever
   wants it; the tag-announce is the right weight for v1.
 
-### Decision 4 — The release cut
-Tag **v1.0**, build, notarize, sign the dmg for Sparkle, publish the GitHub
-release + the appcast entry, update the README (drop the beta framing, the
-download points at v1.0), and mark the project lifecycle `production`.
+### Decision 4 — The release cut: Payhip for the binary, GitHub for the source
+The binary is **sold on Payhip**, not published as a public GitHub download.
+So: build + notarize the `.dmg` locally, upload it to **Payhip** (his hands), and
+cut a **notes-only GitHub Release** per version (tag `v1.0`, changelog, a link to
+Payhip, **no binary attached**) — that public tag is what the update check reads.
+The in-app links (Help menu, About, update announce) point at the **site**
+(`palana.sageframe.net`, `/help`) and the public repo, never at a GitHub
+download. Update the README off the beta framing (download → the site), and mark
+the lifecycle `production`.
 
 ---
 
