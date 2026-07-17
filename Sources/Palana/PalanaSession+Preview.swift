@@ -44,6 +44,13 @@ extension PalanaSession {
     func focusPane(_ side: SessionSnapshot.Side) {
         if previewActive, side == .right { return }
         focusedSide = side
+        // Clicking a pane reclaims the keyboard for it. After an operation's
+        // terminal or the interactive shell has taken the keyboard, a click
+        // that only moved `focusedSide` left the keys still aimed at the
+        // terminal — the pane looked focused but didn't answer keys, and Tab
+        // (which routes through the grammar) was the only way back (his report).
+        terminalFocused = false
+        shellFocused = false
     }
 
     /// Points the preview at the current LEFT-pane cursor.
