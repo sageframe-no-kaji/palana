@@ -19,6 +19,11 @@ struct PalanaApp: App {
     @AppStorage(AppAppearance.storageKey)
     private var appearance: AppAppearance = .system
 
+    /// The launch update-check opt-out (ho-12) — the same key the Settings
+    /// toggle binds, so the Help-menu checkmark and Settings stay in sync.
+    @AppStorage(UpdateChecker.storageKey)
+    private var checkForUpdates = true
+
     var body: some Scene {
         WindowGroup("pālana") {
             SurfaceView(session: session)
@@ -27,6 +32,27 @@ struct PalanaApp: App {
                 .onAppear { delegate.session = session }
         }
         .defaultSize(width: 1120, height: 700)
+        .commands {
+            // About → the standard panel with a link to the site.
+            CommandGroup(replacing: .appInfo) {
+                Button("About pālana") { Self.showAbout() }
+            }
+            // The Help menu — help site, the update opt-out, and the outward
+            // links (ho-12). The binary is on Payhip; these point at the site
+            // and the public repo.
+            CommandGroup(replacing: .help) {
+                Button("pālana Help") { NSWorkspace.shared.open(Links.help) }
+                Divider()
+                Toggle("Check for Updates on Startup", isOn: $checkForUpdates)
+                Button("Report a Bug…") { NSWorkspace.shared.open(Links.reportBug) }
+                Divider()
+                Section("Support Development") {
+                    Button("Buy Me a Coffee…") { NSWorkspace.shared.open(Links.coffee) }
+                }
+                Divider()
+                Button("GitHub…") { NSWorkspace.shared.open(Links.github) }
+            }
+        }
         Settings {
             // The same SettingsModel that drives the in-window card.
             // Both surfaces observe one instance — the practitioner's
@@ -37,6 +63,21 @@ struct PalanaApp: App {
                 .frame(minWidth: 360)
                 .preferredColorScheme(appearance.colorScheme)
         }
+    }
+
+    /// The standard About panel, with a clickable link to the site.
+    ///
+    /// The name, version, and copyright come from the bundle; the credits carry
+    /// the site so About is also a way to reach it.
+    private static func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        let credits = NSAttributedString(
+            string: "palana.sageframe.net",
+            attributes: [
+                .link: Links.website,
+                .foregroundColor: NSColor.linkColor,
+            ])
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }
 }
 
