@@ -21,10 +21,7 @@ enum Links {
     static let reportBug = url("https://github.com/sageframe-no-kaji/palana/issues/new")
 
     /// Support the work — the "Buy Me a Coffee" page.
-    ///
-    /// TODO(ho-12): swap the placeholder for the real page — points at the site
-    /// until then, so the menu item never opens a dead link.
-    static let coffee = url("https://palana.sageframe.net")
+    static let coffee = url("https://buymeacoffee.com/sageframe")
 
     /// Builds a `URL` from a compile-time-constant literal that is always valid.
     ///
