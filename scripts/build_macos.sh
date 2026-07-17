@@ -55,10 +55,19 @@ if $CLEAN_ONLY; then
     exit 0
 fi
 
-# ── Build (universal2) ────────────────────────────────────────────────────────
-echo "==> Building ${APP_NAME}  (version ${VERSION}, universal arm64 + x86_64)"
-swift build -c release --arch arm64 --arch x86_64
-BIN_DIR="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
+# ── Build ─────────────────────────────────────────────────────────────────────
+# ARCH_FLAGS defaults to universal (arm64 + x86_64) for a shippable build. Set
+# ARCH_FLAGS="" for a fast native single-arch build (local dogfooding on Apple
+# Silicon) — the universal path goes through Xcode's build system, which needs
+# the downloadable Metal Toolchain component for SwiftTerm's shader; the native
+# path does not.
+# `-` (not `:-`): unset → universal default; explicit empty → native single-arch.
+ARCH_FLAGS="${ARCH_FLAGS---arch arm64 --arch x86_64}"
+echo "==> Building ${APP_NAME}  (version ${VERSION}, archs: ${ARCH_FLAGS:-native})"
+# shellcheck disable=SC2086
+swift build -c release $ARCH_FLAGS
+# shellcheck disable=SC2086
+BIN_DIR="$(swift build -c release $ARCH_FLAGS --show-bin-path)"
 BIN="$BIN_DIR/$APP_NAME"
 
 if [[ ! -x "$BIN" ]]; then
