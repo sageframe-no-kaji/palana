@@ -112,6 +112,10 @@ final class HostMapPanelController: NSObject, NSWindowDelegate {
 
     private var panel: NSPanel?
 
+    /// True while the panel is up — the surface's Esc reaches for an open
+    /// glance panel even when the main window holds the keyboard.
+    var isOpen: Bool { panel != nil }
+
     /// Shows the panel, refreshing the model first.
     func show(model: HostMapModel, hosts: [String]) {
         model.refresh(hosts: hosts)

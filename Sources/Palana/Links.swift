@@ -17,6 +17,16 @@ enum Links {
     /// The public source repository (GPL-3.0).
     static let github = url("https://github.com/sageframe-no-kaji/palana")
 
+    /// The running version string.
+    ///
+    /// The bundle's short version string, or `"dev build"` under a bare
+    /// `swift run` where no `Info.plist` version exists. The About window and
+    /// the bug prefill both read it from here.
+    static var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? "dev build"
+    }
+
     /// Filing a bug — a pre-filled issue on the public tracker.
     ///
     /// The running version and macOS are baked into the body, so every report
@@ -24,9 +34,7 @@ enum Links {
     /// the "what version am I on" friction. A `.github` issue template structures
     /// a raw `issues/new` for anyone who arrives without the query.
     static var reportBug: URL {
-        let version =
-            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-            ?? "dev build"
+        let version = appVersion
         let os = ProcessInfo.processInfo.operatingSystemVersionString
         let body = """
             **What happened**

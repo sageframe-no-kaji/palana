@@ -27,6 +27,11 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
     static let identifier = "palana-keys-window"
 
     private var panel: NSPanel?
+
+    /// True while the card is up — the surface's Esc reaches for an open
+    /// glance panel even when the main window holds the keyboard.
+    var isOpen: Bool { panel != nil }
+
     /// The card's natural size at scale 1, measured from the content.
     private var base = CGSize(width: 640, height: 420)
     /// The live zfs verbs to render in the floating card — set by `show`.

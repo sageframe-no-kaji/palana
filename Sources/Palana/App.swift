@@ -33,9 +33,10 @@ struct PalanaApp: App {
         }
         .defaultSize(width: 1120, height: 700)
         .commands {
-            // About → the standard panel with a link to the site.
+            // About → pālana's own window (icon, version, maker, links, the
+            // update note) — not the system panel.
             CommandGroup(replacing: .appInfo) {
-                Button("About pālana") { Self.showAbout() }
+                Button("About pālana") { AboutWindowController.shared.show() }
             }
             // The Help menu — help site, the update opt-out, and the outward
             // links (ho-12). The binary is on Payhip; these point at the site
@@ -63,21 +64,6 @@ struct PalanaApp: App {
                 .frame(minWidth: 360)
                 .preferredColorScheme(appearance.colorScheme)
         }
-    }
-
-    /// The standard About panel, with a clickable link to the site.
-    ///
-    /// The name, version, and copyright come from the bundle; the credits carry
-    /// the site so About is also a way to reach it.
-    private static func showAbout() {
-        NSApp.activate(ignoringOtherApps: true)
-        let credits = NSAttributedString(
-            string: "palana.sageframe.net",
-            attributes: [
-                .link: Links.website,
-                .foregroundColor: NSColor.linkColor,
-            ])
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }
 }
 

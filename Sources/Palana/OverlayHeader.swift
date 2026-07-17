@@ -13,7 +13,7 @@ import SwiftUI
 /// Usage:
 /// ```swift
 /// VStack(alignment: .leading, spacing: 14) {
-///     OverlayHeader(title: "settings") { session.settingsVisible = false }
+///     OverlayHeader(title: "settings") { SettingsPanelController.shared.close() }
 ///     // ... content ...
 /// }
 /// ```

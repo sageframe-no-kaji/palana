@@ -39,6 +39,10 @@ final class ZFSPanelController: NSObject, NSWindowDelegate {
 
     private var panel: NSPanel?
 
+    /// True while the panel is up — the surface's Esc reaches for an open
+    /// glance panel even when the main window holds the keyboard.
+    var isOpen: Bool { panel != nil }
+
     /// The base size at scale 1.0 (step index 2) — 300 × 600.
     ///
     /// Taller than the original 480 to accommodate the dataset tree above

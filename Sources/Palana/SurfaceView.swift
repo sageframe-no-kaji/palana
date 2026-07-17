@@ -20,11 +20,6 @@ struct SurfaceView: View {
     var body: some View {
         panes
             .overlay {
-                if session.settingsVisible {
-                    SettingsCard(model: session.settings, session: session)
-                }
-            }
-            .overlay {
                 if session.fieldVisible {
                     FieldOverlay(viewModel: session.fieldViewModel) { pointing in
                         session.point(
@@ -39,22 +34,11 @@ struct SurfaceView: View {
             .sheet(item: $session.gotoTarget) { side in
                 gotoBar(for: side)
             }
-            .onChange(of: session.settingsVisible) { _, visible in
-                // Settings and the field card are mutually exclusive; the keys
-                // popout yields to settings too.
-                if visible {
-                    KeysPanelController.shared.close()
-                    session.fieldVisible = false
-                    session.settings.refreshConfigText()
-                } else {
-                    session.settings.clearNotice()
-                    session.settingsFieldFocused = false
-                }
-            }
             .onChange(of: session.fieldVisible) { _, visible in
-                // Field view and settings are mutually exclusive.
+                // The field overlay takes the window; the settings panel steps
+                // aside so the two don't stack over the panes.
                 if visible {
-                    session.settingsVisible = false
+                    SettingsPanelController.shared.close()
                 }
             }
             .onChange(of: session.fontScale) {
@@ -144,6 +128,9 @@ struct SurfaceView: View {
             }
             .disabled(session.left.state.host == nil)
         }
+        // Same end padding as the glyph cluster — the outer arrows sit fully on
+        // the platter, not tucked into the pill's rounded ends.
+        .padding(.horizontal, 6)
         .background(Capsule().fill(Theme.groundDeep))
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
     }
@@ -167,6 +154,20 @@ struct SurfaceView: View {
     /// The four glyphs — their own platter, no custom capsule.
     private var glyphCluster: some View {
         HStack(spacing: 0) {
+            ToolbarGlyphButton(
+                session.previewActive ? "eye.fill" : "eye",
+                help: "preview the other pane's file — v",
+                isActive: session.previewActive
+            ) {
+                session.togglePreviewMode()
+            }
+            ToolbarGlyphButton(
+                session.zfsPaneActive ? "externaldrive.fill" : "externaldrive",
+                help: "zfs mode on the focused pane — Z",
+                isActive: session.zfsPaneActive
+            ) {
+                session.toggleZFSPaneMode()
+            }
             paneVerb("star", help: "favorites — *") {
                 session.toggleFavoritesPanel()
             }
@@ -177,16 +178,20 @@ struct SurfaceView: View {
                 )
             }
             paneVerb("gearshape", help: "settings — ⌘,") {
-                KeysPanelController.shared.close()
                 session.fieldVisible = false
-                session.settingsVisible.toggle()
+                SettingsPanelController.shared.toggle(
+                    model: session.settings, session: session)
             }
             paneVerb("questionmark", help: "the keys — ? on the keyboard") {
-                session.settingsVisible = false
                 session.fieldVisible = false
                 KeysPanelController.shared.toggle(zfsVerbs: session.zfsTool.verbs)
             }
         }
+        // End padding inside the pill so the outermost glyphs (eye, ?) sit fully
+        // on the platter instead of tucking into the capsule's rounded ends —
+        // the same breathing room the पालन pill gets. Six glyphs now, so the
+        // ends must be covered as evenly as the middle.
+        .padding(.horizontal, 6)
         .background(Capsule().fill(Theme.groundDeep))
         .overlay(Capsule().stroke(Theme.inkFaint.opacity(0.25), lineWidth: 1))
         // Pull the bubble in off the corner so its right edge lines up with
@@ -354,12 +359,21 @@ extension SessionSnapshot.Side: Identifiable {
 struct ToolbarGlyphButton: View {
     let systemName: String
     let help: String
+    /// A mode glyph stays lit while its mode is engaged (the preview toggle);
+    /// plain action glyphs leave it false and only wash on hover.
+    let isActive: Bool
     let action: () -> Void
     @State private var hovering = false
 
-    init(_ systemName: String, help: String, action: @escaping () -> Void) {
+    init(
+        _ systemName: String,
+        help: String,
+        isActive: Bool = false,
+        action: @escaping () -> Void
+    ) {
         self.systemName = systemName
         self.help = help
+        self.isActive = isActive
         self.action = action
     }
 
@@ -370,11 +384,17 @@ struct ToolbarGlyphButton: View {
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 5)
-                .background(Capsule().fill(Theme.accent.opacity(hovering ? 0.14 : 0)))
+                .background(Capsule().fill(Theme.accent.opacity(fillOpacity)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(help)
+    }
+
+    /// The wash: held while active, a lighter touch on hover, else clear.
+    private var fillOpacity: Double {
+        if isActive { return 0.22 }
+        return hovering ? 0.14 : 0
     }
 }

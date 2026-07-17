@@ -197,6 +197,10 @@ extension PalanaSession {
         enterZFSMode(on: pane, host: pane.state.host)
     }
 
+    /// True while the focused pane is in zfs mode — the toolbar glyph lights
+    /// with it, mirroring the preview glyph's active state.
+    var zfsPaneActive: Bool { focusedPane.paneMode == .zfs }
+
     /// Capability-gated entry into zfs mode on a specific pane.
     ///
     /// Shared by `toggleZFSPaneMode` (the `Z` key, always the focused pane)

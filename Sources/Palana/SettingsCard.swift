@@ -491,48 +491,6 @@ extension SettingsForm {
 
 /// The in-window settings card — dimmed ground, centred panel, Esc dismisses.
 ///
-/// Mirrors the `FieldOverlay` card pattern. Contains `SettingsForm` so
-/// the card and the Apple Settings scene render the same controls.
-struct SettingsCard: View {
-    /// The settings model — hosts, rsync flags, and config write verbs.
-    @Bindable var model: SettingsModel
-    /// The session — receives the field-focused stand-down signal.
-    var session: PalanaSession
-
-    var body: some View {
-        ZStack {
-            // The dimming scrim — ink over the world, the design system's
-            // depth idiom (§4), so no view spells a raw hue (ho-15).
-            Theme.ink.opacity(0.12)
-            card
-        }
-    }
-
-    private var card: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            OverlayHeader(title: "settings") { session.settingsVisible = false }
-            VStack(alignment: .leading, spacing: 14) {
-                SettingsForm(model: model, session: session)
-                Divider().opacity(0.35)
-                cardFooter
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
-            .padding(.top, 6)
-        }
-        .frame(width: 400)
-        .background(Theme.ground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(color: Theme.ink.opacity(0.18), radius: 24, y: 8)
-    }
-
-    private var cardFooter: some View {
-        Text("esc closes")
-            .font(.system(size: 10))
-            .foregroundStyle(Theme.inkFaint)
-    }
-}
-
 /// A read-only popover showing the current `~/.ssh/config` contents.
 ///
 /// Monospaced and scrollable, text-selectable but not editable — the

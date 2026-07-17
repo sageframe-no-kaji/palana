@@ -24,9 +24,7 @@ final class PalanaSession {
     var focusedSide = SessionSnapshot.Side.left
     /// Non-nil while the go-to bar is up, naming the pane it points.
     var gotoTarget: SessionSnapshot.Side?
-    /// Whether the settings card is up.
-    var settingsVisible = false
-    /// True while a text field inside the settings card is focused.
+    /// True while a text field inside the settings panel is focused.
     ///
     /// The key monitor stands down while this is true — typed characters
     /// belong to the field, not the grammar.
@@ -372,6 +370,15 @@ extension PalanaSession {
                 }
                 return consumed ? nil : event
             }
+            if event.window?.identifier?.rawValue == SettingsPanelController.identifier {
+                // Esc closes and ⌘+/−/0 zoom are consumed; every other key —
+                // the typing in the rsync-flags and add-host fields — passes
+                // through to the field editor untouched.
+                let consumed = MainActor.assumeIsolated {
+                    self?.handleSettingsPanelKey(event) == true
+                }
+                return consumed ? nil : event
+            }
             // ho-11: while the shell holds the panel, it is the key first
             // responder in the same window — no window identifier
             // distinguishes it, so the stand-down is checked here by the
@@ -525,6 +532,9 @@ extension PalanaSession {
     /// Decision 3), then a pending prefix dies, then a bare Esc clears the
     /// selection.
     private func handleEscInMainPath() {
+        if closeOpenGlancePanel() {
+            return
+        }
         if previewActive {
             // The viewer exits whole — the right pane previews, not the focused
             // (locked-left) pane, so check the viewer directly (ho-16 review).
@@ -539,32 +549,49 @@ extension PalanaSession {
         }
     }
 
+    /// Closes whichever floating glance panel is up.
+    ///
+    /// Returns true if one closed. Each glance panel (keys, host map, favorites, zfs) already dismisses on
+    /// Esc while it holds the keyboard. But a panel summoned by a toolbar click
+    /// leaves the keyboard on the main window, so a bare Esc lands here — this
+    /// reaches for the open one and shuts it, making Esc a reliable "out of
+    /// panels" whether the panel or the panes hold the keyboard. Checked before
+    /// the pane's own Esc verbs so one press peels the topmost surface.
+    private func closeOpenGlancePanel() -> Bool {
+        if KeysPanelController.shared.isOpen {
+            KeysPanelController.shared.close()
+            return true
+        }
+        if HostMapPanelController.shared.isOpen {
+            HostMapPanelController.shared.close()
+            return true
+        }
+        if FavoritesPanelController.shared.isOpen {
+            FavoritesPanelController.shared.close()
+            return true
+        }
+        if ZFSPanelController.shared.isOpen {
+            ZFSPanelController.shared.close()
+            return true
+        }
+        if SettingsPanelController.shared.isOpen {
+            SettingsPanelController.shared.close()
+            return true
+        }
+        return false
+    }
+
     /// Routes a key event while the keys panel is active.
     ///
     /// Esc closes; ⌘+/−/0 drive the one master zoom (his review) — the same
     /// factor the whole surface rides. Everything else is untouched.
     private func handleKeysPanelKey(_ event: NSEvent) -> Bool {
-        let keyCode = event.keyCode
-        let chars = event.charactersIgnoringModifiers
-        let hasCommand = event.modifierFlags.contains(.command)
-        if keyCode == 53 {
+        if event.keyCode == 53 {
             KeysPanelController.shared.close()
             return true
         }
-        guard hasCommand else { return false }
-        switch chars {
-        case "=", "+":
-            TextScale.shared.stepUp()
-            return true
-        case "-":
-            TextScale.shared.stepDown()
-            return true
-        case "0":
-            TextScale.shared.reset()
-            return true
-        default:
-            return false
-        }
+        guard event.modifierFlags.contains(.command) else { return false }
+        return applyZoomChord(event.charactersIgnoringModifiers)
     }
 }
 
@@ -580,9 +607,8 @@ extension PalanaSession {
     func handleGlobalChord(_ token: String) -> Bool {
         switch token {
         case "cmd-,":
-            KeysPanelController.shared.close()
             fieldVisible = false
-            settingsVisible.toggle()
+            SettingsPanelController.shared.toggle(model: settings, session: self)
         case "cmd-`":
             // The shell KEYBOARD toggle (ho-11 hands session, twice
             // corrected). ⌘Esc never reaches the app — the system eats
@@ -686,11 +712,6 @@ extension PalanaSession {
     /// everything else falls through to the main grammar path so navigation
     /// and verbs work exactly as when the panel is hidden.
     private func handleActiveOverlay(_ token: String) -> (handled: Bool, consumed: Bool) {
-        if settingsVisible {
-            // The settings card holds the keyboard; app chords pass through.
-            handleSettingsKey(token)
-            return (true, !token.contains("cmd-"))
-        }
         if fieldVisible {
             // The topology card holds the keyboard; app chords pass through.
             handleFieldKey(token)
@@ -702,26 +723,6 @@ extension PalanaSession {
             return (false, false)
         }
         return (false, false)
-    }
-
-    /// Routes one keystroke while the settings card is up.
-    ///
-    /// Esc dismisses; f trades settings for the field card; F toggles the
-    /// host map panel (settings stays up — the map floats independent).
-    /// All other non-cmd keys are swallowed.
-    private func handleSettingsKey(_ token: String) {
-        if token == "esc" { settingsVisible = false }
-        if token == "f" {
-            settingsVisible = false
-            fieldVisible = true
-            fieldViewModel.summon(hosts: hosts)
-        }
-        if token == "F" {
-            HostMapPanelController.shared.toggle(model: hostMapModel, hosts: hosts)
-        }
-        if token == "*" {
-            toggleFavoritesPanel()
-        }
     }
 
     /// Routes one keystroke while the topology overlay is up.
