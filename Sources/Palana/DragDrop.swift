@@ -81,7 +81,7 @@ func itemProvider(for selection: DraggedSelection, localFileURL: URL? = nil) -> 
 /// per refuse, none for empty.
 ///
 /// - Parameters:
-///   - decision: The outcome of ``DropDecision/decide(payload:targetHost:targetDirectory:optionHeld:)``.
+///   - decision: The outcome of ``DropDecision/decide(payload:targetHost:targetDirectory:moveHeld:)``.
 ///   - payload: The drag payload from the source pane.
 ///   - targetPane: The destination pane model.
 ///   - sourcePanes: Both pane models — used to locate the source pane for
@@ -145,7 +145,7 @@ func routeDropDecision(
 /// same way a Finder drop does). Nothing enacts; the panel is the gate.
 ///
 /// - Parameters:
-///   - decision: The outcome of ``DropDecision/decideOntoFolder(payload:targetHost:folderPath:folderNameData:optionHeld:)``.
+///   - decision: The outcome of ``DropDecision/decideOntoFolder(payload:targetHost:folderPath:folderNameData:moveHeld:)``.
 ///   - payload: The drag payload from the source pane.
 ///   - destination: The folder as a ``Locus`` — the destination host and the
 ///     folder's full path, resolved by the caller.
@@ -195,9 +195,9 @@ func routeFolderDrop(
 /// Value-typed and `Sendable`; safe to hop across actor boundaries.
 enum DropResult: Sendable {
     /// A ``DraggedSelection`` was decoded from the JSON pasteboard type.
-    case selection(DraggedSelection, optionHeld: Bool)
+    case selection(DraggedSelection, moveHeld: Bool)
     /// File URLs were collected from a Finder drop.
-    case urls([URL], optionHeld: Bool)
+    case urls([URL], moveHeld: Bool)
 }
 
 /// Resolves providers from `.onDrop` to a ``DropResult`` asynchronously.
@@ -211,12 +211,12 @@ enum DropResult: Sendable {
 ///
 /// - Parameters:
 ///   - providers: The `NSItemProvider` array from the `.onDrop` closure.
-///   - optionHeld: Whether Option was held at drop time (captured before the
+///   - moveHeld: Whether Option was held at drop time (captured before the
 ///     async hops to avoid checking modifier state off-thread).
 /// - Returns: A ``DropResult`` or `nil` when the providers carry nothing usable.
 func resolveDropProviders(
     providers: [NSItemProvider],
-    optionHeld: Bool
+    moveHeld: Bool
 ) async -> DropResult? {
     // Try public.json first — pane-to-pane drag.
     if let provider = providers.first(where: {
@@ -235,7 +235,7 @@ func resolveDropProviders(
             }
         }
         if let payload = result {
-            return .selection(payload, optionHeld: optionHeld)
+            return .selection(payload, moveHeld: moveHeld)
         }
         // Decoded nothing — fall through to URL resolution below.
     }
@@ -261,7 +261,7 @@ func resolveDropProviders(
         }
         if let url { urls.append(url) }
     }
-    return urls.isEmpty ? nil : .urls(urls, optionHeld: optionHeld)
+    return urls.isEmpty ? nil : .urls(urls, moveHeld: moveHeld)
 }
 
 // MARK: - Unified drop handler
@@ -285,9 +285,9 @@ func resolveDropProviders(
 ///   - providers: The `NSItemProvider` array from the `.onDrop` closure.
 ///   - model: The pane that is the drop target.
 ///   - onDropSelection: Called on the main queue with the decoded payload +
-///     option-held flag.
+///     move-held flag (⌘).
 ///   - onFinderDrop: Called on the main queue with the resolved URLs +
-///     option-held flag.
+///     move-held flag (⌘).
 /// - Returns: `true` when a drop is attempted; `false` on refusal or empty providers.
 @MainActor
 func handleUnifiedDrop(
@@ -299,7 +299,10 @@ func handleUnifiedDrop(
     guard model.status == .ready, model.state.host != nil else {
         return false
     }
-    let optionHeld = NSEvent.modifierFlags.contains(.option)
+    // Copy is the default; ⌘ escalates to a move — the one universal modifier,
+    // read the same for pane-to-pane and Finder drags (a ⌘-drag from Finder
+    // sets the drag's operation mask to .move). The plan is still the gate.
+    let moveHeld = NSEvent.modifierFlags.contains(.command)
 
     // Quick check — bail before async work when nothing looks right.
     let hasJSON = providers.contains {
@@ -318,7 +321,7 @@ func handleUnifiedDrop(
     Task {
         let result = await resolveDropProviders(
             providers: providers,
-            optionHeld: optionHeld
+            moveHeld: moveHeld
         )
         guard let result else { return }
         DispatchQueue.main.async {
@@ -345,7 +348,7 @@ func handleUnifiedDrop(
 /// Returns `true` when a promising drag is present so the row consumes the drop
 /// and the pane-level handler does not also fire (no double-plan). The resolved
 /// payload or URLs are delivered on the main queue with the folder entry and
-/// the option-held flag.
+/// the move-held flag (⌘).
 ///
 /// - Parameters:
 ///   - providers: The `NSItemProvider` array from the row's `.onDrop` closure.
@@ -370,9 +373,10 @@ func handleFolderDrop(
         $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
     }
     guard hasJSON || hasURLs else { return false }
-    let optionHeld = NSEvent.modifierFlags.contains(.option)
+    // Same rule as the pane-level drop: copy by default, ⌘ moves.
+    let moveHeld = NSEvent.modifierFlags.contains(.command)
     Task {
-        let result = await resolveDropProviders(providers: providers, optionHeld: optionHeld)
+        let result = await resolveDropProviders(providers: providers, moveHeld: moveHeld)
         guard let result else { return }
         DispatchQueue.main.async {
             switch result {
@@ -402,7 +406,7 @@ func handleFolderDrop(
 ///   - targetPane: The destination pane.
 ///   - engine: The session's engine (for the local listing).
 ///   - operation: The ``OperationModel`` that owns the panel and the transcript.
-///   - optionHeld: Whether Option was held at drop time.
+///   - moveHeld: Whether Option was held at drop time.
 ///   - destinationDirectory: When non-nil, the plan targets this directory on
 ///     the destination host instead of the pane's cwd — a Finder drop onto a
 ///     folder row (ho-14 review) passes the folder's full path.
@@ -412,7 +416,7 @@ func routeFinderDrop(
     targetPane: PaneModel,
     engine: Engine,
     operation: OperationModel,
-    optionHeld: Bool,
+    moveHeld: Bool,
     destinationDirectory: String? = nil
 ) {
     guard !urls.isEmpty else { return }
@@ -437,7 +441,7 @@ func routeFinderDrop(
         }
     }
     // Resolve entries from the local listing — byte-honest, never hand-built.
-    let planOperation: PlanOperation = optionHeld ? .move : .copy
+    let planOperation: PlanOperation = moveHeld ? .move : .copy
     Task { @MainActor in
         do {
             let entries = try await engine.localListing

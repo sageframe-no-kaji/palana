@@ -115,17 +115,11 @@ struct PaneView: View {
                     .allowsHitTesting(false)
             }
         }
-        // The drop wash — accent ground + 2px inner border while a valid
-        // drag hovers. Layered above the dim overlay so it is always visible.
+        // The drop wash names the verb where the drop lands — copy default, ⌘
+        // moves (``DropWash``, extracted for the line budget).
         .overlay {
             if dropTargeted {
-                RoundedRectangle(cornerRadius: 0)
-                    .fill(Theme.accent.opacity(0.08))
-                    .overlay(
-                        Rectangle()
-                            .strokeBorder(Theme.accent, lineWidth: 2)
-                    )
-                    .allowsHitTesting(false)
+                DropWash()
             }
         }
         // Pane-level drop surface — unified .onDrop handles both DraggedSelection

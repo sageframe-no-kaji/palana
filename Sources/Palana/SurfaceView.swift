@@ -235,20 +235,20 @@ struct SurfaceView: View {
                 guard let host = model.state.host else { return }
                 session.favorites.toggle(host: host, path: path)
             },
-            onDropSelection: { payload, optionHeld in
+            onDropSelection: { payload, moveHeld in
                 session.handleSelectionDrop(
-                    payload: payload, targetPane: model, optionHeld: optionHeld)
+                    payload: payload, targetPane: model, moveHeld: moveHeld)
             },
-            onDropSelectionOntoFolder: { payload, folder, optionHeld in
+            onDropSelectionOntoFolder: { payload, folder, moveHeld in
                 session.handleSelectionDropOntoFolder(
-                    payload: payload, targetPane: model, folder: folder, optionHeld: optionHeld)
+                    payload: payload, targetPane: model, folder: folder, moveHeld: moveHeld)
             },
-            onFinderDropOntoFolder: { urls, folder, optionHeld in
+            onFinderDropOntoFolder: { urls, folder, moveHeld in
                 session.handleFinderDropOntoFolder(
-                    urls: urls, targetPane: model, folder: folder, optionHeld: optionHeld)
+                    urls: urls, targetPane: model, folder: folder, moveHeld: moveHeld)
             },
-            onFinderDrop: { urls, optionHeld in
-                session.handleFinderDrop(urls: urls, targetPane: model, optionHeld: optionHeld)
+            onFinderDrop: { urls, moveHeld in
+                session.handleFinderDrop(urls: urls, targetPane: model, moveHeld: moveHeld)
             },
             onShowPanel: {
                 session.operation.showPanel()

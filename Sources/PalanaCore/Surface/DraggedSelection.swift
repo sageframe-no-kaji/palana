@@ -37,7 +37,7 @@ public struct DraggedSelection: Codable, Sendable, Equatable {
 
 /// What happens when a drag lands.
 ///
-/// Produced by ``DropDecision/decide(payload:targetHost:targetDirectory:optionHeld:)`` —
+/// Produced by ``DropDecision/decide(payload:targetHost:targetDirectory:moveHeld:)`` —
 /// a pure function in `PalanaCore`, tested.
 public enum DropDecision: Equatable, Sendable {
     /// Compose a plan with the given operation — copy or move.
@@ -52,24 +52,25 @@ public enum DropDecision: Equatable, Sendable {
 
     /// The pure drop decision function.
     ///
-    /// Given a payload, a target host and directory, and whether the option
-    /// key was held at drop time, returns what should happen:
+    /// Copy is the default; the move modifier (⌘, read by the surface) escalates
+    /// to a move. Given a payload, a target host and directory, and whether that
+    /// modifier was held at drop time, returns what should happen:
     /// - `.refuseEmpty` when `payload.names` is empty.
     /// - `.refuseSamePlace` when host and directory match after trailing-slash normalization.
-    /// - `.compose(.move)` when `optionHeld` is `true`.
+    /// - `.compose(.move)` when `moveHeld` is `true`.
     /// - `.compose(.copy)` otherwise.
     ///
     /// - Parameters:
     ///   - payload: The drag payload from the source pane.
     ///   - targetHost: The ssh alias of the destination pane's host.
     ///   - targetDirectory: The current directory of the destination pane.
-    ///   - optionHeld: Whether the Option key was held at the moment of drop.
+    ///   - moveHeld: Whether the move modifier (⌘) was held at the moment of drop.
     /// - Returns: The resolved ``DropDecision``.
     public static func decide(
         payload: DraggedSelection,
         targetHost: String,
         targetDirectory: String,
-        optionHeld: Bool
+        moveHeld: Bool
     ) -> Self {
         guard !payload.names.isEmpty else { return .refuseEmpty }
 
@@ -80,7 +81,7 @@ public enum DropDecision: Equatable, Sendable {
             return .refuseSamePlace
         }
 
-        return optionHeld ? .compose(.move) : .compose(.copy)
+        return moveHeld ? .compose(.move) : .compose(.copy)
     }
 
     /// The drop decision for a drag that lands on a **folder row** (ho-14).
@@ -92,12 +93,12 @@ public enum DropDecision: Equatable, Sendable {
     ///   the folder lives in the drag's own source directory, and its name is in
     ///   the selection). Refused the same way any self-drop is.
     /// - **Files already here** — the folder *is* the source directory; this
-    ///   falls through to ``decide(payload:targetHost:targetDirectory:optionHeld:)``,
+    ///   falls through to ``decide(payload:targetHost:targetDirectory:moveHeld:)``,
     ///   whose same-place check catches it.
     ///
     /// Otherwise the folder is a genuine destination and the decision is
-    /// `.compose(.move)` under Option or `.compose(.copy)` — the exact
-    /// vocabulary the pane-level drop already speaks.
+    /// `.compose(.move)` under the move modifier (⌘) or `.compose(.copy)` — the
+    /// exact vocabulary the pane-level drop already speaks.
     ///
     /// - Parameters:
     ///   - payload: The drag payload from the source pane.
@@ -106,14 +107,14 @@ public enum DropDecision: Equatable, Sendable {
     ///     current directory).
     ///   - folderNameData: The folder's name bytes, for the self-in-selection
     ///     check — byte-honest, matching ``FileEntry/nameData`` and `payload.names`.
-    ///   - optionHeld: Whether Option was held at the moment of drop.
+    ///   - moveHeld: Whether the move modifier (⌘) was held at the moment of drop.
     /// - Returns: The resolved ``DropDecision``.
     public static func decideOntoFolder(
         payload: DraggedSelection,
         targetHost: String,
         folderPath: String,
         folderNameData: Data,
-        optionHeld: Bool
+        moveHeld: Bool
     ) -> Self {
         guard !payload.names.isEmpty else { return .refuseEmpty }
 
@@ -134,7 +135,7 @@ public enum DropDecision: Equatable, Sendable {
             payload: payload,
             targetHost: targetHost,
             targetDirectory: folderPath,
-            optionHeld: optionHeld)
+            moveHeld: moveHeld)
     }
 
     /// Strips a trailing slash unless the path is exactly `/`.

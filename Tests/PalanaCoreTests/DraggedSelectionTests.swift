@@ -1,6 +1,6 @@
 // DraggedSelection + DropDecision battery — payload Codable round-trip
 // (including non-UTF-8 names), Equatable sanity, and the full decision
-// matrix: same-place, differing host, differing path, option on/off,
+// matrix: same-place, differing host, differing path, move modifier on/off,
 // and empty names.
 
 import Foundation
@@ -102,19 +102,19 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "jodo",
             targetDirectory: "/rpool",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseEmpty)
     }
 
-    @Test("empty names with option held still → refuseEmpty, not compose")
-    func emptyNamesOptionHeldRefuses() {
+    @Test("empty names with move modifier held still → refuseEmpty, not compose")
+    func emptyNamesMoveHeldRefuses() {
         let payload = DraggedSelection(host: "koan", directory: "/tank", names: [])
         let decision = DropDecision.decide(
             payload: payload,
             targetHost: "jodo",
             targetDirectory: "/rpool",
-            optionHeld: true
+            moveHeld: true
         )
         #expect(decision == .refuseEmpty)
     }
@@ -132,7 +132,7 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/media",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -148,7 +148,7 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/media",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -164,7 +164,7 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/media/",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -180,7 +180,7 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/media/",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -196,14 +196,14 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
 
     // MARK: - Composing decisions
 
-    @Test("different hosts, same path, no option → compose(.copy)")
+    @Test("different hosts, same path, no modifier → compose(.copy)")
     func differentHostSamePath() {
         let payload = DraggedSelection(
             host: "koan",
@@ -214,12 +214,12 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "jodo",
             targetDirectory: "/tank/media",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
 
-    @Test("same host, different paths, no option → compose(.copy)")
+    @Test("same host, different paths, no modifier → compose(.copy)")
     func sameHostDifferentPath() {
         let payload = DraggedSelection(
             host: "koan",
@@ -230,12 +230,12 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/backup",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
 
-    @Test("different hosts, different paths, no option → compose(.copy)")
+    @Test("different hosts, different paths, no modifier → compose(.copy)")
     func differentHostDifferentPath() {
         let payload = DraggedSelection(
             host: "koan",
@@ -246,13 +246,13 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "jodo",
             targetDirectory: "/rpool/archive",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
 
-    @Test("option held → compose(.move)")
-    func optionHeldComposeMove() {
+    @Test("move modifier held → compose(.move)")
+    func moveHeldComposeMove() {
         let payload = DraggedSelection(
             host: "koan",
             directory: "/tank/media",
@@ -262,13 +262,13 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "jodo",
             targetDirectory: "/rpool/archive",
-            optionHeld: true
+            moveHeld: true
         )
         #expect(decision == .compose(.move))
     }
 
-    @Test("option held, same host different path → compose(.move)")
-    func optionHeldSameHostDifferentPath() {
+    @Test("move modifier held, same host different path → compose(.move)")
+    func moveHeldSameHostDifferentPath() {
         let payload = DraggedSelection(
             host: "koan",
             directory: "/tank/media",
@@ -278,13 +278,13 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/archive",
-            optionHeld: true
+            moveHeld: true
         )
         #expect(decision == .compose(.move))
     }
 
-    @Test("no option held, same host different path → compose(.copy) not .move")
-    func noOptionSameHostDifferentPath() {
+    @Test("no move modifier held, same host different path → compose(.copy) not .move")
+    func noModifierSameHostDifferentPath() {
         let payload = DraggedSelection(
             host: "koan",
             directory: "/tank/media",
@@ -294,7 +294,7 @@ struct DropDecisionTests {
             payload: payload,
             targetHost: "koan",
             targetDirectory: "/tank/archive",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
@@ -323,7 +323,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/media/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
@@ -334,19 +334,19 @@ struct DropDecisionOntoFolderTests {
             payload: drag(),
             targetHost: "koan",
             targetDirectory: "/tank/media",
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
 
-    @Test("option held onto a folder → compose(.move)")
-    func optionHeldOntoFolderMoves() {
+    @Test("move modifier held onto a folder → compose(.move)")
+    func moveHeldOntoFolderMoves() {
         let decision = DropDecision.decideOntoFolder(
             payload: drag(),
             targetHost: "koan",
             folderPath: "/tank/media/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: true
+            moveHeld: true
         )
         #expect(decision == .compose(.move))
     }
@@ -358,7 +358,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "jodo",
             folderPath: "/rpool/cold/incoming",
             folderNameData: Data("incoming".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
@@ -374,7 +374,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/media/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -389,7 +389,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/backup/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .compose(.copy))
     }
@@ -403,7 +403,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/media/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -415,7 +415,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/media/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
@@ -427,7 +427,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/media/sub",
             folderNameData: Data("sub".utf8),
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseEmpty)
     }
@@ -440,7 +440,7 @@ struct DropDecisionOntoFolderTests {
             targetHost: "koan",
             folderPath: "/tank/media/\u{FFFD}",
             folderNameData: weird,
-            optionHeld: false
+            moveHeld: false
         )
         #expect(decision == .refuseSamePlace)
     }
