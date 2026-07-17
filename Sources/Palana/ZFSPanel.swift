@@ -201,6 +201,7 @@ struct ZFSPanelContent: View {
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onExitCommand { ZFSPanelController.shared.close() }
     }
 }
 

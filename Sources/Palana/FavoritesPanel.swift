@@ -196,6 +196,7 @@ struct FavoritesContent: View {
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onExitCommand { FavoritesPanelController.shared.close() }
     }
 
     /// The destination selector — three arrows choose where a jump lands.

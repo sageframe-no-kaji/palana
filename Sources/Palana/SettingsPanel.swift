@@ -107,6 +107,7 @@ struct SettingsPanelContent: View {
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onExitCommand { SettingsPanelController.shared.close() }
         .onDisappear {
             model.clearNotice()
             session.settingsFieldFocused = false

@@ -189,6 +189,7 @@ struct HostMapContent: View {
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onExitCommand { HostMapPanelController.shared.close() }
     }
 
     private var scrollArea: some View {

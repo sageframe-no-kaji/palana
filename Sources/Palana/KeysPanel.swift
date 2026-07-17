@@ -172,6 +172,10 @@ struct KeysPanelContent: View {
             .padding(12)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        // Esc closes at the SwiftUI level — the app's key monitor does not fire
+        // for these floating panels when they hold the keyboard (verified: zero
+        // events reached it), so the panel must answer its own Esc.
+        .onExitCommand { KeysPanelController.shared.close() }
     }
 
     private func icon(_ systemName: String, delta: Int) -> some View {
