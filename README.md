@@ -4,9 +4,9 @@
 
 > pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs moves and copies server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
 
-**Status:** in active development, **v0.4-beta** — the first public build. The headless engine is complete and the app surface stands: dual-pane SSH file management, plan → enact, the field view, host onboarding. The ZFS workbench tool and the interactive terminal are not in yet; the signed v1.0 release follows. Source open under GPL-3.0.
+**Status:** **v1.0** — the first full release. The headless engine and the app surface are both complete: dual-pane SSH file management, plan → enact, cross-host transfers, the field view, the ZFS workbench (dataset tools, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. A native, signed, notarized macOS app. Source open under GPL-3.0.
 
-**▸ Try the beta.** A signed, notarized macOS build is on the [Releases page](https://github.com/sageframe-no-kaji/palana/releases/latest) — download the `.dmg`, drag to Applications, open it (macOS 14+). It's early: expect rough edges. **Feedback is wanted** — what's broken, what's missing, what feels wrong — [open an issue](https://github.com/sageframe-no-kaji/palana/issues).
+**▸ Get pālana.** A signed, notarized macOS app — [palana.sageframe.net](https://palana.sageframe.net) (macOS 14 or later). The source is here, GPL-3.0; **feedback and bugs** go to the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues).
 
 ---
 
@@ -28,6 +28,8 @@ And the field has no map. Eleven machines, dozens of services, multiple pools �
 - **The field view.** One keystroke summons the topology — machines, pools, datasets, reachability — as an overlay. Pick a node, a pane points there, the overlay vanishes. Discovery happens on demand, never continuously.
 - **The plan panel is a real terminal surface.** The plan's commands display there before enactment, and when Enter fires, the enactment echoes there live — the real commands, the real output, streaming. The claim that "these are the commands" is checkable by watching them run.
 - **The Workbench.** A plugin architecture from day one. A plugin gets the SSH layer, the topology, and a surface slot. The ZFS tool — dataset management, snapshots, pool visualization — ships at v1 and proves the API.
+- **The live shell.** `⌘\`` drops a real interactive terminal into the panel, per host — vim, htop, whatever — over your own `ssh`, without leaving pālana.
+- **The preview pane.** Press `v` and the right pane follows the left's cursor: text scrollable and monospace, images and PDFs via Quick Look, an info card always. Local files, and remote text and images too.
 
 ## Your First Session
 
@@ -142,9 +144,9 @@ The full design — every decision with its rationale — is public in the build
 
 | | |
 |---|---|
-| **Now** | v0.4-beta — the first public build. The engine is complete and headless — Conduit, Field, Listing, plan engine, Transports, at 97% coverage. The Surface stands on it: dual panes, plan → enact, the field view, plus rename and create, settings, favorites, and host onboarding. |
-| **Next** | The Workbench's first mutating tool — ZFS dataset management, snapshots, pools — the plugin API proven against real state. |
-| **Later** | Signing, notarization, and the v1.0 `.dmg` on GitHub Releases. |
+| **Now** | v1.0 — the first full release. The headless engine (Conduit, Field, Listing, Plan Engine, Transports) at ~97% coverage, and the whole surface on it: dual panes, plan → enact, cross-host transfers, the field view, the ZFS workbench (datasets, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. Signed, notarized, with a launch update check. |
+| **Next** | Snapshot-history — browse a file's past like a directory, restore with a copy. The homelab's time machine. |
+| **Later** | An operations queue; more Workbench tools as the practice demands. |
 
 ## What's Ahead
 
@@ -156,11 +158,11 @@ Items the architecture is prepared for but v1 does not include:
 
 **A services plugin.** Extends the field view's vocabulary from machines and datasets to the services running on them.
 
-**Sparkle auto-update.** The slot is named in the deployment model. v1 ships without it.
+**A silent in-app installer.** v1.0 checks for a newer release on launch and points you to it; a silent in-app updater (Sparkle) is a later option if the cadence wants it.
 
 ## Download
 
-The **v0.4-beta** — a signed and notarized macOS `.dmg`, direct download, no App Store — is on the [Releases page](https://github.com/sageframe-no-kaji/palana/releases/latest). Drag it to Applications and open it; it runs on macOS 14 or later. This is a beta: the engine and the app surface are in, the ZFS workbench tool and the interactive terminal are not yet. The signed v1.0 follows. Prefer to build it yourself? See [Development](#development).
+**pālana 1.0** — a signed and notarized macOS app, no App Store — is at [palana.sageframe.net](https://palana.sageframe.net). Drag it to Applications and open it; it runs on macOS 14 or later. Prefer to build it yourself? The source is here, GPL-3.0 — see [Development](#development).
 
 ## Requirements
 

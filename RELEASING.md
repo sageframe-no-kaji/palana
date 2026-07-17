@@ -7,10 +7,14 @@ build product in a `.app` by hand. No Xcode project.
 ## The sequence
 
 1. **Build + sign + notarize** — run the build script locally, test the DMG
-2. **Push the tag** — marks the release commit
-3. **Create the GitHub Release** — attach the DMG; this is the public download
+2. **Upload the DMG to Payhip** — this is the download (the paid binary)
+3. **Push the tag + a notes-only GitHub Release** — the public version marker
+4. **Update the site** — `palana.sageframe.net` carries the buy button + changelog
 
-> Tagging is just a marker. The **GitHub Release** is what people download.
+> The **binary is sold on Payhip**, not attached to a public GitHub download.
+> The GitHub Release is notes-only (tag + changelog + a link to the site); the
+> in-app update check reads that tag for the version and points the operator at
+> the site. Keep them in lockstep: a new tag means a new Payhip upload.
 
 ---
 
@@ -36,8 +40,8 @@ build product in a `.app` by hand. No Xcode project.
 export CODESIGN_IDENTITY="Developer ID Application: ANDREW TODD MARCUS (3N8F759K8D)"
 export NOTARIZE_KEYCHAIN_PROFILE="palana-notary"
 
-# VERSION and DMG_SUFFIX default to 0.4.0 and "beta".
-# Override per release, e.g.:  VERSION=1.0.0 DMG_SUFFIX="" ./scripts/build_macos.sh --dmg
+# VERSION and DMG_SUFFIX default to 1.0.0 and "" (no suffix).
+# Override per release, e.g.:  VERSION=1.1.0 ./scripts/build_macos.sh --dmg
 ./scripts/build_macos.sh --dmg
 ```
 
@@ -77,14 +81,27 @@ git push origin v<version>
 
 ---
 
-## Step 3 — Create the GitHub Release
+## Step 2 — Upload to Payhip
+
+The verified `dist/palana-<version>.dmg` is the product. Upload it to the Payhip
+listing as the new version's file. This is what buyers download.
+
+## Step 3 — Tag + a notes-only GitHub Release
 
 ```bash
-gh release create v<version> dist/palana-<version>-*.dmg \
-    --title "v<version>" \
-    --notes "<what's in this build; for a beta, name what isn't yet>"
+git push origin main
+gh release create v<version> \
+    --title "pālana <version>" \
+    --notes-file packaging/release-notes-<version>.md
 ```
 
-Mark pre-1.0 builds as prereleases (`--prerelease`). A beta must say plainly
-what's missing — as of v0.4-beta, the ZFS workbench tool and the interactive
-terminal are not yet in.
+**No binary is attached** — the notes point at `palana.sageframe.net` (Payhip).
+The in-app update check reads this release's tag for the version, so a tag with no
+release is invisible to it; always cut the release. Pre-1.0 builds are
+`--prerelease`.
+
+## Step 4 — The site
+
+Update `palana.sageframe.net` (the `sageframe-dharma/palana` site): the download/
+buy button to the new Payhip version, and the changelog. The Help menu, About,
+and the update announce all point here.
