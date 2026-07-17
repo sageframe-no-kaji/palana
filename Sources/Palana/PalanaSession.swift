@@ -405,7 +405,9 @@ extension PalanaSession {
         guard gotoTarget == nil else { return false }
         if case .handled(let consumed) = handleTextEntryPriority(event) { return consumed }
         guard let token = Grammar.token(for: event) else { return false }
-        // ⌘, reaches settings even while help or the field view is up.
+        // ⌘, reaches settings even while help or the field view is up; Esc
+        // backs out of an open floating glance panel — both handled globally,
+        // ahead of the plan panel and overlays that would otherwise eat them.
         if handleGlobalChord(token) { return true }
         let overlay = handleActiveOverlay(token)
         if overlay.handled { return overlay.consumed }
@@ -532,9 +534,8 @@ extension PalanaSession {
     /// Decision 3), then a pending prefix dies, then a bare Esc clears the
     /// selection.
     private func handleEscInMainPath() {
-        if closeOpenGlancePanel() {
-            return
-        }
+        // An open glance panel is already closed ahead of this by `handle`;
+        // here Esc peels the pane's own layers.
         if previewActive {
             // The viewer exits whole — the right pane previews, not the focused
             // (locked-left) pane, so check the viewer directly (ho-16 review).
@@ -606,6 +607,14 @@ extension PalanaSession {
     /// `cmd-,`/menus keep working while the PTY holds the panel.
     func handleGlobalChord(_ token: String) -> Bool {
         switch token {
+        case "esc":
+            // Peel an open floating glance panel first — ahead of the plan
+            // panel and every overlay. Consumed only when one was open;
+            // otherwise Esc falls through to the pane's own verbs. When a panel
+            // is the key window the monitor routes there directly and this is
+            // never reached — this covers the not-key case (the ? panel left
+            // open while the plan panel holds the main window).
+            return closeOpenGlancePanel()
         case "cmd-,":
             fieldVisible = false
             SettingsPanelController.shared.toggle(model: settings, session: self)
