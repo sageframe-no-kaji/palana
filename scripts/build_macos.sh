@@ -27,8 +27,8 @@ cd "$PROJECT_ROOT"
 APP_NAME="Palana"                       # .app filename (ASCII, no diacritic)
 DISPLAY_NAME="pālana"                   # shown in Finder / menu bar / About
 BUNDLE_ID="com.sageframe.palana"
-VERSION="${VERSION:-0.4.0}"             # CFBundleShortVersionString (numeric)
-DMG_SUFFIX="${DMG_SUFFIX:-beta}"        # trailing label on the dmg name; "" to omit
+VERSION="${VERSION:-1.0.0}"             # CFBundleShortVersionString (numeric)
+DMG_SUFFIX="${DMG_SUFFIX:-}"            # trailing label on the dmg name; "" to omit
 MIN_MACOS="14.0"
 
 if [[ -n "$DMG_SUFFIX" ]]; then

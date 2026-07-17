@@ -45,6 +45,8 @@
       "images": {
         "gallery": []
       },
+      "availability": "shipped",
+      "usage": "me",
       "_keisaku": {
         "generated_at": "2026-07-13T10:31:22",
         "generator_version": "1",
