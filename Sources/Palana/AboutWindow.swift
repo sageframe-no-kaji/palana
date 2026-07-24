@@ -73,12 +73,14 @@ struct AboutView: View {
         .background(Theme.ground)
     }
 
-    /// The app icon, clipped to a disc to echo the reference mark.
+    /// The app icon as a rounded square — matching the dock tile (the icon is
+    /// already rounded in the bundle; the continuous clip is a no-op there and
+    /// rounds the generic icon under a bare `swift run`).
     private var appMark: some View {
         Image(nsImage: NSApp.applicationIconImage)
             .resizable()
             .aspectRatio(contentMode: .fit)
-            .clipShape(Circle())
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private var maker: some View {
