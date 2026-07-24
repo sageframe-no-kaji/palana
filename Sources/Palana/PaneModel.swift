@@ -128,6 +128,10 @@ final class PaneModel {
     private let engine: Engine
     private var loadTask: Task<Void, Never>?
     private var landOn: Data?
+    /// A file name to cursor AND select once its parent folder has loaded —
+    /// set when a pointed path turns out to be a file (⌘⇧G / address bar with a
+    /// file path), so the pane lands in the folder with the file revealed.
+    private var revealOnLand: Data?
 
     /// A pane over the session's engine.
     init(engine: Engine) {
@@ -319,6 +323,19 @@ final class PaneModel {
                 await self.commit(host: host, path: path, entries: entries)
             } catch {
                 guard !Task.isCancelled else { return }
+                // A pointed path that is a file, not a directory (⌘⇧G or the
+                // address bar with a file path): land in its parent folder and
+                // reveal the file instead of erroring. `notADirectory` means the
+                // path exists but is a file — a clean signal, distinct from a
+                // bad path. The parent strictly shortens the path, so no loop.
+                if case ListingError.notADirectory = error {
+                    let parent = Self.parentPath(of: targetPath)
+                    if parent != targetPath {
+                        self.revealOnLand = Data(Self.lastComponent(of: targetPath).utf8)
+                        self.read(host: host, path: parent)
+                        return
+                    }
+                }
                 self.isReading = false
                 if self.status == .loading { self.status = self.rows.isEmpty ? .unpointed : .ready }
                 self.lastError = Self.describe(error)
@@ -359,6 +376,13 @@ final class PaneModel {
         if let landOn {
             self.landOn = nil
             if rows.contains(where: { $0.id == landOn }) { state.cursor = landOn }
+        }
+        if let revealOnLand {
+            self.revealOnLand = nil
+            if rows.contains(where: { $0.id == revealOnLand }) {
+                state.cursor = revealOnLand
+                state.selection = [revealOnLand]
+            }
         }
         status = .ready
         isReading = false
@@ -473,28 +497,6 @@ final class PaneModel {
     /// Why a pane could not point.
     private enum PointingError: Error {
         case unreachable(String)
-    }
-    // MARK: - Path arithmetic (UTF-8 v1, per ho-04's named limitation)
-
-    static func childPath(of path: String, name: String) -> String {
-        path == "/" ? "/\(name)" : "\(path)/\(name)"
-    }
-
-    static func parentPath(of path: String) -> String {
-        let trimmed = path.hasSuffix("/") ? String(path.dropLast()) : path
-        guard let cut = trimmed.lastIndex(of: "/"), cut != trimmed.startIndex else { return "/" }
-        return String(trimmed[..<cut])
-    }
-
-    static func lastComponent(of path: String) -> String {
-        let trimmed = path.hasSuffix("/") ? String(path.dropLast()) : path
-        guard let cut = trimmed.lastIndex(of: "/") else { return trimmed }
-        return String(trimmed[trimmed.index(after: cut)...])
-    }
-
-    static func nameSansExtension(_ name: String) -> String {
-        guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return name }
-        return String(name[..<dot])
     }
 }
 
