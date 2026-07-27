@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-07-16
+updated: 2026-07-27
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,32 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-07-27, twelfth block — THE THREE PRE-RELEASE BETA TASKS BUILT AND COMMITTED
+
+**COMPLETED**
+- **The three queued agent tasks in `ho-process/agent-tasks/` executed in order, one atomic commit each, full rhythm green at every commit** (swift-format strict, swiftlint --strict, build, test). All three specs now carry `status: complete` in the same commit as their work.
+  - **`86b0adf` favorite labels — `r` renames a star.** `Favorite.label` already existed and both render surfaces already preferred it; what was missing was every way to *set* it. Added `FavoritesList.setLabel(id:label:)` (trims; nil/empty/whitespace clears) + the `FavoritesModel` shell in the `setScope` rhythm (snapshot → mutate → persist, so ⌘Z undoes it), `Favorite.displayTitle` as the one display rule, the `r` key in `handleFavoritesPanelLetter`, an inline name field (⏎ commits, esc cancels — esc unwinds the field before the panel), a row context menu (rename… / scope toggle / unstar), and Finder's second-click rename behind a pure `FavoriteRenameArming.shouldBeginEdit`. Footer now reads `esc closes · r renames · 8 stars · * opens`. Two structural moves the lint budget forced: rows extracted to `FavoritesPanelRow.swift` (file-length), and the panel's four callbacks bundled into `FavoritesPanelActions` (function_parameter_count).
+  - **`66dd71e` open in Finder — local panes only.** `PaneModel.revealTargets(directory:selection:ids:)` is the pure resolver; selection manners match `operate()`/`dragPayload` exactly (clicked-inside → whole selection, clicked-outside → that row, empty → the directory). Paths join byte-accurately via `childPathData` (`FileEntry.ID` *is* `nameData`), and the menu item is absent — not disabled — on remote panes, gated on a new `PaneModel.isLocalPane` that wraps the existing `Engine.isLocal`, the one locality test. Surface-only diff; PalanaCore untouched, as the spec required.
+  - **`9ab22c6` bare absolute paths resolve local first.** `TypedAddress.classify` in PalanaCore is the three-way split (`hostPath` / `barePath` / `host`), 100% covered; `PaneModel.resolveBarePath` holds the order (local hit → here; local miss + remote hit → there; both → local; neither → a refusal naming both) with injectable async existence checks, so "no round trip precedes a local hit" is pinned by a test rather than by a comment. The remote check is one `test -e` round trip. The file-reveal redirect from `53de538` is reused, not reimplemented — `read()` already turns a file path into parent-plus-reveal for both hosts. Address concern extracted to `PaneModel+Address.swift` (file-length).
+- **A real bug caught by the byte-fidelity test, not by review**: `URL(fileURLWithFileSystemRepresentation:)` (the Swift overlay) replaces non-UTF-8 path bytes with U+FFFD; `NSURL`'s initializer carries them through intact. Measured, switched to `NSURL`, both round-trips pinned. (Also measured: APFS rejects non-UTF-8 names outright — `open()` returns `EILSEQ` — so this only bites on foreign mounts.)
+- **Verification**: 932 tests, 143 suites. PalanaCore line coverage **93.00%** (`xcrun llvm-cov report … -ignore-filename-regex='(Tests/|\.build/|Sources/Palana/)'`), above the 90% floor — and measured with the SSH/ZFS fixtures DOWN, so CI reads higher.
+
+**NEXT**
+- **His hands on all three** — the rename gesture in particular: `r` in the panel, the second-click arming, and whether the row menu reads right. Then the two flagged decisions below.
+- Carried from the eleventh block, unchanged: **v1.0 / ho-12 the ship**; the **help pages** on the website; banked — snapshot-history surface, shell-UX rethink.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. Three local commits on `main`, **not pushed**.
+- **DECISION OWED — the go-to sheet and bare paths.** Task 3's spec said the sheet must funnel through one resolver; the sheet has no parser to unify, it has a *host picker*. I funneled it (`session.point` now composes `host:path` through `pointAddress`) which leaves its behavior byte-for-byte unchanged, on the reading that a picked host is an explicit host and local-first is for input naming no host at all. The alternative — a `/`-leading path in the sheet resolving local-first — would let an ordinary remote path like `/tank/media` be hijacked by a same-named local directory. Conservative choice made; his call to change it.
+- **FLAGGED — the panel key monitor.** `handleFavoritesPanelKey` (and so the new `r`) routes through the app-wide `NSEvent` local monitor, which [[palana-panel-esc-key-monitor]] recorded as not firing while a floating nonactivating panel holds the keyboard. The mouse routes (second click, row menu) are unaffected and always work. If `r` proves dead on his hands, the fix is the panel answering its own `keyDown`, one method on `FavoritesFloatingPanel` — deliberately not done here as it would revive j/k/arrow nav beyond the spec's scope.
+- **UNEXPLAINED — `CLAUDE.md` lost its "## Ho process" section** (11 lines listing the Kamae chain paths) during this session, by no edit of mine. Left exactly as found: not reverted, not swept into any commit. It shows as an unstaged modification. Restore with `git checkout CLAUDE.md` if unintended.
+- The ~27 SSH/ZFS fixture-integration tests fail with the fixtures down (environmental, pre-existing — identical count before and after this session's work, verified by stashing).
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.6 on main; these three are pre-release beta polish ahead of v1.0 (ho-12, the ship).
 
 ---
 
