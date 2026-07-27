@@ -295,11 +295,16 @@ final class PalanaSession {
         target.point(host: host, path: source.state.path)
     }
 
-    /// Points a pane from the go-to bar.
+    /// Points a pane from the go-to bar or the field overlay.
+    ///
+    /// Both name a host outright — a picker or a field row — so the address
+    /// composes as `host:path` and resolves through the pane's one funnel,
+    /// ``PaneModel/pointAddress(_:)``. A chosen host is an explicit host: the
+    /// bare-path local-first rule is for input that names no host at all.
     func point(_ side: SessionSnapshot.Side, host: String, path: String) {
         let pane = side == .left ? left : right
         let cleaned = path.isEmpty ? "/" : path
-        pane.point(host: host, path: cleaned)
+        pane.pointAddress("\(host):\(cleaned)")
         gotoTarget = nil
     }
 

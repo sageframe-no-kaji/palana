@@ -491,20 +491,6 @@ final class PaneModel {
         }
     }
 
-    /// Points from a typed `host:path` address — bare host means home.
-    func pointAddress(_ address: String) {
-        let typed = address.trimmingCharacters(in: .whitespaces)
-        guard !typed.isEmpty else { return }
-        if let colon = typed.firstIndex(of: ":") {
-            let host = String(typed[..<colon])
-            let path = String(typed[typed.index(after: colon)...])
-            guard !host.isEmpty else { return }
-            point(host: host, path: path.isEmpty ? "~" : path)
-        } else {
-            point(host: typed, path: "~")
-        }
-    }
-
     /// Why a pane could not point.
     private enum PointingError: Error {
         case unreachable(String)
@@ -744,6 +730,56 @@ extension PaneModel {
             NSWorkspace.shared.activateFileViewerSelecting(paths.map(Self.fileURL(forPathBytes:)))
         case .directory(let path):
             NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        }
+    }
+}
+
+// MARK: - Bare-path addresses — the half that needs the pane's own state
+
+extension PaneModel {
+    /// Points the pane at a bare absolute path, local first.
+    ///
+    /// A directory lands as itself; a file lands in its parent with the file
+    /// revealed — that redirect already lives in ``read(host:path:)``, so both
+    /// hosts get it without a second implementation. Internal rather than
+    /// private because ``pointAddress(_:)`` lives in `PaneModel+Address.swift`
+    /// and Swift's `private` is file-scoped; the error and reading flags it
+    /// writes are what keep this half here.
+    func pointBarePath(_ path: String) {
+        let remoteHost = state.host.flatMap { engine.isLocal($0) ? nil : $0 }
+        if remoteHost != nil { isReading = true }
+        Task {
+            let resolved = await Self.resolveBarePath(
+                path,
+                remoteHost: remoteHost,
+                existsHere: { FileManager.default.fileExists(atPath: $0) },
+                existsThere: { candidate in
+                    guard let remoteHost else { return false }
+                    return await self.pathExists(candidate, on: remoteHost)
+                })
+            switch resolved {
+            case .here(let found):
+                self.point(host: Engine.localHost, path: found)
+            case .there(let host, let found):
+                self.point(host: host, path: found)
+            case .nowhere(let found, let host):
+                self.isReading = false
+                self.lastError = Self.bareRefusal(path: found, remoteHost: host)
+            }
+        }
+    }
+
+    /// True when the path exists on the given host — one `test -e` round trip.
+    ///
+    /// An unreachable host or a failed command reads as absent: the refusal
+    /// then names both places looked, which is the honest report either way.
+    private func pathExists(_ path: String, on host: String) async -> Bool {
+        do {
+            let running = try await engine.conduit(for: host)
+                .run(on: host, "test -e \(ShellQuote.quote(path))")
+            return try await running.collect().exitStatus == 0
+        } catch {
+            return false
         }
     }
 }
