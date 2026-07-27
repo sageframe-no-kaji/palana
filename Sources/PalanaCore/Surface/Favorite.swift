@@ -26,6 +26,14 @@ public struct Favorite: Codable, Identifiable, Sendable, Equatable {
     /// The stable identity — `host:path` after normalization.
     public var id: String { "\(host):\(path)" }
 
+    /// The name to show: the label when the operator has given one, `host:path`
+    /// when they have not.
+    ///
+    /// One rule for every surface that renders a favorite — the panel, the ▾
+    /// host menu — so a labelled star reads the same everywhere. The path stays
+    /// the identity; this is display only.
+    public var displayTitle: String { label ?? id }
+
     /// A bookmarked location.
     ///
     /// - Parameters:

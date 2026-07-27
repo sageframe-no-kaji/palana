@@ -50,6 +50,24 @@ final class FavoritesPanelModel {
     /// sets it); the operator can then click for the other pane or for both.
     var jumpTarget: FavoritesJumpTarget = .left
 
+    /// The favorite id whose inline name field is open, or nil when none is.
+    ///
+    /// One field at a time — `r`, the second click, and the row menu all set
+    /// this. While it is non-nil the panel's letter grammar stands down so the
+    /// operator's typing reaches the field.
+    private(set) var editingID: String?
+
+    /// Opens the inline name field on the given favorite, moving the cursor there.
+    func beginEditing(id: String) {
+        cursor = "fav:\(id)"
+        editingID = id
+    }
+
+    /// Closes the inline name field without committing.
+    func cancelEditing() {
+        editingID = nil
+    }
+
     /// Toggles the collapsed state of the given group key.
     ///
     /// A key absent from `collapsed` is added (section closes); a key present
@@ -71,6 +89,24 @@ final class FavoritesPanelModel {
     func collapse(key: String) {
         collapsed.insert(key)
     }
+}
+
+// MARK: - FavoritesPanelActions
+
+/// The panel's outward operations, handed in when it opens.
+///
+/// Carried as one value so the panel's door stays a three-argument call as
+/// the row's vocabulary grows. Every one of these is an existing session
+/// operation — the panel is glue, never a second implementation.
+struct FavoritesPanelActions {
+    /// Jump to a favorite (host, path).
+    let jump: (String, String) -> Void
+    /// Remove a favorite by id.
+    let unstar: (String) -> Void
+    /// Flip a favorite's scope.
+    let setScope: (String, FavoriteScope) -> Void
+    /// Commit a name field (id, label — nil clears the label).
+    let setLabel: (String, String?) -> Void
 }
 
 // MARK: - FavoritesPanelController
@@ -96,14 +132,14 @@ final class FavoritesPanelController: NSObject, NSWindowDelegate {
     func show(
         favoritesModel: FavoritesModel,
         panelModel: FavoritesPanelModel,
-        onJump: @escaping (String, String) -> Void,
-        onUnstar: @escaping (String) -> Void,
-        onSetScope: @escaping (String, FavoriteScope) -> Void
+        actions: FavoritesPanelActions
     ) {
         if let panel {
             panel.makeKeyAndOrderFront(nil)
             return
         }
+        // A field left open when the panel last closed does not reopen with it.
+        panelModel.cancelEditing()
         let made = FavoritesFloatingPanel(
             contentRect: CGRect(origin: .zero, size: CGSize(width: 300, height: 480)),
             styleMask: [.borderless, .resizable, .nonactivatingPanel],
@@ -125,9 +161,7 @@ final class FavoritesPanelController: NSObject, NSWindowDelegate {
             rootView: FavoritesContent(
                 favoritesModel: favoritesModel,
                 panelModel: panelModel,
-                onJump: onJump,
-                onUnstar: onUnstar,
-                onSetScope: onSetScope))
+                actions: actions))
         made.delegate = self
         made.center()
         made.setFrameAutosaveName("palana-favorites-frame")
@@ -139,19 +173,12 @@ final class FavoritesPanelController: NSObject, NSWindowDelegate {
     func toggle(
         favoritesModel: FavoritesModel,
         panelModel: FavoritesPanelModel,
-        onJump: @escaping (String, String) -> Void,
-        onUnstar: @escaping (String) -> Void,
-        onSetScope: @escaping (String, FavoriteScope) -> Void
+        actions: FavoritesPanelActions
     ) {
         if panel != nil {
             close()
         } else {
-            show(
-                favoritesModel: favoritesModel,
-                panelModel: panelModel,
-                onJump: onJump,
-                onUnstar: onUnstar,
-                onSetScope: onSetScope)
+            show(favoritesModel: favoritesModel, panelModel: panelModel, actions: actions)
         }
     }
 
@@ -180,12 +207,8 @@ struct FavoritesContent: View {
     let favoritesModel: FavoritesModel
     /// The panel's fold state.
     let panelModel: FavoritesPanelModel
-    /// Called when the operator jumps to a favorite (host, path).
-    let onJump: (String, String) -> Void
-    /// Called when the operator removes a favorite by id.
-    let onUnstar: (String) -> Void
-    /// Called when the operator flips a favorite's scope.
-    let onSetScope: (String, FavoriteScope) -> Void
+    /// The operations a row can reach — jump, unstar, scope, label.
+    let actions: FavoritesPanelActions
 
     var body: some View {
         VStack(spacing: 0) {
@@ -196,7 +219,14 @@ struct FavoritesContent: View {
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .onExitCommand { FavoritesPanelController.shared.close() }
+        .onExitCommand {
+            // Esc unwinds one layer: an open name field first, the panel after.
+            if panelModel.editingID == nil {
+                FavoritesPanelController.shared.close()
+            } else {
+                panelModel.cancelEditing()
+            }
+        }
     }
 
     /// The destination selector — three arrows choose where a jump lands.
@@ -247,11 +277,11 @@ struct FavoritesContent: View {
                         ForEach(groups) { group in
                             FavoritesGroupView(
                                 group: group,
-                                cursor: panelModel.cursor,
-                                onToggle: { panelModel.toggle(key: group.key) },
-                                onJump: onJump,
-                                onUnstar: onUnstar,
-                                onSetScope: onSetScope)
+                                panelModel: panelModel,
+                                actions: actions
+                            ) {
+                                panelModel.toggle(key: group.key)
+                            }
                             Divider().opacity(0.25)
                         }
                     }
@@ -288,175 +318,11 @@ struct FavoritesContent: View {
     private var panelFooter: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
-            Text("esc closes · 8 stars · * opens")
+            Text("esc closes · r renames · 8 stars · * opens")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.inkFaint)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
-    }
-}
-
-// MARK: - FavoritesGroupView
-
-/// One host's disclosure section in the favorites column.
-struct FavoritesGroupView: View {
-    /// The group's display data.
-    let group: FavoritesOutline.Group
-    /// The keyboard cursor's stable id — used to highlight the selected row.
-    let cursor: String?
-    /// Called when the operator taps the disclosure chevron.
-    let onToggle: () -> Void
-    /// Called when the operator jumps to a favorite.
-    let onJump: (String, String) -> Void
-    /// Called when the operator removes a favorite.
-    let onUnstar: (String) -> Void
-    /// Called when the operator flips a favorite's scope.
-    let onSetScope: (String, FavoriteScope) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            groupHeader
-            if group.expanded {
-                favoriteRows
-            }
-        }
-        .padding(.vertical, 8)
-    }
-
-    private var headerCursorID: String { "hdr:\(group.key)" }
-    private var isHeaderSelected: Bool { cursor == headerCursorID }
-
-    private var groupHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            groupChevron
-            Text(group.title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.ink)
-            Spacer()
-            Text("\(group.favorites.count)")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.inkFaint)
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
-        .background(
-            RoundedRectangle(cornerRadius: 5)
-                .fill(Theme.accent.opacity(isHeaderSelected ? 0.18 : 0))
-        )
-        .id(headerCursorID)
-        .contentShape(Rectangle())
-        .onTapGesture { onToggle() }
-    }
-
-    /// Disclosure chevron — accent coloured, rotates 90° when expanded.
-    private var groupChevron: some View {
-        Text(Image(systemName: "chevron.right"))
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(Theme.accent)
-            .rotationEffect(.degrees(group.expanded ? 90 : 0))
-            .frame(width: 18, alignment: .center)
-            .contentShape(Rectangle())
-    }
-
-    @ViewBuilder private var favoriteRows: some View {
-        ForEach(group.favorites) { fav in
-            FavoriteRowView(
-                favorite: fav,
-                isSelected: cursor == "fav:\(fav.id)",
-                onJump: { onJump(fav.host, fav.path) },
-                onUnstar: { onUnstar(fav.id) },
-                onSetScope: { newScope in onSetScope(fav.id, newScope) })
-        }
-    }
-}
-
-// MARK: - FavoriteRowView
-
-/// One favorite entry in the panel — path, unstar control, scope toggle.
-struct FavoriteRowView: View {
-    /// The favorite to display.
-    let favorite: Favorite
-    /// True when this row is the keyboard cursor's current position.
-    let isSelected: Bool
-    /// Called when the operator jumps to this favorite.
-    let onJump: () -> Void
-    /// Called when the operator unstars this favorite.
-    let onUnstar: () -> Void
-    /// Called when the operator flips the scope.
-    let onSetScope: (FavoriteScope) -> Void
-
-    @State private var hovering = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Button(action: onJump) {
-                Text(displayTitle)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-            .help("jump here — \(favorite.host):\(favorite.path)")
-
-            if hovering || isSelected {
-                scopeToggleButton
-                unstarButton
-            }
-        }
-        .padding(.leading, 24)
-        .padding(.vertical, 2)
-        .background(
-            RoundedRectangle(cornerRadius: 5)
-                .fill(Theme.accent.opacity(isSelected ? 0.18 : 0))
-        )
-        .id("fav:\(favorite.id)")
-        .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-    }
-
-    private var displayTitle: String {
-        favorite.label ?? "\(favorite.host):\(favorite.path)"
-    }
-
-    /// A small scope-toggle button — "global" or host alias glyph.
-    private var scopeToggleButton: some View {
-        Button(
-            action: { onSetScope(targetScope) },
-            label: {
-                Image(systemName: scopeGlyph)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Theme.inkFaint)
-            }
-        )
-        .buttonStyle(.plain)
-        .help(scopeHelp)
-    }
-
-    private var targetScope: FavoriteScope {
-        favorite.scope == .global ? .host : .global
-    }
-
-    private var scopeGlyph: String {
-        favorite.scope == .global ? "pin.fill" : "pin"
-    }
-
-    private var scopeHelp: String {
-        favorite.scope == .global
-            ? "move to this host — leave global"
-            : "promote to global — visible on all hosts"
-    }
-
-    /// The unstar (remove) button.
-    private var unstarButton: some View {
-        Button(action: onUnstar) {
-            Image(systemName: "star.slash")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.inkFaint)
-        }
-        .buttonStyle(.plain)
-        .help("remove from favorites")
     }
 }

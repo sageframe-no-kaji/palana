@@ -160,6 +160,56 @@ struct FavoritesListSetScopeTests {
     }
 }
 
+// MARK: - setLabel (name / clear)
+
+@Suite("FavoritesList: setLabel")
+struct FavoritesListSetLabelTests {
+    @Test("setLabel names a favorite in place")
+    func names() {
+        var list = FavoritesList()
+        list.add(host: "koan", path: "/tank", scope: .host)
+        list.setLabel(id: "koan:/tank", label: "the pool")
+        #expect(list.all.first?.label == "the pool")
+    }
+
+    @Test("setLabel trims surrounding whitespace")
+    func trims() {
+        var list = FavoritesList()
+        list.add(host: "koan", path: "/tank", scope: .host)
+        list.setLabel(id: "koan:/tank", label: "\n  the pool \t")
+        #expect(list.all.first?.label == "the pool")
+    }
+
+    @Test(
+        "nil, empty, and whitespace-only text clear the label",
+        arguments: [nil, "", "   ", "\n\t"])
+    func clears(text: String?) {
+        var list = FavoritesList()
+        list.add(host: "koan", path: "/tank", scope: .host)
+        list.setLabel(id: "koan:/tank", label: "the pool")
+        list.setLabel(id: "koan:/tank", label: text)
+        #expect(list.all.first?.label == nil)
+    }
+
+    @Test("setLabel with an unknown id is a no-op")
+    func unknownId() {
+        var list = FavoritesList()
+        list.add(host: "koan", path: "/tank", scope: .host)
+        list.setLabel(id: "missing:/x", label: "ghost")
+        #expect(list.all.first?.label == nil)
+    }
+
+    @Test("no uniqueness rule — two favorites may carry the same label")
+    func duplicatesAllowed() {
+        var list = FavoritesList()
+        list.add(host: "koan", path: "/tank", scope: .host)
+        list.add(host: "jodo", path: "/rpool", scope: .host)
+        list.setLabel(id: "koan:/tank", label: "pool")
+        list.setLabel(id: "jodo:/rpool", label: "pool")
+        #expect(list.all.allSatisfy { $0.label == "pool" })
+    }
+}
+
 // MARK: - Slices (global / hostBound)
 
 @Suite("FavoritesList: slices")

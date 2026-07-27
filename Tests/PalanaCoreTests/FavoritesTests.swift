@@ -107,6 +107,40 @@ struct FavoritesTests {
         #expect(decoded.label == "tank")
     }
 
+    // MARK: - Forward and backward compatibility
+
+    @Test("a favorites.json written before labels existed decodes with nil labels")
+    func preLabelJSONDecodes() throws {
+        let json = """
+            [
+              { "host": "koan", "path": "/tank/media", "scope": "host" },
+              { "host": "jodo", "path": "/rpool", "scope": "global" }
+            ]
+            """
+        let decoded = try JSONDecoder().decode([Favorite].self, from: Data(json.utf8))
+        #expect(decoded.count == 2)
+        #expect(decoded.allSatisfy { $0.label == nil })
+        #expect(decoded[0].displayTitle == "koan:/tank/media")
+    }
+
+    @Test("an unknown key in a stored favorite is tolerated — old builds read new files")
+    func unknownKeyIsTolerated() throws {
+        let json = """
+            { "host": "koan", "path": "/tank", "scope": "host", "colour": "red" }
+            """
+        let decoded = try JSONDecoder().decode(Favorite.self, from: Data(json.utf8))
+        #expect(decoded.id == "koan:/tank")
+        #expect(decoded.label == nil)
+    }
+
+    // MARK: - Display rule
+
+    @Test("displayTitle prefers the label and falls back to host:path")
+    func displayTitleRule() {
+        #expect(Favorite(host: "koan", path: "/tank", label: "tank").displayTitle == "tank")
+        #expect(Favorite(host: "koan", path: "/tank").displayTitle == "koan:/tank")
+    }
+
     // MARK: - FavoritesStore: save / load contract
 
     @Test("save then load returns an equal array")

@@ -72,4 +72,15 @@ public struct FavoritesList: Codable, Sendable, Equatable {
         guard let index = all.firstIndex(where: { $0.id == id }) else { return }
         all[index].scope = scope
     }
+
+    /// Sets or clears a favorite's display label in place.
+    ///
+    /// The text is trimmed; nil, empty, or whitespace-only clears the label and
+    /// returns the favorite to path display. No uniqueness rule — `host:path`
+    /// is the identity, the label is display.
+    public mutating func setLabel(id: String, label: String?) {
+        guard let index = all.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines)
+        all[index].label = (trimmed?.isEmpty ?? true) ? nil : trimmed
+    }
 }

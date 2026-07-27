@@ -15,6 +15,9 @@ extension PalanaSession {
     /// Returns true when the event is consumed; the monitor swallows it.
     @MainActor
     func handleFavoritesPanelKey(_ event: NSEvent) -> Bool {
+        // While the inline name field is open every key belongs to it — the
+        // panel's letter grammar stands down until ⏎ commits or esc cancels.
+        guard favoritesPanelModel.editingID == nil else { return false }
         let keyCode = event.keyCode
         let hasShift = event.modifierFlags.contains(.shift)
         let hasCommand = event.modifierFlags.contains(.command)
@@ -97,7 +100,7 @@ extension PalanaSession {
         }
     }
 
-    /// Handles letter keys (j/k/l/h) for the favorites panel.
+    /// Handles letter keys (j/k/l/h/r) for the favorites panel.
     func handleFavoritesPanelLetter(
         _ ch: String,
         rows: [FavoritesOutline.Row],
@@ -116,6 +119,11 @@ extension PalanaSession {
             return true
         case "h":
             favPanelCollapse(currentRow)
+            return true
+        case "r":
+            // The app-wide rename letter — a header has no name to give.
+            guard case .favorite(let fav) = currentRow else { return false }
+            favoritesPanelModel.beginEditing(id: fav.id)
             return true
         default:
             return false
@@ -206,8 +214,12 @@ extension PalanaSession {
         FavoritesPanelController.shared.toggle(
             favoritesModel: favorites,
             panelModel: favoritesPanelModel,
-            onJump: { [weak self] host, path in self?.jumpFavorite(host: host, path: path) },
-            onUnstar: { [weak self] id in self?.favorites.remove(id: id) },
-            onSetScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) })
+            actions: FavoritesPanelActions(
+                jump: { [weak self] host, path in self?.jumpFavorite(host: host, path: path) },
+                unstar: { [weak self] id in self?.favorites.remove(id: id) },
+                setScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) },
+                setLabel: { [weak self] id, label in
+                    self?.favorites.setLabel(id: id, label: label)
+                }))
     }
 }

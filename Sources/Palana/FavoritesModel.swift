@@ -75,6 +75,16 @@ final class FavoritesModel {
         persist()
     }
 
+    /// Sets or clears a favorite's display label.
+    ///
+    /// Empty or whitespace-only text clears the label — the row returns to
+    /// showing its path. Undoable like every other mutation here.
+    func setLabel(id: String, label: String?) {
+        snapshot()
+        list.setLabel(id: id, label: label)
+        persist()
+    }
+
     // MARK: - Undo
 
     /// Pops the last pre-mutation snapshot and restores it.
