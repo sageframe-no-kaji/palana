@@ -546,6 +546,7 @@ extension PaneView {
             if let id = ids.first { model.activate(id) }
         }
         .keyboardShortcut(.return, modifiers: [])
+        revealContextItem(for: ids)
         Divider()
         // Native glyphs where AppKit can draw them (its caps display is
         // convention, not case), quiet spaced suffixes for the two-key
@@ -583,6 +584,17 @@ extension PaneView {
         .keyboardShortcut(".", modifiers: [])
         Button("refresh") { model.apply(.refresh) }
             .keyboardShortcut("r", modifiers: .command)
+    }
+
+    /// An "open in Finder" menu item — the operator's own machine only.
+    ///
+    /// Returns an `EmptyView` on a remote pane: no path there names anything
+    /// this Mac can reveal, and absent reads truer than disabled-with-a-reason.
+    @ViewBuilder
+    func revealContextItem(for ids: Set<FileEntry.ID>) -> some View {
+        if model.isLocalPane {
+            Button("open in Finder") { model.revealInFinder(ids: ids) }
+        }
     }
 
     /// A "star this location" / "unstar this location" menu item when the
