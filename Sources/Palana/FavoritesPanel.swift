@@ -172,6 +172,12 @@ final class FavoritesPanelController: NSObject, NSWindowDelegate {
         made.backgroundColor = .clear
         made.hasShadow = true
         made.level = .floating
+        // Floating keeps the column above pālana's own window; hiding on
+        // deactivate keeps it from floating above OTHER apps. Without this a
+        // .floating panel outranks every application on the screen and follows
+        // the operator into Mail (his round — "favorites is following me
+        // around"). It stays on screen with the app, and comes back with it.
+        made.hidesOnDeactivate = true
         made.isMovableByWindowBackground = true
         // Fullscreen-auxiliary keeps the panel reachable over a fullscreen main
         // window; it no longer joins all Spaces, so it stays on the desktop it
@@ -363,14 +369,49 @@ struct FavoritesContent: View {
         }
     }
 
+    /// The keys the column answers, each with what it does.
+    private static let manual: [(key: String, verb: String)] = [
+        ("esc", "closes"),
+        ("r", "renames"),
+        ("8", "stars"),
+        ("tab", "switches"),
+        ("*", "opens"),
+    ]
+
+    /// The panel's own manual — the key, then what that key does.
+    ///
+    /// The keys are set apart from their verbs. Run together in one weight the
+    /// line read as prose, and "8 stars" landed as a count of stars rather than
+    /// as the `8` key (his round — "what is 8 stars? i only see 2").
     private var panelFooter: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.35)
-            Text("esc closes · r renames · 8 stars · * opens")
+            manualLine
                 .font(.system(size: 10))
-                .foregroundStyle(Theme.inkFaint)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .help(
+                    "esc closes the column · r renames the favorite under the cursor · "
+                        + "8 stars the focused pane's directory · tab switches which pane a "
+                        + "jump lands in · * opens and closes this column")
+        }
+    }
+
+    /// Builds the footer line: each key in accent, each verb quiet behind it.
+    ///
+    /// Folded rather than accumulated in a `var`: `Text` composes with `+` and
+    /// has no `+=`, so a running total would read as the one operator SwiftLint
+    /// asks for and the one the type does not have.
+    private var manualLine: Text {
+        let separator = Text(verbatim: "  ·  ").foregroundColor(Theme.inkFaint)
+        return Self.manual.enumerated().reduce(Text(verbatim: "")) { line, item in
+            let entry =
+                Text(item.element.key).fontWeight(.bold).foregroundColor(Theme.accent)
+                + Text(verbatim: " \(item.element.verb)").foregroundColor(Theme.inkFaint)
+            return item.offset == 0 ? line + entry : line + separator + entry
         }
     }
 }

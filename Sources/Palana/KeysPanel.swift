@@ -67,6 +67,8 @@ final class KeysPanelController: NSObject, NSWindowDelegate {
         made.backgroundColor = .clear
         made.hasShadow = true
         made.level = .floating
+        // Above pālana's window, never above another app — see FavoritesPanel.
+        made.hidesOnDeactivate = true
         made.isMovableByWindowBackground = true
         // Fullscreen-auxiliary keeps the panel reachable over a fullscreen main
         // window; it no longer joins all Spaces, so it stays on the desktop it
