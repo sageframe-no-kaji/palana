@@ -57,15 +57,24 @@ final class FavoritesPanelModel {
     /// operator's typing reaches the field.
     private(set) var editingID: String?
 
+    /// The text in the open name field.
+    ///
+    /// It lives here rather than in the row so that anything can commit the
+    /// edit — a click on empty panel space, a click on another row — not only
+    /// the field itself.
+    var editingText = ""
+
     /// Opens the inline name field on the given favorite, moving the cursor there.
-    func beginEditing(id: String) {
+    func beginEditing(id: String, current: String?) {
         cursor = "fav:\(id)"
         editingID = id
+        editingText = current ?? ""
     }
 
     /// Closes the inline name field without committing.
     func cancelEditing() {
         editingID = nil
+        editingText = ""
     }
 
     /// Toggles the collapsed state of the given group key.
@@ -107,6 +116,18 @@ struct FavoritesPanelActions {
     let setScope: (String, FavoriteScope) -> Void
     /// Commit a name field (id, label — nil clears the label).
     let setLabel: (String, String?) -> Void
+
+    /// Commits whatever name field is open on the panel, if one is.
+    ///
+    /// The click-away path: a click on empty space, on another row, or
+    /// anywhere else that ends the edit saves what was typed rather than
+    /// stranding the operator in a field they have visibly left.
+    @MainActor
+    func commitOpenEdit(on panelModel: FavoritesPanelModel) {
+        guard let id = panelModel.editingID else { return }
+        setLabel(id, panelModel.editingText)
+        panelModel.cancelEditing()
+    }
 }
 
 // MARK: - FavoritesPanelController
@@ -219,6 +240,13 @@ struct FavoritesContent: View {
         }
         .background(Theme.ground)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        // A click anywhere the panel does not otherwise use ends an open edit.
+        // The field's own focus is not a reliable signal here: this is a
+        // non-activating panel, and clicking its empty ground does not take
+        // first responder away from the field editor (his round — "clicking
+        // off the favorite still doesn't work").
+        .contentShape(Rectangle())
+        .onTapGesture { actions.commitOpenEdit(on: panelModel) }
         .onExitCommand {
             // Esc unwinds one layer: an open name field first, the panel after.
             if panelModel.editingID == nil {
@@ -271,6 +299,7 @@ struct FavoritesContent: View {
     /// the next click (his round — "clicking one of the arrows does nothing").
     /// On a header row, or with no cursor yet, it just sets the destination.
     private func chooseTarget(_ target: FavoritesJumpTarget) {
+        actions.commitOpenEdit(on: panelModel)
         panelModel.jumpTarget = target
         guard let favorite = focusedFavorite else { return }
         actions.jump(favorite.host, favorite.path)

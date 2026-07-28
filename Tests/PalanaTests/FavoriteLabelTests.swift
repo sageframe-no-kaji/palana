@@ -150,21 +150,69 @@ struct FavoriteLabelTests {
 
     // MARK: - Panel edit state
 
-    @Test("beginEditing opens the field and moves the cursor to that row")
+    @Test("beginEditing opens the field, seeds the text, and moves the cursor")
     func beginEditingMovesCursor() {
         let panel = FavoritesPanelModel()
-        panel.beginEditing(id: "koan:/tank/media")
+        panel.beginEditing(id: "koan:/tank/media", current: "media pool")
         #expect(panel.editingID == "koan:/tank/media")
+        #expect(panel.editingText == "media pool")
         #expect(panel.cursor == "fav:koan:/tank/media")
     }
 
-    @Test("cancelEditing closes the field and leaves the cursor where it was")
+    @Test("an unlabelled favorite opens an empty field")
+    func beginEditingWithNoLabel() {
+        let panel = FavoritesPanelModel()
+        panel.beginEditing(id: "koan:/tank/media", current: nil)
+        #expect(panel.editingText.isEmpty)
+    }
+
+    @Test("cancelEditing closes the field, drops the text, keeps the cursor")
     func cancelEditingKeepsCursor() {
         let panel = FavoritesPanelModel()
-        panel.beginEditing(id: "koan:/tank/media")
+        panel.beginEditing(id: "koan:/tank/media", current: "media pool")
         panel.cancelEditing()
         #expect(panel.editingID == nil)
+        #expect(panel.editingText.isEmpty)
         #expect(panel.cursor == "fav:koan:/tank/media")
+    }
+
+    /// The click-away path his hands found dead: anything can commit the field.
+    @Test("commitOpenEdit saves the model-held text and closes the field")
+    func commitOpenEditSaves() {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let favorites = makeModel(at: url)
+        let panel = FavoritesPanelModel()
+        let actions = FavoritesPanelActions(
+            jump: { _, _ in },
+            unstar: { _ in },
+            setScope: { _, _ in },
+            setLabel: { id, label in favorites.setLabel(id: id, label: label) })
+
+        panel.beginEditing(id: "koan:/tank/media", current: nil)
+        panel.editingText = "job search"
+        actions.commitOpenEdit(on: panel)
+
+        #expect(favorites.all.first?.label == "job search")
+        #expect(panel.editingID == nil)
+    }
+
+    @Test("commitOpenEdit with no field open touches nothing")
+    func commitOpenEditNoOp() {
+        let url = makeTempURL()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let favorites = makeModel(at: url)
+        let panel = FavoritesPanelModel()
+        var setLabelCalls = 0
+        let actions = FavoritesPanelActions(
+            jump: { _, _ in },
+            unstar: { _ in },
+            setScope: { _, _ in },
+            setLabel: { _, _ in setLabelCalls += 1 })
+
+        actions.commitOpenEdit(on: panel)
+        #expect(setLabelCalls == 0)
+        #expect(favorites.all.first?.label == nil)
     }
 }
 

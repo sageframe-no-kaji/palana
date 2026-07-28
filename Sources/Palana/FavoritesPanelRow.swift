@@ -124,8 +124,6 @@ struct FavoriteRowView: View {
     /// double-click interval passes with no second click, and any click that
     /// arrives first cancels it. That wait is what keeps a double-click a jump.
     @State private var renameTask: Task<Void, Never>?
-    /// The text in the open name field; seeded from the label, discarded on esc.
-    @State private var draft = ""
     @FocusState private var fieldFocused: Bool
 
     /// True when this row is the keyboard cursor's current position.
@@ -173,30 +171,35 @@ struct FavoriteRowView: View {
     }
 
     /// The inline name field — ⏎ commits, esc cancels, a click away commits.
+    ///
+    /// The text lives on the panel model, not here, so a click that lands
+    /// somewhere else can still save what was typed.
     private var nameField: some View {
-        TextField("name — ⏎ commits, esc cancels", text: $draft)
+        TextField("name — ⏎ commits, esc cancels", text: draftBinding)
             .textFieldStyle(.roundedBorder)
             .font(.system(size: 12))
             .focused($fieldFocused)
-            .onSubmit(commitEdit)
+            .onSubmit { actions.commitOpenEdit(on: panelModel) }
             .onExitCommand { panelModel.cancelEditing() }
             .onChange(of: fieldFocused) { _, focused in
-                // Clicking anywhere else takes the keyboard off the field, and
-                // that is the operator saying they are done — commit rather
-                // than strand them in a field they have visibly left. Esc and ⏎
-                // have already cleared `editingID`, so neither double-commits.
+                // Belt to the panel's click-catcher: when the field genuinely
+                // does lose the keyboard, that is the operator done typing.
                 guard !focused, isEditing else { return }
-                commitEdit()
+                actions.commitOpenEdit(on: panelModel)
             }
-            .onAppear {
-                draft = favorite.label ?? ""
-                fieldFocused = true
-            }
+            .onAppear { fieldFocused = true }
+    }
+
+    /// The open field's text, held on the panel model.
+    private var draftBinding: Binding<String> {
+        Binding(
+            get: { panelModel.editingText },
+            set: { panelModel.editingText = $0 })
     }
 
     /// The row's own menu — the same operations the keys and controls reach.
     @ViewBuilder private var rowMenu: some View {
-        Button("rename…") { panelModel.beginEditing(id: favorite.id) }
+        Button("rename…") { panelModel.beginEditing(id: favorite.id, current: favorite.label) }
         Button(scopeToggleTitle) { actions.setScope(favorite.id, targetScope) }
         Divider()
         Button("unstar") { actions.unstar(favorite.id) }
@@ -204,6 +207,8 @@ struct FavoriteRowView: View {
 
     /// A single click: jump, or arm the name field when the guard allows it.
     private func handleNameClick() {
+        // A click on this row ends an edit open on any other row.
+        actions.commitOpenEdit(on: panelModel)
         let now = Date()
         let elapsed = now.timeIntervalSince(lastClickAt ?? .distantPast)
         let wasFocused = isSelected
@@ -223,18 +228,13 @@ struct FavoriteRowView: View {
             return
         }
         let id = favorite.id
+        let label = favorite.label
         let model = panelModel
         renameTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(NSEvent.doubleClickInterval))
             guard !Task.isCancelled else { return }
-            model.beginEditing(id: id)
+            model.beginEditing(id: id, current: label)
         }
-    }
-
-    /// Commits the field's text as the label — empty text clears it.
-    private func commitEdit() {
-        actions.setLabel(favorite.id, draft)
-        panelModel.cancelEditing()
     }
 
     /// A small scope-toggle button — "global" or host alias glyph.

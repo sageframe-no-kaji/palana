@@ -25,6 +25,14 @@ extension PalanaSession {
             FavoritesPanelController.shared.close()
             return true
         }
+        // Tab still switches frames while the column holds the keyboard, and
+        // the column's destination follows the focused pane — so a favorite
+        // can be aimed and opened without touching the mouse (his round).
+        // Consumed, or SwiftUI would walk the panel's own controls instead.
+        if keyCode == 48 {
+            favPanelSwitchSide()
+            return true
+        }
         // ⌘Z — panel-scoped undo.
         if hasCommand, !hasShift, event.charactersIgnoringModifiers?.lowercased() == "z" {
             favorites.undo()
@@ -123,7 +131,7 @@ extension PalanaSession {
         case "r":
             // The app-wide rename letter — a header has no name to give.
             guard case .favorite(let fav) = currentRow else { return false }
-            favoritesPanelModel.beginEditing(id: fav.id)
+            favoritesPanelModel.beginEditing(id: fav.id, current: fav.label)
             return true
         default:
             return false
@@ -148,6 +156,18 @@ extension PalanaSession {
             favoritesPanelModel.collapse(key: parentKey)
             favoritesPanelModel.cursor = "hdr:\(parentKey)"
         }
+    }
+
+    /// Switches the focused pane and points the column's arrows at it.
+    ///
+    /// The panel opens with its destination on the focused side; Tab keeps that
+    /// pairing true afterwards. A `both` destination resolves to the newly
+    /// focused side — the ⇄ arrow is how you ask for both again.
+    func favPanelSwitchSide() {
+        guard !previewActive else { return }
+        focusedSide = focusedSide == .left ? .right : .left
+        favoritesPanelModel.jumpTarget = focusedSide == .left ? .left : .right
+        persist()
     }
 
     /// Jumps to a favorite through the column's selected target, panel open.
