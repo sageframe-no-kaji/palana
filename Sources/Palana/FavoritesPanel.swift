@@ -251,7 +251,7 @@ struct FavoritesContent: View {
     ) -> some View {
         let active = panelModel.jumpTarget == target
         return Button(
-            action: { panelModel.jumpTarget = target },
+            action: { chooseTarget(target) },
             label: {
                 Image(systemName: systemName)
                     .font(.system(size: 13, weight: .semibold))
@@ -262,6 +262,25 @@ struct FavoritesContent: View {
         )
         .buttonStyle(.plain)
         .help(help)
+    }
+
+    /// Picks where jumps land — and sends the focused favorite there at once.
+    ///
+    /// An arrow reads as an action, so it acts: with a favorite under the
+    /// cursor the click opens it in the chosen pane rather than only arming
+    /// the next click (his round — "clicking one of the arrows does nothing").
+    /// On a header row, or with no cursor yet, it just sets the destination.
+    private func chooseTarget(_ target: FavoritesJumpTarget) {
+        panelModel.jumpTarget = target
+        guard let favorite = focusedFavorite else { return }
+        actions.jump(favorite.host, favorite.path)
+    }
+
+    /// The favorite under the panel's cursor, if the cursor is on one.
+    private var focusedFavorite: Favorite? {
+        guard let cursor = panelModel.cursor, cursor.hasPrefix("fav:") else { return nil }
+        let id = String(cursor.dropFirst(4))
+        return favoritesModel.all.first { $0.id == id }
     }
 
     private var scrollArea: some View {

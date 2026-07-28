@@ -172,31 +172,48 @@ struct FavoriteLabelTests {
 
 @Suite("favorite rename — the second-click guard")
 struct FavoriteRenameArmingTests {
-    @Test("a click that only focuses a row never edits")
+    @Test("a click that only focuses a row never arms a rename")
     func unfocusedRowJumps() {
         #expect(
-            !FavoriteRenameArming.shouldBeginEdit(
+            !FavoriteRenameArming.shouldArmRename(
                 isFocused: false, secondsSincePreviousClick: 10, doubleClickInterval: 0.5))
     }
 
-    @Test("the second click of a double-click jumps, it does not edit")
+    @Test("the second click of a double-click jumps, it does not arm")
     func withinDoubleClickIntervalJumps() {
         #expect(
-            !FavoriteRenameArming.shouldBeginEdit(
+            !FavoriteRenameArming.shouldArmRename(
                 isFocused: true, secondsSincePreviousClick: 0.2, doubleClickInterval: 0.5))
     }
 
-    @Test("a later single click on the focused row edits")
-    func focusedRowAfterIntervalEdits() {
+    @Test("a later single click on the focused row arms the rename")
+    func focusedRowAfterIntervalArms() {
         #expect(
-            FavoriteRenameArming.shouldBeginEdit(
+            FavoriteRenameArming.shouldArmRename(
                 isFocused: true, secondsSincePreviousClick: 1.2, doubleClickInterval: 0.5))
     }
 
     @Test("the interval boundary itself does not arm — strictly later does")
     func boundaryIsNotArmed() {
         #expect(
-            !FavoriteRenameArming.shouldBeginEdit(
+            !FavoriteRenameArming.shouldArmRename(
                 isFocused: true, secondsSincePreviousClick: 0.5, doubleClickInterval: 0.5))
+    }
+
+    /// The bug his hands found: a double-click on an already-focused row.
+    ///
+    /// The first click passes the predicate — the row is focused and the last
+    /// click was long ago — so opening the field there and then turned every
+    /// double-click into a rename. Arming instead of opening is the fix: the
+    /// second click arrives inside the interval, fails the predicate, and
+    /// cancels what the first click armed.
+    @Test("a double-click on an already-focused row arms, then takes it back")
+    func doubleClickOnFocusedRowNeverRenames() {
+        let first = FavoriteRenameArming.shouldArmRename(
+            isFocused: true, secondsSincePreviousClick: 30, doubleClickInterval: 0.5)
+        #expect(first, "the first click arms — it must not open the field outright")
+        let second = FavoriteRenameArming.shouldArmRename(
+            isFocused: true, secondsSincePreviousClick: 0.1, doubleClickInterval: 0.5)
+        #expect(!second, "the second click jumps, and cancels what the first armed")
     }
 }

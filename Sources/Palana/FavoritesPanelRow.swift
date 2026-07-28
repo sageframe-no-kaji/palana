@@ -13,19 +13,24 @@ import SwiftUI
 
 /// The guard behind the second-click rename in the favorites panel.
 enum FavoriteRenameArming {
-    /// True when a single click on a favorite's name should open the name field.
+    /// True when a click should *arm* the name field — never open it outright.
     ///
     /// Two conditions, both required. The row is already the panel's focused
-    /// row — a click that merely focuses a row jumps, it never edits. And the
+    /// row: a click that merely focuses a row jumps, it never edits. And the
     /// system's double-click interval has passed since the previous click on
-    /// that row, so the second click of a genuine double-click jumps too.
+    /// that row, so the second click of a double-click cannot arm one either.
+    ///
+    /// Arming is deliberately not opening. The caller waits out one more
+    /// double-click interval and cancels on any further click, which is what
+    /// keeps a double-click on an already-focused row a jump rather than a
+    /// rename — the predicate alone cannot tell those apart on the first click.
     ///
     /// - Parameters:
     ///   - isFocused: Whether the clicked row already held the panel's cursor.
     ///   - secondsSincePreviousClick: Elapsed time since this row's last click.
     ///   - doubleClickInterval: The system's double-click interval, in seconds.
-    /// - Returns: True when the click should begin an edit rather than jump.
-    static func shouldBeginEdit(
+    /// - Returns: True when the click should arm a rename rather than jump.
+    static func shouldArmRename(
         isFocused: Bool,
         secondsSincePreviousClick: TimeInterval,
         doubleClickInterval: TimeInterval
@@ -113,6 +118,12 @@ struct FavoriteRowView: View {
     @State private var hovering = false
     /// When this row's name was last clicked — the double-click guard reads it.
     @State private var lastClickAt: Date?
+    /// The armed-but-not-yet-open rename, waiting out a possible second click.
+    ///
+    /// Nothing renames on the click itself: the edit opens only once the
+    /// double-click interval passes with no second click, and any click that
+    /// arrives first cancels it. That wait is what keeps a double-click a jump.
+    @State private var renameTask: Task<Void, Never>?
     /// The text in the open name field; seeded from the label, discarded on esc.
     @State private var draft = ""
     @FocusState private var fieldFocused: Bool
@@ -161,7 +172,7 @@ struct FavoriteRowView: View {
         .help("jump here — \(favorite.host):\(favorite.path)")
     }
 
-    /// The inline name field — ⏎ commits, esc cancels.
+    /// The inline name field — ⏎ commits, esc cancels, a click away commits.
     private var nameField: some View {
         TextField("name — ⏎ commits, esc cancels", text: $draft)
             .textFieldStyle(.roundedBorder)
@@ -169,6 +180,14 @@ struct FavoriteRowView: View {
             .focused($fieldFocused)
             .onSubmit(commitEdit)
             .onExitCommand { panelModel.cancelEditing() }
+            .onChange(of: fieldFocused) { _, focused in
+                // Clicking anywhere else takes the keyboard off the field, and
+                // that is the operator saying they are done — commit rather
+                // than strand them in a field they have visibly left. Esc and ⏎
+                // have already cleared `editingID`, so neither double-commits.
+                guard !focused, isEditing else { return }
+                commitEdit()
+            }
             .onAppear {
                 draft = favorite.label ?? ""
                 fieldFocused = true
@@ -183,19 +202,32 @@ struct FavoriteRowView: View {
         Button("unstar") { actions.unstar(favorite.id) }
     }
 
-    /// A single click: jump, or open the name field when the guard is armed.
+    /// A single click: jump, or arm the name field when the guard allows it.
     private func handleNameClick() {
         let now = Date()
-        let armed = FavoriteRenameArming.shouldBeginEdit(
-            isFocused: isSelected,
-            secondsSincePreviousClick: now.timeIntervalSince(lastClickAt ?? .distantPast),
-            doubleClickInterval: NSEvent.doubleClickInterval)
+        let elapsed = now.timeIntervalSince(lastClickAt ?? .distantPast)
+        let wasFocused = isSelected
         lastClickAt = now
-        if armed {
-            panelModel.beginEditing(id: favorite.id)
-        } else {
-            panelModel.cursor = cursorID
+        // Every click supersedes an armed rename — that is how the second half
+        // of a double-click takes the gesture back.
+        renameTask?.cancel()
+        renameTask = nil
+        panelModel.cursor = cursorID
+        guard
+            FavoriteRenameArming.shouldArmRename(
+                isFocused: wasFocused,
+                secondsSincePreviousClick: elapsed,
+                doubleClickInterval: NSEvent.doubleClickInterval)
+        else {
             actions.jump(favorite.host, favorite.path)
+            return
+        }
+        let id = favorite.id
+        let model = panelModel
+        renameTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(NSEvent.doubleClickInterval))
+            guard !Task.isCancelled else { return }
+            model.beginEditing(id: id)
         }
     }
 
