@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-07-27
+updated: 2026-07-29
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,37 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-07-29, thirteenth block — HANDS ROUND CLOSED, FIXTURES UP, FIRST FULLY GREEN RUN IN WEEKS
+
+**COMPLETED**
+- **His hands round on the three beta tasks, built live, three commits, all rhythm-green.**
+  - **`3293c73`** — the destination arrows ACT (an arrow with a favorite under the cursor now opens it in that pane, not merely arms the next click); the **double-click-becomes-rename bug** fixed (a click now *arms* a rename and waits out the double-click interval, and any further click cancels it — the old predicate was right about the second click and wrong to act on the first); a click away commits.
+  - **`ccb0f3e`** — the click-away commit REDONE after he reported it still dead. Focus was the wrong signal: this is a `.nonactivatingPanel`, and clicking its ground never takes first responder off the field editor. The field's text moved onto `FavoritesPanelModel` so anything can commit it — a panel-level click-catcher, another row, the arrows. **Tab** switches the focused pane from inside the column and the destination arrows follow it, closing the keyboard loop.
+  - **`0fd4d9b`** — **all five glance panels now `hidesOnDeactivate`**. A `.floating` panel outranks every application on screen, so the favorites column sat above Mail and followed him out of pālana. This is a DIFFERENT bug from the Spaces one fixed at v0.6 (`.canJoinAllSpaces`) — that was the desktop dimension, this is the app dimension. Footer keys are now set apart from their verbs ("8 stars" had read as a count of stars, not the `8` key) and carry a full tooltip.
+  - His verdicts: `r` works, `*` works, click works, open-in-Finder works, bare-path addresses work. **The panel key monitor DOES fire for the favorites panel** — the eleventh-block worry, and [[palana-panel-esc-key-monitor]], did not bite here.
+- **BOTH FIXTURES BROUGHT UP AND THE SUITE IS FULLY GREEN — 936/936, first time since the fixtures went down.** Docker sshd container on 2223; Lima VM `palana-zfs` with pool `palana` ONLINE. PalanaCore line coverage **96.85%** (floor 90). `make verify` clean end to end.
+- **The 27 "failures" were never code.** With fixtures up they fell to 3, all fixture-state drift from past hands sessions, now repaired in place:
+  - `palana/angrybird` was **mounted at `/`**, where it shadowed every path lookup — which is why `/var/log/syslog` resolved to a dataset instead of nil. Moved to `/palana/angrybird`; **kept, not destroyed** (a `zfs destroy` was refused by the permission guard, correctly — and moving it was enough).
+  - `palana/tank/media/photos` had been set to `/palana/children-moved`, and `palana/detached` to `/palana/tank/poopmeister/temp`. Both inherited back to their defaults.
+  - The VM's own `~/.ssh/known_hosts` carried a stale `localhost` ECDSA key, which failed the self-ssh forwarding test. Re-scanned.
+- **`scripts/zfs-fixture.sh` is now self-healing** so this cannot cost a session again: `ensure` only ever created, so drift was silent. A new `reconcile` puts each designed dataset back at its designed mountpoint on every `start`, and datasets the fixture never made are **named on stderr, never destroyed** — a hands-session leftover is the operator's to remove, not a script's. Verified idempotent (a second run reconciles nothing and names `angrybird` + `tank/poopmeister`).
+
+**NEXT**
+- **v1.0 / ho-12 (the ship).** The build is green, covered, and hands-verified; the pipeline already exists (`scripts/build_macos.sh`, notarize, `RELEASING.md`). Nothing technical is in the way — the remaining work is the ho itself and his word to tag.
+- Carried: the **help pages** on the website; banked — snapshot-history surface, shell-UX rethink.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. Everything pushed to `main` (`0fd4d9b` and earlier); the fixture-script hardening is the only uncommitted work at the time of writing.
+- **CI NEVER RUNS THE ZFS PATH.** `.github/workflows/ci.yml` brings up an sshd fixture on the runner but no Lima VM, so every ZFS integration test — mutation round trip, dataset boundaries, zfs send/receive transports — is proven ONLY on a local run with the VM up. Worth knowing before v1.0: green CI is not the same as a green wire.
+- **Fixtures are UP and left up.** Stop with `scripts/sshd-fixture.sh stop` and `limactl stop palana-zfs`. The ZFS `destroy` target deletes the whole 100GiB VM, not just the pool — reach for the reconcile path first.
+- Two strays remain in the pool by choice: `palana/angrybird`, `palana/tank/poopmeister`. Harmless where they now sit; the fixture names them on every start.
+- **DECISION STILL OWED** from the twelfth block: the go-to sheet and bare paths (a picked host is treated as an explicit host; local-first is only for input naming no host). Unchanged, his call.
+
+**PROJECT LIFECYCLE**
+- `beta` — v0.6 on main plus the three beta tasks and their hands round; fully green with fixtures up. v1.0 (ho-12, the ship) is the next move.
 
 ---
 

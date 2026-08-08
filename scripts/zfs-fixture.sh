@@ -84,6 +84,20 @@ datasets() {
             name="$1"; shift
             zfs list "$name" >/dev/null 2>&1 || zfs create "$@" "$name"
         }
+        # ensure only ever CREATES. reconcile puts a dataset back at the
+        # mountpoint the fixture designed for it, because a hands session can
+        # move one and the drift is then silent until the boundary battery
+        # fails against a shape nobody meant. Seen 2026-07-29: photos had been
+        # set to /palana/children-moved, and a stray dataset sat mounted at /
+        # where it shadowed every path lookup in the pool.
+        reconcile() {
+            name="$1"; want="$2"
+            if [ "$(zfs get -H -o value mountpoint "$name")" = "$want" ]; then
+                return 0
+            fi
+            echo "reconciling $name -> $want" >&2
+            zfs set mountpoint="$want" "$name"
+        }
         ensure palana/tank
         ensure palana/tank/media
         ensure palana/tank/media/photos
@@ -91,6 +105,26 @@ datasets() {
         ensure palana/svc/baserow
         ensure palana/legacy -o mountpoint=legacy
         ensure palana/detached -o canmount=noauto
+        reconcile palana                   /palana
+        reconcile palana/tank              /palana/tank
+        reconcile palana/tank/media        /palana/tank/media
+        reconcile palana/tank/media/photos /palana/tank/media/photos
+        reconcile palana/svc               /opt/services
+        reconcile palana/svc/baserow       /opt/services/baserow
+        reconcile palana/legacy            legacy
+        reconcile palana/detached          /palana/detached
+        zfs mount -a 2>/dev/null || true
+        # Datasets the fixture never made are NAMED, never destroyed. A
+        # leftover from a hands session is the operator to remove, not a
+        # script — but it should never be able to hide either.
+        designed=" palana palana/tank palana/tank/media palana/tank/media/photos"
+        designed="$designed palana/svc palana/svc/baserow palana/legacy palana/detached "
+        for found in $(zfs list -H -o name -r palana); do
+            case "$designed" in
+                *" $found "*) ;;
+                *) echo "note: $found is not part of the fixture shape (at $(zfs get -H -o value mountpoint "$found"))" >&2 ;;
+            esac
+        done
         # The operator writes through the panes as the ssh user — root-owned
         # mountpoints turn every pane transfer into EACCES (the yank round).
         chown -R atmarcus:atmarcus /palana /opt/services
