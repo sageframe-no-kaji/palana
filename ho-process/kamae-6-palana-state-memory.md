@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-07-29
+updated: 2026-08-30
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,30 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-08-30, fourteenth block — CI GREEN AGAIN; THE HANG WAS SSH CONTENTION, NOT A SLOW TEST
+
+**COMPLETED**
+- **`7f3d36c` — main is green for the first time in three weeks** (3m30s). Three weeks of red were a 30-minute job kill with *nothing to read*: the runner killed the job from outside, so no stack and no test name ever reached the log. The run froze half a second in and went silent — including tests that carry their own deadlines, because the actor meant to enforce them was stuck.
+- **Three hypotheses raised and killed by evidence before the fix.** The PTY tests and the RoundTripWatcher tests are all deadline-bounded already (`RoundTripTests` says so in its header). `BatchMode=yes` is on every `SSHConduit` invocation, so no ssh call can ever block on a password prompt. Naming them here so they are not re-suspected.
+- **The real finding: ssh contention under parallel tests.** Each ssh integration suite opens a ControlMaster; enough at once trips sshd's `MaxStartups`. Locally that showed as `Connection closed by 127.0.0.1 port 2223` and a *different* set of sshd tests failing on each parallel run — reproducible flakiness, not a fluke. **Serialized, two consecutive runs came back byte-identical.**
+- **The fix, in three parts.** `scripts/ci-test.sh` runs the suite under a watchdog and **samples the stuck processes before killing them**, so the next hang names its own blocked call stack. `--no-parallel` removes the contention and makes any future hang attributable to exactly one named test. The PTY suites (`TerminalSessionStoreTests`, `ShellNaturalExitTests`) skip on a headless runner via `TestEnvironment.isHeadlessCI` — no window server, no interactive login shell — and still run in full locally. Job cap 30 → 25 min.
+
+**NEXT**
+- **Beta launch, not 1.0.** `palana-web/BETA-LAUNCH.md` is the plan; Phase 3 (the four rooms) is gated on Phase 0–2, all `[you]`: price/domain/window, shots + the 50-second demo video, verify the `/compare/` cells, deploy the site, and a signed dmg at `/releases/latest`.
+- The dmg build is **explicitly held at his word** ("I want to allow some last-minute changes").
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. `7f3d36c` pushed; CI green.
+- **The site has never been deployed.** `palana.sageframe.net` resolving to `192.168.1.4` is his dnsmasq and is CORRECT locally — not a fault, as first reported here in error. It simply has no public deploy yet. `public/_data/site.json` still says `v0.4-beta`, and the site's download buttons point at `/releases/latest`, which is still the July beta.
+- **Publish-root hazard for the site deploy.** `palana-web` carries `node_modules/` and `_site/` beside `public/`. Per his standing rule, `.gitignore` is not a publish boundary — the deploy root must be `_site` alone, with an `.assetsignore`, verified against the live URL (fetch `/.git/HEAD`, expect 404).
+- **Local parallel runs stay flaky** even after this fix — only CI was serialized. `CONTRIBUTING.md` tells contributors to run `swift test`, so they will meet it. Proposed, not done: `--no-parallel` in `make verify` too.
+- ZFS VM was left **stopped** this session; the 5 ZFS tests fail locally until `scripts/zfs-fixture.sh start`. CI never runs them at all.
+
+**PROJECT LIFECYCLE**
+- `beta` — code hands-verified and green; nothing published. Beta launch is the next gate, 1.0 is 8+ weeks past it by his own exit criteria.
 
 ---
 
