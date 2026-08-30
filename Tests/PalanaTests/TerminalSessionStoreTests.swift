@@ -33,7 +33,7 @@ extension LocalProcessTerminalView {
 }
 
 @MainActor
-@Suite("TerminalSessionStore: local shell")
+@Suite("TerminalSessionStore: local shell", .enabled(if: !TestEnvironment.isHeadlessCI))
 struct TerminalSessionStoreTests {
     /// Polls the terminal's buffer until `predicate` is true or the
     /// deadline passes — a PTY's output arrives asynchronously off a

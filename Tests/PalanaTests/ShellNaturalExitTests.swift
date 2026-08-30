@@ -12,8 +12,16 @@ import XCTest
 
 @MainActor
 final class ShellNaturalExitTests: XCTestCase {
+    /// Why these skip on a headless runner.
+    ///
+    /// No window server and no interactive login shell there, and a blocked
+    /// main actor takes the whole test process down with it — the shape of
+    /// the silent 30-minute CI hang. See ``TestEnvironment/isHeadlessCI``.
+    private let headlessReason = "PTY suites need a real session"
+
     /// Typing `exit` ends the session: dropped from the store, signal fired.
     func testChildExitDropsTheSessionAndSignals() async throws {
+        try XCTSkipIf(TestEnvironment.isHeadlessCI, headlessReason)
         let store = TerminalSessionStore()
         var endedHosts: [String] = []
         store.onSessionEnded = { endedHosts.append($0) }
@@ -36,6 +44,7 @@ final class ShellNaturalExitTests: XCTestCase {
 
     /// A summon after the death starts a fresh session, not the corpse.
     func testResummonAfterExitSpawnsFresh() async throws {
+        try XCTSkipIf(TestEnvironment.isHeadlessCI, headlessReason)
         let store = TerminalSessionStore()
         let first = store.session(for: PalanaCore.localHostName)
         try await Task.sleep(for: .milliseconds(800))

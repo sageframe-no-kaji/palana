@@ -13,7 +13,7 @@ on:
 jobs:
   verify:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -39,8 +39,10 @@ jobs:
       - name: sshd fixture (runner sshd)
         run: scripts/ci-sshd-fixture.sh
 
+      # Under a watchdog: a hang is bounded and sampled, never a silent
+      # 30-minute job kill with no stack to read (see scripts/ci-test.sh).
       - name: Tests with coverage
-        run: swift test --enable-code-coverage
+        run: scripts/ci-test.sh
 
       - name: Coverage floor (PalanaCore ≥90%)
         run: scripts/coverage-floor.sh 90
