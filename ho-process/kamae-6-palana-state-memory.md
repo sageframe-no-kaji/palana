@@ -30,7 +30,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 - Then back to the beta-launch plan in `palana-web/BETA-LAUNCH.md` (unchanged from the fourteenth block).
 
 **ACTION ITEMS / BLOCKS**
-- No blocks. `4eed995` committed; push and `gh run` check are this session's last acts — see the block's closing line.
+- No blocks. `4eed995` pushed; **CI green at `1674bb8`** (`gh run` checked). CI had been RED since `f133081` — the runner's newer SwiftLint carries `legacy_swiftui_aspect_ratio`, which local 0.65.0 does not; one line in `AboutWindow.swift` now reads `scaledToFit()`. Toolchain drift, not a code fault; a pinned SwiftLint version in CI would stop the next one.
 - The zfs VM's self-hop key went stale again after this restart (`limactl shell palana-zfs -- ssh-keygen -R localhost` cleared it — the known cure). The sshd container is left up; the VM is left stopped, per precedent.
 - Carried from the fourteenth block: the site has never been deployed; publish-root hazard; local parallel-run flakiness; dmg held at his word.
 
