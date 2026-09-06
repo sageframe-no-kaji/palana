@@ -76,6 +76,14 @@ final class PaneModel {
     /// The last read's failure, cleared by the next success — a banner
     /// over a ready pane, the whole line otherwise.
     private(set) var lastError: String?
+    /// How the last typed address was corrected before it landed.
+    ///
+    /// A notice over the pane until the next pointing; nil after an exact
+    /// landing or any navigation that was not a typed address.
+    private(set) var addressNotice: String?
+    /// The notice a recovery in flight will post when its read commits —
+    /// set by `PaneModel+Address.swift`, consumed here.
+    var pendingAddressNotice: String?
     /// True while a read is in flight over a ready pane.
     private(set) var isReading = false
     /// Dataset mountpoints gathered from cached ZFS facts at the last
@@ -143,6 +151,8 @@ final class PaneModel {
 
     private let engine: Engine
     private var loadTask: Task<Void, Never>?
+    /// The typed-address recovery in flight, cancelled by any pointing.
+    var recoveryTask: Task<Void, Never>?
     /// A monotonic counter stamped onto each remote open's round-trip record.
     ///
     /// A later open on this pane carries a higher number, so a record can
@@ -170,6 +180,18 @@ final class PaneModel {
         return engine.isLocal(host)
     }
 
+    /// True for the operator's own machine — the engine's judgement, for
+    /// the address extension's probe, which cannot see the engine.
+    func isLocalHost(_ host: String) -> Bool {
+        engine.isLocal(host)
+    }
+
+    /// The reader that speaks to a host — for the same probe, which asks
+    /// through the listing so a fixture stands in for the wire.
+    func listing(for host: String) -> Listing {
+        engine.listing(for: host)
+    }
+
     /// Re-points the pane from a remembered session.
     func restore(_ remembered: SessionSnapshot.Pane) {
         state.sort = remembered.sort
@@ -184,6 +206,7 @@ final class PaneModel {
     /// The pointing commits only if the read succeeds — a bad path
     /// leaves the pane exactly where it was.
     func point(host: String, path: String) {
+        recoveryTask?.cancel()
         read(host: host, path: path.isEmpty ? "/" : path)
     }
 
@@ -235,23 +258,6 @@ final class PaneModel {
         return true
     }
 
-    /// The entry under the cursor, if any.
-    var cursorEntry: FileEntry? {
-        guard let cursor = state.cursor else { return nil }
-        return rows.first { $0.id == cursor }
-    }
-
-    /// What an operation verb acts on.
-    ///
-    /// The selection when it exists, the cursor entry otherwise — the
-    /// clipboard-verb precedent.
-    var operationSubjects: [FileEntry] {
-        if state.selection.isEmpty {
-            return [cursorEntry].compactMap { $0 }
-        }
-        return rows.filter { state.selection.contains($0.id) }
-    }
-
     // MARK: - Navigation
 
     /// Schedules a cursor landing on the named entry after the next read.
@@ -293,31 +299,6 @@ final class PaneModel {
     func activate(_ id: FileEntry.ID) {
         state.cursor = id
         descend(openingFiles: true)
-    }
-
-    /// Shift-click: select the run from the cursor to the clicked row,
-    /// inclusive — Finder's manners over yazi's marks.
-    func extendSelection(to id: FileEntry.ID) {
-        guard
-            let anchor = state.cursor,
-            let from = rows.firstIndex(where: { $0.id == anchor }),
-            let to = rows.firstIndex(where: { $0.id == id })
-        else {
-            state.selection.insert(id)
-            return
-        }
-        for row in rows[min(from, to)...max(from, to)] {
-            state.selection.insert(row.id)
-        }
-    }
-
-    /// ⌘- or ⌥-click: toggle one row in or out of the selection.
-    func toggleSelection(_ id: FileEntry.ID) {
-        if state.selection.contains(id) {
-            state.selection.remove(id)
-        } else {
-            state.selection.insert(id)
-        }
     }
 
     /// Enter on a file: fetch a temp copy, hand it to the system.
@@ -372,6 +353,7 @@ final class PaneModel {
                 self.isReading = false
                 if self.status == .loading { self.status = self.rows.isEmpty ? .unpointed : .ready }
                 self.lastError = Self.describe(error)
+                self.pendingAddressNotice = nil
                 // A failed history traversal must not leave the suppress
                 // flag standing — the next real navigation still pushes.
                 self.isHistoryNavigation = false
@@ -420,6 +402,8 @@ final class PaneModel {
         status = .ready
         isReading = false
         lastError = nil
+        addressNotice = pendingAddressNotice
+        pendingAddressNotice = nil
         // A zfs-mode pane whose HOST just landed somewhere new shows that
         // host's tree. This lives here, not in point(): reads are async,
         // and refreshing before the host commits refreshed the OLD host
@@ -431,7 +415,10 @@ final class PaneModel {
     }
 
     /// Asks the host where home is — one round trip, POSIX-plain.
-    private func resolveTilde(_ path: String, host: String) async throws -> String {
+    ///
+    /// Internal rather than private because the typed-address recovery in
+    /// `PaneModel+Address.swift` expands `~` before it probes.
+    func resolveTilde(_ path: String, host: String) async throws -> String {
         let door = engine.conduit(for: host)
         let result = try await door.run(on: host, "printf %s \"$HOME\"").collect()
         let home = result.stdoutText
@@ -500,7 +487,10 @@ final class PaneModel {
     // MARK: - Errors
 
     /// One quiet line for the pane — typed errors say what they are.
-    private static func describe(_ error: any Error) -> String {
+    ///
+    /// Internal rather than private so the typed-address probe in
+    /// `PaneModel+Address.swift` reports a failed lookup in the same words.
+    nonisolated static func describe(_ error: any Error) -> String {
         switch error {
         case ListingError.directoryNotFound(let path): "no such directory: \(path)"
         case ListingError.permissionDenied(let path): "permission denied: \(path)"
@@ -758,6 +748,13 @@ extension PaneModel {
     /// `PaneModel+Address.swift` and Swift's `private` is file-scoped; the
     /// error line it writes is what keeps this half here.
     func refuseAddress(_ reason: String) {
+        isReading = false
         lastError = reason
+    }
+
+    /// Marks a typed-address recovery in flight — the header reads
+    /// `reading…` while the host is asked, before any listing starts.
+    func beginAddressRecovery() {
+        isReading = true
     }
 }

@@ -148,3 +148,80 @@ pasted addresses resolve through one grammar
 ```
 
 The body should name the stable local default, explicit current-host shorthand, clipboard normalization, removal of remote fallback, and test count.
+
+---
+
+## Amendment — 2026-09-06, conservative path recovery
+
+Practitioner addition after the grammar task landed (`b370281`). Implement as its own commit; the grammar, normalization, and one-funnel rules above stand unchanged.
+
+**Required resolution order**
+
+1. Parse the host using the task's established grammar.
+   - Bare paths resolve locally.
+   - `local:` resolves locally.
+   - A named host resolves only on that host.
+   - Never search other hosts for a matching path.
+
+2. Normalize transport artifacts.
+   - Trim edge whitespace, newlines, BOM characters, and zero-width characters.
+   - Remove one matching pair of outer quotes.
+   - Decode supported `file://` URLs and safe copied-path escaping.
+   - Never invoke a shell or evaluate shell syntax.
+
+3. Test the resulting path exactly.
+   - An existing exact path always wins.
+   - Valid filenames may end in punctuation, so never alter an exact match.
+
+4. If the exact path does not exist, test one conservative trailing-punctuation correction.
+   - Remove exactly one terminal prose character such as `.`, `,`, or `;`.
+   - Accept the correction only when the resulting path exists.
+   - Example: if `ho-05.1-walk.md.` does not exist but `ho-05.1-walk.md` does, resolve to the latter.
+   - Do not repeatedly strip characters or guess among multiple transformations.
+   - Report visibly that Palana corrected the pasted address.
+
+5. If neither path exists, walk upward to the longest existing directory ancestor.
+   - Navigate to that directory.
+   - Preserve and display the unresolved suffix rather than reporting full success.
+   - Example: `/a/b/missing/file.md` may navigate to `/a/b` while displaying `missing/file.md` as unresolved.
+   - Do not treat `/` alone as a successful recovery unless `/` was the requested path.
+   - If no useful ancestor exists, return a clear resolution error without changing the pane.
+
+6. Keep correction visible.
+   - Before navigation, show the resolved host and effective path.
+   - Distinguish exact resolution, punctuation correction, and ancestor recovery.
+   - Never silently replace the user's requested address with a different destination.
+
+**Tests**
+
+Add focused tests covering:
+
+- Exact files whose names legitimately end in punctuation.
+- A copied Markdown path with one accidental trailing period.
+- Inputs with multiple trailing periods where only one may be removed.
+- Inputs whose corrected candidate still does not exist.
+- Recovery to the longest existing local directory.
+- Recovery that would reach only `/` and must instead fail.
+- Preservation of the unresolved suffix.
+- Matching and mismatched outer quotes.
+- Newlines, BOM characters, zero-width characters, and `file://` URLs.
+- Bare paths remaining local while the current pane is remote.
+- Explicit remote paths using only their named host.
+- Remote lookup failures without cross-host fallback.
+- No shell evaluation for command substitutions, variables, semicolons, pipes, or escapes.
+
+**Placement**
+
+Keep the parser and recovery policy in testable PalanaCore code where possible. Do not distribute normalization rules across GoToBar, PaneModel, and PalanaSession; those callers must consume one authoritative parsed result.
+
+**Verification**
+
+Run the task's existing verification commands plus the focused parser and pane-resolution tests.
+
+**Commit**
+
+Single commit with subject:
+
+```text
+pasted addresses recover conservatively
+```

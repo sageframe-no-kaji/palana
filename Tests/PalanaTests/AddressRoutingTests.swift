@@ -1,9 +1,10 @@
 // AddressRoutingTests — where a typed address lands, from the pane's side.
 // A bare path is this Mac by grammar: no probe of the pane's remote host,
 // no fallback when the local read misses. `:` borrows the pane's host, a
-// named host is pointed at, and a malformed paste is refused in place with
-// the pane exactly where it was. The remote conduit is a fake that records
-// every command it is handed; the local reads touch only temp directories.
+// named host is pointed at — its existence probe and its listing, on that
+// host and no other — and a malformed paste is refused in place with the
+// pane exactly where it was. The rig is AddressRig: a recording remote
+// door, temp directories for the local reads.
 
 import Foundation
 import PalanaCore
@@ -11,94 +12,36 @@ import Testing
 
 @testable import Palana
 
-/// A remote door that records everything and answers one listing.
-private actor RecordingConduit: Conduit {
-    private let listings: [String: Data]
-    private(set) var commands: [String] = []
-
-    init(listings: [String: Data] = [:]) {
-        self.listings = listings
-    }
-
-    func run(on host: String, _ command: String) async throws -> RunningCommand {
-        commands.append(command)
-        guard let data = listings[command] else {
-            return RunningCommand(
-                replayingStdout: Data(), stderr: Data("bash: no such file or directory".utf8), exitStatus: 1)
-        }
-        return RunningCommand(replayingStdout: data, stderr: Data(), exitStatus: 0)
-    }
-
-    func close(host: String) async {}
-    func closeAll() async {}
-}
-
 @MainActor
 @Suite("address routing — one grammar, no remote fallback")
 struct AddressRoutingTests {
-    private let host = "koan"
-
-    private struct Rig {
-        let conduit: RecordingConduit
-        let pane: PaneModel
-        let cacheURL: URL
-    }
-
-    /// A pane over a GNU host whose capability is already known, so a
-    /// remote pointing runs exactly one listing command and nothing else.
-    private func makeRig(remoteListings: [String: Data] = [:]) throws -> Rig {
-        let conduit = RecordingConduit(listings: remoteListings)
-        let cacheURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("palana-address-cache-\(UUID().uuidString).json")
-        let cache = FieldCache(url: cacheURL)
-        let capability = HostCapability(kernel: "Linux", flavor: .gnu, zfs: nil, rsync: nil)
-        try cache.save([host: HostFacts(capability: Dated(value: capability, discoveredAt: Date()))])
-        let field = Field(conduit: conduit, hosts: [host], cache: cache)
-        let engine = Engine(
-            conduit: SSHConduit(configuration: SSHConfiguration()),
-            field: field,
-            listing: Listing(conduit: conduit))
-        return Rig(conduit: conduit, pane: PaneModel(engine: engine), cacheURL: cacheURL)
-    }
-
-    /// A pane standing on the remote host, as after a successful read.
-    private func makeRemotePane(remoteListings: [String: Data] = [:]) throws -> Rig {
-        let rig = try makeRig(remoteListings: remoteListings)
-        rig.pane.state.host = host
-        rig.pane.state.path = "/srv"
-        return rig
-    }
-
-    private func makeTemporaryDirectory() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("palana-address-\(UUID().uuidString.prefix(8))", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }
+    private let host = AddressRig.host
 
     // MARK: - Bare local means local only
 
     @Test("a bare path that misses locally is refused for this Mac — the remote host is never asked")
     func bareMissNeverProbesRemote() async throws {
-        let rig = try makeRemotePane()
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
+        let rig = try AddressRig.remote()
+        defer { rig.tearDown() }
         let missing = "/nowhere-\(UUID().uuidString)"
 
         rig.pane.pointAddress(missing)
         try await poll(message: "the local miss never reported") { rig.pane.lastError != nil }
 
-        #expect(rig.pane.lastError == "no such directory: \(missing)")
+        let refusal = AddressRecoveryError.notFound(ResolvedAddress(host: Engine.localHost, path: missing))
+        #expect(rig.pane.lastError == refusal.description)
         #expect(rig.pane.state.host == host, "the pane stays on its host")
         #expect(rig.pane.state.path == "/srv", "the pane stays where it was")
+        #expect(rig.pane.isReading == false)
         let commands = await rig.conduit.commands
         #expect(commands.isEmpty, "no probe, no listing, nothing went over the wire: \(commands)")
     }
 
     @Test("a bare path that exists lands on this Mac even while the pane stands on a remote host")
     func barePathLandsLocally() async throws {
-        let rig = try makeRemotePane()
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
-        let directory = try makeTemporaryDirectory()
+        let rig = try AddressRig.remote()
+        defer { rig.tearDown() }
+        let directory = try AddressRig.makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let path = directory.path
 
@@ -107,14 +50,15 @@ struct AddressRoutingTests {
 
         #expect(rig.pane.state.path == path)
         #expect(rig.pane.status == .ready)
+        #expect(rig.pane.addressNotice == nil, "an exact landing posts no notice")
         #expect(await rig.conduit.commands.isEmpty, "nothing went over the wire")
     }
 
     @Test("a quoted, newline-terminated, escaped paste lands on this Mac exactly where the wrappers said")
     func hostilePasteLandsLocally() async throws {
-        let rig = try makeRemotePane()
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
-        let parent = try makeTemporaryDirectory()
+        let rig = try AddressRig.remote()
+        defer { rig.tearDown() }
+        let parent = try AddressRig.makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: parent) }
         let directory = parent.appendingPathComponent("My Folder", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -129,9 +73,9 @@ struct AddressRoutingTests {
 
     @Test("a file:// paste lands on this Mac, percent-decoded")
     func fileURLLandsLocally() async throws {
-        let rig = try makeRemotePane()
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
-        let parent = try makeTemporaryDirectory()
+        let rig = try AddressRig.remote()
+        defer { rig.tearDown() }
+        let parent = try AddressRig.makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: parent) }
         let directory = parent.appendingPathComponent("My File", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -144,36 +88,39 @@ struct AddressRoutingTests {
 
     // MARK: - Explicit hosts
 
-    @Test("host:path points at that host and runs exactly its listing")
+    @Test("host:path points at that host and runs exactly its probe and its listing")
     func namedHostPoints() async throws {
-        let command = Listing.command(for: "/tank", flavor: .gnu)
-        let rig = try makeRig(remoteListings: [command: Data()])
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
+        let (probe, presence) = AddressRig.probe("/tank", .directory)
+        let (listing, entries) = AddressRig.listing("/tank")
+        let rig = try AddressRig(answers: [probe: presence, listing: entries])
+        defer { rig.tearDown() }
 
         rig.pane.pointAddress("koan:/tank")
         try await poll(message: "the pane did not land") { rig.pane.state.host == host }
 
         #expect(rig.pane.state.path == "/tank")
-        #expect(await rig.conduit.commands == [command])
+        #expect(await rig.conduit.commands == [probe, listing])
+        #expect(await rig.conduit.hosts == [host, host])
     }
 
     @Test(":path borrows the pane's host")
     func currentHostShorthandPoints() async throws {
-        let command = Listing.command(for: "/tank", flavor: .gnu)
-        let rig = try makeRemotePane(remoteListings: [command: Data()])
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
+        let (probe, presence) = AddressRig.probe("/tank", .directory)
+        let (listing, entries) = AddressRig.listing("/tank")
+        let rig = try AddressRig.remote(answers: [probe: presence, listing: entries])
+        defer { rig.tearDown() }
 
         rig.pane.pointAddress(":/tank")
         try await poll(message: "the pane did not land") { rig.pane.state.path == "/tank" }
 
         #expect(rig.pane.state.host == host)
-        #expect(await rig.conduit.commands == [command])
+        #expect(await rig.conduit.commands == [probe, listing])
     }
 
     @Test(": on an unpointed pane is refused in place, with no read")
     func currentHostShorthandOnUnpointedPane() async throws {
-        let rig = try makeRig()
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
+        let rig = try AddressRig()
+        defer { rig.tearDown() }
 
         rig.pane.pointAddress(":/tank")
 
@@ -192,8 +139,8 @@ struct AddressRoutingTests {
             "/tank\u{0}x", "koan:notes",
         ])
     func malformedPasteRefused(input: String) async throws {
-        let rig = try makeRemotePane()
-        defer { try? FileManager.default.removeItem(at: rig.cacheURL) }
+        let rig = try AddressRig.remote()
+        defer { rig.tearDown() }
 
         rig.pane.pointAddress(input)
 
@@ -243,22 +190,6 @@ struct AddressRoutingTests {
             #expect(
                 PaneModel.resolveAddress("koan:/tank", currentHost: currentHost)
                     == .success(ResolvedAddress(host: "koan", path: "/tank")))
-        }
-    }
-
-    /// Bounded main-actor poll — records an issue on timeout rather than hanging.
-    private func poll(
-        timeout: TimeInterval = 5,
-        message: String,
-        _ condition: () -> Bool
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() {
-            guard Date() < deadline else {
-                Issue.record("\(message)")
-                return
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
         }
     }
 }

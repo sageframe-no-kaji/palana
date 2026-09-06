@@ -70,6 +70,9 @@ public struct ResolvedAddress: Equatable, Sendable {
     /// True when the address points at this Mac.
     public var isLocal: Bool { host == PalanaCore.localHostName }
 
+    /// The host as a line names it — `this Mac` for the local host.
+    public var scopeName: String { isLocal ? "this Mac" : host }
+
     /// A resolved address.
     public init(host: String, path: String, usesCurrentHost: Bool = false) {
         self.host = host

@@ -89,6 +89,42 @@ public struct Listing: Sendable {
         }
     }
 
+    /// The exact command an existence probe runs — exposed so tests pin it.
+    ///
+    /// POSIX `test` on the quoted path, answering one of three words. It
+    /// runs the same on every flavor pālana reads, and the path rides
+    /// inside ``ShellQuote`` armor: nothing in it is ever evaluated.
+    public static func presenceCommand(for path: String) -> String {
+        let quoted = ShellQuote.quote(path)
+        return "if test -d \(quoted); then echo directory; elif test -e \(quoted); then echo file; else echo absent; fi"
+    }
+
+    /// Reads the probe command's answer; nil for anything but its three words.
+    static func presenceAnswer(_ stdout: String) -> PathPresence? {
+        switch stdout.trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "directory": .directory
+        case "file": .file
+        case "absent": .absent
+        default: nil
+        }
+    }
+
+    /// Asks one host whether one path exists, and whether it is a directory.
+    ///
+    /// One round trip on that host. A door failure throws through
+    /// untouched; a command that ran but did not answer in its three words
+    /// throws ``ListingError/malformedListing``, and a nonzero exit
+    /// ``ListingError/listingFailed(exitStatus:stderr:)`` — the address
+    /// recovery reports either as the lookup failing, never as absence.
+    public func presence(on host: String, path: String) async throws -> PathPresence {
+        let result = try await conduit.run(on: host, Self.presenceCommand(for: path)).collect()
+        guard result.exitStatus == 0 else {
+            throw ListingError.listingFailed(exitStatus: result.exitStatus, stderr: result.stderrText)
+        }
+        guard let presence = Self.presenceAnswer(result.stdoutText) else { throw ListingError.malformedListing }
+        return presence
+    }
+
     /// The exact command a file read runs — exposed so tests pin it.
     public static func readFileCommand(for path: String) -> String {
         "cat \(ShellQuote.quote(path))"

@@ -388,35 +388,12 @@ struct PaneView: View {
                     .overlay(alignment: .bottom) {
                         if let error = model.lastError {
                             errorBanner(error)
+                        } else if let notice = model.addressNotice {
+                            noticeBanner(notice)
                         }
                     }
             }
         }
-    }
-
-    /// A failed read over a live listing — say it, stay put.
-    private func errorBanner(_ text: String) -> some View {
-        Text(text)
-            .font(Theme.font(11))
-            .foregroundStyle(Theme.ground)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(Theme.ink.opacity(0.82), in: Capsule())
-            .padding(.bottom, 10)
-            .allowsHitTesting(false)
-    }
-
-    func quietLine(_ text: String) -> some View {
-        VStack {
-            Spacer()
-            Text(text)
-                .font(Theme.font(12))
-                .foregroundStyle(Theme.inkFaint)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 

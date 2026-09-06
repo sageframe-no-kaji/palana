@@ -1,7 +1,10 @@
 // GoToBarResolutionTests — what the go-to sheet says before Go. One address
 // field, one grammar: the resolved scope reads `this Mac · …`, `koan · …`,
 // or `current pane: koan · …`; a refusal reads in place; an empty field
-// says nothing. Go is possible only when the text resolves.
+// says nothing. Go is possible only when the text resolves. Once the
+// pane's recovery has answered, the line says where the pane will land
+// and names any correction — an exact path reads plain, a punctuation
+// correction or an ancestor landing says so, a refusal reads as itself.
 
 import PalanaCore
 import Testing
@@ -82,5 +85,59 @@ struct GoToBarResolutionTests {
         }
         #expect(resolution == .refusal(refusal.description))
         #expect(resolution.resolved == nil)
+    }
+
+    // MARK: - After the recovery answers
+
+    @Test("an exact landing reads as the plain scope line")
+    func exactPreviewIsPlain() {
+        let recovery = AddressRecovery.exact(ResolvedAddress(host: "koan", path: "/tank"))
+        #expect(GoToBar.previewLine(for: recovery) == "koan · /tank")
+        #expect(
+            GoToBar.previewLine(for: .exact(ResolvedAddress(host: "local", path: "/Users/atm")))
+                == "this Mac · /Users/atm")
+    }
+
+    @Test("a punctuation correction shows the destination and names the character that came off")
+    func correctedPreviewNamesTheCharacter() {
+        let recovery = AddressRecovery.punctuationCorrected(
+            ResolvedAddress(host: "local", path: "/vault/ho-05.1-walk.md"),
+            requested: "/vault/ho-05.1-walk.md.",
+            removed: ".")
+        #expect(
+            GoToBar.previewLine(for: recovery)
+                == "this Mac · /vault/ho-05.1-walk.md — trailing \".\" removed: /vault/ho-05.1-walk.md. is not there, /vault/ho-05.1-walk.md is"
+        )
+    }
+
+    @Test("an ancestor landing shows the folder and keeps the unresolved suffix in view")
+    func ancestorPreviewKeepsTheSuffix() {
+        let recovery = AddressRecovery.ancestorRecovered(
+            ResolvedAddress(host: "koan", path: "/a/b", usesCurrentHost: true),
+            requested: "/a/b/missing/file.md",
+            unresolved: "missing/file.md")
+        #expect(
+            GoToBar.previewLine(for: recovery)
+                == "current pane: koan · /a/b — not found: missing/file.md — landed at /a/b, the nearest folder that exists"
+        )
+    }
+
+    @Test("the three outcomes and the refusal are four distinct lines for one requested address")
+    func outcomesAreDistinguishable() {
+        let requested = ResolvedAddress(host: "koan", path: "/tank/x.")
+        let lines = [
+            GoToBar.previewLine(for: .exact(requested)),
+            GoToBar.previewLine(
+                for: .punctuationCorrected(
+                    ResolvedAddress(host: "koan", path: "/tank/x"), requested: "/tank/x.", removed: ".")),
+            GoToBar.previewLine(
+                for: .ancestorRecovered(
+                    ResolvedAddress(host: "koan", path: "/tank"), requested: "/tank/x.", unresolved: "x.")),
+            AddressRecoveryError.notFound(requested).description,
+            AddressRecoveryError.lookupFailed(requested, reason: "no route").description,
+        ]
+        #expect(Set(lines).count == lines.count, "\(lines)")
+        #expect(lines[0] == "koan · /tank/x.")
+        #expect(lines[3] == "no such path on koan: /tank/x. — nothing above it exists but /")
     }
 }

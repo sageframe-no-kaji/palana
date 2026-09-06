@@ -347,6 +347,7 @@ struct SurfaceView: View {
         return GoToBar(
             initialAddress: pane.state.host.map { "\($0):\(pane.state.path)" } ?? "",
             currentHost: pane.state.host,
+            recover: { resolved in await pane.recover(resolved) },
             onCommit: { address in session.pointAddress(side, address) },
             onCancel: { session.gotoTarget = nil })
     }
