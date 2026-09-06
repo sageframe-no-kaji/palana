@@ -106,7 +106,7 @@ struct GoToBarResolutionTests {
             removed: ".")
         #expect(
             GoToBar.previewLine(for: recovery)
-                == "this Mac · /vault/ho-05.1-walk.md — trailing \".\" removed: /vault/ho-05.1-walk.md. is not there, /vault/ho-05.1-walk.md is"
+                == "this Mac · /vault/ho-05.1-walk.md — found ho-05.1-walk.md — the pasted address ended in an extra \".\""
         )
     }
 
@@ -118,7 +118,7 @@ struct GoToBarResolutionTests {
             unresolved: "missing/file.md")
         #expect(
             GoToBar.previewLine(for: recovery)
-                == "current pane: koan · /a/b — not found: missing/file.md — landed at /a/b, the nearest folder that exists"
+                == "current pane: koan · /a/b — missing/file.md is not here — stopped at /a/b, the deepest folder that exists"
         )
     }
 

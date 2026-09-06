@@ -73,7 +73,7 @@ struct AddressRecoveryRoutingTests {
         #expect(rig.pane.state.cursor == Data("ho-05.1-walk.md".utf8), "the corrected file is revealed")
         #expect(
             rig.pane.addressNotice
-                == "trailing \".\" removed: \(vault.walk.path). is not there, \(vault.walk.path) is")
+                == "found \(vault.walk.lastPathComponent) — the pasted address ended in an extra \".\"")
         #expect(rig.pane.lastError == nil)
         #expect(await rig.conduit.commands.isEmpty, "the pane's remote host was never asked")
     }
@@ -92,7 +92,7 @@ struct AddressRecoveryRoutingTests {
         #expect(rig.pane.state.selection.isEmpty, "nothing is revealed — the name as pasted is not there")
         #expect(
             rig.pane.addressNotice
-                == "not found: ho-05.1-walk.md.. — landed at \(vault.root.path), the nearest folder that exists")
+                == "ho-05.1-walk.md.. is not here — stopped at \(vault.root.path), the deepest folder that exists")
     }
 
     @Test("a corrected candidate that still does not exist is not taken — the folder is, with the miss named")
@@ -106,7 +106,7 @@ struct AddressRecoveryRoutingTests {
         try await poll(message: "the pane did not land") { rig.pane.status == .ready }
 
         #expect(rig.pane.state.path == vault.root.path)
-        #expect(rig.pane.addressNotice?.hasPrefix("not found: gone.md, — landed at") == true)
+        #expect(rig.pane.addressNotice?.hasPrefix("gone.md, is not here — stopped at") == true)
     }
 
     // MARK: - The longest existing directory
@@ -127,7 +127,7 @@ struct AddressRecoveryRoutingTests {
         #expect(rig.pane.state.path == deepest.path)
         #expect(
             rig.pane.addressNotice
-                == "not found: missing/deeper/file.md — landed at \(deepest.path), the nearest folder that exists")
+                == "missing/deeper/file.md is not here — stopped at \(deepest.path), the deepest folder that exists")
         #expect(await rig.conduit.commands.isEmpty)
     }
 
@@ -185,7 +185,7 @@ struct AddressRecoveryRoutingTests {
         #expect(rig.pane.state.host == Engine.localHost)
         #expect(rig.pane.state.path == vault.root.path)
         #expect(rig.pane.state.cursor == Data("ho-05.1-walk.md".utf8))
-        #expect(rig.pane.addressNotice?.hasPrefix("trailing \".\" removed") == true)
+        #expect(rig.pane.addressNotice?.hasPrefix("found ") == true)
     }
 
     @Test("a mismatched outer quote is refused before any probe — no recovery rescues a parse refusal")
@@ -220,7 +220,7 @@ struct AddressRecoveryRoutingTests {
 
         #expect(rig.pane.state.host == host)
         #expect(rig.pane.state.path == "/tank")
-        #expect(rig.pane.addressNotice == "not found: missing/x — landed at /tank, the nearest folder that exists")
+        #expect(rig.pane.addressNotice == "missing/x is not here — stopped at /tank, the deepest folder that exists")
         #expect(await rig.conduit.commands == [probeDeep, probeMid, probeTank, listing])
         #expect(await rig.conduit.hosts == [host, host, host, host])
     }
@@ -302,7 +302,7 @@ struct AddressRecoveryRoutingTests {
         try await poll(message: "the pane did not land") { rig.pane.status == .ready }
 
         #expect(rig.pane.state.path == home)
-        #expect(rig.pane.addressNotice == "not found: \(missing) — landed at \(home), the nearest folder that exists")
+        #expect(rig.pane.addressNotice == "\(missing) is not here — stopped at \(home), the deepest folder that exists")
     }
 
     // MARK: - No shell
@@ -321,7 +321,7 @@ struct AddressRecoveryRoutingTests {
 
         #expect(rig.pane.state.path == vault.root.path)
         #expect(rig.pane.state.cursor == Data(name.utf8), "the literally named file is revealed")
-        #expect(rig.pane.addressNotice?.hasPrefix("trailing \".\" removed") == true)
+        #expect(rig.pane.addressNotice?.hasPrefix("found ") == true)
     }
 
     @Test(

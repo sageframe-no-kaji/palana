@@ -97,11 +97,17 @@ public enum AddressRecovery: Equatable, Sendable {
         switch self {
         case .exact:
             nil
-        case .punctuationCorrected(let address, let requested, let removed):
-            "trailing \"\(removed)\" removed: \(requested) is not there, \(address.path) is"
+        case .punctuationCorrected(let address, _, let removed):
+            "found \(Self.lastComponent(of: address.path)) — the pasted address ended in an extra \"\(removed)\""
         case .ancestorRecovered(let address, _, let unresolved):
-            "not found: \(unresolved) — landed at \(address.path), the nearest folder that exists"
+            "\(unresolved) is not here — stopped at \(address.path), the deepest folder that exists"
         }
+    }
+
+    /// The final name in a path — the notice names the file, not the
+    /// directory the pane already shows.
+    static func lastComponent(of path: String) -> String {
+        path.split(separator: "/").last.map(String.init) ?? path
     }
 
     /// The trailing characters prose attaches to a path.

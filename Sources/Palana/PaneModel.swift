@@ -81,6 +81,11 @@ final class PaneModel {
     /// A notice over the pane until the next pointing; nil after an exact
     /// landing or any navigation that was not a typed address.
     private(set) var addressNotice: String?
+
+    /// The notice bar leaves on a click or after its five seconds.
+    func dismissAddressNotice() {
+        addressNotice = nil
+    }
     /// The notice a recovery in flight will post when its read commits —
     /// set by `PaneModel+Address.swift`, consumed here.
     var pendingAddressNotice: String?

@@ -106,7 +106,7 @@ struct AddressRecoveryTests {
         #expect(recovery.isCorrected)
         #expect(
             recovery.notice
-                == "trailing \".\" removed: /vault/ho-05.1-walk.md. is not there, /vault/ho-05.1-walk.md is")
+                == "found ho-05.1-walk.md — the pasted address ended in an extra \".\"")
         #expect(await host.asked == ["/vault/ho-05.1-walk.md.", "/vault/ho-05.1-walk.md"])
     }
 
@@ -146,7 +146,7 @@ struct AddressRecoveryTests {
         let host = FakeHost(directories: ["/vault"])
         let recovery = try await AddressRecovery.recover(koan("/vault/gone.md."), probe: host.probe)
         #expect(recovery == .ancestorRecovered(koan("/vault"), requested: "/vault/gone.md.", unresolved: "gone.md."))
-        #expect(recovery.notice == "not found: gone.md. — landed at /vault, the nearest folder that exists")
+        #expect(recovery.notice == "gone.md. is not here — stopped at /vault, the deepest folder that exists")
         #expect(await host.asked == ["/vault/gone.md.", "/vault/gone.md", "/vault"])
     }
 
