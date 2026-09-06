@@ -216,8 +216,8 @@ struct FieldTests {
         #expect(FileManager.default.fileExists(atPath: cache.url.path), "rediscovery rewrites")
     }
 
-    @Test("a nonzero mounts exit leaves the prior mounts fact standing")
-    func failedMountsReadPreservesMemory() async throws {
+    @Test("a nonzero mounts exit clears the prior mounts fact and records why")
+    func failedMountsReadClearsMemory() async throws {
         let cache = Self.freshCache()
         let priorMounts = [Mount(source: "/dev/sda1", target: "/", fstype: "ext4", readOnly: false)]
         let prior = HostFacts(
@@ -230,7 +230,11 @@ struct FieldTests {
             now: Self.clock
         )
         let facts = try await field.discover("nomount")
-        #expect(facts.mounts?.value == priorMounts, "nonzero exit: prior mounts fact stands")
+        #expect(facts.mounts == nil, "a failed read never keeps an older table a plan could route on")
+        #expect(facts.mountsUnavailable?.value.exitStatus == 1)
+        #expect(facts.mountsUnavailable?.value.detail == "cat: /proc/mounts: Permission denied")
+        #expect(facts.mountsUnavailable?.discoveredAt == Self.clock())
+        #expect(await field.facts(for: "nomount")?.mounts == nil, "memory agrees")
     }
 
     @Test("every door failure describes as a short human line")

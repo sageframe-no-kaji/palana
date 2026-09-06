@@ -3,9 +3,20 @@
 // collects the operator's input, commitZFSGather composes the PlanRequest
 // and hands it to the Plan Engine, and phase lands at .ready. Enter
 // enacts — nothing else does (Decision 4).
+//
+// The plan stands on fresh topology, twice: the compose reads the host
+// before it names a dataset, and Enter re-reads it before the first
+// step runs. Memory of an earlier visit is shown, never obeyed.
 
 import Foundation
 import PalanaCore
+
+/// A ZFS gather refused before the engine saw it — the sentence is the
+/// whole error, in the panel's voice.
+struct ZFSGatherRefusal: Error, CustomStringConvertible {
+    /// What the panel says.
+    let description: String
+}
 
 extension OperationModel {
     // MARK: - State hygiene
@@ -16,7 +27,10 @@ extension OperationModel {
     /// `beginTouch`) — the pending verb survives `.ready` and `.finished`
     /// (only `reset()` clears it), and a stale one would misroute
     /// `commitNaming` into the ZFS path on the next file rename or create.
+    /// A snapshot-context read still in flight is cancelled with it.
     func clearZFSGatherState() {
+        snapshotContextTask?.cancel()
+        snapshotContextTask = nil
         pendingZFSVerb = nil
         pendingZFSTool = nil
         pendingZFSHost = nil
@@ -51,6 +65,9 @@ extension OperationModel {
     /// `.naming` phase so the key monitor stands down and the panel's field
     /// row appears. Verbs with no text (clear-mountpoint) compose immediately
     /// and land at `.ready`.
+    ///
+    /// `mounted` is the surface's remembered fact, carried for the label;
+    /// the compose reads the dataset's real state before it composes.
     func beginZFSMutation(
         _ verb: WorkbenchVerb,
         tool: ZFSMutationTool,
@@ -68,6 +85,11 @@ extension OperationModel {
         }
         if phase == .naming { reset() }
         // .idle, .ready, .finished, .failed, .cancelled fall through to a fresh begin.
+        // This gather supersedes any snapshot read still in flight — a
+        // late answer from the last one lands nowhere.
+        snapshotContextTask?.cancel()
+        snapshotContextTask = nil
+        zfsGatherGeneration += 1
         panelShowing = true
         requested = .zfs
         echo = EchoBuffer()
@@ -103,7 +125,7 @@ extension OperationModel {
             // The snapshot verbs gather a name nobody remembers — read the
             // dataset's snapshots off the wire and show them under the field.
             if verb.id == "zfs-rollback" || verb.id == "zfs-destroy-snapshot" {
-                fetchSnapshotContext(host: host, dataset: dataset)
+                fetchSnapshotContext(host: host, dataset: dataset, verb: verb)
             }
         } else {
             // No text, no toggle (e.g. zfs-clear-mountpoint) — compose now.
@@ -115,41 +137,55 @@ extension OperationModel {
     /// ``namingContextLines`` for the gather view — oldest first, short
     /// names only (the part after `@`, which is what the field wants).
     ///
-    /// Fire-and-forget; lines landing after the gather closed render
-    /// nowhere and clear at the next state change.
-    private func fetchSnapshotContext(host: String, dataset: String) {
-        Task {
-            let cmd = "zfs list -H -t snapshot -o name -s creation -- \(ShellQuote.quote(dataset))"
-            guard let running = try? await engine.conduit(for: host).run(on: host, cmd),
-                let result = try? await running.collect()
-            else {
+    /// The read belongs to the gather that started it: it captures the
+    /// gather's generation, host, dataset, and verb, and commits its
+    /// answer only while all four still name the current gather. A read
+    /// that outlives its gather — cancelled, or simply late — changes
+    /// nothing, so one dataset's snapshots never show under another's
+    /// field and one dataset's empty list never dismisses another's gather.
+    private func fetchSnapshotContext(host: String, dataset: String, verb: WorkbenchVerb) {
+        let generation = zfsGatherGeneration
+        snapshotContextTask = Task {
+            let names: [String]?
+            do {
+                names = try await engine.field.snapshotNames(of: dataset, on: host)
+            } catch {
+                names = nil
+            }
+            guard !Task.isCancelled,
+                isCurrentZFSGather(generation: generation, host: host, dataset: dataset, verb: verb)
+            else { return }
+            guard let names else {
                 namingContextLines = ["(could not list snapshots on \(host))"]
                 return
             }
-            let names = (String(bytes: result.stdout, encoding: .utf8) ?? "")
-                .split(separator: "\n")
-                .compactMap { line -> String? in
-                    guard let at = line.firstIndex(of: "@") else { return nil }
-                    return String(line[line.index(after: at)...])
-                }
             if names.isEmpty {
                 // A field that can only fail is a dead end — dismiss the
                 // gather and say why in the transcript instead (the hands
                 // round sat in front of '(no snapshots)' with nothing
                 // sensible to type).
-                if phase == .naming, pendingZFSVerb != nil {
-                    reset()
-                    // reset() hides the panel — re-show it so the
-                    // explanation is READ, not buried (the hands round
-                    // watched the panel flash and vanish, then found
-                    // the note later by hand).
-                    showPanel()
-                    note("no snapshots on \(dataset) — nothing to act on")
-                }
+                reset()
+                // reset() hides the panel — re-show it so the
+                // explanation is READ, not buried (the hands round
+                // watched the panel flash and vanish, then found
+                // the note later by hand).
+                showPanel()
+                note("no snapshots on \(dataset) — nothing to act on")
                 return
             }
             namingContextLines = names
         }
+    }
+
+    /// Whether a captured gather identity is still the one on screen.
+    private func isCurrentZFSGather(
+        generation: Int, host: String, dataset: String, verb: WorkbenchVerb
+    ) -> Bool {
+        phase == .naming
+            && generation == zfsGatherGeneration
+            && pendingZFSVerb?.id == verb.id
+            && pendingZFSHost == host
+            && pendingZFSDataset == dataset
     }
 
     // MARK: - Commit
@@ -264,29 +300,114 @@ extension OperationModel {
         }
     }
 
+    // MARK: - Pre-enactment confirmation
+
+    /// Re-reads every host a plan is bound to and confirms the bound
+    /// datasets still answer as they did — before anything runs.
+    ///
+    /// Each read goes through ``Field/refresh(_:)``, so what is compared
+    /// was on the wire moments ago. A host that will not answer, a read
+    /// no newer than the plan's, a dataset gone or moved: every one
+    /// throws, and `enact()` lands the plan at `.failed` with nothing run.
+    func confirmTopologyBinding(_ binding: TopologyBinding, of plan: Plan) async throws {
+        var fresh: [String: HostFacts] = [:]
+        for host in binding.hosts {
+            note("re-reading zfs on \(host) before anything runs…")
+            do {
+                fresh[host] = try await engine.field.refresh(host)
+            } catch let error as FieldError {
+                throw TopologyBindingError.unavailable(host: host, detail: "\(error)")
+            }
+        }
+        try Task.checkCancellation()
+        try plan.confirmTopology(fresh: fresh)
+        let names = binding.bound.map(\.dataset.name).joined(separator: ", ")
+        note("\(names) — as read when the plan composed")
+    }
+
     // MARK: - Private helpers
 
-    /// Builds the MutationInput and runs it through the Plan Engine.
+    /// Reads the host fresh, then builds the MutationInput and runs it
+    /// through the Plan Engine.
     ///
-    /// A nil planRequest dismisses quietly (malformed gather). A PlanError
-    /// renders as a failure. A good plan lands at `.ready` — and stops there
-    /// (Decision 4: never call enact() here).
+    /// The gather phase holds while the host answers. A nil planRequest
+    /// dismisses quietly (malformed gather). A refusal or PlanError renders
+    /// as a failure. A good plan lands at `.ready` bound to the read it
+    /// stood on — and stops there (Decision 4: never call enact() here).
     private func compose(
         verb: WorkbenchVerb,
         tool: ZFSMutationTool,
         host: String,
         input: MutationInput
     ) {
-        guard let request = tool.planRequest(for: verb, on: host, input: input) else {
-            reset()
-            return
+        phase = .gathering
+        panelShowing = true
+        gatherTask = Task {
+            await composeOverFreshTopology(verb: verb, tool: tool, host: host, input: input)
         }
+    }
+
+    /// The compose body: one wire read, then the engine.
+    ///
+    /// The target dataset must exist in the read, and must read exactly
+    /// as memory last showed it — a dataset whose mountpoint or mounted
+    /// state moved since the surface chose it is refused, because the
+    /// choice may have been made by a path that now belongs to another
+    /// dataset. Memory carries the fresh read afterward, so the next
+    /// choice is made on the truth.
+    private func composeOverFreshTopology(
+        verb: WorkbenchVerb,
+        tool: ZFSMutationTool,
+        host: String,
+        input: MutationInput
+    ) async {
         do {
-            plan = try PlanEngine.plan(request, facts: PlanFacts())
+            let remembered = await engine.field.facts(for: host)?.zfsTopology?.value
+                .first { $0.name == input.target }
+            note("reading zfs on \(host)…")
+            let fresh = try await engine.field.refresh(host)
+            guard !Task.isCancelled else { return }
+            if let failure = fresh.zfsTopologyUnavailable?.value {
+                throw ZFSGatherRefusal(
+                    description:
+                        "the zfs topology on \(host) could not be read — \(failure.detail); "
+                        + "the plan was not composed")
+            }
+            if case .unmet(let reason) = verb.requirement.evaluate(host: host, facts: fresh) {
+                throw ZFSGatherRefusal(description: reason)
+            }
+            guard let datasets = fresh.zfsTopology?.value, let generation = fresh.generation else {
+                throw ZFSGatherRefusal(description: "\(host) has no zfs topology to compose over")
+            }
+            guard let target = datasets.first(where: { $0.name == input.target }) else {
+                throw ZFSGatherRefusal(
+                    description:
+                        "\(input.target) on \(host) no longer exists — the topology changed since it "
+                        + "was shown; the tree has been re-read, choose again")
+            }
+            if let remembered, remembered != target {
+                throw ZFSGatherRefusal(
+                    description:
+                        "\(target.name) on \(host) changed since it was shown — "
+                        + "\(remembered.changes(to: target)); the tree has been re-read, choose again")
+            }
+            var freshInput = input
+            freshInput.mounted = target.mounted
+            guard let request = tool.planRequest(for: verb, on: host, input: freshInput) else {
+                reset()
+                return
+            }
+            var composed = try PlanEngine.plan(request, facts: PlanFacts())
+            composed.topologyBinding = TopologyBinding(bound: [
+                TopologyBinding.Bound(
+                    host: host, role: .target, dataset: target, generation: generation)
+            ])
+            plan = composed
             phase = .ready
             // Decision 4: gather submit composes and renders the plan at .ready.
             // The existing Enter-at-.ready path enacts. No enact() call here.
         } catch {
+            guard !Task.isCancelled else { return }
             echo.appendLine(Self.describe(error), kind: .failure)
             phase = .failed
             panelShowing = true
