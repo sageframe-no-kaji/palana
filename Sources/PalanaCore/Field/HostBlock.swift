@@ -15,6 +15,12 @@ public enum HostBlockError: Error, Equatable, Sendable {
     /// The alias is a wildcard or negation pattern (`*`, `?`, `!`), which is
     /// matching machinery in ssh_config, not a host name.
     case aliasIsWildcard
+    /// The alias falls outside the grammar pālana admits —
+    /// `[A-Za-z0-9][A-Za-z0-9._-]*` — so it could not be handed to a shell
+    /// or to ssh unambiguously (see ``SSHConfigParser/aliasGrammar``).
+    case aliasOutsideGrammar
+    /// The alias is `local` (any case), the name reserved for this Mac.
+    case aliasReserved
     /// The hostname is empty — ssh needs somewhere to connect.
     case hostNameEmpty
     /// The port lies outside the valid TCP range of 1–65535.
@@ -69,8 +75,13 @@ public struct HostBlock: Codable, Sendable, Equatable {
             errors.append(.aliasEmpty)
         } else if alias.contains(where: { $0.isWhitespace }) {
             errors.append(.aliasContainsWhitespace)
-        } else if !SSHConfigParser.isAlias(alias) {
+        } else if SSHConfigParser.isPattern(alias) {
             errors.append(.aliasIsWildcard)
+        } else if let exclusion = SSHConfigParser.exclusion(of: alias) {
+            switch exclusion {
+            case .outsideGrammar: errors.append(.aliasOutsideGrammar)
+            case .reserved: errors.append(.aliasReserved)
+            }
         }
 
         // HostName is always required.

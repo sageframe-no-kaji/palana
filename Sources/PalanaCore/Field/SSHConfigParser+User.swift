@@ -32,8 +32,8 @@ extension SSHConfigParser {
     ) {
         guard depth <= maxIncludeDepth, result == nil else { return }
         var inMatchingBlock = false
-        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
+        for rawLine in lines(of: text) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
             let tokens = tokenize(line)
             guard let keyword = tokens.first?.lowercased() else { continue }
@@ -41,6 +41,10 @@ extension SSHConfigParser {
             switch keyword {
             case "host":
                 inMatchingBlock = arguments.contains(alias)
+            case "match":
+                // A Match block ends the Host block — its User is
+                // conditional policy, not the alias's own.
+                inMatchingBlock = false
             case "user":
                 if inMatchingBlock, result == nil, let value = arguments.first {
                     result = value

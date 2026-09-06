@@ -127,6 +127,7 @@ struct HostAddForm: View {
                 isFocused: $aliasFocused,
                 hasError: validationErrors.contains {
                     $0 == .aliasEmpty || $0 == .aliasContainsWhitespace || $0 == .aliasIsWildcard
+                        || $0 == .aliasOutsideGrammar || $0 == .aliasReserved
                 }
             )
             fieldRow(
@@ -218,6 +219,8 @@ struct HostAddForm: View {
         case .aliasEmpty: "alias is required"
         case .aliasContainsWhitespace: "alias must be a single word — no spaces"
         case .aliasIsWildcard: "alias cannot contain * ? ! — those are ssh matching patterns"
+        case .aliasOutsideGrammar: "alias uses \(SSHConfigParser.aliasGrammar)"
+        case .aliasReserved: "alias 'local' is reserved for this Mac — choose another name"
         case .hostNameEmpty: "hostname is required"
         case .portOutOfRange(let port): "port \(port) is out of range — must be 1–65535"
         }

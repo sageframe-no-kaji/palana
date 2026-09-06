@@ -1,7 +1,10 @@
 // Settings persistence and ssh config host visibility.
 // The model serves two surfaces over one truth: the in-window
 // SettingsCard and the Apple Settings scene. Config writes stay here —
-// one backup, one atomic replace, one hosts reload via `onConfigChanged`.
+// one transaction: the file must still be the bytes the operator saw, a
+// versioned backup of those exact bytes lands first, then an atomic
+// replace, then one hosts reload via `onConfigChanged`. A config that
+// cannot be read refuses every edit and says so.
 
 import Foundation
 import PalanaCore
@@ -60,6 +63,36 @@ private struct SettingsStored: Codable {
         self.askBeforeSendingBack = askBeforeSendingBack
         self.confirmDestroyTyped = confirmDestroyTyped
     }
+}
+
+// MARK: - State shapes
+
+/// Where the settings values stand relative to `settings.json`.
+enum SettingsPersistence: Equatable {
+    /// Built-in defaults; nothing has been loaded or written this session.
+    case defaults
+    /// The values in memory are the values on disk.
+    case confirmed
+    /// The values in memory could not be written — they revert at restart.
+    case unsaved(reason: String)
+}
+
+/// The ssh config as the model last read it, or why it could not.
+enum SSHConfigState: Equatable {
+    /// Read and decoded; edits transform this document's text.
+    case loaded(SSHConfigDocument)
+    /// Could not be read or decoded; every edit is refused.
+    case unreadable(SSHConfigReadError)
+}
+
+/// What a config transaction did.
+enum SSHConfigTransaction: Equatable {
+    /// The file was replaced and `onConfigChanged` fired.
+    case written
+    /// The transform had nothing to change; nothing was written.
+    case unchanged
+    /// Nothing was written, for the named reason.
+    case refused(String)
 }
 
 // MARK: - SettingsModel
@@ -132,17 +165,30 @@ final class SettingsModel {
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
-    /// A one-line notice shown when a hide toggle targets an alias
-    /// declared inside an included file and nothing is written.
+    /// Whether the settings values shown are the values on disk.
     ///
-    /// Cleared after a successful write or when the card closes.
-    private(set) var includedFileNotice: String?
+    /// `.unsaved` means the interface reflects a change that will revert
+    /// at restart — the card shows the reason through `includedFileNotice`.
+    private(set) var settingsPersistence: SettingsPersistence = .defaults
+
+    /// The one-line notice the card renders under the host list.
+    ///
+    /// A transient notice — a hide toggle that targeted an alias declared
+    /// in an included file, or a refused write — takes precedence; it is
+    /// cleared after a successful write or when the card closes. Behind
+    /// it stand the diagnostics that hold as long as their cause does: an
+    /// unreadable config, aliases the parser refused, settings that could
+    /// not be saved.
+    var includedFileNotice: String? {
+        transientNotice ?? standingNotice
+    }
 
     /// All top-level aliases with their hidden status.
     ///
     /// Reads `configText`; SwiftUI re-renders automatically after any
-    /// `setHidden` write because `configText` is a stored `@Observable`
-    /// property.
+    /// `setHidden` write because `configState` is a stored `@Observable`
+    /// property. The reserved `local` and tokens outside the alias grammar
+    /// never appear here — `includedFileNotice` names them instead.
     var allHostEntries: [(alias: String, isHidden: Bool)] {
         let all = SSHConfigParser.hosts(in: configText)
         let hidden = SSHConfigParser.hiddenHosts(in: configText)
@@ -153,13 +199,28 @@ final class SettingsModel {
     /// reloads its host list.
     var onConfigChanged: @MainActor () -> Void = {}
 
-    /// The most recently read ssh config text.
+    /// The ssh config as last read, or why it could not be.
     ///
-    /// Updated by `setHidden` after every write and by
-    /// `refreshConfigText`. SwiftUI views that read `allHostEntries`
-    /// observe this property transitively.
-    private(set) var configText: String = ""
+    /// Updated by every successful write and by `refreshConfigText`.
+    private(set) var configState: SSHConfigState
 
+    /// The most recently read ssh config text; empty when unreadable.
+    ///
+    /// An unreadable config is not an empty one — `configReadFailure`
+    /// says so, `allHostEntries` is empty, and every edit is refused.
+    /// SwiftUI views that read `allHostEntries` observe this transitively.
+    var configText: String {
+        if case .loaded(let document) = configState { return document.text }
+        return ""
+    }
+
+    /// Why the config could not be read, or `nil` when it was.
+    var configReadFailure: String? {
+        if case .unreadable(let error) = configState { return Self.describe(error) }
+        return nil
+    }
+
+    private var transientNotice: String?
     private let configURL: URL
     private let settingsURL: URL
 
@@ -171,16 +232,17 @@ final class SettingsModel {
     init(configURL: URL, settingsURL: URL) {
         self.configURL = configURL
         self.settingsURL = settingsURL
-        configText = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        self.configState = Self.readConfig(at: configURL)
         loadPersisted()
     }
 
-    /// Re-reads the config file and updates `configText`.
+    /// Re-reads the config file and updates `configState`.
     ///
     /// Call when the card becomes visible to pick up any external edits
-    /// made since the last write.
+    /// made since the last write — and after a refused write, so the next
+    /// edit transforms what is on disk now.
     func refreshConfigText() {
-        configText = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
+        configState = Self.readConfig(at: configURL)
     }
 
     /// Hides or shows `alias` by inserting or removing a `# palana: hide`
@@ -188,112 +250,247 @@ final class SettingsModel {
     ///
     /// When the AT-01 transform returns nil, nothing is written:
     /// if the alias is absent from the top-level text (it lives in an
-    /// `Include`'d file), `includedFileNotice` is set. On success: the
-    /// previous text is preserved as `<config>.palana-backup`, the
-    /// config is atomically replaced, `configText` is updated, and
-    /// `onConfigChanged` fires.
+    /// `Include`'d file), `includedFileNotice` is set. On success the
+    /// transaction has preserved the previous bytes as a versioned backup,
+    /// atomically replaced the config, updated `configState`, and fired
+    /// `onConfigChanged`.
     func setHidden(_ shouldHide: Bool, alias: String) {
-        let text = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        let newText =
+        let result = transact { text in
             shouldHide
-            ? SSHConfigParser.hiding(alias: alias, in: text)
-            : SSHConfigParser.showing(alias: alias, in: text)
-        guard let newText else {
-            let topLevel = SSHConfigParser.hosts(in: text)
-            if !topLevel.contains(alias) {
-                includedFileNotice = "managed in an included file"
+                ? SSHConfigParser.hiding(alias: alias, in: text)
+                : SSHConfigParser.showing(alias: alias, in: text)
+        }
+        switch result {
+        case .written:
+            transientNotice = nil
+        case .unchanged:
+            if !SSHConfigParser.hosts(in: configText).contains(alias) {
+                transientNotice = "managed in an included file"
             }
-            return
+        case .refused(let reason):
+            transientNotice = reason
         }
-        includedFileNotice = nil
-        // The backup must land before the config changes — a write
-        // without a backup is a mutation the operator can't undo.
-        let backupURL = configURL.appendingPathExtension("palana-backup")
-        do {
-            try text.write(to: backupURL, atomically: false, encoding: .utf8)
-        } catch {
-            includedFileNotice = "backup failed — config untouched: \(error.localizedDescription)"
-            return
-        }
-        do {
-            try newText.write(to: configURL, atomically: true, encoding: .utf8)
-        } catch {
-            includedFileNotice = "write failed: \(error.localizedDescription)"
-            return
-        }
-        configText = newText
-        onConfigChanged()
     }
 
-    /// Clears the included-file notice — call when the card is dismissed.
+    /// Clears the transient notice — call when the card is dismissed.
+    ///
+    /// Standing diagnostics stay until their cause is gone.
     func clearNotice() {
-        includedFileNotice = nil
+        transientNotice = nil
     }
 
     // MARK: - Add and remove
 
     /// Appends a validated ``HostBlock`` to the config and reloads.
     ///
-    /// Mirrors the backup-then-write-then-reload path in ``setHidden(_:alias:)``.
-    /// Returns `nil` on success, or a short reason string when no write happened:
-    /// - "alias already exists" — ``SSHConfigParser.adding`` refused a duplicate.
-    /// - "backup failed" / "write failed" — filesystem trouble; config untouched.
-    ///
-    /// The caller is responsible for running ``HostBlock/validate()`` before
-    /// calling this — composing an invalid block is refused by the surface, not here.
+    /// Same transaction as ``setHidden(_:alias:)``. Returns `nil` on success,
+    /// or a short reason string when no write happened:
+    /// - the block fails ``HostBlock/validate()`` — the surface validates
+    ///   first, but the reserved `local` is refused here too;
+    /// - "alias already exists" — ``SSHConfigParser.adding`` refused a duplicate;
+    /// - the config is unreadable, changed on disk, or the backup or
+    ///   write failed — config untouched.
     @discardableResult
     func addHost(_ block: HostBlock) -> String? {
-        let text = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        guard let newText = SSHConfigParser.adding(block, to: text) else {
-            return "alias already exists — choose a different alias or remove the existing one first"
+        let errors = block.validate()
+        guard errors.isEmpty else {
+            return "refused — the block is not valid: \(errors)"
         }
-        return commitWrite(from: text, to: newText)
+        let result = transact { SSHConfigParser.adding(block, to: $0) }
+        switch result {
+        case .written: return nil
+        case .unchanged: return "alias already exists — choose a different alias or remove the existing one first"
+        case .refused(let reason): return reason
+        }
     }
 
-    /// Strips the named alias's ``Host`` block from the config and reloads.
+    /// Removes the named alias from the config and reloads.
     ///
-    /// Same backup-then-write-then-reload path as ``setHidden(_:alias:)`` and
-    /// ``addHost(_:)``. Returns `nil` on success, or a short reason string when
-    /// no write happened:
+    /// An alias that shares its `Host` line with others loses only its own
+    /// token; the block goes only when it was the line's last name. Same
+    /// transaction as ``setHidden(_:alias:)`` and ``addHost(_:)``. Returns
+    /// `nil` on success, or a short reason string when no write happened:
     /// - "alias not found" — the alias isn't in the top-level config text.
-    /// - "backup failed" / "write failed" — filesystem trouble; config untouched.
+    /// - the config is unreadable, changed on disk, or the backup or
+    ///   write failed — config untouched.
     @discardableResult
     func removeHost(alias: String) -> String? {
-        let text = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
-        guard let newText = SSHConfigParser.removing(alias: alias, from: text) else {
-            return "alias not found in the top-level config"
+        let result = transact { SSHConfigParser.removing(alias: alias, from: $0) }
+        switch result {
+        case .written: return nil
+        case .unchanged: return "alias not found in the top-level config"
+        case .refused(let reason): return reason
         }
-        return commitWrite(from: text, to: newText)
     }
 
-    /// Backs up, writes atomically, updates ``configText``, and fires ``onConfigChanged``.
+    // MARK: - The config transaction
+
+    /// Applies `transform` to the config as last read and replaces the file.
     ///
-    /// Returns `nil` on success or a short reason string on failure so the surface can
-    /// surface it — config is untouched on any error.
-    private func commitWrite(from original: String, to newText: String) -> String? {
-        let backupURL = configURL.appendingPathExtension("palana-backup")
+    /// Fails closed at every step: an unreadable config, a transform with
+    /// nothing to do, a file whose bytes no longer match the ones the
+    /// transform saw, a backup that did not land, a replace that did not
+    /// complete — each is a refusal with nothing written. The compare and
+    /// the replace run inside one `NSFileCoordinator` write, so an editor
+    /// that coordinates cannot slip between them. One that does not (vim,
+    /// a shell redirect) is caught by the compare when it wrote before, and
+    /// beaten only by a write that lands in the instant between the compare
+    /// and the rename — the platform offers no lock that closes that.
+    private func transact(_ transform: (String) -> String?) -> SSHConfigTransaction {
+        let baseline: SSHConfigDocument
+        switch configState {
+        case .loaded(let document):
+            baseline = document
+        case .unreadable(let error):
+            return .refused("ssh config unreadable — nothing written: \(Self.describe(error))")
+        }
+        guard let newText = transform(baseline.text) else { return .unchanged }
+        let replacement = SSHConfigDocument(text: newText, posixPermissions: baseline.posixPermissions ?? 0o600)
+
+        var outcome = SSHConfigTransaction.refused("file coordination did not run — nothing written")
+        var coordinationError: NSError?
+        NSFileCoordinator().coordinate(
+            writingItemAt: configURL, options: .forReplacing, error: &coordinationError
+        ) { url in
+            outcome = Self.replace(at: url, expecting: baseline, with: replacement)
+        }
+        if let coordinationError {
+            return .refused("file coordination failed — nothing written: \(coordinationError.localizedDescription)")
+        }
+        if outcome == .written {
+            configState = .loaded(replacement)
+            onConfigChanged()
+        }
+        return outcome
+    }
+
+    /// The write half of the transaction, inside the coordinated scope.
+    private static func replace(
+        at url: URL, expecting baseline: SSHConfigDocument, with replacement: SSHConfigDocument
+    ) -> SSHConfigTransaction {
+        let current: SSHConfigDocument
         do {
-            try original.write(to: backupURL, atomically: false, encoding: .utf8)
+            current = try SSHConfigDocument.read(at: url)
         } catch {
-            return "backup failed — config untouched: \(error.localizedDescription)"
+            return .refused("ssh config unreadable — nothing written: \(describe(error))")
+        }
+        guard current.bytes == baseline.bytes, current.exists == baseline.exists else {
+            return .refused(
+                "ssh config changed on disk since it was read — nothing written; reload hosts and try again")
+        }
+        // The backup must land before the config changes — a write
+        // without a backup is a mutation the operator can't undo.
+        if baseline.exists {
+            do {
+                try writeVersionedBackup(of: baseline, beside: url)
+            } catch {
+                return .refused("backup failed — config untouched: \(error.localizedDescription)")
+            }
         }
         do {
-            try newText.write(to: configURL, atomically: true, encoding: .utf8)
+            try atomicallyReplace(url, with: replacement)
         } catch {
-            return "write failed: \(error.localizedDescription)"
+            return .refused("write failed — config untouched: \(error.localizedDescription)")
         }
-        configText = newText
-        onConfigChanged()
-        return nil
+        return .written
+    }
+
+    /// Writes `document.bytes` to a fresh `<config>.palana-backup.<stamp>`
+    /// beside the config — never over an earlier backup.
+    private static func writeVersionedBackup(of document: SSHConfigDocument, beside url: URL) throws {
+        let stamp = backupStampFormatter.string(from: Date())
+        let base = url.lastPathComponent + ".palana-backup." + stamp
+        let directory = url.deletingLastPathComponent()
+        for attempt in 0..<1000 {
+            let name = attempt == 0 ? base : "\(base)-\(attempt)"
+            let backupURL = directory.appendingPathComponent(name)
+            do {
+                try document.bytes.write(to: backupURL, options: .withoutOverwriting)
+            } catch CocoaError.fileWriteFileExists {
+                continue
+            }
+            try FileManager.default.setAttributes(
+                [.posixPermissions: document.posixPermissions ?? 0o600], ofItemAtPath: backupURL.path)
+            return
+        }
+        throw CocoaError(.fileWriteFileExists)
+    }
+
+    /// Writes `document` to a temporary file beside `url`, gives it the
+    /// config's mode, and renames it into place — one atomic step.
+    private static func atomicallyReplace(_ url: URL, with document: SSHConfigDocument) throws {
+        let temporary = url.deletingLastPathComponent()
+            .appendingPathComponent(".\(url.lastPathComponent).palana-\(UUID().uuidString).tmp")
+        try document.bytes.write(to: temporary, options: .withoutOverwriting)
+        do {
+            try FileManager.default.setAttributes(
+                [.posixPermissions: document.posixPermissions ?? 0o600], ofItemAtPath: temporary.path)
+            guard rename(temporary.path, url.path) == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
+    }
+
+    private static let backupStampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        return formatter
+    }()
+
+    // MARK: - Diagnostics
+
+    private static func readConfig(at url: URL) -> SSHConfigState {
+        do {
+            return .loaded(try SSHConfigDocument.read(at: url))
+        } catch {
+            return .unreadable(error)
+        }
+    }
+
+    private static func describe(_ error: SSHConfigReadError) -> String {
+        switch error {
+        case .unreadable(let path, let reason): "\(path): \(reason)"
+        case .notUTF8(let path): "\(path) is not UTF-8 text"
+        }
+    }
+
+    private var standingNotice: String? {
+        var lines: [String] = []
+        if let configReadFailure {
+            lines.append("ssh config unreadable — hosts and edits unavailable: \(configReadFailure)")
+        }
+        for excluded in SSHConfigParser.excludedAliases(in: configText) {
+            switch excluded.reason {
+            case .reserved:
+                lines.append(
+                    "Host \(excluded.token) is reserved for this Mac and is ignored — rename it in the config")
+            case .outsideGrammar:
+                lines.append("Host \(excluded.token) is not listed — aliases use \(SSHConfigParser.aliasGrammar)")
+            }
+        }
+        if case .unsaved(let reason) = settingsPersistence {
+            lines.append("settings not saved — the values shown revert at restart: \(reason)")
+        }
+        return lines.isEmpty ? nil : lines.joined(separator: "\n")
     }
 
     // MARK: - Persistence
 
     private func loadPersisted() {
-        guard
-            let data = try? Data(contentsOf: settingsURL),
-            let stored = try? JSONDecoder().decode(SettingsStored.self, from: data)
-        else { return }
+        guard let data = try? Data(contentsOf: settingsURL) else { return }
+        let stored: SettingsStored
+        do {
+            stored = try JSONDecoder().decode(SettingsStored.self, from: data)
+        } catch {
+            settingsPersistence = .unsaved(
+                reason: "settings.json could not be read, showing defaults: \(error.localizedDescription)")
+            return
+        }
         // didSet fires on each assignment but the resulting persist()
         // calls are harmless round-trips — the same values go straight
         // back to disk.
@@ -311,9 +508,14 @@ final class SettingsModel {
             excludeAppleDouble: excludeAppleDouble,
             askBeforeSendingBack: askBeforeSendingBack,
             confirmDestroyTyped: confirmDestroyTyped)
-        guard let data = try? JSONEncoder().encode(stored) else { return }
-        let dir = settingsURL.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? data.write(to: settingsURL, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(stored)
+            let dir = settingsURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try data.write(to: settingsURL, options: .atomic)
+            settingsPersistence = .confirmed
+        } catch {
+            settingsPersistence = .unsaved(reason: error.localizedDescription)
+        }
     }
 }

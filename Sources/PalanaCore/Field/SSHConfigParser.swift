@@ -15,28 +15,50 @@ public enum SSHConfigParser {
     /// ssh's own include-depth cap, mirrored here.
     static let maxIncludeDepth = 16
 
-    /// Enumerates host aliases: `Host` tokens carrying no wildcard.
+    /// Enumerates host aliases: `Host` tokens that are names, not machinery.
     ///
     /// Patterns with `*` or `?` and negations with `!` are matching
-    /// machinery, not named hosts — they are skipped. Aliases keep
-    /// first-seen order, deduplicated.
+    /// machinery, not named hosts — they are skipped silently. Tokens
+    /// outside the alias grammar and the reserved `local` are refused and
+    /// reported by ``excludedAliases(in:including:)``. Aliases keep
+    /// first-seen order, deduplicated. Lines are tokenized to OpenSSH's
+    /// rules, so an inline `# comment` never becomes an alias.
     public static func hosts(
         in text: String,
         including resolve: (String) -> [String] = { _ in [] }
     ) -> [String] {
         var seen = Set<String>()
         var aliases: [String] = []
-        collect(text, depth: 0, resolve: resolve, seen: &seen, into: &aliases)
+        walk(text, depth: 0, resolve: resolve) { pattern in
+            guard isAlias(pattern), seen.insert(pattern).inserted else { return }
+            aliases.append(pattern)
+        }
         return aliases
     }
 
-    /// Reads `~/.ssh/config`, or empty when absent — an unconfigured
-    /// machine is a field with no named hosts, not an error.
-    public static func systemConfigText(
+    /// The `Host` tokens ``hosts(in:including:)`` refused, with reasons —
+    /// the surface's diagnostic, so a refusal is never silent.
+    ///
+    /// Follows `Include`s the same way. First-seen order, deduplicated.
+    public static func excludedAliases(
+        in text: String,
+        including resolve: (String) -> [String] = { _ in [] }
+    ) -> [ExcludedAlias] {
+        var seen = Set<String>()
+        var excluded: [ExcludedAlias] = []
+        walk(text, depth: 0, resolve: resolve) { pattern in
+            guard let reason = exclusion(of: pattern), seen.insert(pattern).inserted else { return }
+            excluded.append(ExcludedAlias(token: pattern, reason: reason))
+        }
+        return excluded
+    }
+
+    /// Reads `~/.ssh/config` as a document — ``SSHConfigDocument/absent``
+    /// when there is none, a typed error when it exists but cannot be read.
+    public static func systemConfig(
         sshDirectory: URL = defaultSSHDirectory
-    ) -> String {
-        let url = sshDirectory.appendingPathComponent("config")
-        return (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+    ) throws(SSHConfigReadError) -> SSHConfigDocument {
+        try SSHConfigDocument.read(at: sshDirectory.appendingPathComponent("config"))
     }
 
     /// A filesystem resolver for `Include` paths.
@@ -136,36 +158,27 @@ public enum SSHConfigParser {
         return lines.joined(separator: "\n")
     }
 
-    private static func collect(
+    /// Visits every `Host` token in `text` and its includes, in order.
+    private static func walk(
         _ text: String,
         depth: Int,
         resolve: (String) -> [String],
-        seen: inout Set<String>,
-        into aliases: inout [String]
+        visit: (String) -> Void
     ) {
         guard depth <= maxIncludeDepth else { return }
-        for rawLine in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
+        for rawLine in lines(of: text) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
             let tokens = tokenize(line)
             guard let keyword = tokens.first?.lowercased() else { continue }
             let arguments = Array(tokens.dropFirst())
             switch keyword {
             case "host":
-                for pattern in arguments where isAlias(pattern) {
-                    if seen.insert(pattern).inserted {
-                        aliases.append(pattern)
-                    }
-                }
+                for pattern in arguments { visit(pattern) }
             case "include":
                 for path in arguments {
                     for included in resolve(path) {
-                        collect(
-                            included,
-                            depth: depth + 1,
-                            resolve: resolve,
-                            seen: &seen,
-                            into: &aliases)
+                        walk(included, depth: depth + 1, resolve: resolve, visit: visit)
                     }
                 }
             default:
@@ -174,46 +187,16 @@ public enum SSHConfigParser {
         }
     }
 
-    /// True when a token is a real host alias, not `Host`-pattern machinery.
+    /// The lines of `text`, with CRLF and bare CR read as line ends.
     ///
-    /// A wildcard (`*`, `?`) or negation (`!`) is matching machinery, not a
-    /// name. Internal so `HostBlock` validation shares the one rule.
-    static func isAlias(_ token: String) -> Bool {
-        !token.isEmpty && !token.hasPrefix("!")
-            && !token.contains("*") && !token.contains("?")
-    }
-
-    /// Splits a config line on whitespace or `=`, honoring double quotes.
-    ///
-    /// `Host "my host"` is one token. Internal so the `+User` extension shares it.
-    static func tokenize(_ line: String) -> [String] {
-        var tokens: [String] = []
-        var current = ""
-        var quoted = false
-        var sawKeywordSeparator = false
-        for character in line {
-            if character == "\"" {
-                quoted.toggle()
-            } else if !quoted, character == " " || character == "\t" {
-                if !current.isEmpty {
-                    tokens.append(current)
-                    current = ""
-                }
-            } else if !quoted, character == "=", !sawKeywordSeparator, tokens.count <= 1 {
-                // ssh_config allows `Keyword = value` — one separator, once.
-                sawKeywordSeparator = true
-                if !current.isEmpty {
-                    tokens.append(current)
-                    current = ""
-                }
-            } else {
-                current.append(character)
-            }
-        }
-        if !current.isEmpty {
-            tokens.append(current)
-        }
-        return tokens
+    /// Swift treats `\r\n` as one `Character`, so splitting on `\n` alone
+    /// would leave a CRLF file as a single line. readconf strips `\r` as
+    /// trailing whitespace; normalizing first names the same hosts it does.
+    static func lines(of text: String) -> [Substring] {
+        text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .split(separator: "\n", omittingEmptySubsequences: false)
     }
 
     /// Glob expansion via the system's own glob(3), tilde included.
@@ -231,8 +214,8 @@ public enum SSHConfigParser {
     /// The half-open index range [hostLine, end) describing a ``Host`` block.
     ///
     /// `hostLine` is the index of the `Host` keyword line; `end` is the
-    /// index of the next `Host` line or `lines.count` when the block runs
-    /// to EOF.
+    /// index of the next `Host` or `Match` line, or `lines.count` when the
+    /// block runs to EOF.
     private struct BlockRange {
         var hostLine: Int
         var end: Int
@@ -245,16 +228,9 @@ public enum SSHConfigParser {
         into hidden: inout Set<String>
     ) {
         guard depth <= maxIncludeDepth else { return }
-        // Normalize CRLF and bare CR to LF before parsing so the marker check
-        // and keyword recognition see clean lines regardless of the file's
-        // original line-ending convention.
-        let normalized =
-            text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
         var currentAliases: [String] = []
         var blockIsHidden = false
-        for rawLine in normalized.split(separator: "\n", omittingEmptySubsequences: false) {
+        for rawLine in lines(of: text) {
             let trimmed = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             if isHideMarker(trimmed) {
                 blockIsHidden = true
@@ -268,6 +244,12 @@ public enum SSHConfigParser {
             case "host":
                 flushHiddenBlock(currentAliases, isHidden: blockIsHidden, into: &hidden)
                 currentAliases = arguments.filter(isAlias)
+                blockIsHidden = false
+            case "match":
+                // A Match block ends the Host block before it; a marker
+                // under Match belongs to no alias.
+                flushHiddenBlock(currentAliases, isHidden: blockIsHidden, into: &hidden)
+                currentAliases = []
                 blockIsHidden = false
             case "include":
                 flushHiddenBlock(currentAliases, isHidden: blockIsHidden, into: &hidden)
@@ -338,15 +320,19 @@ public enum SSHConfigParser {
         return nil
     }
 
-    /// The index of the first `Host` line at or after ``startIndex``, or
-    /// ``lines.count`` when no further block begins.
+    /// The index of the first `Host` or `Match` line at or after
+    /// ``startIndex``, or ``lines.count`` when no further block begins.
+    ///
+    /// `Match` is a boundary too: ssh_config(5) ends a `Host` block at
+    /// either keyword, and a `Match` block is policy that no host edit may
+    /// take with it.
     private static func findBlockEnd(from startIndex: Int, in lines: [String]) -> Int {
         for i in startIndex..<lines.count {
             let trimmed = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
             let tokens = tokenize(trimmed)
             guard let keyword = tokens.first?.lowercased() else { continue }
-            if keyword == "host" { return i }
+            if keyword == "host" || keyword == "match" { return i }
         }
         return lines.count
     }
@@ -396,20 +382,32 @@ public enum SSHConfigParser {
         return stripped + "\n\n" + composed
     }
 
-    /// Returns new config text with the named alias's `Host` block stripped,
-    /// or `nil` when the alias is not present in ``text``.
+    /// Returns new config text with the named alias removed, or `nil` when
+    /// the alias is not present in ``text``.
     ///
-    /// Block boundaries are found via the same ``findBlock``/``findBlockEnd``
-    /// machinery used by ``hiding(alias:in:)`` and ``showing(alias:in:)``.
-    /// Surrounding blocks and `Include` lines are left intact. The double
-    /// blank line that would otherwise appear where the block was is
-    /// collapsed to a single blank line.
+    /// When the alias shares its `Host` line with other tokens (`Host jodo
+    /// jodo-old`, `Host jodo *`), only the alias token is cut — the other
+    /// names, any pattern, the shared options, and an inline comment stay
+    /// byte-for-byte. The whole block goes only when the alias was the
+    /// line's last token. Block boundaries are found via the same
+    /// ``findBlock``/``findBlockEnd`` machinery used by ``hiding(alias:in:)``
+    /// and ``showing(alias:in:)``, so a following `Match` block is never
+    /// taken along. Surrounding blocks and `Include` lines are left intact.
+    /// The double blank line that would otherwise appear where a block was
+    /// is collapsed to a single blank line.
     ///
     /// Returns `nil` when the alias is absent — the surface can distinguish
     /// "already gone" from "written" rather than silently succeeding.
     public static func removing(alias: String, from text: String) -> String? {
         var lines = text.components(separatedBy: "\n")
         guard let block = findBlock(for: alias, in: lines) else { return nil }
+
+        let hostLine = lines[block.hostLine]
+        let hostTokens = tokens(in: hostLine)
+        if hostTokens.dropFirst().contains(where: { $0.text != alias }) {
+            lines[block.hostLine] = dropping(alias: alias, from: hostLine, tokens: hostTokens)
+            return lines.joined(separator: "\n")
+        }
 
         // Remove the block's lines (half-open: hostLine..<end).
         lines.removeSubrange(block.hostLine..<block.end)
@@ -435,5 +433,28 @@ public enum SSHConfigParser {
         }
 
         return result.joined(separator: "\n")
+    }
+
+    /// The `Host` line with every `alias` token cut out — each with the
+    /// whitespace run before it — and every other byte as it was.
+    ///
+    /// Works on UTF-8 offsets from the original line so the cuts never
+    /// depend on string indices surviving a mutation.
+    private static func dropping(alias: String, from line: String, tokens: [Token]) -> String {
+        let bytes = Array(line.utf8)
+        var keep = [Bool](repeating: true, count: bytes.count)
+        for token in tokens.dropFirst() where token.text == alias {
+            var start = line.utf8.distance(from: line.startIndex, to: token.range.lowerBound)
+            let end = line.utf8.distance(from: line.startIndex, to: token.range.upperBound)
+            while start > 0, bytes[start - 1] == UInt8(ascii: " ") || bytes[start - 1] == UInt8(ascii: "\t") {
+                start -= 1
+            }
+            for offset in start..<end { keep[offset] = false }
+        }
+        let kept = bytes.indices.filter { keep[$0] }.map { bytes[$0] }
+        // Every cut starts and ends on a character boundary of a string that
+        // was valid UTF-8, so the remainder is too — nothing to fail on.
+        // swiftlint:disable:next optional_data_string_conversion
+        return String(decoding: kept, as: UTF8.self)
     }
 }
