@@ -61,18 +61,33 @@ enum SSHFixture {
             strict = "yes"
         }
         let port = portOverride ?? facts["PALANA_FIXTURE_PORT"] ?? "22"
+        // The env file names the fixture as user@host. The door accepts
+        // only a bare alias as its destination — a user prefix is option
+        // syntax, refused since the 2026-09-06 review — so the user rides
+        // as an ssh option and the destination is the host alone.
+        let (user, host) = splitUser(facts["PALANA_FIXTURE_HOST"] ?? "localhost")
+        var options = [
+            "-i", identity,
+            "-p", port,
+            "-o", "UserKnownHostsFile=\(knownHosts)",
+            "-o", "StrictHostKeyChecking=\(strict)",
+            "-o", "IdentitiesOnly=yes",
+            "-o", "ConnectTimeout=5",
+        ]
+        if let user {
+            options += ["-o", "User=\(user)"]
+        }
         let configuration = SSHConfiguration(
             controlDirectory: freshControlDirectory(),
-            extraOptions: [
-                "-i", identity,
-                "-p", port,
-                "-o", "UserKnownHostsFile=\(knownHosts)",
-                "-o", "StrictHostKeyChecking=\(strict)",
-                "-o", "IdentitiesOnly=yes",
-                "-o", "ConnectTimeout=5",
-            ]
+            extraOptions: options
         )
-        return (configuration, facts["PALANA_FIXTURE_HOST"] ?? "localhost")
+        return (configuration, host)
+    }
+
+    /// `user@host` → (user, host); a bare host → (nil, host).
+    static func splitUser(_ destination: String) -> (user: String?, host: String) {
+        guard let at = destination.firstIndex(of: "@") else { return (nil, destination) }
+        return (String(destination[..<at]), String(destination[destination.index(after: at)...]))
     }
 
     enum KnownHostsMode {
