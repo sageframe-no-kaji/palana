@@ -1,51 +1,163 @@
-// Round-trip editing machinery — the record of what was fetched, the
-// directory + file watcher that detects saves (including atomic-replace
-// saves), and the pure comparison that names a remote that moved
-// underneath the edit. No persistence: records live for the app's run.
-// No FSEvents: DispatchSource on the directory fd survives atomic replace.
+// Round-trip editing machinery — the record of what was fetched (its
+// immutable remote identity and content digest), the directory + file
+// watcher that detects saves (including atomic-replace saves), and the
+// pure decisions that name a remote that moved underneath the edit and
+// rule whether a save may go back on its own. No persistence: records
+// live for the app's run. No FSEvents: DispatchSource on the directory
+// fd survives atomic replace.
 
+import CryptoKit
 import Foundation
+
+// MARK: - RemoteIdentity
+
+/// The immutable identity of one remote file — host and full path bytes.
+///
+/// Two opens of the same remote file share an identity; the registry
+/// deduplicates on it. Host and directory alone are not an identity —
+/// sibling files in one directory are distinct records.
+public struct RemoteIdentity: Hashable, Sendable {
+    /// The SSH alias of the remote host.
+    public var host: String
+    /// The full remote path, byte-exact — never passed through `String`.
+    public var pathData: Data
+
+    /// Assembles an identity.
+    public init(host: String, pathData: Data) {
+        self.host = host
+        self.pathData = pathData
+    }
+
+    /// Joins a directory and a raw name into an absolute path, byte-accurate.
+    public static func pathData(directory: String, name: Data) -> Data {
+        var joined = Data(directory == "/" ? "/".utf8 : "\(directory)/".utf8)
+        joined.append(name)
+        return joined
+    }
+}
 
 // MARK: - RoundTripRecord
 
-/// The memory of one remote file open — what was fetched and where the
-/// local copy lives.
+/// The memory of one remote file open — what was fetched, from where,
+/// exactly, and where the local copy lives.
 ///
-/// The fetch-time ``FileEntry`` is the baseline for the changed-since-fetch
-/// question; the ``localURL`` points into the per-open UUID directory the
-/// pane owns. Records live for the app's run; there is no persistence
+/// Every remote-side field is captured before the fetch begins and never
+/// read from live pane state afterwards: a navigation during the download
+/// cannot change where a save goes back to. The fetch-time ``FileEntry``
+/// plus the content ``digest`` form the conflict baseline; the
+/// ``localURL`` points into the per-open UUID directory under
+/// ``openRoot``. Records live for the app's run; there is no persistence
 /// across launches.
-public struct RoundTripRecord: Sendable, Equatable {
+public struct RoundTripRecord: Sendable, Equatable, Identifiable {
+    /// The per-open identity — distinct for every fetch, even of one file.
+    public let id: UUID
+
     /// The SSH alias of the remote host the file came from.
     public var host: String
 
-    /// The remote directory that contains the file.
+    /// The remote directory that contained the file when it was opened.
     public var remoteDirectory: String
 
-    /// The ``FileEntry`` as it was at fetch time — the conflict-detection baseline.
+    /// The full remote path, byte-exact, joined from the directory and the
+    /// fetched entry's name bytes at open time.
+    public var remotePathData: Data
+
+    /// The pane's open generation at fetch time — a later open on the
+    /// same pane carries a higher number.
+    public var generation: Int
+
+    /// The ``FileEntry`` as it was at fetch time — the metadata baseline.
     public var fetched: FileEntry
+
+    /// SHA-256 of the bytes that were fetched — the content baseline.
+    public var digest: Data
 
     /// The local URL where the fetched copy lives.
     public var localURL: URL
+
+    /// The per-open directory that holds the local copy.
+    public var localDirectory: URL { localURL.deletingLastPathComponent() }
+
+    /// The remote identity — host plus full path bytes.
+    public var identity: RemoteIdentity {
+        RemoteIdentity(host: host, pathData: remotePathData)
+    }
+
+    /// The full remote path for display — lossy when the name is not UTF-8.
+    public var remotePath: String {
+        // swiftlint:disable:next optional_data_string_conversion
+        String(decoding: remotePathData, as: UTF8.self)  // display only — a lossy path is fine here
+    }
 
     /// A human-readable label: `host remote/dir/filename`.
     public var displayName: String {
         "\(host) \(remoteDirectory)/\(fetched.name)"
     }
 
-    /// Assembles a round-trip record.
+    /// Where every per-open directory lives: `<tmp>/palana-open/`.
+    public static var openRoot: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("palana-open", isDirectory: true)
+    }
+
+    /// Creates a fresh per-open directory under ``openRoot`` and returns it.
+    ///
+    /// A fresh directory per open — a re-open must never overwrite a copy
+    /// the operator may have edited.
+    public static func makeOpenDirectory() throws -> URL {
+        let directory = openRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    /// True when `directory` is a direct child of ``openRoot`` — the only
+    /// directories retirement is allowed to delete.
+    public static func isOpenDirectory(_ directory: URL) -> Bool {
+        let parent = directory.deletingLastPathComponent().resolvingSymlinksInPath().path
+        return parent == openRoot.resolvingSymlinksInPath().path
+    }
+
+    /// Assembles a round-trip record from values captured before the fetch.
     ///
     /// - Parameters:
+    ///   - id: The per-open identity; fresh by default.
     ///   - host: The SSH alias of the remote host.
-    ///   - remoteDirectory: The directory on the remote that contains the file.
+    ///   - remoteDirectory: The directory on the remote that contained the file at open time.
     ///   - fetched: The entry as reported by the remote listing at fetch time.
+    ///   - digest: SHA-256 of the fetched bytes (``RoundTrip/digest(of:)``).
     ///   - localURL: The URL of the local copy in the per-open UUID directory.
-    public init(host: String, remoteDirectory: String, fetched: FileEntry, localURL: URL) {
+    ///   - generation: The pane's open generation at fetch time.
+    public init(
+        id: UUID = UUID(),
+        host: String,
+        remoteDirectory: String,
+        fetched: FileEntry,
+        digest: Data,
+        localURL: URL,
+        generation: Int = 0
+    ) {
+        self.id = id
         self.host = host
         self.remoteDirectory = remoteDirectory
+        self.remotePathData = RemoteIdentity.pathData(directory: remoteDirectory, name: fetched.nameData)
+        self.generation = generation
         self.fetched = fetched
+        self.digest = digest
         self.localURL = localURL
     }
+}
+
+// MARK: - RoundTripWatching
+
+/// What the registry needs from a watcher — start, stop, and a guarded
+/// baseline advance. ``RoundTripWatcher`` is the real one; tests inject spies.
+public protocol RoundTripWatching: AnyObject, Sendable {
+    /// Begins watching.
+    func start()
+    /// Stops watching and releases every descriptor; idempotent.
+    func cancel()
+    /// Advances the baseline to the snapshot that was sent, and no further.
+    func refreshBaseline(to sent: RoundTripWatcher.Snapshot)
 }
 
 // MARK: - RoundTripWatcher
@@ -73,24 +185,50 @@ public struct RoundTripRecord: Sendable, Equatable {
 ///
 /// Call ``start()`` to begin watching. Call ``cancel()`` to stop; cancel is
 /// idempotent and safe to call multiple times. Both file descriptors are
-/// closed in their respective cancel handlers — no leaks.
+/// closed in their respective cancel handlers — ``liveDescriptorCount()``
+/// reads zero once they have run.
 ///
 /// ## Sendable / concurrency
 ///
 /// `RoundTripWatcher` is `@unchecked Sendable`. All mutable state
 /// (`lastSeen`, `debounceWorkItem`, `cancelled`, `dirSource`,
-/// `fileSource`) is protected by a single serial `DispatchQueue` created
-/// at init. No state is ever accessed off that queue. Each dispatch
-/// source's cancel handler closes the fd it captured at arm time. The
-/// callback is `@Sendable` and is delivered on the watcher's internal
-/// queue; callers that update UI must dispatch to `@MainActor`.
-public final class RoundTripWatcher: @unchecked Sendable {
-    // MARK: - Stat snapshot
+/// `fileSource`, `liveDescriptors`) is protected by a single serial
+/// `DispatchQueue` created at init. No state is ever accessed off that
+/// queue. Each dispatch source's cancel handler closes the fd it captured
+/// at arm time. The callback is `@Sendable` and is delivered on the
+/// watcher's internal queue; callers that update UI must dispatch to
+/// `@MainActor`.
+public final class RoundTripWatcher: RoundTripWatching, @unchecked Sendable {
+    // MARK: - Snapshot
 
-    /// The size-and-mtime pair used for stat-compare.
-    private struct StatSnapshot: Equatable {
-        var size: Int64
-        var mtime: Date
+    /// The size-and-mtime pair the stat-compare gate works on.
+    public struct Snapshot: Equatable, Sendable {
+        /// The file's size in bytes.
+        public var size: Int64
+        /// The file's modification time, sub-second where the filesystem keeps it.
+        public var mtime: Date
+
+        /// Assembles a snapshot.
+        public init(size: Int64, mtime: Date) {
+            self.size = size
+            self.mtime = mtime
+        }
+    }
+
+    /// Stats a local file the way the watcher does.
+    ///
+    /// Returns `nil` when the file is absent or unreadable (e.g., during
+    /// an atomic replace's transient window). The upload gather captures
+    /// this before composing so completion can advance the baseline to
+    /// exactly what was sent.
+    public static func snapshot(of url: URL) -> Snapshot? {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        guard
+            let attrs,
+            let size = attrs[.size] as? Int64,
+            let mtime = attrs[.modificationDate] as? Date
+        else { return nil }
+        return Snapshot(size: size, mtime: mtime)
     }
 
     // MARK: - Internal state (all access serialised on `queue`)
@@ -111,8 +249,9 @@ public final class RoundTripWatcher: @unchecked Sendable {
 
     /// The last-known stat of the watched file.
     ///
-    /// Updated by ``refreshBaseline()`` after a successful upload.
-    private var lastSeen: StatSnapshot?
+    /// Advanced by every observed event, and by ``refreshBaseline(to:)``
+    /// only when the file still matches what was sent.
+    private var lastSeen: Snapshot?
 
     /// The pending debounce work item.
     private var debounceWorkItem: DispatchWorkItem?
@@ -125,6 +264,9 @@ public final class RoundTripWatcher: @unchecked Sendable {
 
     /// The dispatch source on the file fd.
     private var fileSource: DispatchSourceFileSystemObject?
+
+    /// How many descriptors this watcher currently holds open.
+    private var liveDescriptors: Int = 0
 
     // MARK: - Init
 
@@ -178,14 +320,28 @@ public final class RoundTripWatcher: @unchecked Sendable {
         }
     }
 
-    /// Refreshes the stat baseline to the file's current size and mtime.
+    /// Advances the stat baseline to what was just sent — and no further.
     ///
-    /// Call this after a successful upload so the next save starts from the
-    /// new baseline rather than triggering an immediate spurious callback.
-    public func refreshBaseline() {
+    /// Called after a successful upload. The baseline moves only when the
+    /// file on disk still matches `sent`; a save that landed after the
+    /// upload's gather differs from `sent`, so its event still passes the
+    /// stat-compare gate whether it is processed before or after this call.
+    /// A refresh that read the current stat instead would swallow that save.
+    public func refreshBaseline(to sent: Snapshot) {
         queue.async { [weak self] in
             guard let self else { return }
-            self.lastSeen = self.statFile()
+            guard self.statFile() == sent else { return }
+            self.lastSeen = sent
+        }
+    }
+
+    /// The number of descriptors this watcher holds open — two while
+    /// watching, zero once both cancel handlers have run.
+    public func liveDescriptorCount() async -> Int {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.liveDescriptors ?? 0)
+            }
         }
     }
 
@@ -196,6 +352,7 @@ public final class RoundTripWatcher: @unchecked Sendable {
         let dirURL = record.localURL.deletingLastPathComponent()
         let dfd = open(dirURL.path, O_EVTONLY)
         guard dfd >= 0 else { return }
+        liveDescriptors += 1
 
         // Snapshot the baseline before arming any source.
         lastSeen = statFile()
@@ -211,8 +368,9 @@ public final class RoundTripWatcher: @unchecked Sendable {
 
         // Capture the fd — the handler must close the fd THIS source owns,
         // never whatever self.dirFD holds when the handler eventually runs.
-        dir.setCancelHandler {
+        dir.setCancelHandler { [weak self] in
             close(dfd)
+            self?.liveDescriptors -= 1
         }
 
         dirSource = dir
@@ -231,6 +389,7 @@ public final class RoundTripWatcher: @unchecked Sendable {
     private func armFileFD() {
         let ffd = open(record.localURL.path, O_EVTONLY)
         guard ffd >= 0 else { return }
+        liveDescriptors += 1
 
         let src = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: ffd,
@@ -244,8 +403,9 @@ public final class RoundTripWatcher: @unchecked Sendable {
         // Capture the fd — after an atomic-replace rebind the old source's
         // cancel handler runs while self.fileFD may already name the NEW
         // fd; closing by capture removes the race class entirely.
-        src.setCancelHandler {
+        src.setCancelHandler { [weak self] in
             close(ffd)
+            self?.liveDescriptors -= 1
         }
 
         fileSource = src
@@ -301,18 +461,45 @@ public final class RoundTripWatcher: @unchecked Sendable {
     // MARK: - Private: stat (runs on queue)
 
     /// Stats the watched file.
-    ///
-    /// Returns `nil` when the file is absent or unreadable (e.g., during
-    /// an atomic replace's transient window).
-    private func statFile() -> StatSnapshot? {
-        let attrs = try? FileManager.default.attributesOfItem(atPath: record.localURL.path)
-        guard
-            let attrs,
-            let size = attrs[.size] as? Int64,
-            let mtime = attrs[.modificationDate] as? Date
-        else { return nil }
-        return StatSnapshot(size: size, mtime: mtime)
+    private func statFile() -> Snapshot? {
+        Self.snapshot(of: record.localURL)
     }
+}
+
+// MARK: - Conflict decisions
+
+/// What the destination check found.
+///
+/// Three-valued on purpose: an unreadable destination is not a clean one.
+/// Only ``clean`` may send on its own.
+public enum ConflictCheck: Sendable, Equatable {
+    /// The remote file is exactly what was fetched — metadata and bytes.
+    case clean
+    /// The remote moved underneath the edit.
+    case conflict(ConflictReason)
+    /// The check itself could not be completed — the reason, in a sentence.
+    case unavailable(String)
+}
+
+/// Why a destination is a conflict.
+public enum ConflictReason: Sendable, Equatable {
+    /// The remote file no longer exists.
+    case missing
+    /// Size or mtime differ from the fetch-time entry.
+    case metadataChanged(current: FileEntry)
+    /// Same size and mtime, different bytes.
+    case contentChanged
+}
+
+/// What the gather does once the destination check is in.
+public enum SendDisposition: Sendable, Equatable {
+    /// Clean and the operator asked not to be asked — send now.
+    case sendNow
+    /// Arm the plan and show the callout; Enter sends, Esc keeps the edit local.
+    case askOperator(callout: String)
+    /// No plan — the panel names why, and the edit stays local until a
+    /// later save checks again.
+    case blocked(reason: String)
 }
 
 // MARK: - RoundTrip namespace
@@ -323,6 +510,12 @@ public final class RoundTripWatcher: @unchecked Sendable {
 /// effects. They live in `PalanaCore` so they sit under the coverage floor
 /// where the unit battery can beat on them directly.
 public enum RoundTrip {
+    /// SHA-256 of the bytes — the content baseline a fetch records and a
+    /// send-back check re-reads.
+    public static func digest(of data: Data) -> Data {
+        Data(SHA256.hash(data: data))
+    }
+
     /// Returns `true` when the file has changed since it was fetched.
     ///
     /// Compares `size` and `modified` only. Permissions drift is not an
@@ -334,6 +527,71 @@ public enum RoundTrip {
     /// - Returns: `true` when size or mtime differ; `false` otherwise.
     public static func changedSinceFetch(baseline: FileEntry, current: FileEntry) -> Bool {
         baseline.size != current.size || baseline.modified != current.modified
+    }
+
+    /// Rules on the destination from what the check could read.
+    ///
+    /// Absence is a conflict; changed size or mtime is a conflict; equal
+    /// metadata with a different digest is a conflict; equal metadata whose
+    /// bytes could not be read is unavailable. Size and mtime are never
+    /// content identity on their own.
+    ///
+    /// - Parameters:
+    ///   - record: The record carrying the fetch-time baseline.
+    ///   - current: The entry from the current remote listing; `nil` when absent.
+    ///   - currentDigest: SHA-256 of the current remote bytes; `nil` when unread.
+    /// - Returns: The three-valued ruling — clean, conflict, or unavailable.
+    public static func evaluate(record: RoundTripRecord, current: FileEntry?, currentDigest: Data?) -> ConflictCheck {
+        guard let current else { return .conflict(.missing) }
+        if changedSinceFetch(baseline: record.fetched, current: current) {
+            return .conflict(.metadataChanged(current: current))
+        }
+        guard let currentDigest else {
+            return .unavailable("the remote content could not be read")
+        }
+        return currentDigest == record.digest ? .clean : .conflict(.contentChanged)
+    }
+
+    /// Turns the check into what the gather does.
+    ///
+    /// The one place the auto-send rule lives: only ``ConflictCheck/clean``
+    /// may send unasked.
+    public static func disposition(
+        for check: ConflictCheck,
+        askBeforeSending: Bool,
+        record: RoundTripRecord
+    ) -> SendDisposition {
+        let target = "\(record.host):\(record.remoteDirectory)"
+        switch check {
+        case .clean:
+            return askBeforeSending
+                ? .askOperator(callout: "⏎ press enter to send it back to \(target) · esc keeps the edit local")
+                : .sendNow
+        case .conflict(.missing):
+            return .askOperator(
+                callout:
+                    "the remote copy is gone — ⏎ press enter to put it back at \(target) · esc keeps the edit local")
+        case .conflict:
+            return .askOperator(
+                callout: "the remote copy changed since you opened it — ⏎ press enter to overwrite it anyway"
+                    + " · esc keeps the edit local")
+        case .unavailable(let reason):
+            return .blocked(
+                reason: "couldn't check \(record.host):\(record.remotePath) — \(reason)"
+                    + " · the edit stays local; save again to check again")
+        }
+    }
+
+    /// The transcript line for a conflict — read before the callout.
+    public static func conflictNote(for reason: ConflictReason) -> String {
+        switch reason {
+        case .missing:
+            return "the remote copy is gone since you opened it"
+        case .metadataChanged(let current):
+            return changedSinceFetchNote(current: current)
+        case .contentChanged:
+            return "the remote copy changed since you opened it — same size and date, different bytes"
+        }
     }
 
     /// Composes the one-line note for a remote that moved since the fetch.

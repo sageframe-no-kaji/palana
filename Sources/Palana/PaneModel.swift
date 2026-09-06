@@ -123,10 +123,25 @@ final class PaneModel {
     /// Set once, right after construction.
     var onRoundTripRegistered: @MainActor (RoundTripRecord) -> Void = { _ in }
 
+    /// Hands a fetched or local file to the system editor, activated.
+    ///
+    /// Defaults to `NSWorkspace.shared.open`; a test overrides it so an
+    /// open can be observed without launching a real editor.
+    var openHandler: @MainActor (URL) -> Void = { url in
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open(url, configuration: configuration)
+    }
+
     private static let logger = Logger(subsystem: "net.sageframe.palana", category: "pane")
 
     private let engine: Engine
     private var loadTask: Task<Void, Never>?
+    /// A monotonic counter stamped onto each remote open's round-trip record.
+    ///
+    /// A later open on this pane carries a higher number, so a record can
+    /// prove it predates the pane's current location.
+    private var openGeneration = 0
     private var landOn: Data?
     /// A file name to cursor AND select once its parent folder has loaded —
     /// set when a pointed path turns out to be a file (⌘⇧G / address bar with a
@@ -608,29 +623,39 @@ extension PaneModel {
             lastError = "too large to open here: \(entry.size.formatted(.byteCount(style: .file)))"
             return
         }
+        // Capture the remote identity BEFORE the download — host, the
+        // directory the file was opened from, the entry as listed, and this
+        // open's generation. A navigation during the fetch must not change
+        // where a later save goes back to (review: wrong-upload-directory).
+        let capturedHost = host
+        let capturedDirectory = state.path
+        let capturedEntry = entry
+        openGeneration += 1
+        let capturedGeneration = openGeneration
         isReading = true
         Task {
             do {
-                let data = try await self.engine.listing(for: host)
-                    .readFile(on: host, path: path)
+                let data = try await self.engine.listing(for: capturedHost)
+                    .readFile(on: capturedHost, path: path)
                 // A fresh directory per open — a re-open must never
                 // overwrite a copy the operator may have edited.
-                let directory = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("palana-open", isDirectory: true)
-                    .appendingPathComponent(UUID().uuidString, isDirectory: true)
-                try FileManager.default.createDirectory(
-                    at: directory, withIntermediateDirectories: true)
-                let local = directory.appendingPathComponent(entry.name)
+                let directory = try RoundTripRecord.makeOpenDirectory()
+                let local = directory.appendingPathComponent(capturedEntry.name)
                 try data.write(to: local, options: .atomic)
                 self.isReading = false
                 self.openInForeground(local)
-                // Register a round-trip watch for this remote open.
-                // The session wires onRoundTripRegistered to RoundTripCenter.
+                // Register a round-trip watch for this remote open. The
+                // record is built only from the values captured before the
+                // download, plus the content digest of what was fetched —
+                // the send-back conflict baseline. The session wires
+                // onRoundTripRegistered to RoundTripCenter.
                 let record = RoundTripRecord(
-                    host: host,
-                    remoteDirectory: self.state.path,
-                    fetched: entry,
-                    localURL: local)
+                    host: capturedHost,
+                    remoteDirectory: capturedDirectory,
+                    fetched: capturedEntry,
+                    digest: RoundTrip.digest(of: data),
+                    localURL: local,
+                    generation: capturedGeneration)
                 self.onRoundTripRegistered(record)
             } catch {
                 self.isReading = false
@@ -641,10 +666,11 @@ extension PaneModel {
 
     /// Hands a URL to the system, activated — an open that lands
     /// behind the window is an open that looks like it didn't happen.
+    ///
+    /// Routed through ``openHandler`` so a test can observe the open without
+    /// launching a real editor.
     private func openInForeground(_ url: URL) {
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.open(url, configuration: configuration)
+        openHandler(url)
     }
 }
 

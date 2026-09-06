@@ -11,7 +11,21 @@ extension PalanaSession {
     ///
     /// Called once from `init()` after all members are initialised.
     func wireRoundTripCenter() {
-        roundTripCenter.operationModel = operation
+        // The center asks the model one question — is the panel free — and
+        // hands it one action — send this upload. Closures rather than a
+        // model reference keep the center depending on only what it needs.
+        roundTripCenter.isPanelFree = { [weak operation] in
+            guard let operation else { return false }
+            switch operation.phase {
+            case .idle, .finished, .failed, .cancelled:
+                return true
+            case .naming, .gathering, .ready, .enacting:
+                return false
+            }
+        }
+        roundTripCenter.deliverUpload = { [weak operation] record in
+            operation?.beginRoundTripUpload(record: record)
+        }
 
         // Both panes call the same handler — a remote open on either side registers.
         let register: @MainActor (RoundTripRecord) -> Void = { [weak self] record in
@@ -48,22 +62,13 @@ extension PalanaSession {
 
     /// Called after every enactment finishes.
     ///
-    /// When the finished plan was a round-trip upload (copy to a host that has
-    /// a live record), refreshes the watcher's baseline so the stat advance from
-    /// the upload itself does not trigger an immediate re-offer.
+    /// The center carries the exact record identity of any upload it
+    /// delivered, so it refreshes only that one watcher's baseline — an
+    /// ordinary copy into a watched directory, or a sibling record in it,
+    /// touches nothing. Advancing the baseline stops the upload's own stat
+    /// change from triggering an immediate re-offer.
     private func handleRoundTripFinished() {
-        guard let plan = operation.plan else { return }
-        // A round-trip upload is a copy whose destination matches a live record.
-        guard plan.operation == .copy, let destination = plan.destination else { return }
-        // Find a matching live record — host and directory must agree.
-        // The center manages the match internally via refreshBaseline(for:).
-        // We reconstruct enough of a key to find the record: host + directory.
-        // RoundTripCenter searches by equality on the full record; the pane
-        // registered the exact record, so we search the center's lives indirectly
-        // by exposing a host+dir finder.
-        roundTripCenter.refreshBaselineIfMatches(
-            host: destination.host,
-            remoteDirectory: destination.directory)
+        roundTripCenter.uploadDidFinish()
     }
 
     // MARK: - Star operations (extracted here from PalanaSession.swift to stay within file-length limit)
