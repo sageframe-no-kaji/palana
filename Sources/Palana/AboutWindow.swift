@@ -79,7 +79,7 @@ struct AboutView: View {
     private var appMark: some View {
         Image(nsImage: NSApp.applicationIconImage)
             .resizable()
-            .aspectRatio(contentMode: .fit)
+            .scaledToFit()
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
