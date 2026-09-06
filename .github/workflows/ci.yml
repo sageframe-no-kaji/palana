@@ -44,5 +44,5 @@ jobs:
       - name: Tests with coverage
         run: scripts/ci-test.sh
 
-      - name: Coverage floor (PalanaCore ≥90%)
-        run: scripts/coverage-floor.sh 90
+      - name: Coverage floors (PalanaCore ≥90%, application logic ≥35%)
+        run: scripts/coverage-floor.sh 90 35

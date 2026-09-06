@@ -99,6 +99,13 @@ final class OperationModel {
     /// session: "the same terminal session running in the background").
     var panelShowing = false
 
+    /// The run record's health, for the panel — nil while every write landed.
+    ///
+    /// Separate from the phase by design: a failing record stands beside
+    /// `.finished` as readily as beside `.failed`. The log is observable,
+    /// so the panel re-reads this the moment a write fails.
+    var recordWarning: String? { log.warning }
+
     /// Fires when an enactment completes — the session refreshes panes.
     ///
     /// Set once, right after construction.
@@ -345,6 +352,7 @@ final class OperationModel {
         let errorText = Self.describe(error)
         echo.appendLine(errorText, kind: .failure)
         log.appendLine("! \(errorText)")
+        sealRecord()
         progress = nil
         phase = .failed
         // A failure never stays off-screen.
@@ -352,6 +360,26 @@ final class OperationModel {
         // ho-11: nor behind an open shell — the transcript comes
         // forward regardless of mode.
         onEnactmentFailed()
+    }
+
+    /// Ends a run's record.
+    ///
+    /// Flushed to disk, and any failure to record said in the transcript
+    /// as a note — never a failure line, so the record's health is never
+    /// read as the transfer's outcome. The persistent form is
+    /// `recordWarning`, which the panel shows.
+    private func sealRecord() {
+        log.flush()
+        if let warning = log.warning {
+            echo.appendLine("record: \(warning)", kind: .note)
+        }
+    }
+
+    /// Closes the record's file — the quit path's call.
+    ///
+    /// A close failure is retained like any other; nothing else is affected.
+    func closeRecord() {
+        log.close()
     }
 
     private func handle(_ event: EnactmentEvent) {
@@ -387,6 +415,7 @@ final class OperationModel {
             echo.flushAll()
             echo.appendLine("done — every step ran and checked out", kind: .note)
             log.appendLine("# done — every step ran and checked out")
+            sealRecord()
             phase = .finished
             onFinished()
             // A run that finished off-screen closes its own books.
@@ -460,6 +489,7 @@ extension OperationModel {
                 "cancelled — steps that needed verification never ran · an interrupted transfer can leave "
                     + "partial entries at the destination",
                 kind: .failure)
+            sealRecord()
             progress = nil
             phase = .cancelled
             panelShowing = true

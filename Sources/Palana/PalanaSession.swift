@@ -333,8 +333,9 @@ final class PalanaSession {
     /// Closes every ControlMaster — the quit path owns this.
     ///
     /// Also tears down every live shell session (ho-11) — nothing outlives
-    /// the window, the terminal included.
+    /// the window, the terminal included — and closes the run record.
     func closeDoors() async {
+        operation.closeRecord()
         terminalSessions.teardownAll()
         await conduit.closeAll()
     }

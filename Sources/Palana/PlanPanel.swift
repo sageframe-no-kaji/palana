@@ -65,6 +65,15 @@ struct PlanPanel: View {
                                 if operation.phase == .naming {
                                     namingFieldView
                                 } else {
+                                    // A record that could not be written says so
+                                    // above the run, persistently, without ever
+                                    // touching the run's own phase.
+                                    if let warning = operation.recordWarning {
+                                        Text("⚠ \(warning)")
+                                            .font(Theme.font(12, weight: .semibold))
+                                            .foregroundStyle(Theme.alarm)
+                                            .padding(.bottom, 4)
+                                    }
                                     // Every ready plan says what Enter does, in
                                     // green, in the terminal — the round-trip's
                                     // callout stays custom when it set one.
