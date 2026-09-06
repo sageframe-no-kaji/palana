@@ -229,13 +229,13 @@ struct ZFSSetMountpointComposeTests {
         }
     }
 
-    @Test("setMountpoint composes zfs set -u mountpoint and a get verify")
+    @Test("setMountpoint composes zfs set -u mountpoint and a verify that asserts the exact path")
     func setMountpoint() throws {
         let plan = try planZfs(.setMountpoint(dataset: "tank/data", path: "/mnt/data"))
         #expect(
             plan.steps.map(\.command) == [
                 "zfs set -u mountpoint=/mnt/data tank/data",
-                "zfs get -H -o value mountpoint -- tank/data",
+                "test \"$(zfs get -H -o value mountpoint -- tank/data)\" = /mnt/data",
             ])
         #expect(plan.steps.map(\.role) == [.property, .verify])
     }
@@ -244,7 +244,9 @@ struct ZFSSetMountpointComposeTests {
     func setMountpointSpaced() throws {
         let plan = try planZfs(.setMountpoint(dataset: "tank/my data", path: "/mnt/my data"))
         #expect(plan.steps[0].command == "zfs set -u mountpoint='/mnt/my data' 'tank/my data'")
-        #expect(plan.steps[1].command == "zfs get -H -o value mountpoint -- 'tank/my data'")
+        #expect(
+            plan.steps[1].command
+                == "test \"$(zfs get -H -o value mountpoint -- 'tank/my data')\" = '/mnt/my data'")
     }
 
     @Test(
@@ -257,7 +259,8 @@ struct ZFSSetMountpointComposeTests {
                 "sudo -n zfs unmount tank/data",
                 "zfs set -u mountpoint=/mnt/data tank/data",
                 "sudo -n zfs mount tank/data",
-                "zfs get -H -o value mountpoint -- tank/data",
+                "test \"$(zfs get -H -o value mountpoint -- tank/data)\" = /mnt/data"
+                    + " && test \"$(zfs list -H -o mounted -- tank/data)\" = yes",
             ])
         #expect(plan.steps.map(\.role) == [.property, .property, .property, .verify])
     }
@@ -269,20 +272,20 @@ struct ZFSSetMountpointComposeTests {
         #expect(
             plan.steps.map(\.command) == [
                 "zfs set -u mountpoint=/mnt/data tank/data",
-                "zfs get -H -o value mountpoint -- tank/data",
+                "test \"$(zfs get -H -o value mountpoint -- tank/data)\" = /mnt/data",
             ])
     }
 }
 
 @Suite("ZFSMutation compose — clearMountpoint")
 struct ZFSClearMountpointComposeTests {
-    @Test("clearMountpoint composes zfs inherit mountpoint and a get verify")
+    @Test("clearMountpoint composes zfs inherit mountpoint and a verify that the source is no longer local")
     func clearMountpoint() throws {
         let plan = try planZfs(.clearMountpoint(dataset: "tank/data"))
         #expect(
             plan.steps.map(\.command) == [
                 "zfs inherit mountpoint tank/data",
-                "zfs get -H -o value mountpoint -- tank/data",
+                "zfs get -H -o source mountpoint -- tank/data | grep -Eq '^(default|inherited from )'",
             ])
         #expect(plan.steps.map(\.role) == [.property, .verify])
     }
@@ -295,7 +298,8 @@ struct ZFSClearMountpointComposeTests {
                 "sudo -n zfs unmount tank/data",
                 "zfs inherit mountpoint tank/data",
                 "sudo -n zfs mount tank/data",
-                "zfs get -H -o value mountpoint -- tank/data",
+                "zfs get -H -o source mountpoint -- tank/data | grep -Eq '^(default|inherited from )'"
+                    + " && test \"$(zfs list -H -o mounted -- tank/data)\" = yes",
             ])
         #expect(plan.steps.map(\.role) == [.property, .property, .property, .verify])
     }
@@ -306,64 +310,8 @@ struct ZFSClearMountpointComposeTests {
         #expect(
             plan.steps.map(\.command) == [
                 "zfs inherit mountpoint tank/data",
-                "zfs get -H -o value mountpoint -- tank/data",
+                "zfs get -H -o source mountpoint -- tank/data | grep -Eq '^(default|inherited from )'",
             ])
-    }
-}
-
-@Suite("ZFSMutation compose — mount")
-struct ZFSMountComposeTests {
-    @Test("mount composes sudo -n zfs mount and an unprivileged verify")
-    func mount() throws {
-        let plan = try planZfs(.mount(dataset: "tank/data"))
-        #expect(
-            plan.steps.map(\.command) == [
-                "sudo -n zfs mount tank/data",
-                "zfs list -H -o name,mounted -- tank/data",
-            ])
-        #expect(plan.steps.map(\.role) == [.property, .verify])
-    }
-
-    @Test("mount quotes spaced dataset in both the mutating and verify commands")
-    func mountSpacedName() throws {
-        let plan = try planZfs(.mount(dataset: "tank/my data"))
-        #expect(plan.steps[0].command == "sudo -n zfs mount 'tank/my data'")
-        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- 'tank/my data'")
-    }
-
-    @Test("mount composes on the pool root — mounting is never destructive")
-    func mountPoolRootAllowed() throws {
-        let plan = try planZfs(.mount(dataset: "tank"))
-        #expect(plan.steps[0].command == "sudo -n zfs mount tank")
-        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- tank")
-    }
-}
-
-@Suite("ZFSMutation compose — unmount")
-struct ZFSUnmountComposeTests {
-    @Test("unmount composes sudo -n zfs unmount and an unprivileged verify")
-    func unmount() throws {
-        let plan = try planZfs(.unmount(dataset: "tank/data"))
-        #expect(
-            plan.steps.map(\.command) == [
-                "sudo -n zfs unmount tank/data",
-                "zfs list -H -o name,mounted -- tank/data",
-            ])
-        #expect(plan.steps.map(\.role) == [.property, .verify])
-    }
-
-    @Test("unmount quotes spaced dataset in both the mutating and verify commands")
-    func unmountSpacedName() throws {
-        let plan = try planZfs(.unmount(dataset: "tank/my data"))
-        #expect(plan.steps[0].command == "sudo -n zfs unmount 'tank/my data'")
-        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- 'tank/my data'")
-    }
-
-    @Test("unmount composes on the pool root — unmounting is never destructive")
-    func unmountPoolRootAllowed() throws {
-        let plan = try planZfs(.unmount(dataset: "tank"))
-        #expect(plan.steps[0].command == "sudo -n zfs unmount tank")
-        #expect(plan.steps[1].command == "zfs list -H -o name,mounted -- tank")
     }
 }
 

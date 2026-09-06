@@ -122,6 +122,25 @@ struct FieldCacheTests {
         #expect(capability.zfs == nil)
     }
 
+    @Test("read failures round-trip; the generation is memory of this process and never written")
+    func failuresPersistGenerationDoesNot() throws {
+        let cache = FieldCache(url: Self.temporaryURL())
+        let stamp = Date(timeIntervalSince1970: 1_751_500_800)
+        let facts = HostFacts(
+            zfsTopologyUnavailable: Dated(
+                value: FactReadFailure(exitStatus: 1, detail: "cannot open 'tank'"), discoveredAt: stamp),
+            mountsUnavailable: Dated(
+                value: FactReadFailure(exitStatus: 2, detail: "permission denied"), discoveredAt: stamp),
+            generation: 7)
+        try cache.save(["jodo": facts])
+        let loaded = try #require(cache.load()["jodo"])
+        #expect(loaded.zfsTopologyUnavailable == facts.zfsTopologyUnavailable)
+        #expect(loaded.mountsUnavailable == facts.mountsUnavailable)
+        #expect(loaded.generation == nil, "a count from one launch means nothing to the next")
+        let text = try #require(String(data: Data(contentsOf: cache.url), encoding: .utf8))
+        #expect(!text.contains("generation"))
+    }
+
     @Test("the default location sits under Application Support/palana")
     func defaultLocation() {
         let path = FieldCache.defaultURL.path

@@ -209,9 +209,11 @@ extension PlanEngine {
             // otherwise warn mid-plan even when the set succeeds (ho-10.4-AT-04).
             // The unmount-before / mount-after steps below (mounted case
             // only) do all the mounting; -u just keeps set-mountpoint quiet.
+            // The verify asserts the value asked for, not that zfs get ran —
+            // a get that answers the old path exits 0 all the same.
             return mountedWrappedProperty(
                 command: "zfs set -u mountpoint=\(pathPart) \(dsPart)",
-                verifyCommand: "zfs get -H -o value mountpoint -- \(dsPart)",
+                verifyCommand: mountpointAssertion(dsPart, equals: pathPart),
                 dsPart: dsPart,
                 on: host,
                 targetMounted: targetMounted)
@@ -221,9 +223,11 @@ extension PlanEngine {
             // own auto-mount attempt and the same cosmetic mid-plan warning
             // on a mounted target — the explicit sudo -n zfs mount below
             // still lands it at the inherited path either way (ho-10.4-AT-04).
+            // The requested state is "no longer set here": the property's
+            // source must read default or inherited, never local.
             return mountedWrappedProperty(
                 command: "zfs inherit mountpoint \(dsPart)",
-                verifyCommand: "zfs get -H -o value mountpoint -- \(dsPart)",
+                verifyCommand: mountpointInheritedAssertion(dsPart),
                 dsPart: dsPart,
                 on: host,
                 targetMounted: targetMounted)
@@ -256,12 +260,43 @@ extension PlanEngine {
             steps.append(
                 PlanStep(runsOn: host, command: "sudo -n zfs mount \(dsPart)", role: .property))
         }
-        steps.append(PlanStep(runsOn: host, command: verifyCommand, role: .verify))
+        // A mounted target was unmounted and remounted on the way — the
+        // verify asks for the property AND that the remount landed.
+        let verify =
+            targetMounted
+            ? "\(verifyCommand) && \(mountedAssertion(dsPart, is: true))"
+            : verifyCommand
+        steps.append(PlanStep(runsOn: host, command: verify, role: .verify))
         return steps
     }
 
+    // MARK: - Postcondition assertions
+
+    /// `test "$(zfs get …)" = <value>` — exit 0 only when the mountpoint
+    /// property reads exactly the value asked for. `zfs get` exiting 0
+    /// with the old value, or failing outright, both exit nonzero.
+    private static func mountpointAssertion(_ dsPart: String, equals quotedPath: String) -> String {
+        "test \"$(zfs get -H -o value mountpoint -- \(dsPart))\" = \(quotedPath)"
+    }
+
+    /// The inherited-mountpoint assertion.
+    ///
+    /// Exit 0 only when the property's source reads `default` or
+    /// `inherited from …` — the exact state `zfs inherit` asks for. An
+    /// empty answer (a get that failed) matches neither.
+    private static func mountpointInheritedAssertion(_ dsPart: String) -> String {
+        "zfs get -H -o source mountpoint -- \(dsPart) | grep -Eq '^(default|inherited from )'"
+    }
+
+    /// `test "$(zfs list -H -o mounted …)" = yes|no` — exit 0 only when the
+    /// dataset's mounted state is the one asked for.
+    private static func mountedAssertion(_ dsPart: String, is mounted: Bool) -> String {
+        "test \"$(zfs list -H -o mounted -- \(dsPart))\" = \(mounted ? "yes" : "no")"
+    }
+
     /// Mount / unmount — the escalation reads in the plan like every other
-    /// fact of the command; the verify step stays unprivileged.
+    /// fact of the command; the verify step stays unprivileged and asserts
+    /// the mounted state asked for, `yes` or `no`, not that a list ran.
     private static func composeZFSMountMutation(
         _ mutation: ZFSMutation,
         on host: Runner
@@ -271,19 +306,13 @@ extension PlanEngine {
             let dsPart = ShellQuote.quote(dataset)
             return [
                 PlanStep(runsOn: host, command: "sudo -n zfs mount \(dsPart)", role: .property),
-                PlanStep(
-                    runsOn: host,
-                    command: "zfs list -H -o name,mounted -- \(dsPart)",
-                    role: .verify),
+                PlanStep(runsOn: host, command: mountedAssertion(dsPart, is: true), role: .verify),
             ]
         case .unmount(let dataset):
             let dsPart = ShellQuote.quote(dataset)
             return [
                 PlanStep(runsOn: host, command: "sudo -n zfs unmount \(dsPart)", role: .property),
-                PlanStep(
-                    runsOn: host,
-                    command: "zfs list -H -o name,mounted -- \(dsPart)",
-                    role: .verify),
+                PlanStep(runsOn: host, command: mountedAssertion(dsPart, is: false), role: .verify),
             ]
         default:
             return []

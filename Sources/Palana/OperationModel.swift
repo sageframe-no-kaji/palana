@@ -122,6 +122,14 @@ final class OperationModel {
     /// The phase stays `.enacting` through the wait — `.cancelled` is
     /// never shown while a process the plan started is still running.
     private(set) var enactmentStopping = false
+    /// The snapshot-name read behind a rollback or destroy-snapshot gather.
+    ///
+    /// Stored so the next gather can cancel it; its result lands only
+    /// while the gather that started it is still the current one.
+    var snapshotContextTask: Task<Void, Never>?
+    /// Counts ZFS gathers — a snapshot-context read captures the count it
+    /// started under and commits nothing once it has moved on.
+    var zfsGatherGeneration = 0
     var probedLocalCapability: HostCapability?
     var pendingNamingEntry: FileEntry?
     var pendingNamingSource: Locus?
@@ -271,7 +279,11 @@ final class OperationModel {
                 entries: subjects,
                 destination: destination,
                 token: Self.mintToken())
-            plan = try PlanEngine.plan(request, facts: facts)
+            let composed = try PlanEngine.plan(request, facts: facts)
+            // A zfs transport routes on topology — the plan records the
+            // read it stood on, and enactment re-reads before it runs.
+            plan = try bindTopology(
+                of: composed, sourceFacts: sourceFacts, destinationFacts: destinationFacts)
             phase = .ready
         } catch {
             guard !Task.isCancelled else { return }
@@ -293,6 +305,18 @@ final class OperationModel {
             conduit: RoutingConduit(remote: engine.conduit), configuration: configuration)
         enactmentStopping = false
         enactTask = Task {
+            // A plan bound to topology holds here until the hosts are
+            // re-read and the bound datasets confirm — nothing runs on a
+            // map that moved since the operator read the plan.
+            if let binding = plan.topologyBinding {
+                do {
+                    try await confirmTopologyBinding(binding, of: plan)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    failEnactment(with: error)
+                    return
+                }
+            }
             // The run lives in a child of this task, so cancelling the
             // task stops its processes and awaiting the task awaits
             // their exit. Events cross to the main actor through the
@@ -310,18 +334,24 @@ final class OperationModel {
             } catch {
                 guard !Task.isCancelled else { return }
                 echo.flushAll()
-                let errorText = Self.describe(error)
-                echo.appendLine(errorText, kind: .failure)
-                log.appendLine("! \(errorText)")
-                progress = nil
-                phase = .failed
-                // A failure never stays off-screen.
-                panelShowing = true
-                // ho-11: nor behind an open shell — the transcript comes
-                // forward regardless of mode.
-                onEnactmentFailed()
+                failEnactment(with: error)
             }
         }
+    }
+
+    /// Lands a failed enactment: the sentence in the transcript and the
+    /// log, the panel forward, the session told.
+    private func failEnactment(with error: any Error) {
+        let errorText = Self.describe(error)
+        echo.appendLine(errorText, kind: .failure)
+        log.appendLine("! \(errorText)")
+        progress = nil
+        phase = .failed
+        // A failure never stays off-screen.
+        panelShowing = true
+        // ho-11: nor behind an open shell — the transcript comes
+        // forward regardless of mode.
+        onEnactmentFailed()
     }
 
     private func handle(_ event: EnactmentEvent) {
@@ -651,45 +681,6 @@ extension OperationModel {
             echo.appendLine(Self.describe(error), kind: .failure)
             phase = .failed
             panelShowing = true
-        }
-    }
-}
-
-// MARK: - Placement facts
-
-extension OperationModel {
-    /// Where each end LIVES: containing dataset, whole-dataset selection,
-    /// and the any-filesystem mount target (ho-9.3's fact).
-    ///
-    /// The mount proof lets a same-host move be a rename even off ZFS —
-    /// on this Mac too, whose table is read now rather than remembered
-    /// (``placementMounts(for:remembered:)``). Extracted from `gather`
-    /// for the body-length budget.
-    private func addPlacementFacts(
-        _ facts: inout PlanFacts,
-        source: (locus: Locus, facts: HostFacts?),
-        destination: (locus: Locus?, facts: HostFacts?),
-        subjects: [FileEntry]
-    ) async {
-        if let topology = source.facts?.zfsTopology?.value {
-            facts.sourceDataset = ZFSTopology.datasetContaining(
-                source.locus.directory, in: topology)
-            facts.selectionWholeDataset = ZFSTopology.wholeDatasetSelection(
-                entries: subjects, sourceDirectory: source.locus.directory, datasets: topology)
-        }
-        if let dest = destination.locus, let topology = destination.facts?.zfsTopology?.value {
-            facts.destinationDataset = ZFSTopology.datasetContaining(
-                dest.directory, in: topology)
-        }
-        if let mounts = await placementMounts(for: source.locus, remembered: source.facts) {
-            facts.sourceMountTarget = MountTable.mountContaining(
-                source.locus.directory, in: mounts)
-        }
-        if let dest = destination.locus {
-            let mounts = await placementMounts(for: dest, remembered: destination.facts)
-            facts.destinationMountTarget = mounts.flatMap {
-                MountTable.mountContaining(dest.directory, in: $0)
-            }
         }
     }
 }

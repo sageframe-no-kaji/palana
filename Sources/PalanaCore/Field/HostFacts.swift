@@ -153,6 +153,39 @@ public struct ZFSDataset: Codable, Sendable, Equatable, Hashable {
         self.mountpoint = mountpoint
         self.mounted = mounted
     }
+
+    /// The phrase naming what differs in `other`.
+    ///
+    /// The mountpoint move, the mounted flip — for a sentence that names
+    /// a change. Empty when nothing but the name could differ.
+    public func changes(to other: Self) -> String {
+        var parts: [String] = []
+        if mountpoint != other.mountpoint {
+            parts.append("mountpoint \(mountpoint) → \(other.mountpoint)")
+        }
+        if mounted != other.mounted {
+            parts.append(other.mounted ? "now mounted" : "now unmounted")
+        }
+        return parts.joined(separator: ", ")
+    }
+}
+
+/// Why a plan-critical read failed on a reached host.
+///
+/// Recorded in place of the fact it could not refresh: a topology or
+/// mount table that would not read is an absence with a reason, never
+/// the previous visit's value wearing a new timestamp.
+public struct FactReadFailure: Codable, Sendable, Equatable {
+    /// The read command's exit status.
+    public var exitStatus: Int32
+    /// The last non-empty stderr line, or the whole of it when there is none.
+    public var detail: String
+
+    /// Records a failed read.
+    public init(exitStatus: Int32, detail: String) {
+        self.exitStatus = exitStatus
+        self.detail = detail
+    }
 }
 
 /// Everything remembered about one host, grouped by discovery kind.
@@ -165,12 +198,24 @@ public struct HostFacts: Codable, Sendable, Equatable {
     /// What the probe learned, when it last ran.
     public var capability: Dated<HostCapability>?
     /// The dataset list, when zfs was last read.
+    ///
+    /// Nil when the host has no zfs, was never read, or the last read
+    /// failed — a failed read clears this rather than keeping an older
+    /// list a plan could route on; ``zfsTopologyUnavailable`` says why.
     public var zfsTopology: Dated<[ZFSDataset]>?
+    /// Why the last topology read failed on a reached host, when it did.
+    ///
+    /// Cleared by the next read that succeeds. Present only alongside a
+    /// nil ``zfsTopology`` — the two never both stand.
+    public var zfsTopologyUnavailable: Dated<FactReadFailure>?
     /// The full mount table, when it was last read.
     ///
     /// Keyed on the kernel's own table — `/proc/mounts` on Linux, `mount`
-    /// on BSD. Every filesystem, not just ZFS. Nil means unread.
+    /// on BSD. Every filesystem, not just ZFS. Nil means unread, or a
+    /// last read that failed; ``mountsUnavailable`` says why.
     public var mounts: Dated<[Mount]>?
+    /// Why the last mount table read failed on a reached host, when it did.
+    public var mountsUnavailable: Dated<FactReadFailure>?
     /// Whether the host grants passwordless sudo for the zfs verbs —
     /// blanket (`sudo -n true`) or scoped (`sudo -n -l zfs mount`).
     ///
@@ -183,21 +228,48 @@ public struct HostFacts: Codable, Sendable, Equatable {
     /// once, remembered." Absent means unprobed, and unprobed selects
     /// the proxy path, the conservative truth.
     public var forwarding: [String: Dated<ForwardingFact>]?
+    /// Which wire read of this process these facts came from.
+    ///
+    /// The Field counts its reads and stamps each host's facts with the
+    /// read that produced them. Facts loaded from the cache carry nil —
+    /// memory of another launch, shown but never plan-authorizing. Not
+    /// persisted: a generation only means something to the process that
+    /// counted it.
+    public var generation: Int?
 
     /// A host not yet visited — all groups empty.
     public init(
         reachability: Dated<Reachability>? = nil,
         capability: Dated<HostCapability>? = nil,
         zfsTopology: Dated<[ZFSDataset]>? = nil,
+        zfsTopologyUnavailable: Dated<FactReadFailure>? = nil,
         mounts: Dated<[Mount]>? = nil,
+        mountsUnavailable: Dated<FactReadFailure>? = nil,
         sudoNoPassword: Dated<Bool>? = nil,
-        forwarding: [String: Dated<ForwardingFact>]? = nil
+        forwarding: [String: Dated<ForwardingFact>]? = nil,
+        generation: Int? = nil
     ) {
         self.reachability = reachability
         self.capability = capability
         self.zfsTopology = zfsTopology
+        self.zfsTopologyUnavailable = zfsTopologyUnavailable
         self.mounts = mounts
+        self.mountsUnavailable = mountsUnavailable
         self.sudoNoPassword = sudoNoPassword
         self.forwarding = forwarding
+        self.generation = generation
+    }
+
+    /// The persisted keys — `generation` is deliberately absent, so a
+    /// cache file never carries one launch's count into the next.
+    private enum CodingKeys: String, CodingKey {
+        case reachability
+        case capability
+        case zfsTopology
+        case zfsTopologyUnavailable
+        case mounts
+        case mountsUnavailable
+        case sudoNoPassword
+        case forwarding
     }
 }

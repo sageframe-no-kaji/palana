@@ -269,6 +269,13 @@ public struct Plan: Codable, Sendable, Equatable {
     /// classification; `gathered` reflects whether the destination
     /// listing was read.
     public var collisions: CollisionReport?
+    /// The topology truth this plan was composed over — present when a
+    /// zfs transport or a zfs mutation routes on it or destroys by it.
+    ///
+    /// Enactment re-reads and confirms it before the first step runs.
+    /// Nil on plans that owe nothing to topology, and on plans written
+    /// before the binding existed — an absent key decodes as nil.
+    public var topologyBinding: TopologyBinding?
 
     /// Assembles a plan.
     public init(
@@ -282,7 +289,8 @@ public struct Plan: Codable, Sendable, Equatable {
         transport: Transport,
         steps: [PlanStep],
         receivedDataset: String? = nil,
-        collisions: CollisionReport? = nil
+        collisions: CollisionReport? = nil,
+        topologyBinding: TopologyBinding? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -295,5 +303,151 @@ public struct Plan: Codable, Sendable, Equatable {
         self.steps = steps
         self.receivedDataset = receivedDataset
         self.collisions = collisions
+        self.topologyBinding = topologyBinding
+    }
+}
+
+// MARK: - Topology binding
+
+/// The datasets a plan stands on, exactly as they were read when it
+/// composed — each with the read that produced it.
+///
+/// A plan whose routing or destructive target comes from topology is
+/// only as true as that topology. The binding records what was true,
+/// and ``Plan/confirmTopology(fresh:)`` checks a later read against it
+/// dataset by dataset: name, mountpoint, mounted state, and the
+/// relationship the selection rests on.
+public struct TopologyBinding: Codable, Sendable, Equatable {
+    /// What a bound dataset is to the plan — how a fresh read is asked for it.
+    public enum Role: String, Codable, Sendable {
+        /// The whole dataset the selection is — the source of a zfs send.
+        case selection
+        /// The dataset whose mountpoint is the destination directory — a
+        /// zfs receive's parent.
+        case destination
+        /// The dataset a zfs mutation names directly.
+        case target
+    }
+
+    /// One dataset the plan depends on.
+    public struct Bound: Codable, Sendable, Equatable {
+        /// The host the dataset lives on.
+        public var host: String
+        /// How the plan came to depend on it.
+        public var role: Role
+        /// The dataset as read — name, mountpoint, mounted.
+        public var dataset: ZFSDataset
+        /// The Field read that produced it.
+        public var generation: Int
+
+        /// Records one dependency.
+        public init(host: String, role: Role, dataset: ZFSDataset, generation: Int) {
+            self.host = host
+            self.role = role
+            self.dataset = dataset
+            self.generation = generation
+        }
+    }
+
+    /// Every dataset the plan depends on.
+    public var bound: [Bound]
+
+    /// Binds a plan to its datasets.
+    public init(bound: [Bound]) {
+        self.bound = bound
+    }
+
+    /// The hosts to re-read before enactment, first appearance order.
+    public var hosts: [String] {
+        var seen: Set<String> = []
+        return bound.compactMap { seen.insert($0.host).inserted ? $0.host : nil }
+    }
+}
+
+/// Why a fresh read did not confirm a plan's topology binding.
+///
+/// Every case refuses the enactment — a plan composed over one topology
+/// never runs over another.
+public enum TopologyBindingError: Error, Equatable, Sendable, CustomStringConvertible {
+    /// The host's topology could not be re-read.
+    case unavailable(host: String, detail: String)
+    /// The re-read was not newer than the read the plan was bound to.
+    case notFresh(host: String, generation: Int)
+    /// The bound dataset no longer answers the plan's question.
+    case gone(host: String, dataset: String, role: TopologyBinding.Role)
+    /// The dataset is there, but its mountpoint or mounted state moved.
+    case changed(host: String, was: ZFSDataset, now: ZFSDataset)
+
+    /// One sentence, the panel's voice — what changed, and that nothing ran.
+    public var description: String {
+        switch self {
+        case .unavailable(let host, let detail):
+            "the zfs topology on \(host) could not be re-read — nothing ran: \(detail)"
+        case .notFresh(let host, let generation):
+            "the re-read of \(host) was not newer than read \(generation) — nothing ran"
+        case .gone(let host, let dataset, let role):
+            "\(dataset) on \(host) no longer \(role.gonePhrase) — the topology changed since "
+                + "the plan was read; nothing ran, compose it again"
+        case .changed(let host, let was, let now):
+            "\(was.name) on \(host) changed since the plan was read — "
+                + "\(was.changes(to: now)); nothing ran, compose it again"
+        }
+    }
+}
+
+extension TopologyBinding.Role {
+    /// The predicate a gone dataset failed — completes "no longer …".
+    var gonePhrase: String {
+        switch self {
+        case .selection: "is the whole dataset the selection stands on"
+        case .destination: "holds the destination directory"
+        case .target: "exists"
+        }
+    }
+}
+
+extension Plan {
+    /// Confirms a fresh read still says what the plan was composed over.
+    ///
+    /// `fresh` holds the facts ``Field/refresh(_:)`` just returned, keyed
+    /// by host. Each bound dataset is asked for the way the plan found
+    /// it — the selection's whole dataset, the destination's containing
+    /// dataset, the named target — and must come back identical. A plan
+    /// without a binding confirms trivially.
+    public func confirmTopology(fresh: [String: HostFacts]) throws {
+        guard let binding = topologyBinding else { return }
+        for bound in binding.bound {
+            guard let facts = fresh[bound.host] else {
+                throw TopologyBindingError.unavailable(host: bound.host, detail: "no read")
+            }
+            guard let datasets = facts.zfsTopology?.value else {
+                let detail = facts.zfsTopologyUnavailable?.value.detail ?? "no zfs topology"
+                throw TopologyBindingError.unavailable(host: bound.host, detail: detail)
+            }
+            guard let generation = facts.generation, generation > bound.generation else {
+                throw TopologyBindingError.notFresh(host: bound.host, generation: bound.generation)
+            }
+            guard let now = answer(for: bound, in: datasets) else {
+                throw TopologyBindingError.gone(
+                    host: bound.host, dataset: bound.dataset.name, role: bound.role)
+            }
+            guard now == bound.dataset else {
+                throw TopologyBindingError.changed(host: bound.host, was: bound.dataset, now: now)
+            }
+        }
+    }
+
+    /// The fresh dataset that answers a bound role's question, if any.
+    private func answer(for bound: TopologyBinding.Bound, in datasets: [ZFSDataset]) -> ZFSDataset? {
+        switch bound.role {
+        case .selection:
+            return ZFSTopology.wholeDatasetSelection(
+                entries: entries, sourceDirectory: source.directory, datasets: datasets)
+        case .destination:
+            guard let destination else { return nil }
+            return ZFSTopology.datasetContaining(destination.directory, in: datasets)
+        case .target:
+            return datasets.first { $0.name == bound.dataset.name }
+        }
     }
 }
