@@ -13,6 +13,13 @@ public enum PlanEngine {
     /// Composes a Plan, or refuses with a typed reason.
     public static func plan(_ request: PlanRequest, facts: PlanFacts) throws -> Plan {
         try validate(request)
+        let collisions = collisionReport(for: request, facts: facts)
+        // A kind clash is refused before composition: the tool would
+        // fail on it mid-run, after earlier entries already moved, and
+        // a plan that says "won't work" must not stay armed.
+        if let collisions, collisions.hasKindClash {
+            throw PlanError.kindClash(collisions)
+        }
         let classification = classify(request, facts: facts)
         let transport = transport(for: classification, request: request, facts: facts)
         let steps = compose(
@@ -29,7 +36,7 @@ public enum PlanEngine {
             transport: transport,
             steps: steps,
             receivedDataset: zfsChild(request: request, facts: facts, transport: transport),
-            collisions: collisionReport(for: request, facts: facts)
+            collisions: collisions
         )
     }
 
@@ -152,7 +159,7 @@ public enum PlanEngine {
         case .move:
             let sameHost = request.source.host == request.destination?.host
             guard sameHost else { return .crossHostTransfer }
-            return provenSameFilesystem(facts, request: request)
+            return provenSameFilesystem(facts)
                 ? .withinDatasetRename : .crossDatasetCopyPlusDelete
         case .copy:
             let sameHost = request.source.host == request.destination?.host

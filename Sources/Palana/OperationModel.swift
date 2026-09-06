@@ -239,7 +239,7 @@ final class OperationModel {
                     engine.isLocal(destination.host)
                     ? await localCapability() : destinationFacts?.capability?.value
             }
-            addPlacementFacts(
+            await addPlacementFacts(
                 &facts,
                 source: (source, sourceFacts),
                 destination: (destination, destinationFacts),
@@ -517,18 +517,6 @@ extension OperationModel {
         return "palana-\(formatter.string(from: Date()))"
     }
 
-    private static func describe(_ report: VerificationReport) -> String {
-        switch report {
-        case .counts(let source, let destination):
-            let verdict = source == destination ? "match" : "MISMATCH"
-            return "counted \(source) at source, \(destination) at destination — \(verdict)"
-        case .datasetReceived(let name, let exists):
-            return exists
-                ? "dataset \(name) exists at the destination"
-                : "dataset \(name) is MISSING at the destination"
-        }
-    }
-
     /// One sentence per failure — typed errors say what they are.
     static func describe(_ error: any Error) -> String {
         if let text = describePlanError(error) { return text }
@@ -539,7 +527,7 @@ extension OperationModel {
         case EnactmentError.verificationFailed:
             return "verification did not match — gated steps never ran, the source stands untouched"
         case EnactmentError.verificationUnavailable(let host, let detail):
-            return "the count on \(host) could not run — the gate stays closed: \(detail)"
+            return "the check on \(host) could not run — the gate stays closed: \(detail)"
         case EnactmentError.malformedPlan(let detail):
             return "the plan's shape was not one enactment knows — worth reporting: \(detail)"
         case ListingError.permissionDenied(let path):
@@ -555,36 +543,6 @@ extension OperationModel {
             return "\(conduitError)"
         default:
             return "\(error)"
-        }
-    }
-
-    /// Translates PlanError cases to one-sentence descriptions, nil for non-PlanErrors.
-    private static func describePlanError(_ error: any Error) -> String? {
-        switch error {
-        case PlanError.emptySelection:
-            return "nothing selected — there is nothing to plan"
-        case PlanError.missingDestination:
-            return "the other pane is the destination — point it somewhere first"
-        case PlanError.unrepresentableName:
-            return "an entry's name does not survive composition — refusing rather than guessing"
-        case PlanError.renameRequiresOneEntry:
-            return "rename operates on one entry — cursor on exactly one"
-        case PlanError.targetNameRequired:
-            return "a name is required"
-        case PlanError.targetNameUnchanged:
-            return "the name did not change"
-        case PlanError.targetNameContainsSeparator:
-            return "a name cannot contain path separators"
-        case PlanError.entriesForbiddenForCreate:
-            return "create needs an empty selection — deselect first"
-        case PlanError.destinationForbidden:
-            return "rename and create stay in the source directory — no destination"
-        case PlanError.zfsPoolRootRefused:
-            return "that is the pool root — pālana manages datasets, never the pool itself"
-        case PlanError.zfsMountpointNotAbsolute:
-            return "a mountpoint must be an absolute path — /like/this, not ~ or relative"
-        default:
-            return nil
         }
     }
 }
@@ -703,14 +661,16 @@ extension OperationModel {
     /// Where each end LIVES: containing dataset, whole-dataset selection,
     /// and the any-filesystem mount target (ho-9.3's fact).
     ///
-    /// The mount proof lets a same-host move be a rename even off ZFS.
-    /// Extracted from `gather` for the body-length budget.
+    /// The mount proof lets a same-host move be a rename even off ZFS —
+    /// on this Mac too, whose table is read now rather than remembered
+    /// (``placementMounts(for:remembered:)``). Extracted from `gather`
+    /// for the body-length budget.
     private func addPlacementFacts(
         _ facts: inout PlanFacts,
         source: (locus: Locus, facts: HostFacts?),
         destination: (locus: Locus?, facts: HostFacts?),
         subjects: [FileEntry]
-    ) {
+    ) async {
         if let topology = source.facts?.zfsTopology?.value {
             facts.sourceDataset = ZFSTopology.datasetContaining(
                 source.locus.directory, in: topology)
@@ -721,13 +681,15 @@ extension OperationModel {
             facts.destinationDataset = ZFSTopology.datasetContaining(
                 dest.directory, in: topology)
         }
-        if let mounts = source.facts?.mounts?.value {
+        if let mounts = await placementMounts(for: source.locus, remembered: source.facts) {
             facts.sourceMountTarget = MountTable.mountContaining(
                 source.locus.directory, in: mounts)
         }
-        if let dest = destination.locus, let mounts = destination.facts?.mounts?.value {
-            facts.destinationMountTarget = MountTable.mountContaining(
-                dest.directory, in: mounts)
+        if let dest = destination.locus {
+            let mounts = await placementMounts(for: dest, remembered: destination.facts)
+            facts.destinationMountTarget = mounts.flatMap {
+                MountTable.mountContaining(dest.directory, in: $0)
+            }
         }
     }
 }

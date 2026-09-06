@@ -32,21 +32,26 @@ public struct ProgressReport: Sendable, Equatable {
 
 /// The check that releases gated steps — shaped per transport.
 ///
-/// File transfers count entries both ends. A zfs stream is checksummed
-/// end to end by zfs itself, so a clean receive IS the byte
-/// verification and the gate's question becomes existence.
+/// File transfers manifest both ends — every object's kind, size, link
+/// target, and SHA-256 — and the gate opens only on exact agreement. A
+/// zfs stream is checksummed end to end by zfs itself, so a clean
+/// receive IS the byte verification and the gate's question becomes
+/// existence.
 public enum VerificationReport: Sendable, Equatable {
-    /// Entries counted under the source selection and their
-    /// transplanted names at the destination.
-    case counts(source: Int, destination: Int)
+    /// The selection manifested under the source and its transplanted
+    /// names at the destination.
+    case manifests(source: TransferManifest, destination: TransferManifest)
     /// The received dataset, present or not, on the destination.
     case datasetReceived(name: String, exists: Bool)
 
     /// The gate's condition.
+    ///
+    /// Two empty manifests agree about nothing — a selection is never
+    /// empty, so an empty manifest is not a match.
     public var matched: Bool {
         switch self {
-        case .counts(let source, let destination):
-            source == destination
+        case .manifests(let source, let destination):
+            !source.entries.isEmpty && source == destination
         case .datasetReceived(_, let exists):
             exists
         }
@@ -63,7 +68,7 @@ public enum EnactmentEvent: Sendable, Equatable {
     case progress(ProgressReport)
     /// A verification command running — visible like everything else.
     case verifying(host: String, command: String)
-    /// The count check's result.
+    /// The verification's result.
     case verified(VerificationReport)
     /// A step finished with this status.
     case stepEnded(index: Int, exitStatus: Int32)
@@ -75,12 +80,12 @@ public enum EnactmentEvent: Sendable, Equatable {
 public enum EnactmentError: Error, Sendable, Equatable {
     /// A step exited nonzero. Gated steps stay closed.
     case stepFailed(index: Int, exitStatus: Int32, stderrTail: String)
-    /// Counts did not match. Gated steps never ran — a move that cannot
-    /// prove its copy landed does not delete anything.
+    /// The two ends did not agree. Gated steps never ran — a move that
+    /// cannot prove its copy landed does not delete anything.
     case verificationFailed(VerificationReport)
     /// The plan's shape was not one enactment knows — typed, loud.
     case malformedPlan(String)
-    /// A count command itself failed — the gate cannot decide, so it
-    /// stays closed.
+    /// A verification command itself failed, or its answer could not
+    /// be read — the gate cannot decide, so it stays closed.
     case verificationUnavailable(host: String, detail: String)
 }

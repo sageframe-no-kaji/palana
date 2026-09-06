@@ -153,6 +153,24 @@ public struct CollisionReport: Codable, Sendable, Equatable {
         self.gathered = gathered
     }
 
+    /// True when any collision is a kind clash — the plan cannot run.
+    ///
+    /// The engine refuses to compose over one and enactment refuses to
+    /// run one: cp, rsync, and tar all fail on the clashing entry, after
+    /// the entries before it already moved.
+    public var hasKindClash: Bool {
+        items.contains { $0.nature == .kindClash }
+    }
+
+    /// The refusal line for the kind clashes alone.
+    ///
+    /// The sentence a refused plan shows. Nil when there are none.
+    public func clashSentence() -> String? {
+        let clashes = items.filter { $0.nature == .kindClash }
+        guard !clashes.isEmpty else { return nil }
+        return clashClause(clashes)
+    }
+
     /// Composes the panel line for this report.
     ///
     /// Returns `nil` when gathered and the destination is clean (silence

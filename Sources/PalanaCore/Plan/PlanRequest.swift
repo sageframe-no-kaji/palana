@@ -162,6 +162,11 @@ public enum PlanError: Error, Equatable, Sendable {
     case entriesForbiddenForCreate
     /// The target name contains a path separator in a disallowed position.
     case targetNameContainsSeparator
+    /// The destination already holds an entry of the other kind under an
+    /// arriving name — a folder where a file arrives, or the reverse.
+    /// The tool would refuse mid-run, after earlier entries moved; the
+    /// engine refuses first, and the report names which entries.
+    case kindClash(CollisionReport)
     /// A `.zfs` request must carry a non-nil `zfs` payload.
     case zfsMutationPayloadRequired
     /// Dataset and snapshot names must be non-empty.

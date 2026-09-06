@@ -1,6 +1,6 @@
 // Enactment against the real fixture — the whole stack in one trace:
 // probe the flavor, list the entries, compose the Plan, enact it,
-// watch the events, verify the counts released the gate. The rsync
+// watch the events, verify the manifests released the gate. The rsync
 // path needs real rsync on the source (the probe fact decides — the
 // runner's openrsync skips itself); the tar proxy runs everywhere.
 // Never a live homelab host.
@@ -123,8 +123,13 @@ struct TransportsIntegrationTests {
         }
         #expect(!progressReports.isEmpty, "progress2 produced observations")
         #expect(progressReports.last?.fraction == 1.0, "the bar finishes at 100 exactly")
-        #expect(
-            events.contains(.verified(VerificationReport.counts(source: 2, destination: 2))))
+        let matched = events.contains {
+            if case .verified(.manifests(let source, let destination)) = $0 {
+                return source == destination && source.entries.count == 2
+            }
+            return false
+        }
+        #expect(matched, "both ends manifested the two entries identically")
         try await Self.assertMoved(world, base: base)
     }
 

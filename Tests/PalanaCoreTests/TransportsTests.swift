@@ -1,7 +1,8 @@
 // The Transports' gate logic over RecordedConduit playback. The
 // transcript is the network: a gated step missing from the transcript
 // that gets attempted surfaces as UnrecordedCommand, so a gate leak
-// cannot hide behind a passing test.
+// cannot hide behind a passing test. The adversarial manifest cases
+// live in TransportsManifestTests.
 
 import Foundation
 import Testing
@@ -87,46 +88,58 @@ struct TransportsTests {
         return events
     }
 
-    @Test("a gated move enacts in order: copy, visible verify, then the release")
+    private static let twoFiles =
+        ManifestFixture.file("f1", size: 1)
+        + ManifestFixture.file("f2", size: 2, digest: ManifestFixture.worldDigest)
+
+    @Test("a gated move enacts in order: copy, visible verify both ends, then the release")
     func gatedMoveEnacts() async throws {
         let plan = try Self.crossDatasetMove()
+        let sourceCommand = ManifestFixture.command("/tank/a", ["f1", "f2"])
+        let destinationCommand = ManifestFixture.command("/tank/b", ["f1", "f2"])
         let transports = Self.transports([
             Self.entry("j", "cp -a /tank/a/f1 /tank/a/f2 /tank/b/"),
-            Self.entry("j", "find /tank/a/f1 /tank/a/f2 | wc -l", stdout: "2\n"),
-            Self.entry("j", "find /tank/b/f1 /tank/b/f2 | wc -l", stdout: "2\n"),
+            Self.entry("j", sourceCommand, stdout: Self.twoFiles),
+            Self.entry("j", destinationCommand, stdout: Self.twoFiles),
             Self.entry("j", "rm -rf /tank/a/f1 /tank/a/f2"),
         ])
         let events = try await Self.collect(transports.enact(plan))
 
         #expect(events.first == .stepBegan(index: 0, step: plan.steps[0]))
         #expect(events.contains(.stepEnded(index: 0, exitStatus: 0)))
-        #expect(
-            events.contains(
-                .verifying(host: "j", command: "find /tank/a/f1 /tank/a/f2 | wc -l")))
-        #expect(
-            events.contains(.verified(VerificationReport.counts(source: 2, destination: 2))))
+        #expect(events.contains(.verifying(host: "j", command: sourceCommand)))
+        #expect(events.contains(.verifying(host: "j", command: destinationCommand)))
+        let manifest = try TransferManifest.parse(Data(Self.twoFiles.utf8))
+        let verified = EnactmentEvent.verified(.manifests(source: manifest, destination: manifest))
+        #expect(events.contains(verified))
         #expect(events.contains(.stepBegan(index: 1, step: plan.steps[1])))
         #expect(events.last == .finished)
 
         // Verification strictly precedes the gated step.
-        let verifiedAt = try #require(
-            events.firstIndex(of: .verified(VerificationReport.counts(source: 2, destination: 2))))
+        let verifiedAt = try #require(events.firstIndex(of: verified))
         let gateAt = try #require(events.firstIndex(of: .stepBegan(index: 1, step: plan.steps[1])))
         #expect(verifiedAt < gateAt)
     }
 
-    @Test("a count mismatch closes the gate — the delete is never attempted")
+    @Test("a manifest mismatch closes the gate — the delete is never attempted")
     func mismatchHoldsGate() async throws {
         let plan = try Self.crossDatasetMove()
         // No rm entry in the transcript: an attempted gate leak would
         // surface as UnrecordedCommand, not verificationFailed.
+        let landed = ManifestFixture.file("f1", size: 1)
         let transports = Self.transports([
             Self.entry("j", "cp -a /tank/a/f1 /tank/a/f2 /tank/b/"),
-            Self.entry("j", "find /tank/a/f1 /tank/a/f2 | wc -l", stdout: "2\n"),
-            Self.entry("j", "find /tank/b/f1 /tank/b/f2 | wc -l", stdout: "1\n"),
+            Self.entry("j", ManifestFixture.command("/tank/a", ["f1", "f2"]), stdout: Self.twoFiles),
+            Self.entry(
+                "j",
+                ManifestFixture.command("/tank/b", ["f1", "f2"]),
+                stdout: landed + ManifestFixture.file("f2", size: 2)),
         ])
         let expected = EnactmentError.verificationFailed(
-            VerificationReport.counts(source: 2, destination: 1))
+            .manifests(
+                source: try TransferManifest.parse(Data(Self.twoFiles.utf8)),
+                destination: try TransferManifest.parse(
+                    Data((landed + ManifestFixture.file("f2", size: 2)).utf8))))
         await #expect(throws: expected) {
             _ = try await Self.collect(transports.enact(plan))
         }
@@ -172,8 +185,8 @@ struct TransportsTests {
         let received = Box<Pipeline>()
         let transports = Self.transports(
             [
-                Self.entry("j", "find /tank/a/f1 /tank/a/f2 | wc -l", stdout: "2\n"),
-                Self.entry("k", "find /rpool/b/f1 /rpool/b/f2 | wc -l", stdout: "2\n"),
+                Self.entry("j", ManifestFixture.command("/tank/a", ["f1", "f2"]), stdout: Self.twoFiles),
+                Self.entry("k", ManifestFixture.command("/rpool/b", ["f1", "f2"]), stdout: Self.twoFiles),
                 Self.entry("j", "rm -rf /tank/a/f1 /tank/a/f2"),
             ]
         ) { pipeline, stepIndex, emit in

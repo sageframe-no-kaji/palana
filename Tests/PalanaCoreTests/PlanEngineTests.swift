@@ -90,13 +90,44 @@ struct PlanClassificationTests {
         #expect(classification == .crossDatasetCopyPlusDelete)
     }
 
-    @Test("the local Mac with no facts — mv is honest, a local move never rsyncs")
-    func localUnprovenRenames() {
-        let localSource = Locus(host: "local", directory: "/tmp/palana")
-        let localDest = Locus(host: "local", directory: "/tmp/palana/subdir")
+    @Test("the local Mac with no facts — unproven, so the verified copy-then-delete, never a claimed rename")
+    func localUnprovenStaysConservative() {
+        // The old table claimed a rename here; mv across volumes is a
+        // copy-then-delete and the plan said "instant" over it.
+        let localSource = Locus(host: "local", directory: "/Users/op/files")
+        let localDest = Locus(host: "local", directory: "/Volumes/External/files")
+        for facts in [
+            PlanFacts(),
+            PlanFacts(sourceMountTarget: "/"),
+            PlanFacts(destinationMountTarget: "/Volumes/External"),
+        ] {
+            let classification = PlanEngine.classify(
+                request(.move, from: localSource, to: localDest), facts: facts)
+            #expect(classification == .crossDatasetCopyPlusDelete)
+        }
+    }
+
+    @Test("the local Mac, both ends on one mount — a proven rename")
+    func localSameMountRenames() {
+        let localSource = Locus(host: "local", directory: "/Users/op/files")
+        let localDest = Locus(host: "local", directory: "/Users/op/archive")
+        let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/")
         let classification = PlanEngine.classify(
-            request(.move, from: localSource, to: localDest), facts: PlanFacts())
+            request(.move, from: localSource, to: localDest), facts: facts)
         #expect(classification == .withinDatasetRename)
+    }
+
+    @Test("the local Mac, cross-volume facts — the copy-then-gated-delete, not mv")
+    func localCrossVolumeCopiesThenDeletes() throws {
+        let localSource = Locus(host: "local", directory: "/Users/op/files")
+        let localDest = Locus(host: "local", directory: "/Volumes/External/files")
+        let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/Volumes/External")
+        let plan = try PlanEngine.plan(
+            request(.move, from: localSource, to: localDest), facts: facts)
+        #expect(plan.classification == .crossDatasetCopyPlusDelete)
+        #expect(plan.steps.map(\.role) == [.copy, .delete])
+        #expect(plan.steps[1].gatedOnVerification)
+        #expect(!plan.steps.contains { $0.command.hasPrefix("mv ") })
     }
 
     @Test("different hosts — cross-host transfer, datasets irrelevant")

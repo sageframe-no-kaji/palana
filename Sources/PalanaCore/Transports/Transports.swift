@@ -1,8 +1,9 @@
 // The Transports — enactment, first half (ho-06.1). Executes an
 // approved Plan exactly as composed: no improvisation between approval
 // and execution. Host steps run through the Conduit; proxied pipelines
-// run in-process through an injected runner. Gates open only when the
-// counts say the copy landed.
+// run in-process through an injected runner. Gates open only when both
+// ends' manifests — every object's kind, size, link target, and SHA-256
+// — agree exactly.
 
 import Foundation
 
@@ -65,6 +66,13 @@ public struct Transports: Sendable {
     /// throws `CancellationError` only once every owned process has
     /// exited — so a caller that awaits this has awaited the teardown.
     public func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
+        // A plan the engine would have refused must not run from here
+        // either: the tool fails mid-way on the clash, after earlier
+        // entries already moved.
+        if let collisions = plan.collisions, collisions.hasKindClash {
+            throw EnactmentError.malformedPlan(
+                collisions.clashSentence() ?? "kind clash at the destination")
+        }
         var gatesReleased = false
         for (index, step) in plan.steps.enumerated() {
             try Task.checkCancellation()
@@ -199,9 +207,13 @@ public struct Transports: Sendable {
 
     // MARK: - Verification
 
-    /// The gate's evidence, shaped per transport: counts for file
-    /// transfers, dataset existence for zfs — visibly, through the
-    /// Conduit.
+    /// The gate's evidence, shaped per transport: manifests both ends
+    /// for file transfers, dataset existence for zfs — visibly, through
+    /// the Conduit.
+    ///
+    /// Both manifests must exist before either is read against the
+    /// other: a source that will not manifest is as closed a gate as a
+    /// destination that differs.
     private func verify(
         _ plan: Plan,
         emit: @Sendable (EnactmentEvent) -> Void
@@ -215,35 +227,46 @@ public struct Transports: Sendable {
             let result = try await conduit.run(on: destination.host, command).collect()
             return .datasetReceived(name: received, exists: result.exitStatus == 0)
         }
-        let sourcePaths = plan.entries.map { join(plan.source.directory, $0.name) }
-        let destinationPaths = plan.entries.map { join(destination.directory, $0.name) }
-        let sourceCount = try await count(paths: sourcePaths, on: plan.source.host, emit: emit)
-        let destinationCount = try await count(
-            paths: destinationPaths, on: destination.host, emit: emit)
-        return .counts(source: sourceCount, destination: destinationCount)
+        let names = plan.entries.map(\.name)
+        let source = try await manifest(
+            directory: plan.source.directory, names: names, on: plan.source.host, emit: emit)
+        let landed = try await manifest(
+            directory: destination.directory, names: names, on: destination.host, emit: emit)
+        return .manifests(source: source, destination: landed)
     }
 
-    private func count(
-        paths: [String],
+    /// One end's manifest, or `verificationUnavailable`.
+    ///
+    /// Unavailable on any nonzero status (a missing name, an unreadable
+    /// file, no SHA-256 tool), on bytes that do not parse as a
+    /// manifest, and on a manifest that omits a selected name — the
+    /// shape a masked `find` failure takes. Each keeps the gate closed.
+    private func manifest(
+        directory: String,
+        names: [String],
         on host: String,
         emit: @Sendable (EnactmentEvent) -> Void
-    ) async throws -> Int {
-        let quoted = paths.map(ShellQuote.quote).joined(separator: " ")
-        let command = "find \(quoted) | wc -l"
+    ) async throws -> TransferManifest {
+        let command = TransferManifest.command(directory: directory, names: names)
         emit(.verifying(host: host, command: command))
         let result = try await conduit.run(on: host, command).collect()
-        let text = result.stdoutText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard result.exitStatus == 0, let value = Int(text) else {
-            throw EnactmentError.verificationUnavailable(host: host, detail: result.stderrText)
+        guard result.exitStatus == 0 else {
+            let tail = result.stderrText.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw EnactmentError.verificationUnavailable(
+                host: host, detail: "manifest exited \(result.exitStatus): \(tail)")
         }
-        return value
-    }
-
-    private func join(_ directory: String, _ name: String) -> String {
-        var base = directory
-        while base.count > 1, base.hasSuffix("/") {
-            base.removeLast()
+        let manifest: TransferManifest
+        do {
+            manifest = try TransferManifest.parse(result.stdout)
+        } catch {
+            throw EnactmentError.verificationUnavailable(
+                host: host, detail: "manifest unreadable: \(error)")
         }
-        return base == "/" ? "/\(name)" : "\(base)/\(name)"
+        let missing = manifest.missingNames(from: names)
+        guard missing.isEmpty else {
+            throw EnactmentError.verificationUnavailable(
+                host: host, detail: "manifest omitted \(missing.joined(separator: ", "))")
+        }
+        return manifest
     }
 }
