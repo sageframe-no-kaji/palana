@@ -109,6 +109,26 @@ public struct Transports: Sendable {
         }
     }
 
+    /// Whether a composed command runs rsync — the binary named by its
+    /// first token, by last path component.
+    ///
+    /// `rsync -a …` and `/opt/homebrew/bin/rsync -a …` both match;
+    /// `rsyncd …` and `myrsync …` do not. A single-quoted first token
+    /// (a path with a space, quoted by the engine) is read through to
+    /// its closing quote. Progress parsing keys on this, so a plan that
+    /// names its binary absolutely still gets a bar.
+    static func isRsyncCommand(_ command: String) -> Bool {
+        let firstToken: Substring
+        if command.hasPrefix("'") {
+            let body = command.dropFirst()
+            guard let close = body.firstIndex(of: "'") else { return false }
+            firstToken = body[..<close]
+        } else {
+            firstToken = command.prefix { !$0.isWhitespace }
+        }
+        return firstToken.split(separator: "/", omittingEmptySubsequences: false).last == "rsync"
+    }
+
     private func runHostStep(
         _ step: PlanStep,
         on host: String,
@@ -118,8 +138,8 @@ public struct Transports: Sendable {
     ) async throws -> StepResult {
         let running = try await conduit.run(on: host, step.command)
         // Only rsync speaks progress2, and every rsync step starts with
-        // the word — same-host copies included, whatever the transport.
-        let parseProgress = step.command.hasPrefix("rsync ")
+        // the binary — same-host copies included, whatever the transport.
+        let parseProgress = Self.isRsyncCommand(step.command)
         // The forwarded zfs path's progress arrives on stderr — send -v.
         let parseSendProgress =
             step.role == .transfer && plan.transport == .zfsSendReceiveForwarded

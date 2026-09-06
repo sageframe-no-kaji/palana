@@ -110,6 +110,18 @@ struct FieldCacheTests {
         #expect(loaded["jodo"]?.capability?.value.kernel == "Linux")
     }
 
+    @Test("a capability written before rsyncPath existed decodes with it nil")
+    func priorCapabilityWithoutRsyncPathDecodes() throws {
+        let json = Data(
+            """
+            {"kernel":"Darwin","flavor":"BSD","rsync":"openrsync: protocol version 29"}
+            """.utf8)
+        let capability = try JSONDecoder().decode(HostCapability.self, from: json)
+        #expect(capability.rsyncPath == nil)
+        #expect(capability.rsync == "openrsync: protocol version 29")
+        #expect(capability.zfs == nil)
+    }
+
     @Test("the default location sits under Application Support/palana")
     func defaultLocation() {
         let path = FieldCache.defaultURL.path

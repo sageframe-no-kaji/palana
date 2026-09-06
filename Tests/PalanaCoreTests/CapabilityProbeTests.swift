@@ -88,4 +88,56 @@ struct CapabilityProbeTests {
     func commandIsOneLine() {
         #expect(!CapabilityProbe.command.contains("\n"))
     }
+
+    @Test("local probe output names the rsync it resolved")
+    func localOutputCarriesRsyncPath() throws {
+        let stdout = """
+            palana:kernel:Darwin
+            palana:flavor:BSD
+            palana:zfs:
+            palana:rsync:rsync  version 3.4.1  protocol version 32
+            palana:rsyncpath:/opt/homebrew/bin/rsync
+            """
+        let capability = try CapabilityProbe.parse(stdout)
+        #expect(capability.rsyncPath == "/opt/homebrew/bin/rsync")
+        #expect(capability.rsyncVersion == "3.4.1")
+    }
+
+    @Test("remote-shaped output without the path marker leaves the path nil")
+    func remoteOutputHasNoRsyncPath() throws {
+        let stdout = """
+            palana:kernel:Linux
+            palana:flavor:GNU
+            palana:zfs:
+            palana:rsync:rsync  version 3.2.7  protocol version 31
+            """
+        let capability = try CapabilityProbe.parse(stdout)
+        #expect(capability.rsync != nil)
+        #expect(capability.rsyncPath == nil)
+    }
+
+    @Test("an empty path marker is nil, not the empty string")
+    func emptyRsyncPathIsNil() throws {
+        let stdout = """
+            palana:kernel:Darwin
+            palana:flavor:BSD
+            palana:zfs:
+            palana:rsync:
+            palana:rsyncpath:
+            """
+        let capability = try CapabilityProbe.parse(stdout)
+        #expect(capability.rsyncPath == nil)
+    }
+
+    @Test("the local command widens PATH for the whole line and asks for the path")
+    func localCommandShape() {
+        let local = CapabilityProbe.localCommand
+        #expect(!local.contains("\n"))
+        #expect(local.hasPrefix("PATH=/opt/homebrew/bin:/usr/local/bin:/opt/local/bin:$PATH; "))
+        // The shared probe rides inside it unchanged — one source of markers.
+        #expect(local.contains(CapabilityProbe.command))
+        #expect(local.hasSuffix(#"echo "palana:rsyncpath:$(command -v rsync 2>/dev/null)""#))
+        // The shared command itself never learned the marker.
+        #expect(!CapabilityProbe.command.contains("rsyncpath"))
+    }
 }

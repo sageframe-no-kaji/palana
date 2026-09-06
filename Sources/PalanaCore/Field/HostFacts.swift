@@ -57,13 +57,31 @@ public struct HostCapability: Codable, Sendable, Equatable {
     public var zfs: String?
     /// First line of `rsync --version`, nil when rsync is absent.
     public var rsync: String?
+    /// Absolute path of the rsync the probe resolved, nil when it did not.
+    ///
+    /// Local-only today: ``CapabilityProbe/localCommand`` searches the
+    /// Homebrew and MacPorts prefixes a Finder-launched app cannot see
+    /// and names what it found, so a plan can name the binary it will
+    /// run. Remote probes leave this nil on purpose — a remote plan
+    /// runs under the host's own non-interactive PATH, which is exactly
+    /// what `ssh host 'rsync …'` gets, so bare `rsync` is already the
+    /// truth there. Optional with a default so cache files written
+    /// before the field existed still decode.
+    public var rsyncPath: String?
 
     /// Assembles a capability fact.
-    public init(kernel: String, flavor: UserlandFlavor, zfs: String?, rsync: String?) {
+    public init(
+        kernel: String,
+        flavor: UserlandFlavor,
+        zfs: String?,
+        rsync: String?,
+        rsyncPath: String? = nil
+    ) {
         self.kernel = kernel
         self.flavor = flavor
         self.zfs = zfs
         self.rsync = rsync
+        self.rsyncPath = rsyncPath
     }
 
     /// Dotted rsync version — `3.2.7` — parsed from the raw line.

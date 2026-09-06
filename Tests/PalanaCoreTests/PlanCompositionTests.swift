@@ -302,6 +302,117 @@ struct PlanRsyncOperatorFlagsTests {
         kernel: "Linux", flavor: .gnu, zfs: nil, rsync: "rsync  version 3.2.7")
     private static let localModern = HostCapability(
         kernel: "Darwin", flavor: .bsd, zfs: nil, rsync: "rsync  version 3.4.1")
+    private static let localResolved = HostCapability(
+        kernel: "Darwin",
+        flavor: .bsd,
+        zfs: nil,
+        rsync: "rsync  version 3.4.1",
+        rsyncPath: "/opt/homebrew/bin/rsync")
+
+    @Test("a local capability with a resolved path names that binary")
+    func directRsyncNamesResolvedBinary() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.localResolved,
+            destinationCapability: Self.remoteRsync)
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: Locus(host: "local", directory: "/Users/op/files"),
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: facts)
+        #expect(plan.transport == .rsyncDirect)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(
+            cmd == "/opt/homebrew/bin/rsync -a -s --partial --info=progress2 "
+                + "/Users/op/files/a.txt koan:/rpool/cold/")
+    }
+
+    @Test("a pull onto this machine names the resolved binary the same way")
+    func directPullNamesResolvedBinary() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync,
+            destinationCapability: Self.localResolved)
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: Locus(host: "local", directory: "/Users/op/files"),
+                token: "t1"),
+            facts: facts)
+        #expect(plan.transport == .rsyncDirect)
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(
+            cmd == "/opt/homebrew/bin/rsync -a -s --partial --info=progress2 "
+                + "jodo:/tank/media/a.txt /Users/op/files/")
+    }
+
+    @Test("a resolved path with a space is quoted so the command still runs")
+    func resolvedPathWithSpaceIsQuoted() throws {
+        let odd = HostCapability(
+            kernel: "Darwin",
+            flavor: .bsd,
+            zfs: nil,
+            rsync: "rsync  version 3.4.1",
+            rsyncPath: "/Volumes/My Tools/bin/rsync")
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: Locus(host: "local", directory: "/Users/op/files"),
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: PlanFacts(sourceCapability: odd, destinationCapability: Self.remoteRsync))
+        let cmd = try #require(plan.steps.first?.command)
+        #expect(cmd.hasPrefix("'/Volumes/My Tools/bin/rsync' -a -s --partial --info=progress2 "))
+    }
+
+    @Test("a nil path composes bare rsync — remote plans are byte-identical")
+    func nilPathComposesBareRsync() throws {
+        // Forwarded: both ends remote, the source host runs rsync.
+        let forwarded = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: PlanFacts(
+                sourceCapability: Self.remoteRsync,
+                destinationCapability: Self.remoteRsync,
+                agentForwarding: .available))
+        #expect(
+            forwarded.steps.first?.command
+                == "rsync -a -s --partial --info=progress2 /tank/media/a.txt koan:/rpool/cold/")
+        // Same host: the host's own rsync, bare.
+        let sameHost = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: source,
+                entries: oneFile,
+                destination: sameHostDest,
+                token: "t1"),
+            facts: PlanFacts(sourceCapability: Self.remoteRsync))
+        #expect(
+            sameHost.steps.first?.command
+                == "rsync -a -s --partial --info=progress2 /tank/media/a.txt /tank/other/")
+        // Direct, local rsync known but unresolved: still bare.
+        let direct = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: Locus(host: "local", directory: "/Users/op/files"),
+                entries: oneFile,
+                destination: crossHostDest,
+                token: "t1"),
+            facts: PlanFacts(
+                sourceCapability: Self.localModern,
+                destinationCapability: Self.remoteRsync))
+        #expect(
+            direct.steps.first?.command
+                == "rsync -a -s --partial --info=progress2 /Users/op/files/a.txt koan:/rpool/cold/")
+    }
 
     @Test("forwarded rsync: operator flags land after base flags and before paths")
     func forwardedRsyncCarriesFlags() throws {

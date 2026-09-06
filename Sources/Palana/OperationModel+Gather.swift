@@ -20,12 +20,14 @@ extension OperationModel {
     /// This Mac's own capability — probed once per session, in memory.
     ///
     /// The engine flags rsync commands by the running side's rsync;
-    /// this machine's answer decides whether progress2 rides.
+    /// this machine's answer decides whether progress2 rides. The local
+    /// probe searches the prefixes a Finder-launched app cannot see and
+    /// names the rsync it found, so the plan names what will run.
     func localCapability() async -> HostCapability? {
         if let probedLocalCapability { return probedLocalCapability }
         guard
             let result = try? await engine.localConduit
-                .run(on: PalanaCore.localHostName, CapabilityProbe.command).collect(),
+                .run(on: PalanaCore.localHostName, CapabilityProbe.localCommand).collect(),
             let capability = try? CapabilityProbe.parse(result.stdoutText)
         else { return nil }
         probedLocalCapability = capability

@@ -33,11 +33,30 @@ public enum CapabilityProbe {
         #"echo "palana:rsync:$(rsync --version 2>/dev/null | head -n 1)""#,
     ].joined(separator: "; ")
 
+    /// The probe for this machine — ``command`` under a widened PATH,
+    /// plus the resolved rsync path.
+    ///
+    /// A Finder-launched app inherits `/usr/bin:/bin:/usr/sbin:/sbin`
+    /// and never sources a shell profile, so the operator's Homebrew or
+    /// MacPorts rsync is invisible to ``command`` and Apple's openrsync
+    /// answers instead. Prepending the usual prefixes lets the probe
+    /// see what the operator's terminal sees. Because the PATH is
+    /// widened for the whole line, the `palana:rsync:` version and the
+    /// `palana:rsyncpath:` path report the same binary — they cannot
+    /// disagree. Remote hosts keep ``command``: their non-interactive
+    /// PATH is the truth a remote plan runs under.
+    public static let localCommand =
+        "PATH=/opt/homebrew/bin:/usr/local/bin:/opt/local/bin:$PATH; "
+        + command
+        + #"; echo "palana:rsyncpath:$(command -v rsync 2>/dev/null)""#
+
     /// Parses probe output into a capability fact.
     ///
     /// Kernel and flavor markers are required — their absence throws
     /// ``ProbeParseError``. zfs and rsync are optional facts: empty
-    /// marker values mean the binary is not there.
+    /// marker values mean the binary is not there. `rsyncpath` rides
+    /// only in ``localCommand`` output; remote output lacks the marker
+    /// and the path stays nil without a branch.
     public static func parse(_ stdout: String) throws -> HostCapability {
         var markers: [String: String] = [:]
         for line in stdout.split(separator: "\n") {
@@ -59,7 +78,8 @@ public enum CapabilityProbe {
             kernel: kernel,
             flavor: flavor,
             zfs: nonEmpty(markers["zfs"]),
-            rsync: nonEmpty(markers["rsync"])
+            rsync: nonEmpty(markers["rsync"]),
+            rsyncPath: nonEmpty(markers["rsyncpath"])
         )
     }
 

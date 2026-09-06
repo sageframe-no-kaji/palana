@@ -270,4 +270,17 @@ struct TransportsTests {
             _ = try await Self.collect(transports.enact(plan))
         }
     }
+
+    @Test("progress parsing recognizes rsync by binary name, bare or absolute")
+    func rsyncPredicate() {
+        #expect(Transports.isRsyncCommand("rsync -a --partial a b"))
+        #expect(Transports.isRsyncCommand("/opt/homebrew/bin/rsync -a -s --partial --info=progress2 a b"))
+        #expect(Transports.isRsyncCommand("'/Volumes/My Tools/bin/rsync' -a a b"))
+        #expect(!Transports.isRsyncCommand("rsyncd --daemon"))
+        #expect(!Transports.isRsyncCommand("myrsync -a a b"))
+        #expect(!Transports.isRsyncCommand("/usr/local/bin/myrsync -a a b"))
+        #expect(!Transports.isRsyncCommand("tar -cf - a | ssh k 'tar -xf -'"))
+        #expect(!Transports.isRsyncCommand("'unterminated -a a b"))
+        #expect(!Transports.isRsyncCommand(""))
+    }
 }

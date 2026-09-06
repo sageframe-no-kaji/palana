@@ -215,15 +215,6 @@ public enum PlanEngine {
         }
     }
 
-    /// Real rsync, 3.1 or newer — the dotted version is the tell;
-    /// openrsync's "protocol version 29" never parses one.
-    static func modernRsync(_ capability: HostCapability?) -> Bool {
-        guard let version = capability?.rsyncVersion else { return false }
-        let parts = version.split(separator: ".").compactMap { Int($0) }
-        guard parts.count >= 2 else { return false }
-        return parts[0] > 3 || (parts[0] == 3 && parts[1] >= 1)
-    }
-
     /// Both ends whole datasets: the selection is exactly a dataset
     /// root, the destination directory is exactly a dataset mountpoint,
     /// and both hosts carry zfs.
@@ -266,30 +257,6 @@ extension PlanEngine {
         }
     }
 
-    /// The rsync flag set: archive, keep partials so an interrupted
-    /// transfer resumes — `-s` and progress2 only when the running
-    /// side's rsync is modern enough to speak them. openrsync refuses
-    /// `-s` outright (CI found it live), so the floor protects remote
-    /// paths by inner-quoting instead — see `composeRsyncDirect`.
-    ///
-    /// When ``operatorFlags`` is non-nil and non-empty after trimming,
-    /// the trimmed value is appended after the base set and before the
-    /// paths — the panel shows exactly what will run.
-    private static func rsyncFlags(
-        runningOn capability: HostCapability?,
-        operatorFlags: String? = nil
-    ) -> String {
-        let base =
-            Self.modernRsync(capability)
-            ? "-a -s --partial --info=progress2"
-            : "-a --partial"
-        guard
-            let trimmed = operatorFlags?.trimmingCharacters(in: .whitespaces),
-            !trimmed.isEmpty
-        else { return base }
-        return "\(base) \(trimmed)"
-    }
-
     private static func composeLocal(
         _ request: PlanRequest,
         facts: PlanFacts,
@@ -303,7 +270,7 @@ extension PlanEngine {
         // that for a big copy"). cp -a stays the floor.
         let copyCommand: (String) -> String = { dest in
             facts.sourceCapability?.rsync != nil
-                ? "rsync \(rsyncFlags(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(dest)"
+                ? "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(dest)"
                 : "cp -a \(sources) \(dest)"
         }
         switch classification {
@@ -350,7 +317,7 @@ extension PlanEngine {
             PlanStep(
                 runsOn: sourceHost,
                 command:
-                    "rsync \(rsyncFlags(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(remote)",
+                    "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(remote)",
                 role: .transfer)
         ]
         if request.operation == .move {
@@ -395,7 +362,7 @@ extension PlanEngine {
             PlanStep(
                 runsOn: here,
                 command:
-                    "rsync \(rsyncFlags(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(target)",
+                    "\(rsyncInvocation(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(target)",
                 role: .transfer)
         ]
         if request.operation == .move {
