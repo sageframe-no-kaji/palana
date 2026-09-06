@@ -60,10 +60,20 @@ struct SSHConfigParserTests {
         #expect(SSHConfigParser.hosts(in: config) == ["jodo", "chumon"])
     }
 
-    @Test("a quoted alias with a space survives as one token")
+    @Test("a quoted alias with a space is one token, but outside the grammar")
     func quotedAlias() {
         let config = "Host \"odd host\" plain"
-        #expect(SSHConfigParser.hosts(in: config) == ["odd host", "plain"])
+        #expect(SSHConfigParser.tokenize(config) == ["Host", "odd host", "plain"])
+        #expect(SSHConfigParser.hosts(in: config) == ["plain"])
+        #expect(
+            SSHConfigParser.excludedAliases(in: config)
+                == [ExcludedAlias(token: "odd host", reason: .outsideGrammar)])
+    }
+
+    @Test("CRLF Host lines name the same hosts they name to ssh")
+    func crlfHosts() {
+        #expect(SSHConfigParser.hosts(in: "Host jodo\r\nHost chumon\r\n") == ["jodo", "chumon"])
+        #expect(SSHConfigParser.excludedAliases(in: "Host jodo\r\n").isEmpty)
     }
 
     @Test("duplicate aliases enumerate once, first position kept")
@@ -126,17 +136,19 @@ struct SSHConfigParserTests {
         #expect(resolve("missing-path/*.conf").isEmpty)
     }
 
-    @Test("systemConfigText reads the config file, empty when absent")
-    func systemConfigTextReads() throws {
+    @Test("systemConfig reads the config file as a document, absent when there is none")
+    func systemConfigReads() throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("palana-ssh-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
 
-        #expect(SSHConfigParser.systemConfigText(sshDirectory: dir).isEmpty)
+        #expect(try SSHConfigParser.systemConfig(sshDirectory: dir) == .absent)
         try "Host jodo".write(
             to: dir.appendingPathComponent("config"), atomically: true, encoding: .utf8)
-        #expect(SSHConfigParser.systemConfigText(sshDirectory: dir) == "Host jodo")
+        let document = try SSHConfigParser.systemConfig(sshDirectory: dir)
+        #expect(document.text == "Host jodo")
+        #expect(document.exists)
     }
 }
 

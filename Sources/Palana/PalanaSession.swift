@@ -119,16 +119,17 @@ final class PalanaSession {
         let extraOptions = override.map { ["-F", $0] } ?? []
         let configuration = SSHConfiguration(extraOptions: extraOptions)
         let conduit = SSHConduit(configuration: configuration)
-        let configText = (try? String(contentsOf: configURL, encoding: .utf8)) ?? ""
         let settingsURL =
             SessionStore.defaultURL()
             .deletingLastPathComponent()
             .appendingPathComponent("settings.json")
+        // The settings model owns the one typed read of the config — an
+        // unreadable file is a diagnostic there, never an empty field here.
         let settingsModel = SettingsModel(configURL: configURL, settingsURL: settingsURL)
         self.sshConfigURL = configURL
         self.conduit = conduit
         self.settings = settingsModel
-        self.field = Field(conduit: conduit, sshConfigText: configText, cache: FieldCache())
+        self.field = Field(conduit: conduit, sshConfigText: settingsModel.configText, cache: FieldCache())
         self.workbench = Workbench(conduit: RoutingConduit(remote: conduit), field: field)
         self.readsTool = SystemReadsTool()
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
@@ -205,9 +206,15 @@ final class PalanaSession {
     /// The config is the only host registry — pālana never keeps its
     /// own. New aliases appear here the moment the file says so.
     /// `Include` directives are followed, exactly as the Field follows
-    /// them. Hidden aliases (`# palana: hide`) are excluded.
+    /// them. Hidden aliases (`# palana: hide`) are excluded; so are the
+    /// reserved `local` and tokens outside the alias grammar, which the
+    /// settings model names in its notice. The read goes through the
+    /// settings model so an unreadable config is a visible diagnostic
+    /// there — this Mac stays the one host, and nothing pretends the
+    /// file is empty.
     func reloadHosts() {
-        let text = (try? String(contentsOf: sshConfigURL, encoding: .utf8)) ?? ""
+        settings.refreshConfigText()
+        let text = settings.configText
         let resolve = SSHConfigParser.systemInclude(relativeTo: sshConfigURL.deletingLastPathComponent())
         let hidden = SSHConfigParser.hiddenHosts(in: text, including: resolve)
         hosts = [Engine.localHost] + SSHConfigParser.hosts(in: text, including: resolve).filter { !hidden.contains($0) }

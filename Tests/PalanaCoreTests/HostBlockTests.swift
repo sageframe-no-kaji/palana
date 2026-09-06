@@ -164,6 +164,27 @@ struct HostBlockValidateTests {
         #expect(block.validate() == [.aliasIsWildcard])
     }
 
+    @Test("the reserved local alias yields aliasReserved, in any case")
+    func reservedAlias() {
+        #expect(HostBlock(alias: "local", hostName: "127.0.0.1").validate() == [.aliasReserved])
+        #expect(HostBlock(alias: "Local", hostName: "127.0.0.1").validate() == [.aliasReserved])
+        #expect(HostBlock(alias: "LOCAL", hostName: "127.0.0.1").validate() == [.aliasReserved])
+    }
+
+    @Test("a leading hyphen, shell characters, or non-ASCII yield aliasOutsideGrammar")
+    func outsideGrammar() {
+        for alias in ["-jodo", "user@box", "a;b", "jödo", "a/b", "$(x)", "a:22", "~jodo"] {
+            #expect(HostBlock(alias: alias, hostName: "x").validate() == [.aliasOutsideGrammar], "\(alias)")
+        }
+    }
+
+    @Test("the grammar admits letters, digits, dot, hyphen, and underscore")
+    func insideGrammar() {
+        for alias in ["jodo", "kanyo-prod", "github.com", "192.168.1.20", "my_box", "A1", "9"] {
+            #expect(HostBlock(alias: alias, hostName: "x").validate().isEmpty, "\(alias)")
+        }
+    }
+
     @Test("empty hostName yields hostNameEmpty")
     func emptyHostName() {
         let block = HostBlock(alias: "jodo", hostName: "")
