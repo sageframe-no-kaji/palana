@@ -339,13 +339,15 @@ struct SurfaceView: View {
         return "\(sort.key.rawValue) \(arrow)\(hidden)"
     }
 
+    /// The go-to sheet, prefilled with the pane's explicit `host:path` so
+    /// the current location stays visible; whatever replaces it resolves
+    /// through the pane's one address funnel.
     private func gotoBar(for side: SessionSnapshot.Side) -> some View {
         let pane = side == .left ? session.left : session.right
         return GoToBar(
-            hosts: session.hosts,
-            initialHost: pane.state.host,
-            initialPath: pane.state.host == nil ? "/" : pane.state.path,
-            onCommit: { host, path in session.point(side, host: host, path: path) },
+            initialAddress: pane.state.host.map { "\($0):\(pane.state.path)" } ?? "",
+            currentHost: pane.state.host,
+            onCommit: { address in session.pointAddress(side, address) },
             onCancel: { session.gotoTarget = nil })
     }
 }

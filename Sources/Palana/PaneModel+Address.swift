@@ -1,73 +1,47 @@
-// PaneModel+Address — the one funnel every typed address goes through, and
-// the local-first rule behind a bare absolute path. Extracted from
-// PaneModel.swift to keep that file within the file-length limit, same move
-// as PaneModel+Path and PaneModel+ZFSMode.
+// PaneModel+Address — the one funnel every typed address goes through.
+// Extracted from PaneModel.swift to keep that file within the file-length
+// limit, same move as PaneModel+Path and PaneModel+ZFSMode.
 //
-// The classification itself lives in PalanaCore's TypedAddress; what a bare
-// path *resolves to* is a Surface judgement and lives here.
+// Normalization, the grammar, and host resolution all live in PalanaCore's
+// TypedAddress; the pane contributes exactly one fact — its current host,
+// for the `:` shorthand — and then points or refuses. A bare path is this
+// Mac by grammar, not by probing: nothing here asks any host whether a
+// path exists before deciding where it belongs.
 
 import Foundation
 import PalanaCore
 
-/// Where a colon-free absolute path resolved to.
-enum BarePathResolution: Equatable {
-    /// It exists on this Mac — point here.
-    case here(String)
-    /// It is absent here but present on the pane's remote host — point there.
-    case there(host: String, path: String)
-    /// Neither place has it — refuse, naming both.
-    case nowhere(path: String, remoteHost: String?)
-}
-
 extension PaneModel {
     /// Points from a typed address — the one funnel for every entry point.
     ///
-    /// `host:path` points at that host. A bare alias means that host's home.
-    /// A bare absolute path names no host, so it resolves local first: if it
-    /// exists on this Mac the pane points here, otherwise the pane's remote
-    /// host is tried, and a path found in neither place refuses by name.
+    /// The header field and the go-to sheet both land here with the raw
+    /// text; ``resolveAddress(_:currentHost:)`` decides host and path, and
+    /// the pane either points there or shows the refusal in place. A path
+    /// that then turns out to be a file, absent, or unreadable is the
+    /// read's business, exactly as for any other pointing.
     func pointAddress(_ address: String) {
-        guard let typed = TypedAddress.classify(address) else { return }
-        switch typed {
-        case .hostPath(let host, let path): point(host: host, path: path)
-        case .host(let alias): point(host: alias, path: "~")
-        case .barePath(let path): pointBarePath(path)
+        switch Self.resolveAddress(address, currentHost: state.host) {
+        case .success(let resolved):
+            point(host: resolved.host, path: resolved.path)
+        case .failure(let refusal):
+            refuseAddress(refusal.description)
         }
     }
 
-    /// Resolves a bare absolute path against this Mac first, then a remote host.
-    ///
-    /// Local first is the decided order: the dominant case is a path pasted
-    /// from Finder or another Mac app. A path that exists in both places
-    /// resolves here — an operator who means the remote one types `host:path`.
-    /// `existsThere` is never awaited when the local check succeeds, so no
-    /// network round trip precedes a local hit.
+    /// What a typed address points at from a pane on `currentHost` — pure.
     ///
     /// - Parameters:
-    ///   - path: The `/`-leading path, exactly as typed.
-    ///   - remoteHost: The pane's host when it is a remote one, nil otherwise.
-    ///   - existsHere: The local existence check.
-    ///   - existsThere: The remote existence check — one round trip, at most.
-    /// - Returns: Where to point, or the refusal.
-    ///
-    /// MainActor-isolated, not `nonisolated`: the remote probe closure reaches
-    /// the pane's engine, and keeping both checks in one isolation domain is
-    /// what lets them stay plain closures under strict concurrency.
-    static func resolveBarePath(
-        _ path: String,
-        remoteHost: String?,
-        existsHere: (String) async -> Bool,
-        existsThere: (String) async -> Bool
-    ) async -> BarePathResolution {
-        if await existsHere(path) { return .here(path) }
-        guard let remoteHost else { return .nowhere(path: path, remoteHost: nil) }
-        if await existsThere(path) { return .there(host: remoteHost, path: path) }
-        return .nowhere(path: path, remoteHost: remoteHost)
-    }
-
-    /// The refusal line for a path found in neither place — both are named.
-    nonisolated static func bareRefusal(path: String, remoteHost: String?) -> String {
-        guard let remoteHost else { return "not found on this Mac: \(path)" }
-        return "not found on this Mac or \(remoteHost): \(path)"
+    ///   - address: The raw typed or pasted text.
+    ///   - currentHost: The pane's host, nil when it points nowhere.
+    /// - Returns: The resolved host and path, or the refusal to show.
+    nonisolated static func resolveAddress(
+        _ address: String,
+        currentHost: String?
+    ) -> Result<ResolvedAddress, AddressParseError> {
+        do {
+            return .success(try TypedAddress.resolve(address, currentHost: currentHost))
+        } catch {
+            return .failure(error)
+        }
     }
 }

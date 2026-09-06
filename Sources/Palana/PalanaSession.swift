@@ -303,16 +303,25 @@ final class PalanaSession {
         target.point(host: host, path: source.state.path)
     }
 
-    /// Points a pane from the go-to bar or the field overlay.
+    /// Points a pane from the field overlay — a structured pointing.
     ///
-    /// Both name a host outright — a picker or a field row — so the address
-    /// composes as `host:path` and resolves through the pane's one funnel,
-    /// ``PaneModel/pointAddress(_:)``. A chosen host is an explicit host: the
-    /// bare-path local-first rule is for input that names no host at all.
+    /// The overlay hands over a host and a path it already holds as
+    /// values, so they go straight to the pane: composing them into text
+    /// and re-parsing would run a known-good path through clipboard
+    /// normalization. Typed text is the other door, ``pointAddress(_:_:)``.
     func point(_ side: SessionSnapshot.Side, host: String, path: String) {
         let pane = side == .left ? left : right
-        let cleaned = path.isEmpty ? "/" : path
-        pane.pointAddress("\(host):\(cleaned)")
+        pane.point(host: host, path: path)
+        gotoTarget = nil
+    }
+
+    /// Points a pane from the go-to sheet — typed text, exactly as typed.
+    ///
+    /// The sheet is one address field over the same grammar the pane
+    /// header uses; ``PaneModel/pointAddress(_:)`` is the one funnel.
+    func pointAddress(_ side: SessionSnapshot.Side, _ address: String) {
+        let pane = side == .left ? left : right
+        pane.pointAddress(address)
         gotoTarget = nil
     }
 
