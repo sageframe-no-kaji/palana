@@ -117,6 +117,11 @@ final class OperationModel {
     private let log: OperationLog
     var gatherTask: Task<Void, Never>?
     private var enactTask: Task<Void, Never>?
+    /// True from ⌃C until the enactment's processes have exited.
+    ///
+    /// The phase stays `.enacting` through the wait — `.cancelled` is
+    /// never shown while a process the plan started is still running.
+    private(set) var enactmentStopping = false
     var probedLocalCapability: HostCapability?
     var pendingNamingEntry: FileEntry?
     var pendingNamingSource: Locus?
@@ -149,11 +154,14 @@ final class OperationModel {
     var zfsGatherWantsText: Bool = false
 
     /// An operation flow over the session's engine.
-    init(engine: Engine, configuration: SSHConfiguration, settings: SettingsModel) {
+    ///
+    /// `log` defaults to the operator's log; tests hand in one on a
+    /// temporary path so an enactment under test never writes there.
+    init(engine: Engine, configuration: SSHConfiguration, settings: SettingsModel, log: OperationLog = OperationLog()) {
         self.engine = engine
         self.configuration = configuration
         self.settings = settings
-        self.log = OperationLog()
+        self.log = log
     }
 
     // MARK: - Compose
@@ -283,11 +291,22 @@ final class OperationModel {
         log.appendLine(OperationLog.headerLine(for: plan))
         let transports = Transports(
             conduit: RoutingConduit(remote: engine.conduit), configuration: configuration)
+        enactmentStopping = false
         enactTask = Task {
+            // The run lives in a child of this task, so cancelling the
+            // task stops its processes and awaiting the task awaits
+            // their exit. Events cross to the main actor through the
+            // stream, in order.
+            let (events, continuation) = AsyncStream.makeStream(of: EnactmentEvent.self)
+            async let run: Void = {
+                defer { continuation.finish() }
+                try await transports.run(plan) { continuation.yield($0) }
+            }()
+            for await event in events {
+                handle(event)
+            }
             do {
-                for try await event in transports.enact(plan) {
-                    handle(event)
-                }
+                try await run
             } catch {
                 guard !Task.isCancelled else { return }
                 echo.flushAll()
@@ -346,9 +365,11 @@ final class OperationModel {
             }
         }
     }
+}
 
-    // MARK: - Dismiss and cancel
+// MARK: - Dismiss and cancel
 
+extension OperationModel {
     /// Esc — the view's verb, never the work's.
     ///
     /// Dismisses before Enter, hides during (the work continues),
@@ -386,17 +407,33 @@ final class OperationModel {
     }
 
     /// ⌃C — stops a running enactment where Esc only hides it.
+    ///
+    /// Stopping is not instant: the running command's process group is
+    /// signalled, and `.cancelled` is published only after the task
+    /// reports every owned process has exited. A second ⌃C during the
+    /// wait changes nothing.
     func cancelEnactment() {
-        guard phase == .enacting else { return }
-        enactTask?.cancel()
+        guard phase == .enacting, !enactmentStopping, let task = enactTask else { return }
+        enactmentStopping = true
+        task.cancel()
         echo.flushAll()
-        echo.appendLine(
-            "cancelled — steps that needed verification never ran · an interrupted transfer can leave "
-                + "partial entries at the destination",
-            kind: .failure)
-        progress = nil
-        phase = .cancelled
+        echo.appendLine("stopping — waiting for the running command to exit", kind: .note)
         panelShowing = true
+        Task {
+            await task.value
+            // The run may have finished or failed on its own in the
+            // meantime; that outcome stands.
+            guard phase == .enacting, enactmentStopping else { return }
+            enactmentStopping = false
+            echo.flushAll()
+            echo.appendLine(
+                "cancelled — steps that needed verification never ran · an interrupted transfer can leave "
+                    + "partial entries at the destination",
+                kind: .failure)
+            progress = nil
+            phase = .cancelled
+            panelShowing = true
+        }
     }
 
     /// ⌃C during composition — stops the in-flight gather and resets.
@@ -549,37 +586,6 @@ extension OperationModel {
         default:
             return nil
         }
-    }
-}
-
-// MARK: - Tool reads
-
-extension OperationModel {
-    /// Writes a Workbench read into the transcript without changing phase.
-    ///
-    /// The strip's scrollback — successive reads accumulate; `begin` resets
-    /// `echo` when a real operation starts so the plan's claim is never blurred.
-    func runToolRead(header: String, stream: RunningCommand) async {
-        showPanel()
-        echo.appendLine("── \(header)", kind: .note)
-        for await chunk in stream.stdout {
-            echo.append(chunk, channel: .stdout)
-        }
-        for await chunk in stream.stderr {
-            echo.append(chunk, channel: .stderr)
-        }
-        echo.flushAll()
-    }
-
-    /// Writes a tool-level failure into the transcript without changing phase.
-    func appendToolError(_ text: String) {
-        showPanel()
-        echo.appendLine(text, kind: .failure)
-    }
-
-    /// ⌘K — clears the terminal transcript, phase untouched.
-    func clearTranscript() {
-        echo = EchoBuffer()
     }
 }
 

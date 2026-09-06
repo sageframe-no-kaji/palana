@@ -41,7 +41,9 @@ public struct Transports: Sendable {
     ///
     /// The stream throws ``EnactmentError`` on failure and
     /// ``ConduitError`` when the door itself fails. Gated steps run
-    /// only after a matched verification.
+    /// only after a matched verification. Ending the stream early
+    /// stops the active command's process group; a caller that needs
+    /// to await that teardown uses ``run(_:emit:)`` in its own task.
     public func enact(_ plan: Plan) -> AsyncThrowingStream<EnactmentEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -56,9 +58,16 @@ public struct Transports: Sendable {
         }
     }
 
-    private func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
+    /// Enacts the plan in the calling task, handing each event to `emit`.
+    ///
+    /// The structured form of ``enact(_:)``: cancelling the task stops
+    /// the active host command or both pipeline halves, and the call
+    /// throws `CancellationError` only once every owned process has
+    /// exited — so a caller that awaits this has awaited the teardown.
+    public func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
         var gatesReleased = false
         for (index, step) in plan.steps.enumerated() {
+            try Task.checkCancellation()
             if step.gatedOnVerification, !gatesReleased {
                 let report = try await verify(plan, emit: emit)
                 emit(.verified(report))
@@ -144,39 +153,48 @@ public struct Transports: Sendable {
         let parseSendProgress =
             step.role == .transfer && plan.transport == .zfsSendReceiveForwarded
 
-        async let stderrTail: Data = {
-            var tail = Data()
-            var sendProgress = ZfsSendProgress()
-            for await chunk in running.stderr {
-                emit(.outputChunk(stepIndex: index, channel: .stderr, data: chunk))
-                if parseSendProgress {
-                    for report in sendProgress.consume(chunk) {
+        // A cancelled task stops the command's process group at once;
+        // the drains end, the exit is awaited, and only then does the
+        // cancellation surface — the process is gone before it does.
+        let result = await withTaskCancellationHandler {
+            async let stderrTail: Data = {
+                var tail = Data()
+                var sendProgress = ZfsSendProgress()
+                for await chunk in running.stderr {
+                    emit(.outputChunk(stepIndex: index, channel: .stderr, data: chunk))
+                    if parseSendProgress {
+                        for report in sendProgress.consume(chunk) {
+                            emit(.progress(report))
+                        }
+                    }
+                    tail.append(chunk)
+                    if tail.count > 4096 {
+                        tail = tail.suffix(4096)
+                    }
+                }
+                return tail
+            }()
+
+            var progress = RsyncProgress()
+            for await chunk in running.stdout {
+                emit(.outputChunk(stepIndex: index, channel: .stdout, data: chunk))
+                if parseProgress {
+                    for report in progress.consume(chunk) {
                         emit(.progress(report))
                     }
                 }
-                tail.append(chunk)
-                if tail.count > 4096 {
-                    tail = tail.suffix(4096)
-                }
             }
-            return tail
-        }()
 
-        var progress = RsyncProgress()
-        for await chunk in running.stdout {
-            emit(.outputChunk(stepIndex: index, channel: .stdout, data: chunk))
-            if parseProgress {
-                for report in progress.consume(chunk) {
-                    emit(.progress(report))
-                }
-            }
+            let tail = await stderrTail
+            let status = await running.exitStatus()
+            return StepResult(
+                exitStatus: status,
+                stderrTail: String(bytes: tail, encoding: .utf8) ?? "")
+        } onCancel: {
+            running.terminate()
         }
-
-        let tail = await stderrTail
-        let status = await running.exitStatus()
-        return StepResult(
-            exitStatus: status,
-            stderrTail: String(bytes: tail, encoding: .utf8) ?? "")
+        try Task.checkCancellation()
+        return result
     }
 
     // MARK: - Verification
