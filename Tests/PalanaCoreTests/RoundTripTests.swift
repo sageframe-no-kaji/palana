@@ -37,7 +37,12 @@ private func write(_ content: String, to url: URL) throws -> FileEntry {
 }
 
 /// Builds a ``RoundTripRecord`` pointing at `fileURL` inside `dirURL`.
-private func makeRecord(host: String = "koan", dir: String = "/tank", fileURL: URL) -> RoundTripRecord {
+private func makeRecord(
+    host: String = "koan",
+    dir: String = "/tank",
+    fileURL: URL,
+    digest: Data = Data()
+) -> RoundTripRecord {
     RoundTripRecord(
         host: host,
         remoteDirectory: dir,
@@ -49,6 +54,7 @@ private func makeRecord(host: String = "koan", dir: String = "/tank", fileURL: U
             permissions: "644",
             owner: "op",
             group: "op"),
+        digest: digest,
         localURL: fileURL)
 }
 
@@ -101,40 +107,87 @@ struct RoundTripRecordTests {
                 permissions: "644",
                 owner: "op",
                 group: "op"),
+            digest: Data(),
             localURL: URL(fileURLWithPath: "/tmp/a/notes.txt"))
         #expect(record.displayName == "koan /tank/data/notes.txt")
     }
 
-    @Test("Equatable — same fields compare equal")
-    func equatable() {
-        let entry = FileEntry(
-            nameData: Data("x".utf8),
-            kind: .file,
-            size: 42,
-            modified: .distantPast,
-            permissions: "644",
-            owner: "op",
-            group: "op")
-        let url = URL(fileURLWithPath: "/tmp/a/x")
-        let lhs = RoundTripRecord(host: "jodo", remoteDirectory: "/rpool", fetched: entry, localURL: url)
-        let rhs = RoundTripRecord(host: "jodo", remoteDirectory: "/rpool", fetched: entry, localURL: url)
-        #expect(lhs == rhs)
-    }
-
-    @Test("Equatable — different host compares unequal")
-    func equatableDifferentHost() {
-        let entry = FileEntry(
-            nameData: Data("x".utf8),
+    /// A minimal file entry for a name.
+    private func plainEntry(_ name: String) -> FileEntry {
+        FileEntry(
+            nameData: Data(name.utf8),
             kind: .file,
             size: 0,
             modified: .distantPast,
             permissions: "644",
             owner: "op",
             group: "op")
+    }
+
+    @Test("remotePathData joins directory and name bytes, byte-exact")
+    func remotePathData() {
+        let record = RoundTripRecord(
+            host: "koan",
+            remoteDirectory: "/tank/data",
+            fetched: plainEntry("notes.txt"),
+            digest: Data(),
+            localURL: URL(fileURLWithPath: "/tmp/a/notes.txt"))
+        #expect(record.remotePathData == Data("/tank/data/notes.txt".utf8))
+        #expect(record.identity == RemoteIdentity(host: "koan", pathData: Data("/tank/data/notes.txt".utf8)))
+    }
+
+    @Test("root directory joins without a doubled slash")
+    func remotePathDataAtRoot() {
+        let record = RoundTripRecord(
+            host: "koan",
+            remoteDirectory: "/",
+            fetched: plainEntry("passwd"),
+            digest: Data(),
+            localURL: URL(fileURLWithPath: "/tmp/a/passwd"))
+        #expect(record.remotePath == "/passwd")
+    }
+
+    @Test("Equatable — same fields and id compare equal")
+    func equatable() {
+        let entry = plainEntry("x")
         let url = URL(fileURLWithPath: "/tmp/a/x")
-        let lhs = RoundTripRecord(host: "koan", remoteDirectory: "/rpool", fetched: entry, localURL: url)
-        let rhs = RoundTripRecord(host: "jodo", remoteDirectory: "/rpool", fetched: entry, localURL: url)
+        let id = UUID()
+        let lhs = RoundTripRecord(
+            id: id,
+            host: "jodo",
+            remoteDirectory: "/rpool",
+            fetched: entry,
+            digest: Data(),
+            localURL: url)
+        let rhs = RoundTripRecord(
+            id: id,
+            host: "jodo",
+            remoteDirectory: "/rpool",
+            fetched: entry,
+            digest: Data(),
+            localURL: url)
+        #expect(lhs == rhs)
+    }
+
+    @Test("each open is a distinct record — different id compares unequal")
+    func distinctOpensAreDistinct() {
+        let entry = plainEntry("x")
+        let url = URL(fileURLWithPath: "/tmp/a/x")
+        let lhs = RoundTripRecord(
+            host: "jodo",
+            remoteDirectory: "/rpool",
+            fetched: entry,
+            digest: Data(),
+            localURL: url)
+        let rhs = RoundTripRecord(
+            host: "jodo",
+            remoteDirectory: "/rpool",
+            fetched: entry,
+            digest: Data(),
+            localURL: url)
         #expect(lhs != rhs)
+        // Same remote file, though — the identity matches, which is what dedup keys on.
+        #expect(lhs.identity == rhs.identity)
     }
 }
 
@@ -299,8 +352,10 @@ struct RoundTripWatcherTests {
             count.withLock { $0 >= 1 }
         }
 
-        // Refresh the baseline so the watcher considers the current stat "known".
-        watcher.refreshBaseline()
+        // Refresh the baseline to the file's current snapshot so the watcher
+        // considers it "known" — no fire for a stat it already sent.
+        let snapshot = try #require(RoundTripWatcher.snapshot(of: fileURL))
+        watcher.refreshBaseline(to: snapshot)
 
         // Wait a moment for the refresh to propagate (it runs on the watcher's queue).
         let waitNs = UInt64(debounce * 3 * 1_000_000_000)
@@ -371,6 +426,69 @@ struct RoundTripWatcherTests {
 
         // Access fileURL to suppress unused warning
         _ = fileURL
+    }
+}
+
+// MARK: - Descriptor cleanup on retirement
+
+@Suite("RoundTripWatcher descriptor lifecycle")
+struct RoundTripWatcherDescriptorTests {
+    @Test("a started watcher holds two descriptors; cancel releases both")
+    func cancelReleasesDescriptors() async throws {
+        let (dirURL, fileURL) = try makeWorkDir()
+        defer { try? FileManager.default.removeItem(at: dirURL) }
+
+        let record = makeRecord(fileURL: fileURL)
+        let watcher = RoundTripWatcher(record: record, debounceInterval: debounce) {}
+        watcher.start()
+        try await Task.sleep(nanoseconds: 100_000_000)  // let both sources arm
+
+        let held = await watcher.liveDescriptorCount()
+        #expect(held == 2, "directory fd + file fd while watching, got \(held)")
+
+        watcher.cancel()
+        // Poll the descriptor count down to zero with a bounded wait.
+        var remaining = await watcher.liveDescriptorCount()
+        let deadline = Date().addingTimeInterval(5)
+        while remaining != 0, Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+            remaining = await watcher.liveDescriptorCount()
+        }
+        #expect(remaining == 0, "cancel must close both descriptors, \(remaining) left")
+    }
+
+    @Test("refreshBaseline(to:) advances only when the file still matches what was sent")
+    func guardedBaselineRefresh() async throws {
+        let (dirURL, fileURL) = try makeWorkDir()
+        defer { try? FileManager.default.removeItem(at: dirURL) }
+
+        let record = makeRecord(fileURL: fileURL)
+        let count = LockProtected(value: 0)
+        let watcher = RoundTripWatcher(record: record, debounceInterval: debounce) {
+            count.withLock { $0 += 1 }
+        }
+        watcher.start()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // A save lands, then a SECOND save lands before the (stale) refresh to
+        // the first save's snapshot arrives. The refresh must not swallow the
+        // second save's change: it advances only if the file still matches.
+        try Data("first save".utf8).write(to: fileURL)
+        try await awaitCondition(message: "first save callback not received") {
+            count.withLock { $0 >= 1 }
+        }
+        let firstSnapshot = try #require(RoundTripWatcher.snapshot(of: fileURL))
+        let afterFirst = count.withLock { $0 }
+
+        // Second save changes the file past firstSnapshot.
+        try Data("second save is longer than the first".utf8).write(to: fileURL)
+        // Now the stale refresh to firstSnapshot arrives — must be a no-op.
+        watcher.refreshBaseline(to: firstSnapshot)
+
+        try await awaitCondition(message: "second save was swallowed by a stale baseline refresh") {
+            count.withLock { $0 >= afterFirst + 1 }
+        }
+        watcher.cancel()
     }
 }
 

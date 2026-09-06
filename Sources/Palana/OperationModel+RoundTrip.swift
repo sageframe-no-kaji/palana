@@ -3,8 +3,9 @@
 //
 // beginRoundTripUpload: the entry point — sets up state and launches the
 // gather task. gatherRoundTripUpload: reads the local per-open directory for
-// a byte-honest FileEntry, gathers capability and collision facts (including
-// the changed-since-fetch note), then commits the composed plan.
+// a byte-honest FileEntry, gathers capability and destination facts, then
+// rules on the destination (clean / conflict / unavailable) and either sends
+// on its own, arms the plan for the operator, or blocks and stays local.
 
 import Foundation
 import PalanaCore
@@ -14,8 +15,8 @@ extension OperationModel {
     ///
     /// The source is the per-open UUID directory on this Mac; the destination is
     /// the record's remote host and directory. Gather runs the same collision path
-    /// as any other copy plan — the collision line names the replace, and when the
-    /// remote entry changed since the fetch, a note names that too.
+    /// as any other copy plan — the collision line names the replace — and adds the
+    /// three-valued destination check that decides whether the send may run on its own.
     ///
     /// Phase law mirrors `begin`: an in-flight enactment re-shows the panel and
     /// stops; a gathering is cancelled and replaced; resting phases clear for a
@@ -48,15 +49,10 @@ extension OperationModel {
 
     // MARK: - Gather
 
-    /// Gathers the upload plan for a round-trip record.
-    ///
-    /// Reads the local listing over the per-open directory to get a
-    /// byte-honest ``FileEntry`` for the temp file, then composes the
-    /// ``PlanRequest`` and runs collision gathering so the panel arrives
-    /// in `.ready` with the collision line and any changed-since-fetch note.
+    /// Gathers the upload plan for a round-trip record and applies the
+    /// destination ruling.
     func gatherRoundTripUpload(record: RoundTripRecord) async {
         do {
-            // The per-open directory — source locus for the upload.
             let localDir = record.localURL.deletingLastPathComponent().path
             let sourceLocus = Locus(host: PalanaCore.localHostName, directory: localDir)
             let destinationLocus = Locus(host: record.host, directory: record.remoteDirectory)
@@ -72,115 +68,155 @@ extension OperationModel {
                 guard !Task.isCancelled else { return }
                 echo.appendLine("local copy not found — was it moved or deleted?", kind: .failure)
                 phase = .failed
-                // A failure never stays off-screen.
                 panelShowing = true
                 return
             }
             guard !Task.isCancelled else { return }
 
             var facts = PlanFacts()
-
-            // Source capability — this Mac.
             facts.sourceCapability = await localCapability()
-
-            // Destination host facts.
             let destinationFacts = try await ensureFacts(record.host)
             facts.destinationCapability = destinationFacts?.capability?.value
-
             facts.rsyncOperatorFlags = effectiveRsyncFlags
 
-            // Collision gather — delivers the changed-since-fetch note inline.
-            let conflicted = await gatherRoundTripCollisions(
+            // The three-valued destination check — clean, conflict, or
+            // unavailable. Sets facts.collisions as a side effect.
+            let check = await checkRoundTripDestination(
                 destination: destinationLocus,
                 subjects: [localEntry],
                 record: record,
                 into: &facts)
 
             guard !Task.isCancelled else { return }
-
-            let request = PlanRequest(
-                operation: .copy,
-                source: sourceLocus,
-                entries: [localEntry],
-                destination: destinationLocus,
-                token: Self.mintToken())
-            plan = try PlanEngine.plan(request, facts: facts)
-
-            // Save is save: the send runs on its own unless the operator
-            // asked to be asked. A conflict (the remote changed since the
-            // fetch) always asks, regardless of the setting — an automatic
-            // overwrite of a file someone else changed is the one case the
-            // gate exists for. Auto-send failures still pop the panel
-            // (enact's own failure path never stays off-screen).
-            if !askBeforeSendingBack, !conflicted {
-                phase = .ready
-                note("sending back — \(record.fetched.name) to \(record.host):\(record.remoteDirectory)")
-                enact()
-            } else {
-                readyCallout =
-                    "⏎ press enter to send it back to \(record.host):\(record.remoteDirectory) · esc keeps the edit local"
-                phase = .ready
-                panelShowing = true
-            }
+            let inputs = RoundTripPlanInputs(
+                source: sourceLocus, destination: destinationLocus, entry: localEntry, facts: facts)
+            applyRoundTripCheck(check, record: record, inputs: inputs)
         } catch {
             guard !Task.isCancelled else { return }
             echo.appendLine(Self.describe(error), kind: .failure)
             phase = .failed
-            // A failure never stays off-screen.
             panelShowing = true
         }
     }
 
-    /// Gathers collision facts for the round-trip upload and emits the
-    /// changed-since-fetch note when applicable.
+    /// The composition inputs for a round-trip upload, bundled so the ruling
+    /// step stays within the parameter-count budget.
+    struct RoundTripPlanInputs {
+        /// The per-open directory on this Mac.
+        let source: Locus
+        /// The remote host and directory the edit goes back to.
+        let destination: Locus
+        /// The byte-honest local entry being uploaded.
+        let entry: FileEntry
+        /// The facts gathered for the plan, collisions included.
+        let facts: PlanFacts
+    }
+
+    /// Applies the destination ruling: block, arm, or send.
     ///
-    /// Mirrors ``gatherCollisions(destination:subjects:into:)`` from
-    /// `OperationModel+Collisions.swift` but adds the baseline comparison
-    /// that names a remote that moved underneath the edit (Decision 4).
+    /// Only a ``ConflictCheck/clean`` result with auto-send on runs on its
+    /// own. A conflict names itself and arms the plan for the operator's
+    /// Enter (naming, not resolving — ho-9.10 Decision 4). An unavailable
+    /// check composes no plan: the edit stays local and a later save
+    /// rechecks (review: fail-open collision check).
+    private func applyRoundTripCheck(
+        _ check: ConflictCheck,
+        record: RoundTripRecord,
+        inputs: RoundTripPlanInputs
+    ) {
+        if case .conflict(let reason) = check {
+            note(RoundTrip.conflictNote(for: reason))
+        }
+        let disposition = RoundTrip.disposition(
+            for: check, askBeforeSending: askBeforeSendingBack, record: record)
+        if case .blocked(let reason) = disposition {
+            echo.appendLine(reason, kind: .failure)
+            phase = .failed
+            panelShowing = true
+            return
+        }
+        do {
+            let request = PlanRequest(
+                operation: .copy,
+                source: inputs.source,
+                entries: [inputs.entry],
+                destination: inputs.destination,
+                token: Self.mintToken())
+            plan = try PlanEngine.plan(request, facts: inputs.facts)
+        } catch {
+            echo.appendLine(Self.describe(error), kind: .failure)
+            phase = .failed
+            panelShowing = true
+            return
+        }
+        switch disposition {
+        case .sendNow:
+            phase = .ready
+            note("sending back — \(record.fetched.name) to \(record.host):\(record.remoteDirectory)")
+            enact()
+        case .askOperator(let callout):
+            readyCallout = callout
+            phase = .ready
+            panelShowing = true
+        case .blocked:
+            break  // handled above
+        }
+    }
+
+    /// Reads the destination and rules on it, three-valued.
     ///
-    /// The record's ``RoundTripRecord/fetched`` entry is the baseline;
-    /// ``RoundTrip/changedSinceFetch(baseline:current:)`` is the pure
-    /// comparison; ``RoundTrip/changedSinceFetchNote(current:)`` is the
-    /// sentence (both live in core under the coverage floor).
+    /// Any listing or read error is ``ConflictCheck/unavailable`` — a check
+    /// that could not complete is never "clean." A missing remote entry is a
+    /// conflict; changed size or mtime is a conflict; equal metadata with a
+    /// different content digest is a conflict; equal metadata whose bytes
+    /// could not be read is unavailable. Sets `facts.collisions` for the
+    /// plan's collision line (nil on an unreadable destination).
     ///
-    /// - Parameters:
-    ///   - destination: The remote locus to read.
-    ///   - subjects: The local entries being uploaded (single file for a round-trip).
-    ///   - record: The round-trip record carrying the fetch-time baseline.
-    ///   - facts: The facts bundle to write collision results into.
-    /// - Returns: `true` when a changed-since-fetch conflict was detected — the
-    ///   caller uses this to block auto-send regardless of the toggle.
-    func gatherRoundTripCollisions(
+    /// - Returns: The destination ruling.
+    func checkRoundTripDestination(
         destination: Locus,
         subjects: [FileEntry],
         record: RoundTripRecord,
         into facts: inout PlanFacts
-    ) async -> Bool {
+    ) async -> ConflictCheck {
         do {
             let flavor = try await resolveFlavor(destination.host)
             let listing = try await engine.listing(for: destination.host)
                 .list(on: destination.host, path: destination.directory, flavor: flavor)
-
-            // Changed-since-fetch note — emitted before the collision summary
-            // so the operator reads the conflict context first.
-            let remoteEntry = listing.first { $0.nameData == record.fetched.nameData }
-            var conflicted = false
-            if let remoteEntry, RoundTrip.changedSinceFetch(baseline: record.fetched, current: remoteEntry) {
-                note(RoundTrip.changedSinceFetchNote(current: remoteEntry))
-                conflicted = true
-            }
-
-            let collisions = Collision.detect(sources: subjects, destinationListing: listing)
-            facts.collisions = collisions
-            if !collisions.isEmpty {
+            facts.collisions = Collision.detect(sources: subjects, destinationListing: listing)
+            if let collisions = facts.collisions, !collisions.isEmpty {
                 let count = collisions.count
                 note("\(count) \(count == 1 ? "file already exists" : "files already exist") at destination")
             }
-            return conflicted
+            let remoteEntry = listing.first { $0.nameData == record.fetched.nameData }
+            let currentDigest = await remoteDigestIfMetadataMatches(
+                record: record, current: remoteEntry, on: destination)
+            return RoundTrip.evaluate(record: record, current: remoteEntry, currentDigest: currentDigest)
         } catch {
             facts.collisions = nil
-            note("couldn't check the destination — this may overwrite files there")
-            return false
+            note("couldn't check the destination — the edit stays local; save again to check again")
+            return .unavailable(Self.describe(error))
         }
+    }
+
+    /// Reads the remote content digest, but only when it is needed.
+    ///
+    /// The read runs when the remote entry is present and its metadata still
+    /// matches the fetch baseline. Returns `nil` when the read is unnecessary
+    /// (metadata already differs, so `evaluate` rules on metadata alone) or
+    /// when the read failed (so `evaluate` rules the destination unavailable).
+    private func remoteDigestIfMetadataMatches(
+        record: RoundTripRecord,
+        current: FileEntry?,
+        on destination: Locus
+    ) async -> Data? {
+        guard let current, !RoundTrip.changedSinceFetch(baseline: record.fetched, current: current)
+        else { return nil }
+        let path = PaneModel.childPath(of: destination.directory, name: current.name)
+        guard
+            let bytes = try? await engine.listing(for: destination.host)
+                .readFile(on: destination.host, path: path)
+        else { return nil }
+        return RoundTrip.digest(of: bytes)
     }
 }
