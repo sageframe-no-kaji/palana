@@ -16,6 +16,28 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
+## State summary — 2026-09-06, sixteenth block — THE FULL-REVIEW REPAIR PROGRAM INTEGRATED; ADDRESSES PARSE THROUGH ONE GRAMMAR
+
+**COMPLETED**
+- **All eight repair tasks from `ho-process/reviews/2026-09-06-repair-dispatch.md` built, verified, and integrated on `integration-review-repair`**, in the dispatch's wave order, one atomic commit each, each in its own sibling worktree: `f98d85e` commands stop before cancellation is reported (Task 1) · `a227d80` round-trip saves preserve remote identity (Task 4) · `d104491` ssh config edits preserve unrelated policy (Task 5) · `59f09af` moves delete only after content identity (Task 2) · `7de73f2` zfs plans bind to fresh topology truth (Task 3) · `6ebe5fb` ssh aliases never become command syntax (Task 6) · `def0809` file actions preserve exact path identity (Task 7) · `bdaee33` operation evidence fails visibly (Task 8). Then `b370281` pasted addresses resolve through one grammar (the address task he added mid-run). The integration gate ran after every merge and was green every time.
+- **Every one of the 28 review findings closes on a test that fails against the old code**, per commit body. The critical five — stale-topology destroy, count-only move gate, wrong upload directory, fail-open collision check, weak remote identity — are covered by `TopologyBindingEnactmentTests`, `TransportsManifestTests`, `PaneModelRoundTripIdentityTests`, `RoundTripDispositionTests`, and `RoundTripEvaluateTests`.
+- **Final stack on `b370281`:** swift-format strict clean, swiftlint strict clean, build clean, **1182 tests in 182 suites + 53 XCTest cases green**, PalanaCore **97.44%** (floor 90), application logic **38.60%** (new second tier, floor 35). Fixture suites skipped (sshd container and zfs VM down, per precedent). Working tree clean.
+- One merge conflict (Tasks 2 and 3, `OperationModel.swift`: an edit against a move of `addPlacementFacts`) resolved without semantic change, recorded in `66f4d16`.
+
+**NEXT**
+- **His hands.** The address task's manual check (remote pane → ⇧⌘G → quoted newline-terminated Finder path shows `this Mac` and lands locally; `koan:/…` and `:/…` show their hosts) and a feel pass on the new refusals: kind-clash plans no longer arm, merge-into-non-empty moves keep the source, unreadable SSH config shows a diagnostic instead of an empty host list, the cancel now waits for the process.
+- Merge `integration-review-repair` into `main` and push; CI runs the new two-tier coverage gate (`scripts/coverage-floor.sh 90 35`).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. Nothing pushed; `main` still at `80344c1`.
+- **Two orchestrator decisions to ratify:** (1) Task 5's stop condition — macOS has no atomic compare-and-replace against a non-coordinating editor; accepted the coordinated re-read/compare/backup/rename with its microsecond residual window (recorded in `d104491`). (2) Exact manifest agreement refuses source deletion for a move that merges into a non-empty directory; the old count gate already refused that case, so it is a carried limitation, not a regression — a subset check is the one-line relaxation in `VerificationReport.matched` if he wants merges to complete.
+- Carried: `PalanaSession.init` is not instantiable under test (reads the real `~/.ssh/config`), which is why the application floor sits at 35; injectable init is the next ratchet. `HostOnboardingForm`'s remove preview still uses a Host-only scan (may over-warn about a following `Match`). Site never deployed; publish-root hazard; dmg held at his word.
+
+**PROJECT LIFECYCLE**
+- `beta` — the release-blocking critical findings are repaired and tested; beta launch remains the next gate after his hands pass.
+
+---
+
 ## State summary — 2026-09-06, fifteenth block — PLANS NAME THE RSYNC THEY WILL ACTUALLY RUN
 
 **COMPLETED**
