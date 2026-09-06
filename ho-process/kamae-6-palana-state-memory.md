@@ -26,8 +26,8 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 - 946 tests, 143 suites, all green with both fixtures up; PalanaCore 96.87%. Pre-commit clean.
 
 **NEXT**
-- **His hands: the Finder launch.** `dist/Palana.app` is rebuilt at `4eed995`. Launch it FROM FINDER (a terminal launch inherits his PATH and hides the bug), copy something large enough to watch: the plan should read `/opt/homebrew/bin/rsync -a -s --partial --info=progress2 …` and the bar should fill. Then mark the task's Reflect.
-- Then back to the beta-launch plan in `palana-web/BETA-LAUNCH.md` (unchanged from the fourteenth block).
+- **Hands verdict, same morning: "it worked."** Finder-launched `dist/Palana.app` at `4eed995` named `/opt/homebrew/bin/rsync` in the plan and the bar filled. The task is closed.
+- Back to the beta-launch plan in `palana-web/BETA-LAUNCH.md` (unchanged from the fourteenth block).
 
 **ACTION ITEMS / BLOCKS**
 - No blocks. `4eed995` pushed; **CI green at `1674bb8`** (`gh run` checked). CI had been RED since `f133081` — the runner's newer SwiftLint carries `legacy_swiftui_aspect_ratio`, which local 0.65.0 does not; one line in `AboutWindow.swift` now reads `scaledToFit()`. Toolchain drift, not a code fault; a pinned SwiftLint version in CI would stop the next one.
