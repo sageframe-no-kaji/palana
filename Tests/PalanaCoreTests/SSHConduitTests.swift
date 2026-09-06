@@ -13,19 +13,19 @@ struct SSHConduitArgumentsTests {
     )
 
     @Test("a multiplexed run carries the ControlMaster triplet and ends host command")
-    func multiplexedRun() {
-        let args = SSHConduit.arguments(
+    func multiplexedRun() throws {
+        let args = try SSHConduit.arguments(
             host: "jodo", command: "echo ok", configuration: configuration)
         #expect(args.contains("ControlMaster=auto"))
         #expect(args.contains("ControlPath=/tmp/palana-cm-test/%C"))
-        #expect(args.contains("ControlPersist=yes"))
+        #expect(args.contains("ControlPersist=10m"))
         #expect(args.contains("BatchMode=yes"))
         #expect(args.suffix(2) == ["jodo", "sh -c 'echo ok'"])
     }
 
     @Test("the remote command wears sh -c — a fish login shell must not read it")
-    func posixWrap() {
-        let args = SSHConduit.arguments(
+    func posixWrap() throws {
+        let args = try SSHConduit.arguments(
             host: "koan", command: #"if true; then echo "y"; fi"#, configuration: configuration)
         let last = args.last ?? ""
         #expect(last.hasPrefix("sh -c '"))
@@ -33,8 +33,8 @@ struct SSHConduitArgumentsTests {
     }
 
     @Test("extra options ride between the master flags and the host")
-    func extraOptionsPlacement() {
-        let args = SSHConduit.arguments(
+    func extraOptionsPlacement() throws {
+        let args = try SSHConduit.arguments(
             host: "jodo", command: "true", configuration: configuration)
         let identityIndex = try? #require(args.firstIndex(of: "-i"))
         let hostIndex = try? #require(args.firstIndex(of: "jodo"))
@@ -44,15 +44,15 @@ struct SSHConduitArgumentsTests {
     }
 
     @Test("a control command renders as -O before the host, with no command")
-    func controlExit() {
-        let args = SSHConduit.arguments(
+    func controlExit() throws {
+        let args = try SSHConduit.arguments(
             host: "jodo", command: nil, configuration: configuration, controlCommand: "exit")
         #expect(args.suffix(3) == ["-O", "exit", "jodo"])
     }
 
     @Test("multiplexing off drops the ControlMaster triplet")
-    func plainRun() {
-        let args = SSHConduit.arguments(
+    func plainRun() throws {
+        let args = try SSHConduit.arguments(
             host: "jodo", command: "true", configuration: configuration, multiplex: false)
         #expect(!args.contains("ControlMaster=auto"))
         #expect(args.contains("BatchMode=yes"))

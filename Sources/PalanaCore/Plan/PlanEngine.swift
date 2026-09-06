@@ -317,14 +317,14 @@ extension PlanEngine {
 
     private static func composeRsync(_ request: PlanRequest, facts: PlanFacts) -> [PlanStep] {
         let sourceHost = Runner.host(request.source.host)
+        let destinationHost = request.destination?.host ?? ""
         let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
-        let remote = ShellQuote.quote(
-            "\(request.destination?.host ?? ""):\(destinationDirectorySlash(request))")
+        let remote = ShellQuote.quote("\(destinationHost):\(destinationDirectorySlash(request))")
         var steps = [
             PlanStep(
                 runsOn: sourceHost,
                 command:
-                    "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(remote)",
+                    "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
                 role: .transfer)
         ]
         if request.operation == .move {
@@ -353,15 +353,16 @@ extension PlanEngine {
         // path — an inner quote keeps its spaces whole.
         let modernHere = Self.modernRsync(localCapability)
         let remotePath: (String) -> String = { modernHere ? $0 : ShellQuote.quote($0) }
+        let remoteHost = pushing ? request.destination?.host ?? "" : request.source.host
         let sources: String
         let target: String
         if pushing {
             sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
             target = ShellQuote.quote(
-                "\(request.destination?.host ?? ""):\(remotePath(destinationDirectorySlash(request)))")
+                "\(remoteHost):\(remotePath(destinationDirectorySlash(request)))")
         } else {
             sources = sourcePaths(request)
-                .map { ShellQuote.quote("\(request.source.host):\(remotePath($0))") }
+                .map { ShellQuote.quote("\(remoteHost):\(remotePath($0))") }
                 .joined(separator: " ")
             target = quotedDestinationDirectory(request)
         }
@@ -369,7 +370,7 @@ extension PlanEngine {
             PlanStep(
                 runsOn: here,
                 command:
-                    "\(rsyncInvocation(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(target)",
+                    "\(rsyncInvocation(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: remoteHost))\(sources) \(target)",
                 role: .transfer)
         ]
         if request.operation == .move {
@@ -396,8 +397,8 @@ extension PlanEngine {
         let unpack = "tar -xpf - -C \(ShellQuote.quote(request.destination?.directory ?? ""))"
         let command =
             pushing
-            ? "\(pack) | ssh \(request.destination?.host ?? "") \(ShellQuote.quote(unpack))"
-            : "ssh \(request.source.host) \(ShellQuote.quote(pack)) | \(unpack)"
+            ? "\(pack) | ssh \(sshDestination(request.destination?.host ?? "")) \(ShellQuote.quote(unpack))"
+            : "ssh \(sshDestination(request.source.host)) \(ShellQuote.quote(pack)) | \(unpack)"
         var steps = [
             PlanStep(
                 runsOn: .host(PalanaCore.localHostName),
@@ -421,17 +422,14 @@ extension PlanEngine {
         let pack = "tar -cf - -C \(ShellQuote.quote(request.source.directory)) -- \(names)"
         let unpack = "tar -xpf - -C \(ShellQuote.quote(request.destination?.directory ?? ""))"
         let destinationHost = request.destination?.host ?? ""
+        let pipeline = Pipeline(
+            fromHost: request.source.host, fromCommand: pack, toHost: destinationHost, toCommand: unpack)
         var steps = [
             PlanStep(
                 runsOn: .operatorMachine,
-                command: "ssh \(request.source.host) \(ShellQuote.quote(pack)) | "
-                    + "ssh \(destinationHost) \(ShellQuote.quote(unpack))",
+                command: pipelineCommand(pipeline),
                 role: .transfer,
-                pipeline: Pipeline(
-                    fromHost: request.source.host,
-                    fromCommand: pack,
-                    toHost: destinationHost,
-                    toCommand: unpack))
+                pipeline: pipeline)
         ]
         if request.operation == .move {
             let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
@@ -475,20 +473,21 @@ extension PlanEngine {
             steps.append(
                 PlanStep(
                     runsOn: sourceHost,
-                    command: "\(send) | ssh \(destinationHost) \(ShellQuote.quote(receive))",
+                    command:
+                        "\(send) | ssh \(sshDestination(destinationHost)) \(ShellQuote.quote(receive))",
                     role: .transfer))
         } else {
+            let pipeline = Pipeline(
+                fromHost: request.source.host,
+                fromCommand: send,
+                toHost: destinationHost,
+                toCommand: receive)
             steps.append(
                 PlanStep(
                     runsOn: .operatorMachine,
-                    command: "ssh \(request.source.host) \(ShellQuote.quote(send)) | "
-                        + "ssh \(destinationHost) \(ShellQuote.quote(receive))",
+                    command: pipelineCommand(pipeline),
                     role: .transfer,
-                    pipeline: Pipeline(
-                        fromHost: request.source.host,
-                        fromCommand: send,
-                        toHost: destinationHost,
-                        toCommand: receive)))
+                    pipeline: pipeline))
         }
         steps.append(
             PlanStep(

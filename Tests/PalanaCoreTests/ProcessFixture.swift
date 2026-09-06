@@ -10,10 +10,14 @@ import Foundation
 
 enum ProcessFixture {
     /// A fresh directory for pid files, markers, and the fake ssh.
+    ///
+    /// Private to this user, so it can also serve as a control
+    /// directory: the door refuses one that others can reach.
     static func makeDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("palana-process-\(UUID().uuidString.prefix(8))", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: url, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         return url
     }
 

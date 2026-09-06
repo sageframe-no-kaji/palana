@@ -36,6 +36,10 @@ enum SSHPipeline {
                 host: host, command: command, configuration: configuration, pipedInput: pipedInput)
         }
     ) async throws -> Int32 {
+        // Both destinations are checked before either half exists: a
+        // hostile consumer alias must not cost a producer launch.
+        try SSHConduit.validateDestination(pipeline.fromHost)
+        try SSHConduit.validateDestination(pipeline.toHost)
         let producer = try spawn(pipeline.fromHost, pipeline.fromCommand, configuration, false)
         let consumer: Half
         do {
@@ -147,19 +151,28 @@ enum SSHPipeline {
     }
 
     /// One ssh half, multiplexed exactly as the Conduit's sessions are.
+    ///
+    /// The host and the command are separate argv elements — the alias
+    /// is never re-read as shell syntax on the way to the process — and
+    /// the door's own grammar check refuses anything but a plain alias
+    /// before the half spawns. The control directory is checked as the
+    /// Conduit checks it: a directory another user owns or can reach
+    /// closes this route too.
     static func spawnHalf(
         host: String,
         command: String,
         configuration: SSHConfiguration,
         pipedInput: Bool = false
     ) throws -> Half {
+        let arguments = try SSHConduit.arguments(
+            host: host, command: command, configuration: configuration)
+        try SSHConduit.ensureControlDirectory(configuration.controlDirectory)
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
         let stdinPipe = pipedInput ? Pipe() : nil
         let process = try OwnedProcess.spawn(
             executable: configuration.sshExecutablePath,
-            arguments: SSHConduit.arguments(
-                host: host, command: command, configuration: configuration),
+            arguments: arguments,
             stdin: stdinPipe,
             stdout: stdoutPipe,
             stderr: stderrPipe)

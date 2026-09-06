@@ -25,9 +25,11 @@ public struct SSHConfiguration: Sendable {
     public var extraOptions: [String]
     /// ControlPersist value.
     ///
-    /// `yes` holds the master until explicit close; a crashed app leaks
-    /// masters until the next launch's sweep. Accepted for v1 — the quit
-    /// path owns `closeAll()`.
+    /// Finite by default: a master idles this long after its last
+    /// session and then exits on its own, so a crashed app's masters
+    /// outlive it by at most this interval. The quit path still owns
+    /// `closeAll()`, and a fresh door's first use sweeps whatever an
+    /// earlier run left in the control directory.
     public var controlPersist: String
 
     /// Assembles a configuration; every field has a working default.
@@ -35,7 +37,7 @@ public struct SSHConfiguration: Sendable {
         sshExecutablePath: String = "/usr/bin/ssh",
         controlDirectory: String = Self.defaultControlDirectory,
         extraOptions: [String] = [],
-        controlPersist: String = "yes"
+        controlPersist: String = Self.defaultControlPersist
     ) {
         self.sshExecutablePath = sshExecutablePath
         self.controlDirectory = controlDirectory
@@ -47,6 +49,11 @@ public struct SSHConfiguration: Sendable {
     public static var defaultControlDirectory: String {
         "/tmp/palana-cm-\(getuid())"
     }
+
+    /// `10m` — long enough that an operator pausing between commands
+    /// keeps a warm session, short enough that an orphaned master is
+    /// gone before it is forgotten.
+    public static let defaultControlPersist = "10m"
 }
 
 /// The single door, live. An actor: `Process` is not Sendable and the
@@ -54,6 +61,8 @@ public struct SSHConfiguration: Sendable {
 public actor SSHConduit: Conduit {
     private let configuration: SSHConfiguration
     private var openedHosts: Set<String> = []
+    /// The one startup sweep; every run awaits it before spawning.
+    private var sweep: Task<Void, Never>?
 
     /// Opens the door with the given invocation shape.
     public init(configuration: SSHConfiguration = SSHConfiguration()) {
@@ -61,13 +70,19 @@ public actor SSHConduit: Conduit {
     }
 
     /// Argument assembly, pure and tested without the wire.
+    ///
+    /// Throws before assembling anything when `host` is not a plain
+    /// alias — see ``validateDestination(_:)``. Every ssh the door or
+    /// the pipeline spawns passes through here, so nothing outside the
+    /// alias grammar reaches an argv.
     static func arguments(
         host: String,
         command: String?,
         configuration: SSHConfiguration,
         multiplex: Bool = true,
         controlCommand: String? = nil
-    ) -> [String] {
+    ) throws -> [String] {
+        try validateDestination(host)
         var args: [String] = []
         if multiplex {
             args += [
@@ -95,12 +110,10 @@ public actor SSHConduit: Conduit {
     /// Runs a command through the host's multiplexed session, opening the
     /// master on first use.
     public func run(on host: String, _ command: String) async throws -> RunningCommand {
-        try ensureControlDirectory()
+        let arguments = try Self.arguments(host: host, command: command, configuration: configuration)
+        try await prepareControlDirectory()
         openedHosts.insert(host)
-        return try Self.spawn(
-            executable: configuration.sshExecutablePath,
-            arguments: Self.arguments(host: host, command: command, configuration: configuration)
-        )
+        return try Self.spawn(executable: configuration.sshExecutablePath, arguments: arguments)
     }
 
     /// Closes the host's master.
@@ -109,36 +122,85 @@ public actor SSHConduit: Conduit {
     public func close(host: String) async {
         openedHosts.remove(host)
         guard
+            let arguments = try? Self.arguments(
+                host: host, command: nil, configuration: configuration, controlCommand: "exit"),
             let control = try? Self.spawn(
-                executable: configuration.sshExecutablePath,
-                arguments: Self.arguments(
-                    host: host,
-                    command: nil,
-                    configuration: configuration,
-                    controlCommand: "exit"
-                )
-            )
+                executable: configuration.sshExecutablePath, arguments: arguments)
         else { return }
         // Best-effort: drain and await so the master is gone before return.
         _ = try? await control.collect()
     }
 
-    /// Sweeps every opened host.
+    /// Sweeps every opened host, then unlinks any socket left without
+    /// a master.
     ///
     /// The quit path calls this.
     public func closeAll() async {
         for host in openedHosts {
             await close(host: host)
         }
+        removeDeadSockets()
     }
 
-    private func ensureControlDirectory() throws {
-        try FileManager.default.createDirectory(
-            atPath: configuration.controlDirectory,
-            withIntermediateDirectories: true,
-            attributes: [.posixPermissions: 0o700]
-        )
+    /// Creates and checks the control directory on every use; sweeps
+    /// it once, before this door's first master, holding every run
+    /// until the sweep is done so a master being born is never mistaken
+    /// for one that died.
+    private func prepareControlDirectory() async throws {
+        try Self.ensureControlDirectory(configuration.controlDirectory)
+        if sweep == nil {
+            sweep = Task { await self.sweepStaleSockets() }
+        }
+        await sweep?.value
     }
+
+    /// Closes or removes what an earlier run left in the control
+    /// directory.
+    ///
+    /// A socket whose master still answers belongs to a run that never
+    /// reached `closeAll()` — a crash — and is asked to exit; a socket
+    /// nobody answers is the file that crash left behind and is
+    /// unlinked. A master that declines to exit keeps its socket: with
+    /// a finite ControlPersist it is on its way out regardless.
+    private func sweepStaleSockets() async {
+        for socket in Self.controlSockets(in: configuration.controlDirectory)
+        where Self.socketAnswers(at: socket) {
+            await exitSession(at: socket)
+        }
+        removeDeadSockets()
+    }
+
+    /// Unlinks every socket in the control directory nobody answers.
+    private func removeDeadSockets() {
+        for socket in Self.controlSockets(in: configuration.controlDirectory)
+        where !Self.socketAnswers(at: socket) {
+            unlink(socket)
+        }
+    }
+
+    /// `ssh -O exit` against one socket by path.
+    ///
+    /// The destination is a placeholder: a control command reads the
+    /// socket named by ControlPath and never resolves or connects to
+    /// the host, which ssh wants only for config lookup.
+    private func exitSession(at socketPath: String) async {
+        guard
+            let arguments = try? Self.arguments(
+                host: Self.sweepHost,
+                command: nil,
+                configuration: configuration,
+                multiplex: false,
+                controlCommand: "exit"),
+            let control = try? Self.spawn(
+                executable: configuration.sshExecutablePath,
+                arguments: ["-o", "ControlPath=\(socketPath)"] + arguments)
+        else { return }
+        _ = try? await control.collect()
+    }
+
+    /// The alias named on a sweep's `-O exit` — inside the grammar, and
+    /// no config need define it.
+    static let sweepHost = "palana-sweep"
 
     /// Thin spawn path on the readabilityHandler drain.
     ///
@@ -182,6 +244,116 @@ public actor SSHConduit: Conduit {
                 OwnedProcess.closeQuietly(handle)
             }
         }
+    }
+}
+
+// MARK: - Destinations
+
+extension SSHConduit {
+    /// Refuses a host that is not a plain alias, before anything spawns.
+    ///
+    /// The parser admits only ``SSHConfigParser/aliasGrammar`` into the
+    /// registry, but a restored session or a legacy cache can carry a
+    /// name that never passed it. ssh reads a leading `-` as an option
+    /// and a remote `sh -c` reads metacharacters as syntax, so the door
+    /// checks the grammar again at the last moment before launch. The
+    /// reserved `local` is refused with the rest: it is this machine,
+    /// never a destination.
+    static func validateDestination(_ host: String) throws {
+        guard !host.isEmpty, SSHConfigParser.isAlias(host) else {
+            throw ConduitError.launchFailed(
+                "refused ssh destination \(String(reflecting: host)): "
+                    + "not a host alias (\(SSHConfigParser.aliasGrammar))")
+        }
+    }
+}
+
+// MARK: - Control directory
+
+extension SSHConduit {
+    /// Creates the control directory if needed and refuses it unless it
+    /// is a real directory, owned by this user, closed to everyone else.
+    ///
+    /// The directory lives under a world-writable `/tmp`. Another user
+    /// who planted a directory or a symlink at the path first would own
+    /// every socket ssh creates there; a mode that lets group or other
+    /// in would let them reach the authenticated masters. Either way
+    /// the door stays shut and says why.
+    static func ensureControlDirectory(_ path: String) throws {
+        var status = stat()
+        if lstat(path, &status) != 0 {
+            try FileManager.default.createDirectory(
+                atPath: path,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700])
+            guard lstat(path, &status) == 0 else {
+                throw ConduitError.launchFailed(
+                    "control directory \(path): \(String(cString: strerror(errno)))")
+            }
+        }
+        let problem = controlDirectoryProblem(
+            uid: status.st_uid,
+            mode: status.st_mode,
+            isDirectory: status.st_mode & S_IFMT == S_IFDIR)
+        if let problem {
+            throw ConduitError.launchFailed("control directory \(path) \(problem)")
+        }
+    }
+
+    /// Why a control directory is unsafe, or `nil` when it is not.
+    ///
+    /// Pure, so the wrong-owner case is testable without a second user.
+    static func controlDirectoryProblem(uid: uid_t, mode: mode_t, isDirectory: Bool) -> String? {
+        guard isDirectory else { return "is not a directory" }
+        guard uid == getuid() else { return "is owned by uid \(uid), not \(getuid())" }
+        guard mode & 0o077 == 0 else {
+            let shown = String(mode & 0o777, radix: 8)
+            return "is open to others (mode \(shown); expected 700)"
+        }
+        return nil
+    }
+
+    /// The socket files in the control directory, sorted by path.
+    static func controlSockets(in directory: String) -> [String] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? []
+        return names.map { "\(directory)/\($0)" }
+            .filter { path in
+                var status = stat()
+                return lstat(path, &status) == 0 && status.st_mode & S_IFMT == S_IFSOCK
+            }
+            .sorted()
+    }
+
+    /// True when something answers at the socket — a master, alive.
+    ///
+    /// A refused connect is a socket whose master is gone: the file
+    /// outlived the process, which is exactly what a crash leaves.
+    static func socketAnswers(at path: String) -> Bool {
+        let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard descriptor >= 0 else { return false }
+        defer { Darwin.close(descriptor) }
+        var address = sockaddr_un()
+        guard fill(&address, with: path) else { return false }
+        let length = socklen_t(MemoryLayout<sockaddr_un>.size)
+        let result = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(descriptor, $0, length)
+            }
+        }
+        return result == 0
+    }
+
+    /// Writes `path` into the address; false when it does not fit.
+    static func fill(_ address: inout sockaddr_un, with path: String) -> Bool {
+        let bytes = Array(path.utf8CString)
+        guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { return false }
+        address.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &address.sun_path) { buffer in
+            for (index, byte) in bytes.enumerated() {
+                buffer[index] = UInt8(bitPattern: byte)
+            }
+        }
+        return true
     }
 }
 
