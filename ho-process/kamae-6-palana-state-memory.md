@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-08-30
+updated: 2026-09-06
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,29 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-09-06, fifteenth block — PLANS NAME THE RSYNC THEY WILL ACTUALLY RUN
+
+**COMPLETED**
+- **`4eed995` — the Finder-launch rsync gap closed** (agent task `agent-task-2026-09-06-resolve-mac-rsync-path.md`, decided with him this morning mid-transfer). A Finder-launched app inherits `PATH=/usr/bin:/bin:/usr/sbin:/sbin`, found Apple's openrsync, and the plan degraded by design to the `-a --partial` floor — no `-s`, no progress2, no bar, and a plan whose text ran a different binary than the one it named.
+- **The fix, in the shape the spec drew.** `HostCapability.rsyncPath` (optional, default nil — old cache files decode). `CapabilityProbe.localCommand` = the shared `command` under `PATH=/opt/homebrew/bin:/usr/local/bin:/opt/local/bin:$PATH` plus a `palana:rsyncpath:` marker; the shared `command` and both recorded corpora are untouched. `PlanEngine.rsyncInvocation` names the resolved binary (through `ShellQuote`, so a path with a space still runs); nil path composes bare `rsync`, pinned byte-for-byte for forwarded, same-host, and unresolved-local plans. `Transports.isRsyncCommand` keys progress parsing on the first token's last path component — the `hasPrefix("rsync ")` trap is gone. `localCapability()` runs the local probe.
+- **One deviation from the spec's file list:** `modernRsync`, `rsyncFlags`, `rsyncInvocation` moved to `PlanEngine+Rsync.swift` — the engine file was four lines past SwiftLint's 500-line budget and the extension pattern already stood in that directory.
+- Stop condition checked first: the widened PATH resolves `/opt/homebrew/bin/rsync` → 3.4.1 here, so the premise held.
+- 946 tests, 143 suites, all green with both fixtures up; PalanaCore 96.87%. Pre-commit clean.
+
+**NEXT**
+- **His hands: the Finder launch.** `dist/Palana.app` is rebuilt at `4eed995`. Launch it FROM FINDER (a terminal launch inherits his PATH and hides the bug), copy something large enough to watch: the plan should read `/opt/homebrew/bin/rsync -a -s --partial --info=progress2 …` and the bar should fill. Then mark the task's Reflect.
+- Then back to the beta-launch plan in `palana-web/BETA-LAUNCH.md` (unchanged from the fourteenth block).
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. `4eed995` committed; push and `gh run` check are this session's last acts — see the block's closing line.
+- The zfs VM's self-hop key went stale again after this restart (`limactl shell palana-zfs -- ssh-keygen -R localhost` cleared it — the known cure). The sshd container is left up; the VM is left stopped, per precedent.
+- Carried from the fourteenth block: the site has never been deployed; publish-root hazard; local parallel-run flakiness; dmg held at his word.
+
+**PROJECT LIFECYCLE**
+- `beta` — code hands-verified through August and green; this task is a beta-audience correctness fix (every Homebrew Mac is the case it covers). Beta launch remains the next gate.
 
 ---
 
