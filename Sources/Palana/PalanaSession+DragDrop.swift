@@ -51,7 +51,12 @@ extension PalanaSession {
         moveHeld: Bool
     ) {
         guard let host = targetPane.state.host, targetPane.status == .ready else { return }
-        let folderPath = PaneModel.childPath(of: targetPane.state.path, name: folder.name)
+        // The byte boundary: a folder whose name no path carries exactly
+        // cannot be a plan's destination — refuse, in words.
+        guard let folderPath = PaneModel.exactChildPath(of: targetPane.state.path, entry: folder) else {
+            operation.note("drop refused — \(PaneModel.unrepresentableNameRefusal)")
+            return
+        }
         let decision = DropDecision.decideOntoFolder(
             payload: payload,
             targetHost: host,
@@ -76,7 +81,10 @@ extension PalanaSession {
         folder: FileEntry,
         moveHeld: Bool
     ) {
-        let folderPath = PaneModel.childPath(of: targetPane.state.path, name: folder.name)
+        guard let folderPath = PaneModel.exactChildPath(of: targetPane.state.path, entry: folder) else {
+            operation.note("drop refused — \(PaneModel.unrepresentableNameRefusal)")
+            return
+        }
         routeFinderDrop(
             urls: urls,
             targetPane: targetPane,

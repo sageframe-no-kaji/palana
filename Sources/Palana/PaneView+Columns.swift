@@ -247,8 +247,9 @@ extension PaneView {
         favorites: FavoritesModel,
         model: PaneModel
     ) -> some View {
-        if entry.kind == .directory {
-            let entryPath = PaneModel.childPath(of: model.state.path, name: entry.name)
+        // The byte boundary: a directory whose name no path carries exactly
+        // has no star to click — a favorite is a path string.
+        if entry.kind == .directory, let entryPath = PaneModel.exactChildPath(of: model.state.path, entry: entry) {
             let host = model.state.host ?? ""
             let isStarred = favorites.isFavorited(host: host, path: entryPath)
             Button(

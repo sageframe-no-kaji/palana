@@ -69,8 +69,10 @@ extension PalanaSession {
         let isLocal = host == PalanaCore.localHostName
         var url: URL?
         if isLocal, let entry {
-            url = URL(
-                fileURLWithPath: PaneModel.childPath(of: source.state.path, name: entry.name))
+            // The byte boundary — a name no path carries exactly gets no
+            // URL, and the controller shows its info card unread.
+            url = PaneModel.exactChildPath(of: source.state.path, entry: entry)
+                .map { URL(fileURLWithPath: $0) }
         }
         previewController.follow(
             entry: entry,

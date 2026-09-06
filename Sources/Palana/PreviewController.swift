@@ -21,10 +21,14 @@ final class PreviewController {
     /// the session so this stays free of the engine. `nil` on failure.
     typealias RemoteReader = @MainActor (_ host: String, _ path: String, _ limit: Int) async -> Data?
 
-    /// Reads a remote file whole — the size-gated binary fetch (ho-18).
+    /// Streams a remote file into a local cache file, never more than `limit`
+    /// bytes — the binary preview fetch (ho-18, bounded in review).
     ///
-    /// Only ever called for a file already known under the cap. `nil` on failure.
-    typealias RemoteFileReader = @MainActor (_ host: String, _ path: String) async -> Data?
+    /// Injected by the session. The listing's size only decides whether to
+    /// start; the ceiling that holds is this one, enforced as bytes arrive.
+    /// `false` on failure, oversize included — the cache file is then unusable.
+    typealias RemoteFileReader =
+        @MainActor (_ host: String, _ path: String, _ destination: URL, _ limit: Int) async -> Bool
 
     /// What the preview pane should render right now.
     enum State: Equatable {
@@ -49,7 +53,7 @@ final class PreviewController {
     /// The bounded-head reader for remote text, set by the session.
     var remoteReader: RemoteReader?
 
-    /// The whole-file reader for remote binaries (ho-18), set by the session.
+    /// The bounded streaming fetch for remote binaries (ho-18), set by the session.
     var remoteFileReader: RemoteFileReader?
 
     /// The single ephemeral cache file for the current remote-binary preview —
@@ -138,7 +142,12 @@ final class PreviewController {
             state = .infoOnly(entry)
             return
         }
-        let path = PaneModel.childPath(of: directory, name: entry.name)
+        // The byte boundary: a name no path carries exactly is never read
+        // over the wire — the card shows what the listing said, nothing more.
+        guard let path = PaneModel.exactChildPath(of: directory, entry: entry) else {
+            state = .remote(entry)
+            return
+        }
         switch PreviewRouter.remotePlan(entry: entry) {
         case .text:
             await loadRemoteText(entry: entry, host: host, path: path)
@@ -171,34 +180,44 @@ final class PreviewController {
         }
     }
 
-    /// Remote binary (ho-18) — fetch the whole file (already known under the
-    /// cap), write it to the ephemeral cache, and quick-look the local copy.
+    /// Remote binary (ho-18) — stream the file into the ephemeral cache under
+    /// the cap and quick-look the local copy.
+    ///
+    /// The listing's size gated the start; the reader enforces the cap on the
+    /// bytes themselves, so a file that grew since it was listed is refused
+    /// mid-stream rather than cached whole.
     private func loadRemoteBinary(entry: FileEntry, host: String, path: String) async {
         guard let reader = remoteFileReader else {
             state = .remote(entry)
             return
         }
         state = .loading(entry)
-        let data = await reader(host, path)
-        guard !Task.isCancelled else { return }
-        guard let data, let url = cacheRemote(data, name: entry.name) else {
+        let url = cacheDestination(name: entry.name)
+        let fetched = await reader(host, path, url, PreviewRouter.remoteBinaryCap)
+        guard !Task.isCancelled else {
+            evictCache()
+            return
+        }
+        guard fetched else {
+            evictCache()
             state = .remote(entry)
             return
         }
         state = .quickLook(entry, url)
     }
 
-    /// Writes fetched remote bytes to a single temp cache file.
+    /// Names the single temp cache file the next remote binary streams into.
     ///
-    /// The file carries the entry's extension so QuickLook infers the type; any
-    /// prior cache file is evicted first.
-    private func cacheRemote(_ data: Data, name: String) -> URL? {
+    /// The file carries the entry's extension so QuickLook infers the type —
+    /// the display name's extension is enough, since the cache name is a UUID
+    /// and never addresses the remote entry. Any prior cache file is evicted
+    /// first.
+    private func cacheDestination(name: String) -> URL {
         evictCache()
         let ext = (name as NSString).pathExtension
         var url = FileManager.default.temporaryDirectory
             .appendingPathComponent("palana-remote-preview-\(UUID().uuidString)")
         if !ext.isEmpty { url.appendPathExtension(ext) }
-        guard (try? data.write(to: url)) != nil else { return nil }
         cacheURL = url
         return url
     }

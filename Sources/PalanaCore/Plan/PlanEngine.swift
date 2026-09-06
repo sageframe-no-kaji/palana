@@ -112,10 +112,10 @@ public enum PlanEngine {
         case .zfs:
             try validateZfs(request)
         }
-        for entry in request.entries {
-            guard String(data: entry.nameData, encoding: .utf8) != nil else {
-                throw PlanError.unrepresentableName(entry.nameData)
-            }
+        // The byte-honest boundary: a command is a String, and only a name
+        // whose bytes round-trip UTF-8 exactly can be named by one.
+        for entry in request.entries where !entry.isNameRepresentable {
+            throw PlanError.unrepresentableName(entry.nameData)
         }
     }
 
@@ -526,15 +526,34 @@ extension PlanEngine {
                 role: .rename),
             PlanStep(
                 runsOn: host,
-                command: "test -e \(newPath) && test ! -e \(oldPath)",
+                command: "\(entryExists(newPath)) && \(entryAbsent(oldPath))",
                 role: .verify),
         ]
     }
 
-    /// The guard that refuses an existing destination, legibly — the
-    /// panel shows a sentence, not a bare exit 1 (third hands session).
+    /// True when a directory entry exists under the name, link or not.
+    ///
+    /// `lstat` semantics in shell: `test -e` follows a symlink and says
+    /// "no" for a dangling one; `test -L` sees the link itself. A guard
+    /// built on `-e` alone let `touch` and `mv` land through a dangling
+    /// link onto its target, outside the chosen directory (review).
+    private static func entryExists(_ quotedPath: String) -> String {
+        "{ test -e \(quotedPath) || test -L \(quotedPath); }"
+    }
+
+    /// True when no directory entry exists under the name — not a file,
+    /// not a directory, not a link of any kind.
+    private static func entryAbsent(_ quotedPath: String) -> String {
+        "test ! -e \(quotedPath) && test ! -L \(quotedPath)"
+    }
+
+    /// The guard that refuses an existing destination, legibly.
+    ///
+    /// The panel shows a sentence, not a bare exit 1 (third hands
+    /// session). Existence is judged on the entry itself, so a dangling
+    /// link is refused rather than followed.
     private static func refusalGuard(_ quotedPath: String) -> String {
-        "test -e \(quotedPath) && { echo refused: \(quotedPath) exists >&2; exit 1; };"
+        "\(entryExists(quotedPath)) && { echo refused: \(quotedPath) exists >&2; exit 1; };"
     }
 
     private static func composeCreate(_ request: PlanRequest) -> [PlanStep] {
@@ -549,12 +568,13 @@ extension PlanEngine {
                     runsOn: host,
                     command: "\(refusalGuard(path)) touch -- \(path)",
                     role: .create),
-                PlanStep(runsOn: host, command: "test -f \(path)", role: .verify),
+                // The entry itself is a regular file — not a link to one.
+                PlanStep(runsOn: host, command: "test -f \(path) && test ! -L \(path)", role: .verify),
             ]
         }
         return [
-            PlanStep(runsOn: host, command: "mkdir -- \(path)", role: .create),
-            PlanStep(runsOn: host, command: "test -d \(path)", role: .verify),
+            PlanStep(runsOn: host, command: "\(refusalGuard(path)) mkdir -- \(path)", role: .create),
+            PlanStep(runsOn: host, command: "test -d \(path) && test ! -L \(path)", role: .verify),
         ]
     }
 

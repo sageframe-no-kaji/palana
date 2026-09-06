@@ -121,6 +121,26 @@ public struct FileEntry: Sendable, Equatable, Hashable, Identifiable, Codable {
     /// True for dotfiles — judged on the bytes, not the face.
     public var isHidden: Bool { nameData.first == UInt8(ascii: ".") }
 
+    /// The name as the one string that carries the bytes exactly — nil
+    /// when no string can.
+    ///
+    /// The action boundary. A path composed through `String` — a shell
+    /// command, a `URL`, a temp-file name — names this entry only if the
+    /// string's UTF-8 is `nameData` byte for byte. Bytes that are not
+    /// valid UTF-8 have no such string: `name` shows them with U+FFFD,
+    /// and a path built from that would address a different entry (or
+    /// none). Every action composes from this or refuses; `name` stays
+    /// display-only.
+    public var exactName: String? {
+        guard let text = String(data: nameData, encoding: .utf8), Data(text.utf8) == nameData else {
+            return nil
+        }
+        return text
+    }
+
+    /// True when ``exactName`` exists — the bytes round-trip UTF-8 exactly.
+    public var isNameRepresentable: Bool { exactName != nil }
+
     /// The filename for display — lossy UTF-8, never for composition.
     public var name: String {
         // swiftlint:disable:next optional_data_string_conversion

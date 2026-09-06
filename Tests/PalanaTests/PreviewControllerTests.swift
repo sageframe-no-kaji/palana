@@ -130,7 +130,9 @@ struct PreviewControllerTests {
     func remoteBinaryFetches() async throws {
         let controller = PreviewController()
         let bytes = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A])  // PNG-ish
-        controller.remoteFileReader = { _, _ in bytes }
+        controller.remoteFileReader = { _, _, destination, _ in
+            (try? bytes.write(to: destination)) != nil
+        }
         let file = entry("photo.png", size: 2000)
         controller.follow(entry: file, host: "koan", directory: "/pics", isLocal: false, url: nil)
         await settle(controller)
@@ -149,9 +151,9 @@ struct PreviewControllerTests {
     func remoteBinaryOverCapNotFetched() async {
         let controller = PreviewController()
         var readerCalled = false
-        controller.remoteFileReader = { _, _ in
+        controller.remoteFileReader = { _, _, _, _ in
             readerCalled = true
-            return Data([0x89])
+            return true
         }
         let big = Int64(PreviewRouter.remoteBinaryCap) + 1
         let file = entry("huge.tiff", size: big)

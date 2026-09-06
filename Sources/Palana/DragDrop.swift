@@ -392,6 +392,21 @@ func handleFolderDrop(
 
 // MARK: - Finder URL resolution
 
+/// Where a resolved Finder-drop cohort is handed — the begin seam.
+typealias FinderDropBegin = @MainActor (PlanOperation, Locus, Locus, [FileEntry]) -> Void
+
+/// The destination a Finder drop binds to, read at the moment of the drop.
+///
+/// The pane's host and directory (or the folder row's full path) as they
+/// stand right now — nil when the pane is not ready to receive. Pure and
+/// synchronous by design: the caller captures the result before any await,
+/// and the plan uses it unchanged however the pane moves afterwards.
+@MainActor
+func finderDropDestination(targetPane: PaneModel, destinationDirectory: String?) -> Locus? {
+    guard let host = targetPane.state.host, targetPane.status == .ready else { return nil }
+    return Locus(host: host, directory: destinationDirectory ?? targetPane.state.path)
+}
+
 /// Resolves a Finder URL drop onto a pane into a copy plan composed
 /// through the standing gather path.
 ///
@@ -410,6 +425,9 @@ func handleFolderDrop(
 ///   - destinationDirectory: When non-nil, the plan targets this directory on
 ///     the destination host instead of the pane's cwd — a Finder drop onto a
 ///     folder row (ho-14 review) passes the folder's full path.
+///   - begin: Where the resolved cohort goes; defaults to
+///     ``OperationModel/beginFromFinderDrop(_:source:destination:entries:)``.
+///     A test seam — the routing is observed without a gather.
 @MainActor
 func routeFinderDrop(
     urls: [URL],
@@ -417,9 +435,24 @@ func routeFinderDrop(
     engine: Engine,
     operation: OperationModel,
     moveHeld: Bool,
-    destinationDirectory: String? = nil
+    destinationDirectory: String? = nil,
+    begin: FinderDropBegin? = nil
 ) {
     guard !urls.isEmpty else { return }
+    // The destination is where the drop landed — read now, synchronously,
+    // before any await. A pane that navigates while the source listing is
+    // in flight must not move the plan with it (review).
+    guard
+        let destinationLocus = finderDropDestination(
+            targetPane: targetPane, destinationDirectory: destinationDirectory)
+    else {
+        operation.note("finder drop: destination pane is not ready")
+        return
+    }
+    let begin =
+        begin ?? { planOperation, source, destination, entries in
+            operation.beginFromFinderDrop(planOperation, source: source, destination: destination, entries: entries)
+        }
     // Group by parent path — keep the first parent's cohort.
     let grouped = Dictionary(grouping: urls) { url in
         url.deletingLastPathComponent().path
@@ -427,7 +460,10 @@ func routeFinderDrop(
     let sortedParents = grouped.keys.sorted()
     guard let firstParent = sortedParents.first else { return }
     let firstCohortURLs = grouped[firstParent] ?? []
-    let droppedNames = Set(firstCohortURLs.map { $0.lastPathComponent })
+    // Matched on bytes: the listing's identity is the name bytes, and a
+    // display-string match could pair a dropped name with a sibling whose
+    // bytes merely display the same.
+    let droppedNames = Set(firstCohortURLs.map { Data($0.lastPathComponent.utf8) })
     // Names left behind — all URLs not in the first parent's cohort.
     if sortedParents.count > 1 {
         let leftBehind = sortedParents.dropFirst()
@@ -446,24 +482,13 @@ func routeFinderDrop(
         do {
             let entries = try await engine.localListing
                 .list(on: PalanaCore.localHostName, path: firstParent, flavor: .bsd)
-            let cohort = entries.filter { droppedNames.contains($0.name) }
+            let cohort = entries.filter { droppedNames.contains($0.nameData) }
             guard !cohort.isEmpty else {
                 operation.note("finder drop: no matching entries found in \(firstParent)")
                 return
             }
             let sourceLocus = Locus(host: PalanaCore.localHostName, directory: firstParent)
-            guard let destHost = targetPane.state.host, targetPane.status == .ready else {
-                operation.note("finder drop: destination pane is not ready")
-                return
-            }
-            let destinationLocus = Locus(
-                host: destHost, directory: destinationDirectory ?? targetPane.state.path)
-            operation.beginFromFinderDrop(
-                planOperation,
-                source: sourceLocus,
-                destination: destinationLocus,
-                entries: cohort
-            )
+            begin(planOperation, sourceLocus, destinationLocus, cohort)
         } catch {
             operation.note("finder drop: could not read \(firstParent) — \(error)")
         }

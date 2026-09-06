@@ -45,9 +45,10 @@ struct PlanRenameComposeTests {
         let plan = try planRename(entry: makeEntry("document.txt"), targetName: "renamed.txt")
         #expect(
             plan.steps.map(\.command) == [
-                "test -e /tank/media/renamed.txt && { echo refused: /tank/media/renamed.txt exists >&2; exit 1; };"
+                "{ test -e /tank/media/renamed.txt || test -L /tank/media/renamed.txt; } && { echo refused: /tank/media/renamed.txt exists >&2; exit 1; };"
                     + " mv -- /tank/media/document.txt /tank/media/renamed.txt",
-                "test -e /tank/media/renamed.txt && test ! -e /tank/media/document.txt",
+                "{ test -e /tank/media/renamed.txt || test -L /tank/media/renamed.txt; }"
+                    + " && test ! -e /tank/media/document.txt && test ! -L /tank/media/document.txt",
             ])
         #expect(plan.steps.map(\.role) == [.rename, .verify])
         #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo")])
@@ -59,9 +60,10 @@ struct PlanRenameComposeTests {
         let plan = try planRename(entry: makeEntry("old file.txt"), targetName: "new name.txt")
         #expect(
             plan.steps.map(\.command) == [
-                "test -e '/tank/media/new name.txt' && { echo refused: '/tank/media/new name.txt' exists >&2; exit 1; };"
+                "{ test -e '/tank/media/new name.txt' || test -L '/tank/media/new name.txt'; } && { echo refused: '/tank/media/new name.txt' exists >&2; exit 1; };"
                     + " mv -- '/tank/media/old file.txt' '/tank/media/new name.txt'",
-                "test -e '/tank/media/new name.txt' && test ! -e '/tank/media/old file.txt'",
+                "{ test -e '/tank/media/new name.txt' || test -L '/tank/media/new name.txt'; }"
+                    + " && test ! -e '/tank/media/old file.txt' && test ! -L '/tank/media/old file.txt'",
             ])
     }
 
@@ -186,13 +188,13 @@ struct PlanCreateComposeTests {
             facts: PlanFacts())
     }
 
-    @Test("create directory composes mkdir and a test -d verification step")
+    @Test("create directory composes a guarded mkdir and an lstat-true test -d verification step")
     func createDirectory() throws {
         let plan = try planCreate(name: "newdir/")
         #expect(
             plan.steps.map(\.command) == [
-                "mkdir -- /tank/media/newdir",
-                "test -d /tank/media/newdir",
+                "{ test -e /tank/media/newdir || test -L /tank/media/newdir; } && { echo refused: /tank/media/newdir exists >&2; exit 1; }; mkdir -- /tank/media/newdir",
+                "test -d /tank/media/newdir && test ! -L /tank/media/newdir",
             ])
         #expect(plan.steps.map(\.role) == [.create, .verify])
         #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo")])
@@ -204,19 +206,19 @@ struct PlanCreateComposeTests {
         let plan = try planCreate(name: "new dir/")
         #expect(
             plan.steps.map(\.command) == [
-                "mkdir -- '/tank/media/new dir'",
-                "test -d '/tank/media/new dir'",
+                "{ test -e '/tank/media/new dir' || test -L '/tank/media/new dir'; } && { echo refused: '/tank/media/new dir' exists >&2; exit 1; }; mkdir -- '/tank/media/new dir'",
+                "test -d '/tank/media/new dir' && test ! -L '/tank/media/new dir'",
             ])
     }
 
-    @Test("create file composes a guarded touch and a test -f verification step")
+    @Test("create file composes a guarded touch and an lstat-true test -f verification step")
     func createFile() throws {
         let plan = try planCreate(name: "newfile.txt")
         #expect(
             plan.steps.map(\.command) == [
-                "test -e /tank/media/newfile.txt && { echo refused: /tank/media/newfile.txt exists >&2; exit 1; };"
+                "{ test -e /tank/media/newfile.txt || test -L /tank/media/newfile.txt; } && { echo refused: /tank/media/newfile.txt exists >&2; exit 1; };"
                     + " touch -- /tank/media/newfile.txt",
-                "test -f /tank/media/newfile.txt",
+                "test -f /tank/media/newfile.txt && test ! -L /tank/media/newfile.txt",
             ])
         #expect(plan.steps.map(\.role) == [.create, .verify])
     }

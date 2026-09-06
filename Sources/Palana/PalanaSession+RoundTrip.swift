@@ -90,7 +90,9 @@ extension PalanaSession {
         guard let entry = focusedPane.cursorEntry else { return }
         guard entry.kind == .directory else { return }
         guard let host = focusedPane.state.host else { return }
-        let path = PaneModel.childPath(of: focusedPane.state.path, name: entry.name)
+        // The byte boundary: a favorite is a path string, so only a name a
+        // string carries exactly can be starred.
+        guard let path = focusedPane.exactPath(for: entry) else { return }
         favorites.toggle(host: host, path: path)
     }
 }

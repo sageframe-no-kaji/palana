@@ -88,6 +88,12 @@ final class PaneModel {
     private(set) var mountTargets: Set<String> = []
     /// Rows a page move jumps — the view updates it from geometry.
     var pageSize = 25
+    /// The most bytes a remote open streams to its temp copy.
+    ///
+    /// Enforced on the bytes as they arrive, not on the listing's size —
+    /// the size is a courtesy refusal, stale by definition. A test lowers
+    /// it to prove the stream, not the listing, is the ceiling.
+    var openByteCeiling = Listing.defaultReadCeiling
     /// Whether this pane renders files or a host's dataset tree (ho-10.3).
     ///
     /// App-level only — `PaneState`/`PaneIntent` never learn about this.
@@ -272,7 +278,8 @@ final class PaneModel {
             // A symlink descends as a directory attempt — read-then-
             // commit means a link to a file just says so and stays put
             // (second hands session: "why can't I navigate it?").
-            point(host: host, path: Self.childPath(of: state.path, name: entry.name))
+            guard let path = exactPath(for: entry) else { return }
+            point(host: host, path: path)
         case .file:
             if openingFiles {
                 openFile(entry, on: host)
@@ -477,7 +484,9 @@ final class PaneModel {
         guard !subjects.isEmpty || intent == .copyDirectory else { return }
         let lines: [String]
         switch intent {
-        case .copyPath: lines = subjects.map { Self.childPath(of: state.path, name: $0.name) }
+        case .copyPath:
+            guard let paths = exactPaths(for: subjects) else { return }
+            lines = paths
         case .copyDirectory: lines = [state.path]
         case .copyFilename: lines = subjects.map(\.name)
         case .copyNameSansExtension: lines = subjects.map { Self.nameSansExtension($0.name) }
@@ -498,6 +507,9 @@ final class PaneModel {
         case ListingError.notADirectory(let path): "not a directory: \(path)"
         case ListingError.listingFailed(_, let stderr): "read failed: \(stderr)"
         case ListingError.malformedListing: "the listing did not parse — worth reporting"
+        case ListingError.exceedsLimit(_, let limit):
+            "too large to open here: past \(Int64(limit).formatted(.byteCount(style: .file))) while reading"
+        case ListingError.timedOut(let path): "the read timed out: \(path)"
         case PointingError.unreachable(let detail): detail
         case is ProbeParseError:
             "the host answered, but its capability probe came back unreadable — worth reporting"
@@ -517,6 +529,16 @@ final class PaneModel {
 extension PaneModel {
     /// Sets the sort from a Table header click.
     ///
+    /// True when the entry is a directory the operator has starred.
+    ///
+    /// A name no path can carry was never starred — starring itself
+    /// refuses such a name — so it partitions as plain.
+    private func isStarredDirectory(_ entry: FileEntry, host: String, favorites: FavoritesModel) -> Bool {
+        guard entry.kind == .directory, let childPath = Self.exactChildPath(of: state.path, entry: entry)
+        else { return false }
+        return favorites.isFavorited(host: host, path: childPath)
+    }
+
     /// The Table reports the tapped column and its direction through its
     /// `sortOrder` binding; this maps that to the pane's own `Sort` and
     /// re-sorts through the listing's natural comparators — the same path
@@ -548,9 +570,7 @@ extension PaneModel {
             // Determine star status via isFavorited — the single truth about what
             // the operator has bookmarked. Never derive from FileEntry itself.
             let isStarred: (FileEntry) -> Bool = { entry in
-                guard entry.kind == .directory else { return false }
-                let childPath = Self.childPath(of: self.state.path, name: entry.name)
-                return favorites.isFavorited(host: host, path: childPath)
+                self.isStarredDirectory(entry, host: host, favorites: favorites)
             }
             // Explicit filter-and-concatenate — never rely on sort stability.
             let starredRows = rows.filter { isStarred($0) }
@@ -598,11 +618,51 @@ extension PaneModel {
     /// Dataset mountpoint → `.dataset`, plain mount target → `.mount`,
     /// nil otherwise. Non-directory entries always return nil.
     func boundaryMark(for entry: FileEntry) -> BoundaryMark? {
-        guard entry.kind == .directory else { return nil }
-        let fullPath = Self.childPath(of: state.path, name: entry.name)
+        // Mountpoints are strings the host reported; an entry no string
+        // carries exactly cannot be one of them.
+        guard entry.kind == .directory, let fullPath = Self.exactChildPath(of: state.path, entry: entry)
+        else { return nil }
         if datasetMountpoints.contains(fullPath) { return .dataset }
         if mountTargets.contains(fullPath) { return .mount }
         return nil
+    }
+}
+
+// MARK: - The exact-path boundary
+
+extension PaneModel {
+    /// The refusal a pane shows for a name no path can carry exactly.
+    static let unrepresentableNameRefusal =
+        "this name is not valid UTF-8 — no path can address it exactly, so pālana refuses rather than guess"
+
+    /// Joins the pane's directory and an entry's exact name, or nil.
+    ///
+    /// The one way an action turns a ``FileEntry`` into a path. It goes
+    /// through ``FileEntry/exactName`` — the bytes round-trip UTF-8 or
+    /// there is no path — never through the display `name`, whose
+    /// replacement characters would address a different entry.
+    nonisolated static func exactChildPath(of path: String, entry: FileEntry) -> String? {
+        entry.exactName.map { childPath(of: path, name: $0) }
+    }
+
+    /// The entry's exact path in this pane, or nil with the refusal posted.
+    func exactPath(for entry: FileEntry) -> String? {
+        guard let path = Self.exactChildPath(of: state.path, entry: entry) else {
+            lastError = Self.unrepresentableNameRefusal
+            return nil
+        }
+        return path
+    }
+
+    /// Every entry's exact path, or nil with the refusal posted — all or
+    /// nothing, so a pasted list never silently drops a name.
+    func exactPaths(for entries: [FileEntry]) -> [String]? {
+        let paths = entries.map { Self.exactChildPath(of: state.path, entry: $0) }
+        guard !paths.contains(nil) else {
+            lastError = Self.unrepresentableNameRefusal
+            return nil
+        }
+        return paths.compactMap { $0 }
     }
 }
 
@@ -610,7 +670,11 @@ extension PaneModel {
 
 extension PaneModel {
     private func openFile(_ entry: FileEntry, on host: String) {
-        let path = Self.childPath(of: state.path, name: entry.name)
+        // The byte boundary, before any path exists: the fetch command,
+        // the temp copy's name, and the round-trip record all carry this
+        // one exact name, or the open refuses (review: a lossy name
+        // uploaded an edited copy under the wrong filename).
+        guard let path = exactPath(for: entry), let exactName = entry.exactName else { return }
         // A local file opens in place — the operator's edits land in
         // the file itself, never in a copy (third session: edits saved
         // to the fetched copy read as vanished).
@@ -618,8 +682,10 @@ extension PaneModel {
             openInForeground(URL(fileURLWithPath: path))
             return
         }
-        let ceiling: Int64 = 50_000_000
-        guard entry.size <= ceiling else {
+        // The listing's size is a courtesy refusal — stale by definition.
+        // The ceiling that holds is the streaming one in the fetch below.
+        let ceiling = openByteCeiling
+        guard entry.size <= Int64(ceiling) else {
             lastError = "too large to open here: \(entry.size.formatted(.byteCount(style: .file)))"
             return
         }
@@ -635,13 +701,21 @@ extension PaneModel {
         isReading = true
         Task {
             do {
-                let data = try await self.engine.listing(for: capturedHost)
-                    .readFile(on: capturedHost, path: path)
                 // A fresh directory per open — a re-open must never
                 // overwrite a copy the operator may have edited.
                 let directory = try RoundTripRecord.makeOpenDirectory()
-                let local = directory.appendingPathComponent(capturedEntry.name)
-                try data.write(to: local, options: .atomic)
+                let local = directory.appendingPathComponent(exactName)
+                // The bytes stream straight to the copy under the ceiling;
+                // a file that outgrew its listing is refused mid-stream,
+                // its command terminated, and the directory taken back.
+                let fetched: FetchedFile
+                do {
+                    fetched = try await self.engine.listing(for: capturedHost)
+                        .fetchFile(on: capturedHost, path: path, to: local, limit: ceiling)
+                } catch {
+                    try? FileManager.default.removeItem(at: directory)
+                    throw error
+                }
                 self.isReading = false
                 self.openInForeground(local)
                 // Register a round-trip watch for this remote open. The
@@ -653,7 +727,7 @@ extension PaneModel {
                     host: capturedHost,
                     remoteDirectory: capturedDirectory,
                     fetched: capturedEntry,
-                    digest: RoundTrip.digest(of: data),
+                    digest: fetched.digest,
                     localURL: local,
                     generation: capturedGeneration)
                 self.onRoundTripRegistered(record)
@@ -671,92 +745,6 @@ extension PaneModel {
     /// launching a real editor.
     private func openInForeground(_ url: URL) {
         openHandler(url)
-    }
-}
-
-// MARK: - Revealing in Finder (local panes only)
-
-/// What a right-click on a local pane resolves to for "open in Finder".
-///
-/// Two shapes, because Finder answers them with two different calls: rows are
-/// *revealed* (selected inside their folder), a bare directory is *opened*.
-enum RevealTarget: Equatable {
-    /// Reveal these absolute paths, byte-accurate, selected in a Finder window.
-    case entries([Data])
-    /// Open this directory — the pane's own, right-clicked on empty space.
-    case directory(String)
-}
-
-extension PaneModel {
-    /// Resolves a right-click into what Finder should show.
-    ///
-    /// Selection manners match ``PaneView/operate(_:ids:)`` and
-    /// `dragPayload(for:selectedNames:)` exactly: a clicked row inside the
-    /// selection carries the whole selection; a clicked row outside it carries
-    /// only itself; an empty click resolves to the pane's own directory.
-    /// Entry paths come back in the listing's canonical byte order so the
-    /// result is stable.
-    ///
-    /// - Parameters:
-    ///   - directory: The pane's current directory path.
-    ///   - selection: The pane's selected entry ids (name bytes).
-    ///   - ids: The right-clicked entry ids; empty for a click on open space.
-    /// - Returns: The entries to reveal, or the directory to open.
-    nonisolated static func revealTargets(
-        directory: String,
-        selection: Set<Data>,
-        ids: Set<Data>
-    ) -> RevealTarget {
-        guard !ids.isEmpty else { return .directory(directory) }
-        let inSelection = !selection.isEmpty && ids.isSubset(of: selection)
-        let names = (inSelection ? selection : ids)
-            .sorted { $0.lexicographicallyPrecedes($1) }
-        return .entries(names.map { childPathData(of: directory, name: $0) })
-    }
-
-    /// Joins a directory path and a raw name into an absolute path, byte-accurate.
-    ///
-    /// The byte-honest twin of ``childPath(of:name:)``: the name never passes
-    /// through `String`, so a name that is not valid UTF-8 survives the join
-    /// intact instead of arriving at Finder with replacement characters.
-    nonisolated static func childPathData(of path: String, name: Data) -> Data {
-        var joined = Data(path == "/" ? "/".utf8 : "\(path)/".utf8)
-        joined.append(name)
-        return joined
-    }
-
-    /// Builds a file URL from raw path bytes without a lossy `String` hop.
-    ///
-    /// `URL(fileURLWithPath:)` takes a `String`, which cannot carry a non-UTF-8
-    /// name. `NSURL` is the initializer here, not its Swift `URL` twin: the
-    /// overlay's `URL(fileURLWithFileSystemRepresentation:…)` replaces bytes
-    /// that are not valid UTF-8 with U+FFFD, while `NSURL`'s carries them
-    /// through untouched (measured 2026-07-27). A NUL terminator is appended
-    /// because the initializer wants a C string — POSIX names cannot contain
-    /// NUL, so nothing is truncated.
-    nonisolated static func fileURL(forPathBytes bytes: Data) -> URL {
-        var cString = bytes.map { Int8(bitPattern: $0) }
-        cString.append(0)
-        return NSURL(
-            fileURLWithFileSystemRepresentation: cString,
-            isDirectory: false,
-            relativeTo: nil) as URL
-    }
-
-    /// Shows the right-clicked rows — or the pane's directory — in Finder.
-    ///
-    /// Local panes only: a remote path names nothing this Mac can open, and the
-    /// menu item is absent there. The resolution lives in
-    /// ``revealTargets(directory:selection:ids:)``; this hands the result to
-    /// `NSWorkspace`.
-    func revealInFinder(ids: Set<FileEntry.ID>) {
-        guard isLocalPane else { return }
-        switch Self.revealTargets(directory: state.path, selection: state.selection, ids: ids) {
-        case .entries(let paths):
-            NSWorkspace.shared.activateFileViewerSelecting(paths.map(Self.fileURL(forPathBytes:)))
-        case .directory(let path):
-            NSWorkspace.shared.open(URL(fileURLWithPath: path))
-        }
     }
 }
 

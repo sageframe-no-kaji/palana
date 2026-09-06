@@ -605,8 +605,9 @@ extension PaneView {
     func starContextItem(for ids: Set<FileEntry.ID>) -> some View {
         let directoryEntry = ids.first.flatMap { id in model.rows.first { $0.id == id } }
             .flatMap { $0.kind == .directory ? $0 : nil }
-        if let entry = directoryEntry {
-            let entryPath = PaneModel.childPath(of: model.state.path, name: entry.name)
+        // The byte boundary: no star item for a name no path carries exactly.
+        let starTarget = directoryEntry.flatMap { PaneModel.exactChildPath(of: model.state.path, entry: $0) }
+        if let entryPath = starTarget {
             let isStarred = favorites.isFavorited(host: model.state.host ?? "", path: entryPath)
             Button(isStarred ? "unstar this location" : "star this location    8") {
                 onStarEntry(entryPath)
