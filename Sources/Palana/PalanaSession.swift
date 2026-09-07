@@ -111,6 +111,9 @@ final class PalanaSession {
     /// The app-activation observer — the panes re-list when the app comes
     /// back to the front (`PaneModel+Refresh.swift`).
     private var activationObserver: NSObjectProtocol?
+    /// The mouse-down monitor beside the key monitor — a click off the
+    /// shell hands the keyboard to the panes (`PalanaSession+Shell.swift`).
+    var clickMonitor: Any?
 
     /// Builds the engine stack from the operator's ssh config, or from
     /// `PALANA_SSH_CONFIG` when the environment points elsewhere.
@@ -447,6 +450,7 @@ extension PalanaSession {
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
         }
+        installClickMonitor()
     }
 
     /// Routes one key event through the grammar.

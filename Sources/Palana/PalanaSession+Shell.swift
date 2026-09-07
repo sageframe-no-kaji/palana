@@ -8,6 +8,59 @@
 import AppKit
 import PalanaCore
 
+/// ⌘`'s one decision, as a pure function of the session's facts.
+///
+/// The hands session of 2026-09-07 found ⌘` dead whenever a plan or a
+/// result owned the panel — the round-9 'decline silently' rule. His
+/// call: ⌘` always wins. The rule is written here, apart from the
+/// session, so every combination of facts has a test.
+enum ShellTogglePolicy {
+    /// What ⌘` does.
+    enum Action: Equatable {
+        /// No pane points at a host — say so, change nothing.
+        case refuseNoHost
+        /// Shell mode on, panel up, keyboard to the shell. Nothing dismissed.
+        case summon
+        /// A settled operation owns the panel — dismiss it, then summon.
+        case dismissThenSummon
+        /// The shell is on screen with the keyboard — hand it to the panes.
+        case release
+    }
+
+    /// The facts the decision reads.
+    struct Situation: Equatable {
+        var shellMode: Bool
+        var shellFocused: Bool
+        var panelShowing: Bool
+        var phase: OperationModel.Phase
+        var hasHost: Bool
+    }
+
+    /// Phases with work in flight — ⌘` never dismisses these.
+    static func isRunning(_ phase: OperationModel.Phase) -> Bool {
+        phase == .gathering || phase == .enacting
+    }
+
+    /// Whether the panel shows the shell under these facts — the one law.
+    ///
+    /// The plan owns the panel whenever a settled operation exists (naming,
+    /// the plan, a result — until the operator dismisses it). Over a live
+    /// run the shell shows only while it holds the keyboard: the moment the
+    /// keyboard leaves (⌘`, a click, a failure) the transcript returns.
+    static func shellShows(_ situation: Situation) -> Bool {
+        guard situation.shellMode, situation.panelShowing, situation.hasHost else { return false }
+        if situation.phase == .idle { return true }
+        return isRunning(situation.phase) && situation.shellFocused
+    }
+
+    static func decide(_ situation: Situation) -> Action {
+        guard situation.hasHost else { return .refuseNoHost }
+        if shellShows(situation), situation.shellFocused { return .release }
+        if situation.phase == .idle || isRunning(situation.phase) { return .summon }
+        return .dismissThenSummon
+    }
+}
+
 extension PalanaSession {
     /// Wires the store's end-of-session signal — called once from init.
     ///
@@ -25,47 +78,55 @@ extension PalanaSession {
         }
     }
 
+    /// The facts ⌘` and the visibility law read, gathered once.
+    private var shellSituation: ShellTogglePolicy.Situation {
+        ShellTogglePolicy.Situation(
+            shellMode: shellMode,
+            shellFocused: shellFocused,
+            panelShowing: operation.panelShowing,
+            phase: operation.phase,
+            hasHost: shellHost != nil)
+    }
+
     /// Whether the panel currently SHOWS the shell.
     ///
-    /// The plan owns the panel whenever an operation exists (gather, plan,
-    /// run, result — until the operator dismisses it); the shell shows
-    /// only in the idle gaps. `shellMode` is the operator's standing
-    /// choice; this is that choice filtered through the panel's one law.
+    /// `shellMode` is the operator's standing choice; this is that choice
+    /// filtered through ``ShellTogglePolicy/shellShows(_:)``.
     var shellVisible: Bool {
-        shellMode && operation.phase == .idle && operation.panelShowing
+        ShellTogglePolicy.shellShows(shellSituation)
     }
 
     /// ⌘` — the keyboard toggle (his ask: bring the shell in and out of
     /// focus without tearing the view down).
     ///
-    /// Not in shell mode yet: enters it, shell shown and focused. In
-    /// shell mode with the keyboard: hands the keyboard back to the
-    /// panes, shell stays visible (dimmed edge). Panel hidden: re-summons
-    /// the shell whole. Plan owns the panel: declines silently (his call)
-    /// — the keyboard never goes to a shell that is not on screen.
+    /// Drives ``ShellTogglePolicy``. Shell on screen with the keyboard:
+    /// hands the keyboard back to the panes, shell stays visible (dimmed
+    /// edge) in the idle gap, the transcript returns over a live run. A
+    /// settled operation owning the panel: dismissed, the shell summoned
+    /// (supersedes round 9's silent decline — 'I should ALWAYS be able to
+    /// shift to the shell'). A live run: the shell shows over it, nothing
+    /// cancelled. No host: the note, nothing else.
     func toggleShellKeyboard() {
-        if !shellMode {
-            guard focusedPane.state.host != nil else {
-                operation.appendToolError("point a pane at a host first")
-                return
-            }
-            if !operation.panelShowing { operation.showPanel() }
-            shellMode = true
-            shellFocused = true
-            return
+        switch ShellTogglePolicy.decide(shellSituation) {
+        case .refuseNoHost:
+            operation.appendToolError("point a pane at a host first")
+        case .release:
+            shellFocused = false
+        case .dismissThenSummon:
+            // The settled phases reset to idle here; the policy never
+            // sends a running phase this way, so nothing live is stopped.
+            operation.dismissOrCancel()
+            summonShell()
+        case .summon:
+            summonShell()
         }
-        // The panel is hidden — ⌘` re-summons the shell whole rather than
-        // moving the keyboard onto something invisible (the round-9 trap:
-        // 'stuck somewhere I can't find my way out of').
-        if !operation.panelShowing {
-            operation.showPanel()
-            shellFocused = true
-            return
-        }
-        // The plan owns the panel — decline silently (his call, round 9).
-        // The keyboard never goes to a shell that is not on screen.
-        guard shellVisible else { return }
-        shellFocused.toggle()
+    }
+
+    /// Shell mode on, panel up, keyboard to the shell.
+    private func summonShell() {
+        if !operation.panelShowing { operation.showPanel() }
+        shellMode = true
+        shellFocused = true
     }
 
     /// Leaves shell mode entirely — the session-ended path.
@@ -95,10 +156,10 @@ extension PalanaSession {
 
     /// Pulls the keyboard off the shell on enactment failure.
     ///
-    /// The view side is free — a failing operation makes `phase` non-idle
-    /// and `shellVisible` false, so the transcript is already showing.
-    /// The keyboard must follow: the operator's next keys read the
-    /// failure, not a hidden PTY.
+    /// The view side follows: a failing operation makes `phase` settled
+    /// and the shell yields the panel, so the transcript is showing. The
+    /// keyboard must follow: the operator's next keys read the failure,
+    /// not a hidden PTY.
     func resurfaceTranscriptOnFailure() {
         shellFocused = false
     }
@@ -114,9 +175,57 @@ extension PalanaSession {
     func handleShellModeKey(_ event: NSEvent) -> Bool {
         guard let token = Grammar.token(for: event) else { return false }
         if token == "cmd-`" || token == "cmd-esc" {
-            shellFocused = false
+            toggleShellKeyboard()
             return true
         }
         return token.hasPrefix("cmd-") && handleGlobalChord(token)
+    }
+
+    /// Hands the keyboard to the panes when a click lands off the shell.
+    ///
+    /// The pane's own focus callback fires only when the Table's selection
+    /// changes — a click on the row already under the cursor, or on empty
+    /// pane ground, moved AppKit's first responder off the terminal while
+    /// `shellFocused` still said the shell had the keys, and the next verb
+    /// went nowhere (his report: 'easy to get stuck right now'). The
+    /// session reads the click before AppKit dispatches it and settles
+    /// the flag: the click is what hands the keyboard back.
+    func releaseShellKeyboardIfClickedAway(_ event: NSEvent) {
+        guard shellVisible, shellFocused, let host = shellHost, terminalSessions.hasSession(for: host) else {
+            return
+        }
+        // Guarded by hasSession above — this never starts a session.
+        let terminal = terminalSessions.session(for: host, startingIn: shellDirectory)
+        guard let window = event.window, window === terminal.window else { return }
+        let hit = window.contentView?.hitTest(event.locationInWindow)
+        if !Self.clickLandsOnShell(hit, terminal: terminal) {
+            shellFocused = false
+        }
+    }
+
+    /// Whether `hit` is the terminal view or sits inside it.
+    static func clickLandsOnShell(_ hit: NSView?, terminal: NSView) -> Bool {
+        var view = hit
+        while let current = view {
+            if current === terminal { return true }
+            view = current.superview
+        }
+        return false
+    }
+
+    /// Installs the mouse-down monitor beside the key monitor.
+    ///
+    /// ho-11's keyboard flag must follow the mouse: a click anywhere but
+    /// the shell hands the keyboard to the panes, so the next verb key
+    /// reaches the pane's grammar instead of a PTY the operator has
+    /// visibly left (hands session 2026-09-07). The event is never
+    /// consumed — AppKit dispatches the click as it always did.
+    func installClickMonitor() {
+        guard clickMonitor == nil else { return }
+        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
+            MainActor.assumeIsolated { self?.releaseShellKeyboardIfClickedAway(event) }
+            return event
+        }
     }
 }

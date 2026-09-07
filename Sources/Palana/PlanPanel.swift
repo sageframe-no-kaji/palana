@@ -166,23 +166,6 @@ struct PlanPanel: View {
         }
     }
 
-    /// The phase-specific hint text rendered left of the verb rail's esc chip.
-    ///
-    /// Returns nil when no per-phase prefix is needed — finished/failed/
-    /// cancelled have no extra context worth naming there.
-    private var verbRailHintText: String? {
-        switch operation.phase {
-        case .idle: return nil
-        case .naming: return "esc cancel"
-        case .gathering: return "⌃c cancels"
-        case .ready: return "a new verb rebuilds the plan"
-        case .enacting: return "keeps running · ⌃c cancels"
-        case .finished, .failed, .cancelled:
-            // A shell waits underneath — the rail names the road back.
-            return session.shellMode ? "esc hands the panel back to the shell" : nil
-        }
-    }
-
     /// Whether the verb chip rail is interactive (full opacity, clickable).
     ///
     /// Enabled in the resting and terminal phases — idle, ready, finished,
@@ -213,7 +196,7 @@ struct PlanPanel: View {
             if session.shellVisible, session.shellFocused {
                 // 'esc hides' would be a lie here — esc types into the
                 // shell. The rail yields to the shell's one sentence.
-                Text("esc types into the shell · ⌘` hands the keyboard back")
+                Text(shellKeyboardHint)
                     .font(Theme.font(12))
                     .foregroundStyle(Theme.inkFaint)
             } else {
@@ -395,5 +378,43 @@ struct PlanPanel: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+    }
+}
+
+// MARK: - Hint text
+
+extension PlanPanel {
+    /// The phase-specific hint text rendered left of the verb rail's esc chip.
+    ///
+    /// Returns nil when no per-phase prefix is needed — finished/failed/
+    /// cancelled have no extra context worth naming there. With a shell
+    /// waiting underneath, every phase the plan owns names the road back:
+    /// ⌘` reaches the shell from any of them (hands session 2026-09-07).
+    private var verbRailHintText: String? {
+        let base: String?
+        switch operation.phase {
+        case .idle: return nil
+        case .naming: return "esc cancel"
+        case .gathering: base = "⌃c cancels"
+        case .ready: base = "a new verb rebuilds the plan"
+        case .enacting: base = "keeps running · ⌃c cancels"
+        case .finished, .failed, .cancelled:
+            base = session.shellMode ? "esc hands the panel back to the shell" : nil
+        }
+        guard session.shellMode else { return base }
+        return [base, "⌘` shell"].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// The one sentence shown while the shell holds the keyboard.
+    ///
+    /// Over a live run it names the work underneath and the way back to
+    /// it — ⌘`, since Esc types into the shell (vim needs it).
+    private var shellKeyboardHint: String {
+        guard ShellTogglePolicy.isRunning(operation.phase) else {
+            return "esc types into the shell · ⌘` hands the keyboard back"
+        }
+        let verb = operation.requested.map { "\($0.rawValue) " } ?? ""
+        let doing = operation.phase == .enacting ? "running" : "checking"
+        return "\(verb)\(doing) underneath · ⌘` returns to it · esc types into the shell"
     }
 }
