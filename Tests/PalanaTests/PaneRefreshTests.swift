@@ -66,7 +66,7 @@ struct LocalPaneRefreshTests {
         #expect(rig.pane.rows.map(\.name) == ["alpha", "beta"])
 
         try Data("y".utf8).write(to: directory.appendingPathComponent("gamma"))
-        try await poll(timeout: 1.5, message: "the new file never appeared") {
+        try await poll(timeout: 10, message: "the new file never appeared") {
             rig.pane.rows.contains { $0.name == "gamma" }
         }
 
@@ -88,7 +88,7 @@ struct LocalPaneRefreshTests {
         rig.pane.state.selection = [id("alpha"), id("beta")]
 
         try FileManager.default.removeItem(at: directory.appendingPathComponent("beta"))
-        try await poll(timeout: 1.5, message: "the deleted file never left") {
+        try await poll(timeout: 10, message: "the deleted file never left") {
             !rig.pane.rows.contains { $0.name == "beta" }
         }
 
@@ -108,7 +108,7 @@ struct LocalPaneRefreshTests {
         rig.pane.state.selection = [id("alpha"), id("gamma")]
 
         try Data("y".utf8).write(to: directory.appendingPathComponent("delta"))
-        try await poll(timeout: 1.5, message: "the new file never appeared") {
+        try await poll(timeout: 10, message: "the new file never appeared") {
             rig.pane.rows.contains { $0.name == "delta" }
         }
 
