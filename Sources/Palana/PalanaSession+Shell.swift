@@ -84,6 +84,15 @@ extension PalanaSession {
         focusedPane.state.host
     }
 
+    /// The directory a NEW session for `shellHost` opens in.
+    ///
+    /// The focused pane's resolved absolute path (his ask: the terminal
+    /// opens where the pane stands, not in the remote home). Read only
+    /// at first summon; an existing session is never moved.
+    var shellDirectory: String {
+        focusedPane.state.path
+    }
+
     /// Pulls the keyboard off the shell on enactment failure.
     ///
     /// The view side is free — a failing operation makes `phase` non-idle

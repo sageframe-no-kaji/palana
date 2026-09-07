@@ -56,7 +56,7 @@ struct TerminalSessionStoreTests {
     @Test("the local host spawns the operator's login shell")
     func localSessionSpawns() async throws {
         let store = TerminalSessionStore()
-        let view = store.session(for: PalanaCore.localHostName)
+        let view = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         let text = await Self.waitForBuffer(view) { !$0.isEmpty }
         #expect(view.process.running, "the login shell should be alive moments after spawn")
         #expect(!text.isEmpty, "a freshly spawned shell prints at least a prompt")
@@ -66,7 +66,7 @@ struct TerminalSessionStoreTests {
     @Test("a typed command's marker round-trips through the emulator's buffer")
     func bytesRoundTrip() async throws {
         let store = TerminalSessionStore()
-        let view = store.session(for: PalanaCore.localHostName)
+        let view = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         // Wait for the shell to be ready for input before typing — an
         // immediate write can land before the shell has execve'd.
         _ = await Self.waitForBuffer(view) { !$0.isEmpty }
@@ -82,8 +82,8 @@ struct TerminalSessionStoreTests {
     @Test("sessions are isolated per host — the store never hands back a stranger's view")
     func perHostIsolation() {
         let store = TerminalSessionStore()
-        let local = store.session(for: PalanaCore.localHostName)
-        let localAgain = store.session(for: PalanaCore.localHostName)
+        let local = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
+        let localAgain = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         #expect(local === localAgain, "re-summoning the same host returns the same session")
         store.teardownAll()
     }
@@ -92,7 +92,7 @@ struct TerminalSessionStoreTests {
     func hasSessionTracksLazyCreation() {
         let store = TerminalSessionStore()
         #expect(!store.hasSession(for: PalanaCore.localHostName))
-        _ = store.session(for: PalanaCore.localHostName)
+        _ = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         #expect(store.hasSession(for: PalanaCore.localHostName))
         store.teardownAll()
     }
@@ -100,7 +100,7 @@ struct TerminalSessionStoreTests {
     @Test("teardownAll terminates the running process")
     func teardownKillsProcess() async throws {
         let store = TerminalSessionStore()
-        let view = store.session(for: PalanaCore.localHostName)
+        let view = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         _ = await Self.waitForBuffer(view) { !$0.isEmpty }
         #expect(view.process.running)
         store.teardownAll()
@@ -112,12 +112,46 @@ struct TerminalSessionStoreTests {
         #expect(!view.process.running, "the child process should exit after teardown")
     }
 
+    @Test("a new local session's shell stands in the summoning pane's directory")
+    func localSessionOpensInPaneDirectory() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("palana-cwd-\(UUID().uuidString.prefix(8))", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = TerminalSessionStore()
+        let view = store.session(for: PalanaCore.localHostName, startingIn: directory.path)
+        _ = await Self.waitForBuffer(view) { !$0.isEmpty }
+        view.typeLine("pwd")
+        let resolved = directory.resolvingSymlinksInPath().path
+        let text = await Self.waitForBuffer(view, timeout: .seconds(8)) {
+            $0.contains(resolved) || $0.contains(directory.path)
+        }
+        #expect(
+            text.contains(resolved) || text.contains(directory.path),
+            "pwd should print the pane's directory, not the app's cwd")
+        #expect(store.launches[PalanaCore.localHostName]?.currentDirectory == directory.path)
+        store.teardownAll()
+    }
+
+    @Test("re-summoning an existing host from another directory does not build a new launch")
+    func resummonKeepsTheFirstLaunch() {
+        let store = TerminalSessionStore()
+        let first = store.session(for: PalanaCore.localHostName, startingIn: "/private/tmp")
+        let firstLaunch = store.launches[PalanaCore.localHostName]
+        let again = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
+        #expect(first === again, "the same session comes back — nothing is typed into a running shell")
+        #expect(store.launches[PalanaCore.localHostName] == firstLaunch)
+        #expect(store.launches[PalanaCore.localHostName]?.currentDirectory == "/private/tmp")
+        store.teardownAll()
+        #expect(store.launches.isEmpty, "teardown drops the launch record with the session")
+    }
+
     @Test("a fresh store re-creates a session for a host after teardown")
     func freshSessionAfterTeardown() {
         let store = TerminalSessionStore()
-        let first = store.session(for: PalanaCore.localHostName)
+        let first = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         store.teardownAll()
-        let second = store.session(for: PalanaCore.localHostName)
+        let second = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         #expect(first !== second, "teardown drops the stored view — the next summon builds fresh")
         store.teardownAll()
     }

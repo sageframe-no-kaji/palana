@@ -42,7 +42,7 @@ struct PlanPanel: View {
                 // engagement line names who has the keyboard, the same
                 // vocabulary the strip's edge speaks; ⌘` flips it.
                 TerminalHostView(
-                    view: session.terminalSessions.session(for: host),
+                    view: session.terminalSessions.session(for: host, startingIn: session.shellDirectory),
                     fontSize: 13 * session.fontScale,
                     focused: session.shellFocused
                 )
