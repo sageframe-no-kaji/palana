@@ -34,6 +34,31 @@ struct RGBA: Sendable, Equatable {
     var nsColor: NSColor {
         NSColor(srgbRed: red, green: green, blue: blue, alpha: alpha)
     }
+
+    /// This color laid over an opaque `ground` — plain source-over, the same
+    /// arithmetic the compositor does when a translucent wash sits on a pane.
+    ///
+    /// The pure seam for the pane-shade tokens: the tests read the composite
+    /// through here so "the inactive pane is darker" is a checked number, not
+    /// a screenshot.
+    func over(_ ground: Self) -> Self {
+        Self(
+            red: red * alpha + ground.red * (1 - alpha),
+            green: green * alpha + ground.green * (1 - alpha),
+            blue: blue * alpha + ground.blue * (1 - alpha),
+            alpha: 1)
+    }
+
+    /// Relative luminance (WCAG 2, sRGB linearised) — 0 is black, 1 is white.
+    ///
+    /// The one number "darker than" is measured on; alpha is ignored, so
+    /// composite first (`over(_:)`) when the color is a wash.
+    var luminance: Double {
+        func linear(_ channel: Double) -> Double {
+            channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
+    }
 }
 
 /// A token's light and dark values, and the machinery to resolve between them.
@@ -101,6 +126,15 @@ enum Theme {
     /// The plugin category tint — burnt umber beside the moss accent.
     static let plugin: Color = Token.plugin.color
 
+    /// The wash over the pane the keyboard is not in — a translucent shade
+    /// that darkens header, rows, and foot together so the live pane is the
+    /// brighter of the two.
+    static let paneShade: Color = Token.paneShade.color
+
+    /// The hairline around the pane the keyboard is in — the accent at low
+    /// alpha, one point, drawn inside the pane's bounds.
+    static let paneEdge: Color = Token.paneEdge.color
+
     /// The light/dark values per token — the pure, unit-tested seam.
     ///
     /// Light is design system §2 (authoritative); dark is the Sharibako port
@@ -140,6 +174,27 @@ enum Theme {
         static let plugin = Palette(
             light: RGBA(red: 0.58, green: 0.36, blue: 0.18, alpha: 1),
             dark: RGBA(red: 0.75, green: 0.54, blue: 0.32, alpha: 1))
+
+        /// The inactive pane's shade.
+        ///
+        /// Hands session, 2026-09-07: "make the non active pane darker
+        /// still". Light is the ink hue at 0.09 — double the 0.045 wash it
+        /// replaces. Dark is black at 0.30: the
+        /// ink there is off-white, and washing with it *lightened* the
+        /// inactive pane; a black wash scales the warm ground toward black
+        /// and keeps its hue, so the inactive pane recedes in both
+        /// appearances. No new hue — the composite is pinned in the tests.
+        static let paneShade = Palette(
+            light: RGBA(red: 0.1137, green: 0.1059, blue: 0.0941, alpha: 0.09),
+            dark: RGBA(red: 0, green: 0, blue: 0, alpha: 0.30))
+
+        /// The active pane's hairline.
+        ///
+        /// The accent's own RGB at 0.40 in both appearances — low enough to
+        /// read as a line, not a frame.
+        static let paneEdge = Palette(
+            light: RGBA(red: 0.3529, green: 0.4588, blue: 0.3216, alpha: 0.40),
+            dark: RGBA(red: 0.4941, green: 0.6078, blue: 0.4471, alpha: 0.40))
     }
 }
 

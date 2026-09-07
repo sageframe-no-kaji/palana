@@ -4,7 +4,8 @@
 // states. The Table's selection binding is the cursor; the selection
 // set renders as accent marks. The register is the notebook: no
 // chrome, one accent, directories by weight and a trailing slash. The
-// unfocused pane sits a shade dimmer — the eye finds the live one.
+// unfocused pane sits under a shade and the focused one wears a hairline
+// of the accent — the eye finds the live one.
 
 import AppKit
 import PalanaCore
@@ -109,9 +110,16 @@ struct PaneView: View {
                 Theme.plugin.opacity(0.12)
             }
         }
+        // Focus, drawn twice over: the live pane wears a one-point accent
+        // hairline inside its bounds (nothing shifts); the other pane sits
+        // under the shade. Both follow `isFocused` — no state of their own.
         .overlay {
-            if !isFocused {
-                Theme.ink.opacity(0.045)
+            if isFocused {
+                Rectangle()
+                    .strokeBorder(Theme.paneEdge, lineWidth: 1)
+                    .allowsHitTesting(false)
+            } else {
+                Theme.paneShade
                     .allowsHitTesting(false)
             }
         }

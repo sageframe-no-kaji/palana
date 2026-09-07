@@ -86,11 +86,84 @@ struct ThemePaletteTests {
         #expect(moss.green > moss.red)
     }
 
+    @Test("over — source-over compositing on an opaque ground")
+    func overComposites() {
+        let ground = RGBA(red: 0.5, green: 0.5, blue: 0.5, alpha: 1)
+        let opaque = RGBA(red: 0.1, green: 0.2, blue: 0.3, alpha: 1)
+        let clear = RGBA(red: 0.1, green: 0.2, blue: 0.3, alpha: 0)
+        let half = RGBA(red: 0, green: 0, blue: 0, alpha: 0.5)
+        #expect(opaque.over(ground) == opaque)
+        #expect(clear.over(ground) == ground)
+        #expect(half.over(ground) == RGBA(red: 0.25, green: 0.25, blue: 0.25, alpha: 1))
+    }
+
+    @Test("luminance — black is 0, white is 1, and the order holds between")
+    func luminanceOrders() {
+        let black = RGBA(red: 0, green: 0, blue: 0, alpha: 1)
+        let white = RGBA(red: 1, green: 1, blue: 1, alpha: 1)
+        let mid = RGBA(red: 0.5, green: 0.5, blue: 0.5, alpha: 1)
+        #expect(black.luminance == 0)
+        #expect(abs(white.luminance - 1) < 1e-9)
+        #expect(black.luminance < mid.luminance && mid.luminance < white.luminance)
+        // The dark ground is darker than the light one — the flip is a flip.
+        #expect(Theme.Token.ground.dark.luminance < Theme.Token.ground.light.luminance)
+    }
+
+    @Test("paneShade — ink at 0.09 light, black at 0.30 dark")
+    func paneShade() {
+        #expect(
+            Theme.Token.paneShade.light == RGBA(red: 0.1137, green: 0.1059, blue: 0.0941, alpha: 0.09))
+        #expect(Theme.Token.paneShade.dark == RGBA(red: 0, green: 0, blue: 0, alpha: 0.30))
+    }
+
+    @Test("the inactive pane's ground is darker than the active pane's, both appearances")
+    func inactiveGroundIsDarker() {
+        for isDark in [false, true] {
+            let ground = Theme.Token.ground.resolved(dark: isDark)
+            let shaded = Theme.Token.paneShade.resolved(dark: isDark).over(ground)
+            #expect(shaded.luminance < ground.luminance, "dark: \(isDark)")
+            // The header and foot band darkens with the rows — the shade covers
+            // the whole pane, so the band must recede too.
+            let band = Theme.Token.groundDeep.resolved(dark: isDark)
+            let shadedBand = Theme.Token.paneShade.resolved(dark: isDark).over(band)
+            #expect(shadedBand.luminance < band.luminance, "dark: \(isDark)")
+        }
+    }
+
+    @Test("the shade is one clear step past the 0.045 ink wash it replaces")
+    func shadeStepsPastTheOldWash() {
+        // Light: the old wash was the ink at 0.045; the new one must sit below it.
+        let lightGround = Theme.Token.ground.light
+        let oldWash = RGBA(red: 0.1137, green: 0.1059, blue: 0.0941, alpha: 0.045).over(lightGround)
+        let newWash = Theme.Token.paneShade.light.over(lightGround)
+        #expect(newWash.luminance < oldWash.luminance)
+        // Dark: the old wash used the dark ink (off-white) and LIGHTENED the
+        // inactive pane; the new one must land on the other side of the ground.
+        let darkGround = Theme.Token.ground.dark
+        let oldDarkWash = Theme.Token.ink.dark
+        let oldDark = RGBA(
+            red: oldDarkWash.red, green: oldDarkWash.green, blue: oldDarkWash.blue, alpha: 0.045
+        ).over(darkGround)
+        #expect(oldDark.luminance > darkGround.luminance)
+        #expect(Theme.Token.paneShade.dark.over(darkGround).luminance < darkGround.luminance)
+    }
+
+    @Test("paneEdge — the accent's own RGB at 0.40, a hairline not a frame")
+    func paneEdge() {
+        for isDark in [false, true] {
+            let edge = Theme.Token.paneEdge.resolved(dark: isDark)
+            let accent = Theme.Token.accent.resolved(dark: isDark)
+            #expect(edge.red == accent.red && edge.green == accent.green && edge.blue == accent.blue)
+            #expect(edge.alpha == 0.40)
+        }
+    }
+
     @Test("every token's dark differs from its light — the flip is real")
     func darkAlwaysDiffers() {
         let tokens = [
             Theme.Token.ground, Theme.Token.groundDeep, Theme.Token.ink, Theme.Token.inkFaint,
             Theme.Token.accent, Theme.Token.panelGround, Theme.Token.alarm, Theme.Token.plugin,
+            Theme.Token.paneShade, Theme.Token.paneEdge,
         ]
         for token in tokens {
             #expect(token.light != token.dark)
