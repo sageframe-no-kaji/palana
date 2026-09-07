@@ -20,6 +20,8 @@ struct PaneView: View {
     let isFocused: Bool
     /// The Field's hosts, for the header menu.
     let hosts: [String]
+    /// What the header menu says under its hosts when the config is not whole.
+    let hostMenuDiagnostic: HostMenuDiagnostic
     /// Called when a click lands here — focus follows.
     let onFocus: () -> Void
     /// Opens `~/.ssh/config` — the only way hosts are added.
@@ -39,8 +41,6 @@ struct PaneView: View {
     let onToggleFavorite: () -> Void
     /// A favorite was chosen from the host menu — point the pane.
     let onChooseFavorite: (HostMenuButton.FavoriteEntry) -> Void
-    /// Flip a favorite's scope by id.
-    let onToggleFavoriteScope: (String) -> Void
     /// Star or unstar a directory entry by its full path on this pane's host.
     let onStarEntry: (String) -> Void
     /// Called when a ``DraggedSelection`` is dropped onto this pane.
@@ -303,13 +303,13 @@ struct PaneView: View {
     private var hostMenu: some View {
         HostMenuButton(
             hosts: hosts,
+            diagnostic: hostMenuDiagnostic,
             onChoose: { model.pointAddress("\($0):~") },
             onType: { beginAddressEditing() },
             onEditConfig: onEditConfig,
             onReload: onReloadHosts,
             favorites: favoriteEntries(for: model.state.host),
-            onChooseFavorite: onChooseFavorite,
-            onToggleFavoriteScope: onToggleFavoriteScope
+            onChooseFavorite: onChooseFavorite
         )
         .fixedSize()
     }
@@ -338,8 +338,7 @@ struct PaneView: View {
                     host: fav.host,
                     path: fav.path,
                     label: fav.label,
-                    scope: fav.scope,
-                    isGlobal: true))
+                    scope: fav.scope))
         }
         if let host {
             for fav in favorites.hostBound(for: host) {
@@ -349,8 +348,7 @@ struct PaneView: View {
                         host: fav.host,
                         path: fav.path,
                         label: fav.label,
-                        scope: fav.scope,
-                        isGlobal: false))
+                        scope: fav.scope))
             }
         }
         return entries

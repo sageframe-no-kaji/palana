@@ -190,6 +190,30 @@ struct SettingsModelConfigTransactionTests {
         #expect(try sandbox.backups().isEmpty)
     }
 
+    @Test("the host menu diagnostic carries the typed read failure and the refused count")
+    func hostMenuDiagnostic() throws {
+        // A directory where the file should be — the read fails, the path exists.
+        let unreadable = try Sandbox(configBytes: nil)
+        defer { unreadable.tearDown() }
+        try FileManager.default.createDirectory(at: unreadable.configURL, withIntermediateDirectories: true)
+        let failing = unreadable.model()
+        guard case .unreadable(let path, _) = failing.hostMenuDiagnostic.readFailure else {
+            Issue.record("expected a typed read failure, got \(String(describing: failing.configReadError))")
+            return
+        }
+        #expect(path == unreadable.configURL.path)
+        #expect(failing.hostMenuDiagnostic.refusedAliasCount == 0)
+
+        let refused = try Sandbox(configBytes: Data("Host local\nHost -x\nHost jodo\n".utf8))
+        defer { refused.tearDown() }
+        let refusing = refused.model()
+        #expect(refusing.hostMenuDiagnostic == HostMenuDiagnostic(readFailure: nil, refusedAliasCount: 2))
+
+        let clean = try Sandbox(configBytes: original)
+        defer { clean.tearDown() }
+        #expect(clean.model().hostMenuDiagnostic == .clear)
+    }
+
     @Test("removing one alias from a shared line through the model keeps the other")
     func sharedAliasThroughModel() throws {
         let sandbox = try Sandbox(configBytes: Data("Host jodo alt\n    HostName x\n".utf8))

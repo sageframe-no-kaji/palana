@@ -210,6 +210,7 @@ struct SurfaceView: View {
             model: model,
             isFocused: session.focusedSide == side,
             hosts: session.hosts,
+            hostMenuDiagnostic: session.settings.hostMenuDiagnostic,
             onFocus: { session.focusPane(side) },
             onEditConfig: { session.editSSHConfig() },
             onReloadHosts: { session.reloadHosts() },
@@ -225,11 +226,6 @@ struct SurfaceView: View {
                 let fav = Favorite(
                     host: entry.host, path: entry.path, scope: entry.scope, label: entry.label)
                 session.chooseFavorite(fav, for: side)
-            },
-            onToggleFavoriteScope: { id in
-                let current = session.favorites.all.first { $0.id == id }
-                let newScope: FavoriteScope = current?.scope == .global ? .host : .global
-                session.promoteFavorite(id: id, to: newScope)
             },
             onStarEntry: { path in
                 guard let host = model.state.host else { return }

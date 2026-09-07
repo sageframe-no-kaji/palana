@@ -3,15 +3,66 @@
 // no. This button computes the menu's size first and pops it with its
 // right edge pinned to the button's right, so the list unfolds
 // leftward and stays inside the pane.
+//
+// The menu's lines are composed by a pure function (`lines(...)`) so
+// the AppKit rendering is a straight walk over values a test can hold.
+// An unreadable config is not an empty one: when the file could not be
+// read the menu says so, right under the host list, in one line.
 
 import AppKit
 import PalanaCore
 import SwiftUI
 
+/// What the host menu says under its list when the config is not whole.
+///
+/// Produced by `SettingsModel`, fed to the menu by the pane. `readFailure`
+/// is the typed reason the file could not be read or decoded;
+/// `refusedAliasCount` is how many `Host` tokens the parser refused
+/// (the reserved `local`, tokens outside the alias grammar) — the
+/// settings card names each one.
+struct HostMenuDiagnostic: Equatable, Sendable {
+    /// Why the config could not be read, `nil` when it was.
+    let readFailure: SSHConfigReadError?
+    /// How many aliases the parser refused; the settings card lists them.
+    let refusedAliasCount: Int
+
+    /// A readable config with nothing refused — the menu shows no notice.
+    static let clear = Self(readFailure: nil, refusedAliasCount: 0)
+}
+
+/// One line of the menu, before AppKit sees it.
+struct HostMenuLine: Equatable, Sendable {
+    /// What the line does when chosen — or that it does nothing.
+    enum Kind: Equatable, Sendable {
+        /// Jump to a host's home.
+        case host(String)
+        /// A ruled gap.
+        case separator
+        /// The "favorites" caption; inert.
+        case favoritesHeader
+        /// Jump to a favorite by id.
+        case favorite(id: String)
+        /// A diagnostic; inert, read only.
+        case notice
+        /// Open the typed-address field.
+        case typeAddress
+        /// Open the config in its editor.
+        case editConfig
+        /// Re-read the config.
+        case reload
+    }
+
+    let kind: Kind
+    let title: String
+    let isEnabled: Bool
+}
+
 /// The ▾ button and its right-pinned menu.
 struct HostMenuButton: NSViewRepresentable {
     /// The Field's hosts.
     let hosts: [String]
+    /// What to say under the host list when the config is not whole.
+    let diagnostic: HostMenuDiagnostic
     /// A host was chosen — go to its home.
     let onChoose: (String) -> Void
     /// The typed-address field was asked for.
@@ -26,20 +77,78 @@ struct HostMenuButton: NSViewRepresentable {
     let favorites: [FavoriteEntry]
     /// A favorite was chosen — point the pane.
     let onChooseFavorite: (FavoriteEntry) -> Void
-    /// Toggle a favorite's scope (promote to global / move to this host).
-    let onToggleFavoriteScope: (String) -> Void
 
-    /// A flat entry the menu renders — carries id, display title, and scope for the toggle label.
-    struct FavoriteEntry: Sendable {
+    /// A flat entry the menu renders — carries id, display title, and scope.
+    ///
+    /// The scope rides along so choosing the favorite can rebuild it; the
+    /// menu never offers to change it — that toggle lives in the
+    /// favorites panel, where there is room to read it.
+    struct FavoriteEntry: Equatable, Sendable {
         let id: String
         let host: String
         let path: String
         let label: String?
         let scope: FavoriteScope
-        let isGlobal: Bool
 
         var displayTitle: String { label ?? "\(host):\(path)" }
-        var scopeToggleTitle: String { isGlobal ? "move to this host" : "promote to global" }
+    }
+
+    /// Composes the menu's lines in order: hosts, then any notice, then
+    /// favorites, then the ways in.
+    ///
+    /// The notice lines sit right under the host list so a short list is
+    /// explained where it is read. A refused-alias count points at the
+    /// settings card, which names each token and why. Pure, so it is
+    /// `nonisolated` — the view's main-actor isolation is not needed here.
+    nonisolated static func lines(
+        hosts: [String],
+        favorites: [FavoriteEntry],
+        diagnostic: HostMenuDiagnostic
+    ) -> [HostMenuLine] {
+        var lines: [HostMenuLine] = []
+        for host in hosts {
+            lines.append(HostMenuLine(kind: .host(host), title: "\(host):~", isEnabled: true))
+        }
+        if let failure = diagnostic.readFailure {
+            lines.append(HostMenuLine(kind: .notice, title: readFailureTitle(failure), isEnabled: false))
+        }
+        if diagnostic.refusedAliasCount > 0 {
+            let count = diagnostic.refusedAliasCount
+            let noun = count == 1 ? "host" : "hosts"
+            lines.append(
+                HostMenuLine(kind: .notice, title: "\(count) \(noun) not listed — see settings", isEnabled: false))
+        }
+        if !favorites.isEmpty {
+            lines.append(HostMenuLine(kind: .separator, title: "", isEnabled: false))
+            lines.append(HostMenuLine(kind: .favoritesHeader, title: "favorites", isEnabled: false))
+            for fav in favorites {
+                lines.append(HostMenuLine(kind: .favorite(id: fav.id), title: fav.displayTitle, isEnabled: true))
+            }
+        }
+        lines.append(HostMenuLine(kind: .separator, title: "", isEnabled: false))
+        lines.append(HostMenuLine(kind: .typeAddress, title: "type an address…", isEnabled: true))
+        lines.append(HostMenuLine(kind: .editConfig, title: "edit ~/.ssh/config…", isEnabled: true))
+        lines.append(HostMenuLine(kind: .reload, title: "reload hosts", isEnabled: true))
+        return lines
+    }
+
+    /// One line naming the file and the system's word on why it did not read.
+    ///
+    /// The path is shown with `~` for the home directory, the way the
+    /// operator wrote it; a trailing full stop on the system's reason is
+    /// dropped so the line ends where the menu does.
+    nonisolated static func readFailureTitle(_ failure: SSHConfigReadError) -> String {
+        switch failure {
+        case .unreadable(let path, let reason):
+            let trimmed = reason.hasSuffix(".") ? String(reason.dropLast()) : reason
+            return "\(abbreviated(path)) could not be read — \(trimmed)"
+        case .notUTF8(let path):
+            return "\(abbreviated(path)) could not be read — not UTF-8 text"
+        }
+    }
+
+    nonisolated private static func abbreviated(_ path: String) -> String {
+        (path as NSString).abbreviatingWithTildeInPath
     }
 
     func makeCoordinator() -> Coordinator {
@@ -74,54 +183,39 @@ struct HostMenuButton: NSViewRepresentable {
         @objc
         func pop(_ sender: NSButton) {
             let menu = NSMenu()
-
-            // Hosts section.
-            for host in parent.hosts {
-                let item = NSMenuItem(
-                    title: "\(host):~", action: #selector(choose(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = host
-                menu.addItem(item)
+            let lines = HostMenuButton.lines(
+                hosts: parent.hosts, favorites: parent.favorites, diagnostic: parent.diagnostic)
+            for line in lines {
+                menu.addItem(item(for: line))
             }
-
-            // Favorites section — global always, host-bound for this pane's host.
-            if !parent.favorites.isEmpty {
-                menu.addItem(.separator())
-                let header = NSMenuItem(title: "favorites", action: nil, keyEquivalent: "")
-                header.isEnabled = false
-                menu.addItem(header)
-                for fav in parent.favorites {
-                    addFavoriteItems(fav, to: menu)
-                }
-            }
-
-            menu.addItem(.separator())
-            menu.addItem(action("type an address…", #selector(typeAddress)))
-            menu.addItem(action("edit ~/.ssh/config…", #selector(editConfig)))
-            menu.addItem(action("reload hosts", #selector(reload)))
             let origin = NSPoint(x: sender.bounds.maxX - menu.size.width, y: sender.bounds.maxY + 6)
             menu.popUp(positioning: nil, at: origin, in: sender)
         }
 
-        /// Builds the jump item and a scope-toggle item for one favorite.
-        private func addFavoriteItems(_ fav: FavoriteEntry, to menu: NSMenu) {
-            // Jump item.
-            let item = NSMenuItem(
-                title: fav.displayTitle,
-                action: #selector(chooseFavorite(_:)),
-                keyEquivalent: "")
-            item.target = self
-            item.representedObject = fav
-            menu.addItem(item)
-
-            // Scope-toggle item — indented under the jump item.
-            let toggle = NSMenuItem(
-                title: "  \(fav.scopeToggleTitle)",
-                action: #selector(toggleFavoriteScope(_:)),
-                keyEquivalent: "")
-            toggle.target = self
-            toggle.representedObject = fav.id
-            menu.addItem(toggle)
+        /// Renders one composed line as an AppKit item.
+        private func item(for line: HostMenuLine) -> NSMenuItem {
+            switch line.kind {
+            case .separator:
+                return .separator()
+            case .host(let host):
+                let item = action(line.title, #selector(choose(_:)))
+                item.representedObject = host
+                return item
+            case .favorite(let id):
+                let item = action(line.title, #selector(chooseFavorite(_:)))
+                item.representedObject = id
+                return item
+            case .favoritesHeader, .notice:
+                let item = NSMenuItem(title: line.title, action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                return item
+            case .typeAddress:
+                return action(line.title, #selector(typeAddress))
+            case .editConfig:
+                return action(line.title, #selector(editConfig))
+            case .reload:
+                return action(line.title, #selector(reload))
+            }
         }
 
         private func action(_ title: String, _ selector: Selector) -> NSMenuItem {
@@ -139,16 +233,10 @@ struct HostMenuButton: NSViewRepresentable {
 
         @objc
         private func chooseFavorite(_ item: NSMenuItem) {
-            if let fav = item.representedObject as? FavoriteEntry {
-                parent.onChooseFavorite(fav)
-            }
-        }
-
-        @objc
-        private func toggleFavoriteScope(_ item: NSMenuItem) {
-            if let id = item.representedObject as? String {
-                parent.onToggleFavoriteScope(id)
-            }
+            guard let id = item.representedObject as? String,
+                let fav = parent.favorites.first(where: { $0.id == id })
+            else { return }
+            parent.onChooseFavorite(fav)
         }
 
         @objc

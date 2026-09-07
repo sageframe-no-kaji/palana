@@ -135,15 +135,13 @@ struct FavoriteLabelTests {
             host: "koan",
             path: "/tank/media",
             label: "media pool",
-            scope: .host,
-            isGlobal: false)
+            scope: .host)
         let bare = HostMenuButton.FavoriteEntry(
             id: "koan:/tank/media",
             host: "koan",
             path: "/tank/media",
             label: nil,
-            scope: .host,
-            isGlobal: false)
+            scope: .host)
         #expect(labelled.displayTitle == "media pool")
         #expect(bare.displayTitle == "koan:/tank/media")
     }

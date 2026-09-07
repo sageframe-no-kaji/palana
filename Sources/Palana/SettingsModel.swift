@@ -220,6 +220,23 @@ final class SettingsModel {
         return nil
     }
 
+    /// The typed reason the config could not be read, or `nil` when it was.
+    var configReadError: SSHConfigReadError? {
+        if case .unreadable(let error) = configState { return error }
+        return nil
+    }
+
+    /// What the pane's host menu says under its list.
+    ///
+    /// The typed read failure and the count of refused aliases — the same
+    /// refusals `includedFileNotice` names one by one, so the menu's
+    /// "see settings" lands on a card that agrees with it.
+    var hostMenuDiagnostic: HostMenuDiagnostic {
+        HostMenuDiagnostic(
+            readFailure: configReadError,
+            refusedAliasCount: SSHConfigParser.excludedAliases(in: configText).count)
+    }
+
     private var transientNotice: String?
     private let configURL: URL
     private let settingsURL: URL
