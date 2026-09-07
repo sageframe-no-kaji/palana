@@ -11,10 +11,16 @@ extension OperationModel {
         case .manifests(let source, let destination):
             let checked =
                 "checked \(source.entries.count) at source, \(destination.entries.count) at destination"
-            if let name = source.firstDifference(from: destination) {
+            if let name = source.firstUnmatched(in: destination) {
                 return "\(checked) — DIFFERENT at \(name)"
             }
-            return source.entries.isEmpty ? "\(checked) — nothing to compare" : "\(checked) — identical"
+            guard !source.entries.isEmpty else { return "\(checked) — nothing to compare" }
+            // The subset rule: a merge keeps what already stood at the
+            // destination, and every source entry is proven beside it.
+            let kept = destination.entries.count - source.entries.count
+            return kept > 0
+                ? "\(checked) — every source entry landed · \(kept) already there, kept"
+                : "\(checked) — identical"
         case .datasetReceived(let name, let exists):
             return exists
                 ? "dataset \(name) exists at the destination"

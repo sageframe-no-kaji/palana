@@ -1,9 +1,9 @@
 // The Transports — enactment, first half (ho-06.1). Executes an
 // approved Plan exactly as composed: no improvisation between approval
 // and execution. Host steps run through the Conduit; proxied pipelines
-// run in-process through an injected runner. Gates open only when both
-// ends' manifests — every object's kind, size, link target, and SHA-256
-// — agree exactly.
+// run in-process through an injected runner. Gates open only when the
+// destination's manifest carries every entry of the source's — each
+// object's kind, size, link target, and SHA-256 — identically.
 
 import Foundation
 

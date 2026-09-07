@@ -33,10 +33,10 @@ public struct ProgressReport: Sendable, Equatable {
 /// The check that releases gated steps — shaped per transport.
 ///
 /// File transfers manifest both ends — every object's kind, size, link
-/// target, and SHA-256 — and the gate opens only on exact agreement. A
-/// zfs stream is checksummed end to end by zfs itself, so a clean
-/// receive IS the byte verification and the gate's question becomes
-/// existence.
+/// target, and SHA-256 — and the gate opens only when every source
+/// entry is carried identically at the destination. A zfs stream is
+/// checksummed end to end by zfs itself, so a clean receive IS the
+/// byte verification and the gate's question becomes existence.
 public enum VerificationReport: Sendable, Equatable {
     /// The selection manifested under the source and its transplanted
     /// names at the destination.
@@ -46,12 +46,17 @@ public enum VerificationReport: Sendable, Equatable {
 
     /// The gate's condition.
     ///
-    /// Two empty manifests agree about nothing — a selection is never
-    /// empty, so an empty manifest is not a match.
+    /// The subset rule: every source entry present at the destination
+    /// with the same kind, size, link target, and digest. Entries only
+    /// the destination holds — what stood in a merged directory before
+    /// the copy — are not a mismatch; the delete still removes nothing
+    /// whose bytes were not proven at the destination. An empty source
+    /// manifest proves nothing — a selection is never empty, so it is
+    /// not a match.
     public var matched: Bool {
         switch self {
         case .manifests(let source, let destination):
-            !source.entries.isEmpty && source == destination
+            !source.entries.isEmpty && source.firstUnmatched(in: destination) == nil
         case .datasetReceived(_, let exists):
             exists
         }

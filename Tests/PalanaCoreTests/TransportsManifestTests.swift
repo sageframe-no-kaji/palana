@@ -235,31 +235,6 @@ struct TransportsManifestTests {
         #expect(Self.unavailableDetail(outcome.error)?.hasPrefix("manifest unreadable") == true)
     }
 
-    @Test("pre-existing destination entries under a moved directory break exact agreement")
-    func preExistingDestinationEntries() async throws {
-        let plan = try PlanEngine.plan(
-            PlanRequest(
-                operation: .move,
-                source: Locus(host: "j", directory: "/tank/a"),
-                entries: [makeEntry("dir")],
-                destination: Locus(host: "j", directory: "/tank/b"),
-                token: "t1"),
-            facts: PlanFacts())
-        let source = ManifestFixture.directory("dir") + ManifestFixture.file("dir/x")
-        let landed = source + ManifestFixture.file("dir/old")
-        let outcome = await Self.enact(
-            plan,
-            over: [
-                Self.entry("j", "cp -a /tank/a/dir /tank/b/"),
-                Self.entry("j", ManifestFixture.command("/tank/a", ["dir"]), stdout: source),
-                Self.entry("j", ManifestFixture.command("/tank/b", ["dir"]), stdout: landed),
-            ])
-        #expect(Self.isVerificationFailed(outcome.error))
-        if case EnactmentError.verificationFailed(.manifests(let src, let dst))? = outcome.error {
-            #expect(src.firstDifference(from: dst) == "dir/old")
-        }
-    }
-
     @Test("walk order does not matter — the same tree in two orders is one manifest")
     func walkOrderIrrelevant() async throws {
         let plan = try Self.crossDatasetMove()
