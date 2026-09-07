@@ -108,6 +108,9 @@ final class PalanaSession {
     private let sshConfigURL: URL
     private var recognizer: SequenceRecognizer<PaneIntent>
     private var keyMonitor: Any?
+    /// The mouse-down monitor beside the key monitor — a click off the
+    /// shell hands the keyboard to the panes (`PalanaSession+Shell.swift`).
+    private var clickMonitor: Any?
 
     /// Builds the engine stack from the operator's ssh config, or from
     /// `PALANA_SSH_CONFIG` when the environment points elsewhere.
@@ -423,6 +426,23 @@ extension PalanaSession {
             }
             let consumed = MainActor.assumeIsolated { self?.handle(event) == true }
             return consumed ? nil : event
+        }
+        installClickMonitor()
+    }
+
+    /// Installs the mouse-down monitor beside the key monitor.
+    ///
+    /// ho-11's keyboard flag must follow the mouse: a click anywhere but
+    /// the shell hands the keyboard to the panes, so the next verb key
+    /// reaches the pane's grammar instead of a PTY the operator has
+    /// visibly left (hands session 2026-09-07). The event is never
+    /// consumed — AppKit dispatches the click as it always did.
+    private func installClickMonitor() {
+        guard clickMonitor == nil else { return }
+        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown]
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
+            MainActor.assumeIsolated { self?.releaseShellKeyboardIfClickedAway(event) }
+            return event
         }
     }
 
