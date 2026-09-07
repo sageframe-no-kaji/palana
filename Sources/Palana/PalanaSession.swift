@@ -108,6 +108,9 @@ final class PalanaSession {
     private let sshConfigURL: URL
     private var recognizer: SequenceRecognizer<PaneIntent>
     private var keyMonitor: Any?
+    /// The app-activation observer — the panes re-list when the app comes
+    /// back to the front (`PaneModel+Refresh.swift`).
+    private var activationObserver: NSObjectProtocol?
 
     /// Builds the engine stack from the operator's ssh config, or from
     /// `PALANA_SSH_CONFIG` when the environment points elsewhere.
@@ -173,10 +176,30 @@ final class PalanaSession {
         }
         operation.onEnactmentFailed = { [weak self] in
             self?.resurfaceTranscriptOnFailure()
+            // A failed run may have moved things before it stopped — both
+            // panes re-read, as they do after a finished one.
+            self?.left.apply(.refresh)
+            self?.right.apply(.refresh)
         }
         wireShellLifecycle()
         // Wire the round-trip center into pane callbacks and the finish hook.
         wireRoundTripCenter()
+        wirePaneRefresh()
+    }
+
+    /// The panes re-list when the app comes back to the front.
+    ///
+    /// The mechanism is `PaneModel+Refresh.swift`'s; the observer lives as
+    /// long as the session — which is as long as the process.
+    private func wirePaneRefresh() {
+        activationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.left.applicationDidBecomeActive()
+                self?.right.applicationDidBecomeActive()
+            }
+        }
     }
 
     /// The pane the keyboard drives.

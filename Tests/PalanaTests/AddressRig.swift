@@ -20,6 +20,8 @@ actor RecordingConduit: Conduit {
         let stdout: Data
         let stderr: Data
         let exitStatus: Int32
+        /// How long the host takes to answer — nil answers at once.
+        var delay: Duration?
 
         /// A command that succeeded with this output.
         static func success(_ stdout: String = "") -> Self {
@@ -30,9 +32,16 @@ actor RecordingConduit: Conduit {
         static func sshFailure(_ stderr: String) -> Self {
             Self(stdout: Data(), stderr: Data(stderr.utf8), exitStatus: 255)
         }
+
+        /// The same answer, arriving after `delay` — a read held in flight.
+        func delayed(by delay: Duration) -> Self {
+            var slow = self
+            slow.delay = delay
+            return slow
+        }
     }
 
-    private let answers: [String: Answer]
+    private var answers: [String: Answer]
     private(set) var commands: [String] = []
     private(set) var hosts: [String] = []
 
@@ -45,12 +54,20 @@ actor RecordingConduit: Conduit {
         answers = listings.mapValues { Answer(stdout: $0, stderr: Data(), exitStatus: 0) }
     }
 
+    /// Rescripts one command — what the host answers from now on.
+    func script(_ command: String, _ answer: Answer) {
+        answers[command] = answer
+    }
+
     func run(on host: String, _ command: String) async throws -> RunningCommand {
         commands.append(command)
         hosts.append(host)
         guard let answer = answers[command] else {
             return RunningCommand(
                 replayingStdout: Data(), stderr: Data("bash: no such file or directory".utf8), exitStatus: 1)
+        }
+        if let delay = answer.delay {
+            try await Task.sleep(for: delay)
         }
         return RunningCommand(replayingStdout: answer.stdout, stderr: answer.stderr, exitStatus: answer.exitStatus)
     }
