@@ -26,7 +26,7 @@ final class ShellNaturalExitTests: XCTestCase {
         var endedHosts: [String] = []
         store.onSessionEnded = { endedHosts.append($0) }
 
-        let view = store.session(for: PalanaCore.localHostName)
+        let view = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         // Let the shell come up before speaking to it.
         try await Task.sleep(for: .milliseconds(800))
         view.send(txt: "exit\n")
@@ -46,14 +46,14 @@ final class ShellNaturalExitTests: XCTestCase {
     func testResummonAfterExitSpawnsFresh() async throws {
         try XCTSkipIf(TestEnvironment.isHeadlessCI, headlessReason)
         let store = TerminalSessionStore()
-        let first = store.session(for: PalanaCore.localHostName)
+        let first = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         try await Task.sleep(for: .milliseconds(800))
         first.send(txt: "exit\n")
         for _ in 0..<50 where store.hasSession(for: PalanaCore.localHostName) {
             try await Task.sleep(for: .milliseconds(100))
         }
 
-        let second = store.session(for: PalanaCore.localHostName)
+        let second = store.session(for: PalanaCore.localHostName, startingIn: NSHomeDirectory())
         XCTAssertFalse(first === second, "the dead view must not be reissued")
         store.teardownAll()
     }

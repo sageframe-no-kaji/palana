@@ -12,16 +12,73 @@ import Foundation
 import PalanaCore
 import SwiftTerm
 
+/// The process a fresh terminal session launches — decided from the host,
+/// the summoning pane's directory, and the app's environment, with no
+/// PTY in sight so the decision can be pinned by plain tests.
+///
+/// Local: the operator's login shell (`$SHELL`, falling back to
+/// `/bin/zsh`) launched with `-l` and the pane's directory as the
+/// process's working directory. Remote: `ssh -t <alias> -- <command>`
+/// where the command changes into the pane's directory and replaces
+/// itself with the login shell — no `-F`, no extra options, so the
+/// operator's own `~/.ssh/config` governs exactly as it does in
+/// Terminal.app.
+struct TerminalLaunch: Equatable, Sendable {
+    /// The binary to spawn inside the pseudo-terminal.
+    let executable: String
+    /// Its arguments, exactly as handed to `execve`.
+    let args: [String]
+    /// The local process's working directory; nil leaves it wherever the
+    /// app happens to be (the remote case — the directory rides inside
+    /// the ssh command instead).
+    let currentDirectory: String?
+
+    /// The remote half: `cd` into the directory, then become the login shell.
+    ///
+    /// The directory is quoted with the engine's own armor so
+    /// spaces and quotes survive the remote shell. The `sh -c` hop is
+    /// what makes the `$SHELL` fallback portable — `${SHELL:-sh}` is
+    /// POSIX, and a login shell that is fish would refuse it bare.
+    static func remoteCommand(directory: String) -> String {
+        "cd \(ShellQuote.quote(directory)) && exec sh -c 'exec \"${SHELL:-sh}\" -l'"
+    }
+
+    /// Decides the launch for `host` starting in `directory`.
+    ///
+    /// `environment` is the app's own — passed in rather than read so a
+    /// test can pin the `$SHELL` reading without touching the process.
+    static func plan(host: String, directory: String, environment: [String: String]) -> Self {
+        if host == PalanaCore.localHostName {
+            let shell = environment["SHELL"] ?? "/bin/zsh"
+            return Self(executable: shell, args: ["-l"], currentDirectory: directory)
+        }
+        return Self(
+            executable: "/usr/bin/ssh",
+            args: ["-t", host, "--", remoteCommand(directory: directory)],
+            currentDirectory: nil
+        )
+    }
+}
+
 /// Per-host `LocalProcessTerminalView` sessions, created lazily and kept
 /// alive across mode exits — one session per host, until app quit.
 ///
 /// The local host (`PalanaCore.localHostName`) runs the operator's own
-/// login shell; every other host runs plain `ssh <alias>` with no `-F`
+/// login shell; every other host runs `ssh <alias>` with no `-F`
 /// override, so the operator's real `~/.ssh/config` governs exactly as
-/// it does in Terminal.app.
+/// it does in Terminal.app. Either way the session opens in the
+/// directory the summoning pane stands in — see ``TerminalLaunch``.
 @MainActor
 final class TerminalSessionStore: NSObject {
     private var sessions: [String: LocalProcessTerminalView] = [:]
+
+    /// The launch each live session was started with, keyed by host.
+    ///
+    /// Recorded once at creation and never rewritten: a re-summon from a
+    /// different directory returns the existing session untouched, so
+    /// the recorded launch is proof the second directory never reached
+    /// a running shell.
+    private(set) var launches: [String: TerminalLaunch] = [:]
 
     /// Fired when a session's child process ends on its own — the operator
     /// typed `exit`, the connection dropped, the shell died.
@@ -33,18 +90,26 @@ final class TerminalSessionStore: NSObject {
     /// a closed (and recyclable) descriptor.
     var onSessionEnded: (String) -> Void = { _ in }
 
-    /// The live session for `host`, creating and starting it on first summon.
+    /// The live session for `host`, creating and starting it on first
+    /// summon in `directory` — the summoning pane's resolved absolute path.
     ///
-    /// Later calls for the same host return the same view — the session
-    /// survives mode exits, so re-summoning shows the same scrollback and
-    /// the same running program. A session whose process ENDED is removed
-    /// by the termination delegate, so a summon after `exit` starts anew.
-    func session(for host: String) -> LocalProcessTerminalView {
+    /// Later calls for the same host return the same view whatever
+    /// directory they name — the session survives mode exits, so
+    /// re-summoning shows the same scrollback and the same running
+    /// program, and nothing is ever typed into a running shell to move
+    /// it. A session whose process ENDED is removed by the termination
+    /// delegate, so a summon after `exit` starts anew, in the directory
+    /// the pane stands in then.
+    func session(for host: String, startingIn directory: String) -> LocalProcessTerminalView {
         if let existing = sessions[host] { return existing }
         let view = LocalProcessTerminalView(frame: .zero)
         view.processDelegate = self
-        start(view, host: host)
+        let launch = TerminalLaunch.plan(
+            host: host, directory: directory, environment: ProcessInfo.processInfo.environment)
+        view.startProcess(
+            executable: launch.executable, args: launch.args, currentDirectory: launch.currentDirectory)
         sessions[host] = view
+        launches[host] = launch
         return view
     }
 
@@ -52,21 +117,6 @@ final class TerminalSessionStore: NSObject {
     /// the footer read this to say "same session" rather than "new".
     func hasSession(for host: String) -> Bool {
         sessions[host] != nil
-    }
-
-    /// Launches the host's process inside the view's pseudo-terminal.
-    ///
-    /// Local: the operator's login shell, read from `$SHELL` and falling
-    /// back to `/bin/zsh`, launched with `-l` so it behaves as it would
-    /// from Terminal.app. Remote: plain `ssh <alias>` — no `-F`, no
-    /// extra options. The operator's own config is the only truth.
-    private func start(_ view: LocalProcessTerminalView, host: String) {
-        if host == PalanaCore.localHostName {
-            let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-            view.startProcess(executable: shell, args: ["-l"])
-        } else {
-            view.startProcess(executable: "/usr/bin/ssh", args: [host])
-        }
     }
 
     /// Tears down every session — the app-quit path only.
@@ -77,6 +127,7 @@ final class TerminalSessionStore: NSObject {
             view.terminate()
         }
         sessions.removeAll()
+        launches.removeAll()
     }
 }
 
@@ -94,6 +145,7 @@ extension TerminalSessionStore: LocalProcessTerminalViewDelegate {
         MainActor.assumeIsolated {
             guard let host = sessions.first(where: { $0.value === source })?.key else { return }
             sessions.removeValue(forKey: host)
+            launches.removeValue(forKey: host)
             onSessionEnded(host)
         }
     }
