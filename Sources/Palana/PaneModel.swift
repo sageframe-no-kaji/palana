@@ -168,11 +168,28 @@ final class PaneModel {
     /// set when a pointed path turns out to be a file (⌘⇧G / address bar with a
     /// file path), so the pane lands in the folder with the file revealed.
     private var revealOnLand: Data?
+    /// The self-refresh this pane holds — a local directory watcher or the
+    /// remote poll — drained at retirement (`PaneModel+Refresh.swift`).
+    let refresher = PaneRefresher()
+    /// The gates the self-refresh consults — injectable, so a test never
+    /// waits on a wall clock or a real app activation.
+    var refreshPolicy = RefreshPolicy()
+    /// The read most recently started, and the one that most recently
+    /// settled — equal exactly when nothing is in flight.
+    private var readGeneration = 0
+    private var settledReadGeneration = 0
 
     /// A pane over the session's engine.
     init(engine: Engine) {
         self.engine = engine
     }
+
+    deinit {
+        refresher.cancelAll()
+    }
+
+    /// True while a directory read — loud or quiet — is in flight.
+    var isReadInFlight: Bool { settledReadGeneration != readGeneration }
 
     /// True when this pane points at the operator's own machine.
     ///
@@ -315,15 +332,36 @@ final class PaneModel {
         read(host: host, path: state.path)
     }
 
+    /// A re-read of the standing path that leaves the surface still.
+    ///
+    /// No `reading…`, no cursor move, no persist. The self-refresh's one
+    /// door (`PaneModel+Refresh.swift`); a no-op unless the pane is showing
+    /// files, ready, and idle.
+    func refreshQuietly() {
+        guard let host = state.host, status == .ready, paneMode == .files, !isReading, !isReadInFlight
+        else { return }
+        read(host: host, path: state.path, quiet: true)
+    }
+
     /// One directory read through the engine — ho-04's wiring exactly,
     /// with one Surface courtesy first: a leading `~` resolves to the
     /// remote home, because the listing quotes its path and the remote
     /// shell never sees a tilde to expand.
-    private func read(host: String, path targetPath: String) {
+    ///
+    /// A quiet read (the self-refresh) touches neither `status` nor
+    /// `isReading`, and a quiet failure keeps the rows and stands the
+    /// poll down; a loud read is any deliberate pointing or refresh.
+    private func read(host: String, path targetPath: String, quiet: Bool = false) {
         loadTask?.cancel()
-        if status != .ready { status = .loading }
-        isReading = true
+        readGeneration += 1
+        let generation = readGeneration
+        if !quiet {
+            if status != .ready { status = .loading }
+            isReading = true
+            refreshPolicy.suspended = false
+        }
         loadTask = Task {
+            defer { self.settleRead(generation) }
             do {
                 let started = ContinuousClock.now
                 var path = targetPath
@@ -339,9 +377,17 @@ final class PaneModel {
                 let elapsed = "\(ContinuousClock.now - started)"
                 let line = "read \(host):\(path) — \(entries.count) entries in \(elapsed)"
                 Self.logger.notice("\(line, privacy: .public)")
-                await self.commit(host: host, path: path, entries: entries)
+                await self.commit(host: host, path: path, entries: entries, quiet: quiet)
             } catch {
                 guard !Task.isCancelled else { return }
+                // A quiet read that fails leaves the listing standing and
+                // the poll down until the next activation or loud read —
+                // the banner says what happened; nothing else moves.
+                if quiet {
+                    self.lastError = Self.describe(error)
+                    self.refreshPolicy.suspended = true
+                    return
+                }
                 // A pointed path that is a file, not a directory (⌘⇧G or the
                 // address bar with a file path): land in its parent folder and
                 // reveal the file instead of erroring. `notADirectory` means the
@@ -367,7 +413,11 @@ final class PaneModel {
     }
 
     /// A successful read lands: the pointing, the entries, the cursor.
-    private func commit(host: String, path: String, entries: [FileEntry]) async {
+    ///
+    /// A quiet landing keeps the cursor where it stood — or on its nearest
+    /// neighbor when its entry is gone — and posts no notice, persists
+    /// nothing; the pointing did not change.
+    private func commit(host: String, path: String, entries: [FileEntry], quiet: Bool) async {
         // Gather ZFS mountpoints and mount targets from memory — no wire, Decisions 5–6.
         let hostFacts = await engine.field.facts(for: host)
         let datasets = hostFacts?.zfsTopology?.value ?? []
@@ -391,8 +441,11 @@ final class PaneModel {
             state.selection = []
             state.cursor = nil
         }
+        let cursorBefore = state.cursor
+        let cursorIndexBefore = rows.firstIndex { $0.id == cursorBefore }
         state.replaceEntries(entries)
         refreshRows()
+        refootCursor(from: cursorBefore, at: cursorIndexBefore)
         if let landOn {
             self.landOn = nil
             if rows.contains(where: { $0.id == landOn }) { state.cursor = landOn }
@@ -405,8 +458,10 @@ final class PaneModel {
             }
         }
         status = .ready
-        isReading = false
         lastError = nil
+        keepCurrent(host: host, path: path, rebuild: !quiet)
+        guard !quiet else { return }
+        isReading = false
         addressNotice = pendingAddressNotice
         pendingAddressNotice = nil
         // A zfs-mode pane whose HOST just landed somewhere new shows that
@@ -417,6 +472,14 @@ final class PaneModel {
             Task { await refreshZFSTree(engine: engine) }
         }
         onDisplayChange()
+    }
+
+    /// Marks a read settled — the one that is still current, only; a read
+    /// superseded mid-flight leaves the newer one's book open.
+    private func settleRead(_ generation: Int) {
+        guard generation == readGeneration else { return }
+        settledReadGeneration = generation
+        readDidSettle()
     }
 
     /// Asks the host where home is — one round trip, POSIX-plain.
@@ -460,35 +523,6 @@ final class PaneModel {
         rows = state.sortedEntries()
     }
 
-    // MARK: - Clipboard
-
-    /// The clipboard verbs — explicit rows when the context menu names
-    /// them, the selection when it exists, the cursor otherwise.
-    func copyToClipboard(_ intent: PaneIntent, ids: Set<FileEntry.ID>?) {
-        let subjects: [FileEntry]
-        if let ids, !ids.isEmpty {
-            subjects = rows.filter { ids.contains($0.id) }
-        } else if state.selection.isEmpty {
-            subjects = [cursorEntry].compactMap { $0 }
-        } else {
-            subjects = rows.filter { state.selection.contains($0.id) }
-        }
-        guard !subjects.isEmpty || intent == .copyDirectory else { return }
-        let lines: [String]
-        switch intent {
-        case .copyPath:
-            guard let paths = exactPaths(for: subjects) else { return }
-            lines = paths
-        case .copyDirectory: lines = [state.path]
-        case .copyFilename: lines = subjects.map(\.name)
-        case .copyNameSansExtension: lines = subjects.map { Self.nameSansExtension($0.name) }
-        default: return
-        }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
-    }
-
     // MARK: - Errors
 
     /// One quiet line for the pane — typed errors say what they are.
@@ -516,6 +550,37 @@ final class PaneModel {
     /// Why a pane could not point.
     private enum PointingError: Error {
         case unreachable(String)
+    }
+}
+
+// MARK: - Clipboard
+
+extension PaneModel {
+    /// The clipboard verbs — explicit rows when the context menu names
+    /// them, the selection when it exists, the cursor otherwise.
+    func copyToClipboard(_ intent: PaneIntent, ids: Set<FileEntry.ID>?) {
+        let subjects: [FileEntry]
+        if let ids, !ids.isEmpty {
+            subjects = rows.filter { ids.contains($0.id) }
+        } else if state.selection.isEmpty {
+            subjects = [cursorEntry].compactMap { $0 }
+        } else {
+            subjects = rows.filter { state.selection.contains($0.id) }
+        }
+        guard !subjects.isEmpty || intent == .copyDirectory else { return }
+        let lines: [String]
+        switch intent {
+        case .copyPath:
+            guard let paths = exactPaths(for: subjects) else { return }
+            lines = paths
+        case .copyDirectory: lines = [state.path]
+        case .copyFilename: lines = subjects.map(\.name)
+        case .copyNameSansExtension: lines = subjects.map { Self.nameSansExtension($0.name) }
+        default: return
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
     }
 }
 
