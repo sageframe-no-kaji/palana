@@ -86,6 +86,17 @@ final class LocalPlacementTests: XCTestCase {
         XCTAssertEqual(
             OperationModel.describe(.manifests(source: source, destination: tampered)),
             "checked 2 at source, 2 at destination — DIFFERENT at f2")
+        let merged = TransferManifest(
+            entries: source.entries + [
+                TransferManifest.Entry(name: Data("old".utf8), kind: .file, size: 5, digest: hello)
+            ])
+        XCTAssertEqual(
+            OperationModel.describe(.manifests(source: source, destination: merged)),
+            "checked 2 at source, 3 at destination — every source entry landed · 1 already there, kept")
+        let shorter = TransferManifest(entries: [source.entries[0]])
+        XCTAssertEqual(
+            OperationModel.describe(.manifests(source: source, destination: shorter)),
+            "checked 2 at source, 1 at destination — DIFFERENT at f2")
         XCTAssertEqual(
             OperationModel.describe(
                 EnactmentError.verificationUnavailable(host: "jodo", detail: "manifest exited 3: missing: ./f2")),

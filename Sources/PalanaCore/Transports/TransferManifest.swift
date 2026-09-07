@@ -4,9 +4,11 @@
 // answers 0 with status 0 when find itself failed (2026-09-06 review).
 // The manifest names every object under the selection with its kind,
 // size, symlink target, and SHA-256, on both ends, and the delete runs
-// only when the two agree exactly. One POSIX-sh program per end; no
-// probe, no dependency — a host without a SHA-256 tool says so and the
-// gate stays closed.
+// only when every source entry is carried identically at the
+// destination — entries already standing there before a merge do not
+// count against the source (2026-09-07). One POSIX-sh program per end;
+// no probe, no dependency — a host without a SHA-256 tool says so and
+// the gate stays closed.
 
 import Foundation
 
@@ -231,22 +233,16 @@ public struct TransferManifest: Sendable, Equatable {
         return names.filter { !present.contains(Data($0.utf8)) }
     }
 
-    /// The first name at which this manifest and `other` disagree.
+    /// The first of this manifest's entries that `other` does not carry.
     ///
-    /// Present in only one, or present in both with a different kind,
-    /// size, digest, or link target. Nil when they are identical.
-    public func firstDifference(from other: Self) -> String? {
-        var mine = entries[...]
-        var theirs = other.entries[...]
-        while let left = mine.first, let right = theirs.first {
-            guard left.name == right.name else {
-                return left.name.lexicographicallyPrecedes(right.name)
-                    ? left.displayName : right.displayName
-            }
-            guard left == right else { return left.displayName }
-            mine = mine.dropFirst()
-            theirs = theirs.dropFirst()
-        }
-        return (mine.first ?? theirs.first)?.displayName
+    /// Absent there, or present with a different kind, size, digest, or
+    /// link target. Nil when every entry is carried identically.
+    /// The subset rule, not equality: entries `other` holds beyond
+    /// these are its own business. Under a merge the destination keeps
+    /// what stood there before, and that is no evidence against the
+    /// source; a source entry it cannot account for is.
+    public func firstUnmatched(in other: Self) -> String? {
+        let theirs = Dictionary(other.entries.map { ($0.name, $0) }) { first, _ in first }
+        return entries.first { theirs[$0.name] != $0 }?.displayName
     }
 }

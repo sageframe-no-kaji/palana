@@ -106,7 +106,7 @@ struct TransportsLocalGateTests {
             return
         }
         #expect(src.entries.count == dst.entries.count)
-        #expect(src.firstDifference(from: dst) == "a.txt")
+        #expect(src.firstUnmatched(in: dst) == "a.txt")
         #expect(
             !outcome.events.contains {
                 guard case .stepBegan(1, _) = $0 else { return false }

@@ -32,7 +32,8 @@ public enum PlanOperation: String, Codable, Sendable {
 public enum Classification: String, Codable, Sendable {
     /// Same host, same dataset — a true rename.
     case withinDatasetRename = "within-dataset rename"
-    /// Same host, different (or unproven-same) datasets.
+    /// Same host, different (or unproven-same) datasets — or a merge
+    /// into a standing directory, which a rename cannot do.
     case crossDatasetCopyPlusDelete = "cross-dataset copy-plus-delete"
     /// Different hosts — bytes travel host to host.
     case crossHostTransfer = "cross-host transfer"
@@ -60,7 +61,7 @@ extension Classification {
         case .withinDatasetRename:
             return "move on the same disk (instant)"
         case .crossDatasetCopyPlusDelete:
-            return "copy then delete the original"
+            return "copy, check, then delete the original"
         case .crossHostTransfer:
             return "move to another machine"
         case .withinHostCopy:

@@ -106,22 +106,39 @@ struct TransferManifestParseTests {
         #expect(manifest.missingNames(from: ["f1", "f2", "d/x", "d"]) == ["f2"])
     }
 
-    @Test("firstDifference names the first disagreement, nil when identical")
-    func firstDifference() throws {
+    @Test("firstUnmatched is the subset rule — nil when identical, and nil over destination-only entries")
+    func firstUnmatchedSubset() throws {
         let base = try parse(ManifestFixture.file("a") + ManifestFixture.file("b") + ManifestFixture.file("c"))
-        #expect(base.firstDifference(from: base) == nil)
-        let changed = try parse(
-            ManifestFixture.file("a") + ManifestFixture.file("b", digest: ManifestFixture.worldDigest)
-                + ManifestFixture.file("c"))
-        #expect(base.firstDifference(from: changed) == "b")
+        #expect(base.firstUnmatched(in: base) == nil)
+        // What already stood at a merged destination is not evidence
+        // against the source; the source is evidence against it.
         let extra = try parse(
             ManifestFixture.file("a") + ManifestFixture.file("b") + ManifestFixture.file("bb")
                 + ManifestFixture.file("c"))
-        #expect(base.firstDifference(from: extra) == "bb")
-        #expect(extra.firstDifference(from: base) == "bb")
+        #expect(base.firstUnmatched(in: extra) == nil)
+        #expect(extra.firstUnmatched(in: base) == "bb")
+    }
+
+    @Test("firstUnmatched names the first source entry the destination lacks, or carries differently")
+    func firstUnmatchedNamesTheSourceEntry() throws {
+        let base = try parse(ManifestFixture.file("a") + ManifestFixture.file("b") + ManifestFixture.file("c"))
         let shorter = try parse(ManifestFixture.file("a") + ManifestFixture.file("b"))
-        #expect(base.firstDifference(from: shorter) == "c")
-        #expect(shorter.firstDifference(from: base) == "c")
+        #expect(base.firstUnmatched(in: shorter) == "c")
+        #expect(shorter.firstUnmatched(in: base) == nil)
+        let changed = try parse(
+            ManifestFixture.file("a") + ManifestFixture.file("b", digest: ManifestFixture.worldDigest)
+                + ManifestFixture.file("c"))
+        #expect(base.firstUnmatched(in: changed) == "b")
+        let resized = try parse(
+            ManifestFixture.file("a") + ManifestFixture.file("b", size: 4) + ManifestFixture.file("c"))
+        #expect(base.firstUnmatched(in: resized) == "b")
+        let rekinded = try parse(
+            ManifestFixture.file("a") + ManifestFixture.directory("b") + ManifestFixture.file("c"))
+        #expect(base.firstUnmatched(in: rekinded) == "b")
+        let linked = try parse(ManifestFixture.symlink("l", target: "a"))
+        let relinked = try parse(ManifestFixture.symlink("l", target: "b"))
+        #expect(linked.firstUnmatched(in: relinked) == "l")
+        #expect(linked.firstUnmatched(in: linked) == nil)
     }
 
     @Test("the command names the directory, the selection, the tools, and the refusal — and no count")
@@ -138,6 +155,53 @@ struct TransferManifestParseTests {
         #expect(!command.contains("wc -l"))
         #expect(!command.contains("md5"))
         #expect(!command.contains("cksum"))
+    }
+}
+
+@Suite("VerificationReport subset gate")
+struct VerificationReportSubsetTests {
+    private func manifest(_ text: String) throws -> TransferManifest {
+        try TransferManifest.parse(Data(text.utf8))
+    }
+
+    private let source = ManifestFixture.directory("dir") + ManifestFixture.file("dir/x")
+
+    @Test("destination-only entries pass — what stood in the merged directory is kept, not counted against")
+    func destinationOnlyEntriesPass() throws {
+        let landed = try manifest(source + ManifestFixture.file("dir/old") + ManifestFixture.directory("dir/sub"))
+        let report = VerificationReport.manifests(source: try manifest(source), destination: landed)
+        #expect(report.matched)
+    }
+
+    @Test("a source entry missing at the destination fails")
+    func missingSourceEntryFails() throws {
+        let landed = try manifest(ManifestFixture.directory("dir") + ManifestFixture.file("dir/old"))
+        let report = VerificationReport.manifests(source: try manifest(source), destination: landed)
+        #expect(!report.matched)
+    }
+
+    @Test("a source entry with different bytes at the destination fails")
+    func differentBytesFail() throws {
+        let landed = try manifest(
+            ManifestFixture.directory("dir") + ManifestFixture.file("dir/x", digest: ManifestFixture.worldDigest)
+                + ManifestFixture.file("dir/old"))
+        let report = VerificationReport.manifests(source: try manifest(source), destination: landed)
+        #expect(!report.matched)
+    }
+
+    @Test("a source file standing as a directory at the destination fails")
+    func fileBecameDirectoryFails() throws {
+        let landed = try manifest(
+            ManifestFixture.directory("dir") + ManifestFixture.directory("dir/x") + ManifestFixture.file("dir/old"))
+        let report = VerificationReport.manifests(source: try manifest(source), destination: landed)
+        #expect(!report.matched)
+    }
+
+    @Test("an empty source manifest is still not a match, whatever the destination holds")
+    func emptySourceNeverMatches() throws {
+        let landed = try manifest(source)
+        #expect(!VerificationReport.manifests(source: try manifest(""), destination: landed).matched)
+        #expect(!VerificationReport.manifests(source: try manifest(""), destination: try manifest("")).matched)
     }
 }
 
@@ -222,14 +286,14 @@ struct TransferManifestLiveTests {
         let before = try await Self.manifest(tree.source)
         let landed = try await Self.manifest(tree.destination)
         #expect(before == landed)
-        #expect(before.firstDifference(from: landed) == nil)
+        #expect(before.firstUnmatched(in: landed) == nil)
 
         try Data("jello".utf8).write(
             to: URL(fileURLWithPath: tree.destination).appendingPathComponent("a.txt"))
         let tampered = try await Self.manifest(tree.destination)
         #expect(before != tampered)
         #expect(before.entries.count == tampered.entries.count)
-        #expect(before.firstDifference(from: tampered) == "a.txt")
+        #expect(before.firstUnmatched(in: tampered) == "a.txt")
     }
 
     @Test("a selected name that is absent fails the command before it walks")

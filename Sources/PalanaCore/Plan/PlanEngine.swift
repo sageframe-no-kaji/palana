@@ -143,7 +143,11 @@ public enum PlanEngine {
     /// The total fact table.
     ///
     /// Unknown datasets classify conservatively: a rename is claimed
-    /// only when both datasets are known and equal.
+    /// only when both datasets are known and equal. A move that merges
+    /// into a standing directory is never a rename, proof or no proof —
+    /// `mv` cannot merge (``mergesAtDestination(_:)``), so the move
+    /// takes the verified copy-then-delete route like a cross-filesystem
+    /// one.
     static func classify(_ request: PlanRequest, facts: PlanFacts) -> Classification {
         switch request.operation {
         case .rename:
@@ -159,7 +163,7 @@ public enum PlanEngine {
         case .move:
             let sameHost = request.source.host == request.destination?.host
             guard sameHost else { return .crossHostTransfer }
-            return provenSameFilesystem(facts)
+            return provenSameFilesystem(facts) && !mergesAtDestination(facts)
                 ? .withinDatasetRename : .crossDatasetCopyPlusDelete
         case .copy:
             let sameHost = request.source.host == request.destination?.host
