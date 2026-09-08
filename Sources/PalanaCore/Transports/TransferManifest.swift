@@ -124,18 +124,29 @@ public struct TransferManifest: Sendable, Equatable {
     /// treats it as verification unavailable, and the gate stays closed.
     public static func command(directory: String, names: [String]) -> String {
         let paths = names.map { ShellQuote.quote("./\($0)") }.joined(separator: " ")
-        let resolve = digestTools.map { tool, invocation in
-            "command -v \(tool) >/dev/null 2>&1; then PALANA_DG=\(ShellQuote.quote(invocation))"
-        }
         let tried = digestTools.map(\.0).joined(separator: ", ")
         return [
             "cd \(ShellQuote.quote(directory)) || exit 3",
             "for n in \(paths); do [ -e \"$n\" ] || [ -L \"$n\" ] || { echo \"missing: $n\" >&2; exit 3; }; done",
-            "if \(resolve.joined(separator: "; elif "))",
-            "else echo 'no sha256 tool (tried \(tried))' >&2; exit 3; fi",
+            digestToolResolution(orElse: "echo 'no sha256 tool (tried \(tried))' >&2; exit 3"),
             "export PALANA_DG",
             "find \(paths) -exec sh -c \(ShellQuote.quote(entryProgram)) palana-manifest {} + || exit 3",
         ].joined(separator: "; ")
+    }
+
+    /// The `if`-chain that sets `PALANA_DG` to a SHA-256 tool.
+    ///
+    /// Shared with the round-trip commit so both prove content with the
+    /// same tools in the same order, and both fail closed on a host
+    /// carrying none of them.
+    ///
+    /// - Parameter failure: The `else` branch — what a host with no tool does.
+    /// - Returns: One POSIX-sh `if … elif … else … fi` statement.
+    static func digestToolResolution(orElse failure: String) -> String {
+        let resolve = digestTools.map { tool, invocation in
+            "command -v \(tool) >/dev/null 2>&1; then PALANA_DG=\(ShellQuote.quote(invocation))"
+        }
+        return "if \(resolve.joined(separator: "; elif ")); else \(failure); fi"
     }
 
     // MARK: - Parsing

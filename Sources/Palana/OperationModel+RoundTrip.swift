@@ -81,7 +81,7 @@ extension OperationModel {
 
             // The three-valued destination check — clean, conflict, or
             // unavailable. Sets facts.collisions as a side effect.
-            let check = await checkRoundTripDestination(
+            let reading = await checkRoundTripDestination(
                 destination: destinationLocus,
                 subjects: [localEntry],
                 record: record,
@@ -90,7 +90,7 @@ extension OperationModel {
             guard !Task.isCancelled else { return }
             let inputs = RoundTripPlanInputs(
                 source: sourceLocus, destination: destinationLocus, entry: localEntry, facts: facts)
-            applyRoundTripCheck(check, record: record, inputs: inputs)
+            applyRoundTripCheck(reading, record: record, inputs: inputs)
         } catch {
             guard !Task.isCancelled else { return }
             echo.appendLine(Self.describe(error), kind: .failure)
@@ -119,11 +119,18 @@ extension OperationModel {
     /// Enter (naming, not resolving — ho-9.10 Decision 4). An unavailable
     /// check composes no plan: the edit stays local and a later save
     /// rechecks (review: fail-open collision check).
+    ///
+    /// Whatever the ruling, the composed plan is bound to the exact
+    /// version the reading saw. A send-back that cannot be bound is not
+    /// composed at all — a check that could not name a version has no
+    /// authority to replace one, and the operator's Enter authorises the
+    /// conflict that was read, never whatever stands there later.
     private func applyRoundTripCheck(
-        _ check: ConflictCheck,
+        _ reading: RoundTripDestinationReading,
         record: RoundTripRecord,
         inputs: RoundTripPlanInputs
     ) {
+        let check = reading.check
         if case .conflict(let reason) = check {
             note(RoundTrip.conflictNote(for: reason))
         }
@@ -135,13 +142,29 @@ extension OperationModel {
             panelShowing = true
             return
         }
+        guard
+            let versionGuard = RoundTrip.versionGuard(
+                for: check,
+                record: record,
+                currentDigest: reading.currentDigest,
+                token: Self.mintToken())
+        else {
+            echo.appendLine(
+                "couldn't pin what stands at \(record.host):\(record.remotePath) — the edit stays"
+                    + " local rather than replace a version nobody checked; save again to check again",
+                kind: .failure)
+            phase = .failed
+            panelShowing = true
+            return
+        }
         do {
             let request = PlanRequest(
                 operation: .copy,
                 source: inputs.source,
                 entries: [inputs.entry],
                 destination: inputs.destination,
-                token: Self.mintToken())
+                token: versionGuard.token,
+                versionGuard: versionGuard)
             plan = try PlanEngine.plan(request, facts: inputs.facts)
         } catch {
             echo.appendLine(Self.describe(error), kind: .failure)
@@ -163,6 +186,16 @@ extension OperationModel {
         }
     }
 
+    /// What one destination check read — the ruling and the facts behind it.
+    struct RoundTripDestinationReading {
+        /// The three-valued ruling.
+        var check: ConflictCheck
+        /// SHA-256 of what stands at the destination now, where readable.
+        ///
+        /// The version a send-back would be bound to.
+        var currentDigest: Data?
+    }
+
     /// Reads the destination and rules on it, three-valued.
     ///
     /// Any listing or read error is ``ConflictCheck/unavailable`` — a check
@@ -172,13 +205,13 @@ extension OperationModel {
     /// could not be read is unavailable. Sets `facts.collisions` for the
     /// plan's collision line (nil on an unreadable destination).
     ///
-    /// - Returns: The destination ruling.
+    /// - Returns: The destination ruling and the digest it read.
     func checkRoundTripDestination(
         destination: Locus,
         subjects: [FileEntry],
         record: RoundTripRecord,
         into facts: inout PlanFacts
-    ) async -> ConflictCheck {
+    ) async -> RoundTripDestinationReading {
         do {
             let flavor = try await resolveFlavor(destination.host)
             let listing = try await engine.listing(for: destination.host)
@@ -189,29 +222,28 @@ extension OperationModel {
                 note("\(count) \(count == 1 ? "file already exists" : "files already exist") at destination")
             }
             let remoteEntry = listing.first { $0.nameData == record.fetched.nameData }
-            let currentDigest = await remoteDigestIfMetadataMatches(
-                record: record, current: remoteEntry, on: destination)
-            return RoundTrip.evaluate(record: record, current: remoteEntry, currentDigest: currentDigest)
+            let currentDigest = await remoteDigest(of: remoteEntry, on: destination)
+            return RoundTripDestinationReading(
+                check: RoundTrip.evaluate(
+                    record: record, current: remoteEntry, currentDigest: currentDigest),
+                currentDigest: currentDigest)
         } catch {
             facts.collisions = nil
             note("couldn't check the destination — the edit stays local; save again to check again")
-            return .unavailable(Self.describe(error))
+            return RoundTripDestinationReading(
+                check: .unavailable(Self.describe(error)), currentDigest: nil)
         }
     }
 
-    /// Reads the remote content digest, but only when it is needed.
+    /// Reads the remote content digest of whatever stands there now.
     ///
-    /// The read runs when the remote entry is present and its metadata still
-    /// matches the fetch baseline. Returns `nil` when the read is unnecessary
-    /// (metadata already differs, so `evaluate` rules on metadata alone) or
-    /// when the read failed (so `evaluate` rules the destination unavailable).
-    private func remoteDigestIfMetadataMatches(
-        record: RoundTripRecord,
-        current: FileEntry?,
-        on destination: Locus
-    ) async -> Data? {
-        guard let current, !RoundTrip.changedSinceFetch(baseline: record.fetched, current: current)
-        else { return nil }
+    /// Read for every present entry, not only one whose metadata still
+    /// matches: the digest is what a send-back binds itself to, and a
+    /// conflict the operator may confirm needs a version to name as much
+    /// as a clean check does. `nil` when there is nothing there or the
+    /// bytes could not be read — either way nothing can be bound.
+    private func remoteDigest(of current: FileEntry?, on destination: Locus) async -> Data? {
+        guard let current else { return nil }
         let path = PaneModel.childPath(of: destination.directory, name: current.name)
         guard
             let bytes = try? await engine.listing(for: destination.host)

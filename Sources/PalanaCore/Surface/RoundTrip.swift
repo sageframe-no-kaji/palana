@@ -582,6 +582,53 @@ public enum RoundTrip {
         }
     }
 
+    /// Lowercase hex — the form every SHA-256 tool on a host speaks.
+    public static func hex(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// The exact remote version a send-back may replace, or nil when
+    /// this check named none.
+    ///
+    /// The clean case binds to the version that was fetched; a conflict
+    /// binds to whatever the check just read, because the operator's
+    /// Enter authorises that observed version and no later one. A
+    /// missing remote binds to absence. A conflict whose bytes could not
+    /// be read binds to nothing — and an unbindable send-back is not
+    /// composed, so the edit stays local rather than replace a version
+    /// nobody checked.
+    ///
+    /// - Parameters:
+    ///   - check: The three-valued ruling.
+    ///   - record: The record carrying the remote identity and baseline.
+    ///   - currentDigest: SHA-256 of what stands there now, where read.
+    ///   - token: The operation token, which names the staging entry.
+    /// - Returns: The guard, or nil when no version can be named.
+    public static func versionGuard(
+        for check: ConflictCheck,
+        record: RoundTripRecord,
+        currentDigest: Data?,
+        token: String
+    ) -> RemoteVersionGuard? {
+        let expected: String?
+        switch check {
+        case .clean:
+            expected = hex(record.digest)
+        case .conflict(.missing):
+            expected = nil
+        case .conflict:
+            guard let currentDigest else { return nil }
+            expected = hex(currentDigest)
+        case .unavailable:
+            return nil
+        }
+        return RemoteVersionGuard(
+            host: record.host,
+            pathData: record.remotePathData,
+            expectedDigest: expected,
+            token: token)
+    }
+
     /// The transcript line for a conflict — read before the callout.
     public static func conflictNote(for reason: ConflictReason) -> String {
         switch reason {

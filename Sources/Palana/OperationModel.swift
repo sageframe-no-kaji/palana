@@ -308,6 +308,15 @@ final class OperationModel {
         // Open the log session: blank separator then the run header.
         log.appendLine("")
         log.appendLine(OperationLog.headerLine(for: plan))
+        // Written before anything runs: an interrupted send-back still
+        // leaves the version it was bound to, and its staging path, in
+        // the record.
+        if let versionGuard = plan.versionGuard, let destination = plan.destination {
+            log.appendLine(
+                "# bound to \(versionGuard.target) · staged at "
+                    + RemoteVersionGuard.stagingDirectory(
+                        in: destination.directory, token: versionGuard.token))
+        }
         let transports = Transports(
             conduit: RoutingConduit(remote: engine.conduit), configuration: configuration)
         enactmentStopping = false
@@ -406,6 +415,11 @@ final class OperationModel {
             let reportText = Self.describe(report)
             echo.appendLine(reportText, kind: .note)
             log.appendLine("# \(reportText)")
+        case .recovery(let note):
+            // Retained or restored data is never a wall-of-output line:
+            // it is the sentence that tells the operator where bytes are.
+            echo.appendLine("\(note.kind.rawValue): \(note.detail)", kind: .note)
+            log.appendLine("# \(note.kind.rawValue): \(note.detail)")
         case .stepEnded(let index, let exitStatus):
             echo.flushAll()
             progress = nil
@@ -574,7 +588,11 @@ extension OperationModel {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         formatter.timeZone = TimeZone(identifier: "UTC")
-        return "palana-\(formatter.string(from: Date()))"
+        // The suffix is not decoration: the token names this operation's
+        // staging directory, and two operations in one second must never
+        // name the same one.
+        let unique = UUID().uuidString.prefix(8).lowercased()
+        return "palana-\(formatter.string(from: Date()))-\(unique)"
     }
 
     /// One sentence per failure — typed errors say what they are.

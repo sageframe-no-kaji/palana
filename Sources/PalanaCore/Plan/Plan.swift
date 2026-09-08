@@ -191,6 +191,10 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case rollback
         /// A ZFS property set or cleared on a dataset.
         case property
+        /// An operation-owned staging entry created at the destination.
+        case stage
+        /// A staged upload committed against the version it is bound to.
+        case promote
     }
 
     /// Where the command runs.
@@ -277,6 +281,13 @@ public struct Plan: Codable, Sendable, Equatable {
     /// Nil on plans that owe nothing to topology, and on plans written
     /// before the binding existed — an absent key decodes as nil.
     public var topologyBinding: TopologyBinding?
+    /// The exact remote version a send-back may replace.
+    ///
+    /// Present only on version-bound copies. Absent on every other
+    /// plan, and on plans written before the guard existed — an absent
+    /// key decodes as nil, and enactment refuses a commit step that
+    /// has no version behind it.
+    public var versionGuard: RemoteVersionGuard?
 
     /// Assembles a plan.
     public init(
@@ -291,7 +302,8 @@ public struct Plan: Codable, Sendable, Equatable {
         steps: [PlanStep],
         receivedDataset: String? = nil,
         collisions: CollisionReport? = nil,
-        topologyBinding: TopologyBinding? = nil
+        topologyBinding: TopologyBinding? = nil,
+        versionGuard: RemoteVersionGuard? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -305,6 +317,7 @@ public struct Plan: Codable, Sendable, Equatable {
         self.receivedDataset = receivedDataset
         self.collisions = collisions
         self.topologyBinding = topologyBinding
+        self.versionGuard = versionGuard
     }
 }
 

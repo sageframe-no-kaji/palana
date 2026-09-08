@@ -22,8 +22,11 @@ public enum PlanEngine {
         }
         let classification = classify(request, facts: facts)
         let transport = transport(for: classification, request: request, facts: facts)
-        let steps = compose(
-            request, facts: facts, classification: classification, transport: transport)
+        let steps = composeBound(
+            request,
+            facts: facts,
+            classification: classification,
+            transport: transport)
         let sizeFacts = totalSize(request.entries, facts: facts)
         return Plan(
             operation: request.operation,
@@ -36,7 +39,8 @@ public enum PlanEngine {
             transport: transport,
             steps: steps,
             receivedDataset: zfsChild(request: request, facts: facts, transport: transport),
-            collisions: collisions
+            collisions: collisions,
+            versionGuard: request.versionGuard
         )
     }
 
@@ -117,6 +121,7 @@ public enum PlanEngine {
         for entry in request.entries where !entry.isNameRepresentable {
             throw PlanError.unrepresentableName(entry.nameData)
         }
+        try validateVersionGuard(request)
     }
 
     private static func validateRename(_ request: PlanRequest) throws {
@@ -244,7 +249,8 @@ public enum PlanEngine {
 // MARK: - Composition
 
 extension PlanEngine {
-    private static func compose(
+    /// The steps one transport composes, before any binding wraps them.
+    static func composeTransport(
         _ request: PlanRequest,
         facts: PlanFacts,
         classification: Classification,

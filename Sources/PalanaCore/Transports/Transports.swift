@@ -66,13 +66,7 @@ public struct Transports: Sendable {
     /// throws `CancellationError` only once every owned process has
     /// exited — so a caller that awaits this has awaited the teardown.
     public func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
-        // A plan the engine would have refused must not run from here
-        // either: the tool fails mid-way on the clash, after earlier
-        // entries already moved.
-        if let collisions = plan.collisions, collisions.hasKindClash {
-            throw EnactmentError.malformedPlan(
-                collisions.clashSentence() ?? "kind clash at the destination")
-        }
+        try Self.refuseUnrunnable(plan)
         var gatesReleased = false
         for (index, step) in plan.steps.enumerated() {
             try Task.checkCancellation()
@@ -87,17 +81,57 @@ public struct Transports: Sendable {
             emit(.stepBegan(index: index, step: step))
             let result = try await runStep(step, index: index, plan: plan, emit: emit)
             emit(.stepEnded(index: index, exitStatus: result.exitStatus))
-            if result.exitStatus != 0 {
-                let doorFailure = ConduitError.classify(
-                    exitStatus: result.exitStatus, stderr: result.stderrTail)
-                if let doorFailure {
-                    throw doorFailure
-                }
-                throw EnactmentError.stepFailed(
-                    index: index, exitStatus: result.exitStatus, stderrTail: result.stderrTail)
+            // A composed program that had to leave data behind says so
+            // through a marker; nothing it retained is ever swallowed.
+            for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
+                emit(.recovery(note))
             }
+            try Self.raise(result, index: index)
         }
         emit(.finished)
+    }
+
+    /// Refuses, before a single step runs, a plan whose shape cannot
+    /// carry the authority its steps claim.
+    ///
+    /// A commit step with no version behind it is the shape a plan
+    /// written before this binding existed takes. It may not run: a plan
+    /// decoded from an older file stays readable and stays harmless.
+    private static func refuseUnrunnable(_ plan: Plan) throws {
+        // A plan the engine would have refused must not run from here
+        // either: the tool fails mid-way on the clash, after earlier
+        // entries already moved.
+        if let collisions = plan.collisions, collisions.hasKindClash {
+            throw EnactmentError.malformedPlan(
+                collisions.clashSentence() ?? "kind clash at the destination")
+        }
+        let commits = plan.steps.contains { $0.role == .promote }
+        if commits, plan.versionGuard == nil {
+            throw EnactmentError.malformedPlan(
+                "a commit step with no remote version behind it — nothing may be replaced")
+        }
+        if plan.versionGuard != nil, !commits {
+            throw EnactmentError.malformedPlan(
+                "a version-bound send-back with no commit step — nothing may be replaced")
+        }
+    }
+
+    /// The host a step's output is attributed to.
+    private static func hostLabel(_ step: PlanStep) -> String {
+        switch step.runsOn {
+        case .operatorMachine: PalanaCore.localHostName
+        case .host(let host): host
+        }
+    }
+
+    /// Raises a nonzero step, door failures first.
+    private static func raise(_ result: StepResult, index: Int) throws {
+        guard result.exitStatus != 0 else { return }
+        let doorFailure = ConduitError.classify(
+            exitStatus: result.exitStatus, stderr: result.stderrTail)
+        if let doorFailure { throw doorFailure }
+        throw EnactmentError.stepFailed(
+            index: index, exitStatus: result.exitStatus, stderrTail: result.stderrTail)
     }
 
     // MARK: - Steps

@@ -23,6 +23,13 @@ public struct PlanRequest: Sendable, Equatable {
     /// The ZFS mutation payload — non-nil only for `.zfs` operations,
     /// nil for every file operation.
     public var zfs: ZFSMutation?
+    /// The exact remote version a send-back may replace.
+    ///
+    /// Non-nil only for round-trip send-back copies. The engine binds
+    /// the composed plan to it: the bytes land in a staging directory
+    /// and one commit step proves the destination is still that version
+    /// before it takes the pathname.
+    public var versionGuard: RemoteVersionGuard?
     /// Whether the `.zfs` mutation's target dataset is currently mounted.
     ///
     /// Defaults false like the rest of this bundle's ZFS context. The
@@ -39,7 +46,8 @@ public struct PlanRequest: Sendable, Equatable {
         token: String = "palana-transfer",
         targetName: String? = nil,
         zfs: ZFSMutation? = nil,
-        targetMounted: Bool = false
+        targetMounted: Bool = false,
+        versionGuard: RemoteVersionGuard? = nil
     ) {
         self.operation = operation
         self.source = source
@@ -49,6 +57,7 @@ public struct PlanRequest: Sendable, Equatable {
         self.targetName = targetName
         self.zfs = zfs
         self.targetMounted = targetMounted
+        self.versionGuard = versionGuard
     }
 }
 
@@ -182,4 +191,8 @@ public enum PlanError: Error, Equatable, Sendable {
     /// A mountpoint must be an absolute path — zfs refuses anything
     /// else, so the engine refuses first, in words.
     case zfsMountpointNotAbsolute
+    /// A version guard rode a request it cannot bind — an operation
+    /// other than a single-entry copy, or a destination it does not
+    /// name. A guard that does not match what it guards is no guard.
+    case versionGuardUnbindable(String)
 }

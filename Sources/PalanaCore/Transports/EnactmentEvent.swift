@@ -63,6 +63,70 @@ public enum VerificationReport: Sendable, Equatable {
     }
 }
 
+/// Data an operation left behind, or put back, and exactly where.
+///
+/// Neither an error nor an outcome: the sentence that keeps bytes
+/// findable when a commit refused, a quarantine could not be released,
+/// or a displaced version turned out not to be the one that was
+/// checked. Never swallowed — every note reaches the transcript and
+/// the run record.
+public struct RecoveryNote: Sendable, Equatable {
+    /// What happened to the data.
+    public enum Kind: String, Sendable, Equatable {
+        /// Kept at a named path, for the operator to recover.
+        case retained
+        /// Put back where it was before the operation touched it.
+        case restored
+    }
+
+    /// Retained or restored.
+    public var kind: Kind
+    /// The host the data lives on.
+    public var host: String
+    /// The sentence — the path and why it is there.
+    public var detail: String
+
+    /// Records one note.
+    ///
+    /// - Parameters:
+    ///   - kind: Retained or restored.
+    ///   - host: The host the data lives on.
+    ///   - detail: The path and the reason, in a sentence.
+    public init(kind: Kind, host: String, detail: String) {
+        self.kind = kind
+        self.host = host
+        self.detail = detail
+    }
+
+    /// The marker a composed program writes ahead of a retention line.
+    public static let retainedMarker = "palana-retained: "
+    /// The marker a composed program writes ahead of a restoration line.
+    public static let restoredMarker = "palana-restored: "
+
+    /// The notes a step's standard error carries, in order.
+    ///
+    /// Composed programs speak their recovery truth through these two
+    /// markers so enactment can lift it into a typed event rather than
+    /// leaving it in a wall of output.
+    ///
+    /// - Parameters:
+    ///   - text: The step's standard error, decoded.
+    ///   - host: The host the step ran on.
+    /// - Returns: One note per marked line.
+    public static func notes(in text: String, host: String) -> [Self] {
+        text.split(separator: "\n").compactMap { line in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix(retainedMarker) {
+                return Self(kind: .retained, host: host, detail: String(trimmed.dropFirst(retainedMarker.count)))
+            }
+            if trimmed.hasPrefix(restoredMarker) {
+                return Self(kind: .restored, host: host, detail: String(trimmed.dropFirst(restoredMarker.count)))
+            }
+            return nil
+        }
+    }
+}
+
 /// What enactment emits, in order, as it happens.
 public enum EnactmentEvent: Sendable, Equatable {
     /// A plan step is starting — the exact command rides along.
@@ -77,6 +141,8 @@ public enum EnactmentEvent: Sendable, Equatable {
     case verified(VerificationReport)
     /// A step finished with this status.
     case stepEnded(index: Int, exitStatus: Int32)
+    /// Data retained for recovery, or put back where it was.
+    case recovery(RecoveryNote)
     /// The whole plan enacted.
     case finished
 }

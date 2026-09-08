@@ -140,3 +140,66 @@ struct RoundTripDispositionTests {
         }
     }
 }
+
+// MARK: - RoundTrip.versionGuard
+
+@Suite("RoundTrip.versionGuard — the version enactment is bound to")
+struct RoundTripVersionGuardTests {
+    private let baseline = Date(timeIntervalSince1970: 1_000)
+    private let fetched = RoundTrip.digest(of: Data("as fetched".utf8))
+    private let later = RoundTrip.digest(of: Data("as it stands now".utf8))
+
+    private func record() -> RoundTripRecord {
+        conflictRecord(size: 10, mtime: baseline, digest: fetched)
+    }
+
+    @Test("a clean check binds to the version that was fetched")
+    func cleanBindsToTheFetched() throws {
+        let bound = try #require(
+            RoundTrip.versionGuard(
+                for: .clean, record: record(), currentDigest: fetched, token: "t1"))
+        #expect(bound.host == "koan")
+        #expect(bound.pathData == Data("/tank/notes.txt".utf8))
+        #expect(bound.expectedDigest == RoundTrip.hex(fetched))
+        #expect(!bound.expectsAbsence)
+        #expect(bound.target == "koan:/tank/notes.txt")
+    }
+
+    @Test("a conflict binds to what the check just read, not to the fetched baseline")
+    func conflictBindsToTheObservedVersion() throws {
+        let moved = conflictEntry(size: 99, mtime: Date(timeIntervalSince1970: 2_000))
+        let bound = try #require(
+            RoundTrip.versionGuard(
+                for: .conflict(.metadataChanged(current: moved)),
+                record: record(),
+                currentDigest: later,
+                token: "t1"))
+        #expect(bound.expectedDigest == RoundTrip.hex(later))
+    }
+
+    @Test("a missing remote binds to absence")
+    func missingBindsToAbsence() throws {
+        let bound = try #require(
+            RoundTrip.versionGuard(
+                for: .conflict(.missing), record: record(), currentDigest: nil, token: "t1"))
+        #expect(bound.expectsAbsence)
+    }
+
+    @Test("a conflict whose bytes could not be read binds to nothing")
+    func unreadableConflictBindsToNothing() {
+        #expect(
+            RoundTrip.versionGuard(
+                for: .conflict(.contentChanged), record: record(), currentDigest: nil, token: "t1")
+                == nil)
+        #expect(
+            RoundTrip.versionGuard(
+                for: .unavailable("timeout"), record: record(), currentDigest: later, token: "t1")
+                == nil)
+    }
+
+    @Test("hex is the lowercase form every host tool speaks")
+    func hexIsLowercase() {
+        #expect(RoundTrip.hex(Data([0x00, 0x0f, 0xa0, 0xff])) == "000fa0ff")
+        #expect(RoundTrip.hex(fetched).count == 64)
+    }
+}
