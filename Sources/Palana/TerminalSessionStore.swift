@@ -8,9 +8,110 @@
 // is one command per exchange, and a PTY session is not that. The
 // terminal goes THROUGH ssh beside the Conduit, not through it.
 
+import AppKit
 import Foundation
 import PalanaCore
 import SwiftTerm
+
+/// The caret's one decision, as a pure function of the shell's request and
+/// whether the panes hold the keyboard.
+///
+/// Hands session, 2026-09-08: "The cursor HAS to stop blinking when the
+/// terminal pane is not focussed." SwiftTerm re-arms the blink from the
+/// caret's STYLE on every redraw path — the window becoming main, a font
+/// change, the shell's own DECSCUSR at each prompt — regardless of first
+/// responder, so dropping the animation once is not enough. The rest is
+/// written into the style itself: a resting caret shows the steady twin of
+/// whatever shape the shell asked for, and nothing SwiftTerm does can
+/// re-arm a steady style.
+enum ShellCaretPolicy {
+    /// The steady twin of `style` — the same shape, no blink.
+    static func steady(_ style: CursorStyle) -> CursorStyle {
+        switch style {
+        case .blinkBlock, .steadyBlock: .steadyBlock
+        case .blinkBar, .steadyBar: .steadyBar
+        case .blinkUnderline, .steadyUnderline: .steadyUnderline
+        }
+    }
+
+    /// Whether `style` blinks.
+    static func blinks(_ style: CursorStyle) -> Bool {
+        switch style {
+        case .blinkBlock, .blinkBar, .blinkUnderline: true
+        case .steadyBlock, .steadyBar, .steadyUnderline: false
+        }
+    }
+
+    /// The style the caret shows: the shell's request while the shell holds
+    /// the keyboard; its steady twin while the panes do.
+    static func style(requested: CursorStyle, resting: Bool) -> CursorStyle {
+        resting ? steady(requested) : requested
+    }
+}
+
+/// The terminal Palana hosts — `LocalProcessTerminalView` with a caret that
+/// rests while the panes hold the keyboard.
+///
+/// The seam is SwiftTerm's own: `cursorStyleChanged(source:newStyle:)` is the
+/// open `TerminalDelegate` callback through which every cursor style reaches
+/// the caret, and `caretColor` is the public color. Resting, the caret is
+/// steady in ``Theme/Token/caretRest``; the text under it keeps the
+/// terminal's foreground, so it stays legible through the wash. Active, the
+/// shell's requested style and the color it had before the rest come back.
+/// SwiftTerm is not forked or patched; the library's caret view is never
+/// touched directly.
+final class ShellTerminalView: LocalProcessTerminalView {
+    /// The style the shell last asked for (DECSCUSR), or the option default.
+    private(set) var requestedCaretStyle: CursorStyle = TerminalOptions.default.cursorStyle
+    /// The style last handed to SwiftTerm's caret — the request, or its
+    /// steady twin while resting.
+    private(set) var shownCaretStyle: CursorStyle = TerminalOptions.default.cursorStyle
+    /// True while the panes hold the keyboard.
+    private(set) var caretResting = false
+    /// The caret color in force before the rest, restored when it ends —
+    /// SwiftTerm's default, or whatever the shell set with OSC 12.
+    private var activeCaretColor: NSColor?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        requestedCaretStyle = terminal.options.cursorStyle
+        shownCaretStyle = requestedCaretStyle
+    }
+
+    // The library's own designated initializers all funnel through
+    // init(frame:); a coder path is not one Palana offers.
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    /// The shell's cursor style request, filtered through the rest.
+    override func cursorStyleChanged(source: Terminal, newStyle: CursorStyle) {
+        requestedCaretStyle = newStyle
+        showCaretStyle(ShellCaretPolicy.style(requested: newStyle, resting: caretResting))
+    }
+
+    /// Rests the caret (the panes have the keyboard) or wakes it (the shell does).
+    ///
+    /// Idempotent — the host view calls it on every SwiftUI update pass.
+    func setCaretResting(_ resting: Bool) {
+        guard resting != caretResting else { return }
+        caretResting = resting
+        if resting {
+            activeCaretColor = caretColor
+            caretColor = Theme.Token.caretRest.nsColor
+        } else if let activeCaretColor {
+            caretColor = activeCaretColor
+            self.activeCaretColor = nil
+        }
+        showCaretStyle(ShellCaretPolicy.style(requested: requestedCaretStyle, resting: resting))
+    }
+
+    private func showCaretStyle(_ style: CursorStyle) {
+        shownCaretStyle = style
+        super.cursorStyleChanged(source: terminal, newStyle: style)
+    }
+}
 
 /// The process a fresh terminal session launches — decided from the host,
 /// the summoning pane's directory, and the app's environment, with no
@@ -60,8 +161,8 @@ struct TerminalLaunch: Equatable, Sendable {
     }
 }
 
-/// Per-host `LocalProcessTerminalView` sessions, created lazily and kept
-/// alive across mode exits — one session per host, until app quit.
+/// Per-host ``ShellTerminalView`` sessions, created lazily and kept alive
+/// across mode exits — one session per host, until app quit.
 ///
 /// The local host (`PalanaCore.localHostName`) runs the operator's own
 /// login shell; every other host runs `ssh <alias>` with no `-F`
@@ -70,7 +171,7 @@ struct TerminalLaunch: Equatable, Sendable {
 /// directory the summoning pane stands in — see ``TerminalLaunch``.
 @MainActor
 final class TerminalSessionStore: NSObject {
-    private var sessions: [String: LocalProcessTerminalView] = [:]
+    private var sessions: [String: ShellTerminalView] = [:]
 
     /// The launch each live session was started with, keyed by host.
     ///
@@ -100,9 +201,9 @@ final class TerminalSessionStore: NSObject {
     /// it. A session whose process ENDED is removed by the termination
     /// delegate, so a summon after `exit` starts anew, in the directory
     /// the pane stands in then.
-    func session(for host: String, startingIn directory: String) -> LocalProcessTerminalView {
+    func session(for host: String, startingIn directory: String) -> ShellTerminalView {
         if let existing = sessions[host] { return existing }
-        let view = LocalProcessTerminalView(frame: .zero)
+        let view = ShellTerminalView(frame: .zero)
         view.processDelegate = self
         let launch = TerminalLaunch.plan(
             host: host, directory: directory, environment: ProcessInfo.processInfo.environment)

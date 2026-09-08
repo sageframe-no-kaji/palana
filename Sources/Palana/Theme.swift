@@ -195,6 +195,18 @@ enum Theme {
         static let paneEdge = Palette(
             light: RGBA(red: 0.3529, green: 0.4588, blue: 0.3216, alpha: 0.40),
             dark: RGBA(red: 0.4941, green: 0.6078, blue: 0.4471, alpha: 0.40))
+
+        /// The shell's caret while the panes hold the keyboard.
+        ///
+        /// Hands session, 2026-09-08: the resting caret "should get fairly
+        /// washed out". The ink's own RGB well under `inkFaint`'s alpha —
+        /// 0.30 light, 0.35 dark (the dark ink is off-white on a near-black
+        /// terminal and needs the same touch more presence `inkFaint` gets).
+        /// The terminal's ground follows the system text colors, so the ink
+        /// pairing holds in both appearances.
+        static let caretRest = Palette(
+            light: RGBA(red: 0.1137, green: 0.1059, blue: 0.0941, alpha: 0.30),
+            dark: RGBA(red: 0.9255, green: 0.9059, blue: 0.8745, alpha: 0.35))
     }
 }
 

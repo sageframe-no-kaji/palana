@@ -163,7 +163,7 @@ struct ThemePaletteTests {
         let tokens = [
             Theme.Token.ground, Theme.Token.groundDeep, Theme.Token.ink, Theme.Token.inkFaint,
             Theme.Token.accent, Theme.Token.panelGround, Theme.Token.alarm, Theme.Token.plugin,
-            Theme.Token.paneShade, Theme.Token.paneEdge,
+            Theme.Token.paneShade, Theme.Token.paneEdge, Theme.Token.caretRest,
         ]
         for token in tokens {
             #expect(token.light != token.dark)
