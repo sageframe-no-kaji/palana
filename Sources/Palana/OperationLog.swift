@@ -80,7 +80,17 @@ final class OperationLog {
     private(set) var failureCount = 0
 
     private let opener: Opener
-    @ObservationIgnored private var sink: (any OperationLogSink)?
+    /// The open handle, held off the actor so a plain `deinit` can close
+    /// it. `isolated deinit` did this job until the first CI run on
+    /// macOS 15: Swift's back-deployment shim for it aborted inside
+    /// libmalloc ("pointer being freed was not allocated"), while the
+    /// macOS 26 runtime here handled it — the same drain-from-a-holder
+    /// move as `PaneRefresher`.
+    @ObservationIgnored private let sinkHolder = SinkHolder()
+    private var sink: (any OperationLogSink)? {
+        get { sinkHolder.sink }
+        set { sinkHolder.sink = newValue }
+    }
 
     /// True while every write has landed.
     var isHealthy: Bool { failure == nil }
@@ -106,9 +116,10 @@ final class OperationLog {
         self.opener = opener
     }
 
-    isolated deinit {
-        // Best effort — a failure here has no one left to tell.
-        try? sink?.close()
+    deinit {
+        // Best effort — a failure here has no one left to tell. Runs off
+        // the actor by design; the holder, not the actor, owns the handle.
+        sinkHolder.closeQuietly()
     }
 
     // MARK: - Write
@@ -219,5 +230,28 @@ final class OperationLog {
         if failure == nil {
             failure = Failure(stage: stage, detail: detail)
         }
+    }
+}
+
+/// The log's open handle, reachable from a nonisolated `deinit`.
+///
+/// One lock around one optional: the actor sets and reads it through
+/// `OperationLog.sink`; `deinit` closes whatever it holds.
+final class SinkHolder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: (any OperationLogSink)?
+
+    var sink: (any OperationLogSink)? {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
+    }
+
+    /// Closes and drops the handle; errors have no one left to tell.
+    func closeQuietly() {
+        let handle = lock.withLock { () -> (any OperationLogSink)? in
+            defer { stored = nil }
+            return stored
+        }
+        try? handle?.close()
     }
 }
