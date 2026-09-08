@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-09-06
+updated: 2026-09-08
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,28 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-09-08, seventeenth block — THE HANDS ROUND ON THE REPAIRS; BETA IS THE NEXT GATE
+
+**COMPLETED**
+- **Two days of hands feedback on the repaired build, seven fixes, each its own commit off `main`:** `2e9eb2c` the active pane wears a hairline · `1a08689` the terminal opens where the pane stands · `cfb1262` the host menu says when the config is unreadable (scope-toggle rows out of the quick menu) · `3b38e6a` a merge is never a rename (the manifest gate is the subset rule now, his decision; merges complete and delete the source) · `0371daa` panes keep themselves current (local FSEvents watcher, remote 10 s poll while frontmost, re-list on activation) · `491c7c9` ⌘` always reaches the shell (supersedes round 9's decline; a click off the shell hands the keyboard back) · `8206bc4` the shell's caret rests when the panes have the keyboard (steady, faint). Plus `85de4e0` the recovery notice reads plainly and leaves on its own.
+- **Two findings from the hands round itself:** `5b030e3` the sshd fixture named its host `palana@localhost`, which Task 6's grammar rightly refuses — every task worktree had skipped the fixture suites, main ran them and failed; `e316c9b` the directory watcher opened its descriptor asynchronously after `.ready`, so the first change after a landing could be missed — the widened watcher tests caught it under load.
+- **`31d6f0a` the session takes its world as parameters:** `PalanaSession` has a designated initializer (config URL, SSH configuration, conduit with no defaults; store URLs with today's defaults); every live `SSHConduit` in PalanaTests is the recording fake; a guard test fails if the pattern returns; the suite passes with an empty `$HOME`.
+- **Hands verdicts (2026-09-08):** all fourteen checks pass — panes, refresh, terminal directory, shell toggle over a settled plan and over a live run, host menu diagnostic, the merge move, address recovery, the resting caret ("fix is perfect").
+- **Stack on `8206bc4`:** 1295 tests in 197 suites + 70 XCTest green with the sshd fixture live; PalanaCore 97.7%, application logic 52% (was 35 at the floor's birth). Pushed to `origin/main`.
+
+**NEXT**
+- **Beta.** His call (2026-09-08): this is the stopping point. The sequence lives in `palana-web/BETA-LAUNCH.md`: install the Metal toolchain component Xcode 26.3 no longer bundles (`xcodebuild -downloadComponent MetalToolchain`), the universal signed and notarized dmg, the site's first deploy with the publish-root check. No features before beta.
+
+**ACTION ITEMS / BLOCKS**
+- No blocks. CI on `8206bc4` to be read after the push.
+- Carried limits: a quiet self-refresh clears `lastError`, so the unrepresentable-name banner clears on the next refresh; cancelled enactments have no re-read hook (the watcher or the poll covers it); a cursor color the shell sets while the caret rests is overwritten on wake; every typed remote pointing costs one `test` round trip; `HostOnboardingForm`'s remove preview still scans Host-only.
+- The universal build needs the Metal component; `dist/Palana.app` today is native arm64, ad-hoc signed, for his Macs only.
+
+**PROJECT LIFECYCLE**
+- `beta` — the release-blocking findings are repaired, tested, and hands-verified; the dmg and the site are what stand between this build and beta testers.
 
 ---
 
