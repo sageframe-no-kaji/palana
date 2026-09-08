@@ -4,9 +4,10 @@
 // sessions close when the app quits, because nothing outlives the
 // window.
 //
-// PALANA_SSH_CONFIG points the whole stack at an alternate ssh config
-// — the fixture's, during development. Unset, the operator's own
-// ~/.ssh/config governs, exactly as it does in the terminal.
+// The session takes its world as parameters — the ssh config, the state
+// files, the remote door. The app resolves them to the operator's
+// machine in `PalanaSession+World.swift`; tests hand in a temp directory
+// and a recording conduit.
 
 import AppKit
 import PalanaCore
@@ -48,7 +49,7 @@ final class PalanaSession {
     /// The settings model — rsync flags and host-hide controls.
     let settings: SettingsModel
     /// The favorites — the star and the host menu both read and write here.
-    let favorites = FavoritesModel()
+    let favorites: FavoritesModel
     /// The favorites column panel's fold state.
     let favoritesPanelModel = FavoritesPanelModel()
     /// The round-trip center — owns all live watches, offers uploads when
@@ -56,7 +57,7 @@ final class PalanaSession {
     let roundTripCenter = RoundTripCenter()
     /// The column customization — shared across both panes so the operator's
     /// show/hide choices apply to the left and the right identically.
-    let columnStore = ColumnStore()
+    let columnStore: ColumnStore
 
     /// The tool coordinator — aimed at each host via the routing conduit.
     let workbench: Workbench
@@ -102,10 +103,12 @@ final class PalanaSession {
     /// visible and dimmed while the operator drives the panes.
     var shellFocused = false
 
-    private let conduit: SSHConduit
+    private let conduit: any Conduit
     private let field: Field
     private let engine: Engine
     private let sshConfigURL: URL
+    /// Where the workbench snapshot lives — `start()` reads it, `persist()` writes it.
+    private let sessionURL: URL
     private var recognizer: SequenceRecognizer<PaneIntent>
     private var keyMonitor: Any?
     /// The app-activation observer — the panes re-list when the app comes
@@ -115,36 +118,49 @@ final class PalanaSession {
     /// shell hands the keyboard to the panes (`PalanaSession+Shell.swift`).
     var clickMonitor: Any?
 
-    /// Builds the engine stack from the operator's ssh config, or from
-    /// `PALANA_SSH_CONFIG` when the environment points elsewhere.
-    init() {
-        let override = ProcessInfo.processInfo.environment["PALANA_SSH_CONFIG"]
-        let configURL =
-            override.map { URL(fileURLWithPath: $0) }
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh/config")
-        let extraOptions = override.map { ["-F", $0] } ?? []
-        let configuration = SSHConfiguration(extraOptions: extraOptions)
-        let conduit = SSHConduit(configuration: configuration)
-        let settingsURL =
-            SessionStore.defaultURL()
-            .deletingLastPathComponent()
-            .appendingPathComponent("settings.json")
+    /// The designated initializer — the session's world, named.
+    ///
+    /// Everything the session touches on this machine and the one door it
+    /// opens toward any other arrive as parameters: the ssh config, the
+    /// settings and workbench files, the favorites, the column visibility,
+    /// the Field's cache, the run record, the remote conduit. The three
+    /// without defaults are the ones a caller must never get by accident —
+    /// a test that forgets them does not silently inherit the operator's
+    /// config and a live door. Nothing here reaches for `~`; the defaults
+    /// that do are the app's, chosen by `init()` in
+    /// `PalanaSession+World.swift`. Construction runs no command through
+    /// the conduit — `start()` is the first read.
+    init(
+        sshConfigURL: URL,
+        configuration: SSHConfiguration,
+        remote: any Conduit,
+        settingsURL: URL = PalanaSession.defaultSettingsURL,
+        sessionURL: URL = SessionStore.defaultURL(),
+        favoritesURL: URL = FavoritesStore.defaultURL(),
+        columnsURL: URL = ColumnVisibilityStore.defaultURL(),
+        fieldCache: FieldCache = FieldCache(),
+        operationLog: OperationLog = OperationLog()
+    ) {
         // The settings model owns the one typed read of the config — an
         // unreadable file is a diagnostic there, never an empty field here.
-        let settingsModel = SettingsModel(configURL: configURL, settingsURL: settingsURL)
-        self.sshConfigURL = configURL
-        self.conduit = conduit
+        let settingsModel = SettingsModel(configURL: sshConfigURL, settingsURL: settingsURL)
+        self.sshConfigURL = sshConfigURL
+        self.sessionURL = sessionURL
+        self.conduit = remote
         self.settings = settingsModel
-        self.field = Field(conduit: conduit, sshConfigText: settingsModel.configText, cache: FieldCache())
-        self.workbench = Workbench(conduit: RoutingConduit(remote: conduit), field: field)
+        self.favorites = FavoritesModel(url: favoritesURL)
+        self.columnStore = ColumnStore(url: columnsURL)
+        self.field = Field(conduit: remote, sshConfigText: settingsModel.configText, cache: fieldCache)
+        self.workbench = Workbench(conduit: RoutingConduit(remote: remote), field: field)
         self.readsTool = SystemReadsTool()
         self.recognizer = SequenceRecognizer(bindings: Grammar.bindings)
-        self.engine = Engine(conduit: conduit, field: field, listing: Listing(conduit: conduit))
+        self.engine = Engine(conduit: remote, field: field, listing: Listing(conduit: remote))
         self.fieldViewModel = FieldViewModel(engine: self.engine)
         self.hostMapModel = HostMapModel(engine: self.engine)
         self.left = PaneModel(engine: self.engine)
         self.right = PaneModel(engine: self.engine)
-        self.operation = OperationModel(engine: self.engine, configuration: configuration, settings: settingsModel)
+        self.operation = OperationModel(
+            engine: self.engine, configuration: configuration, settings: settingsModel, log: operationLog)
         // The preview pane's remote reader — a bounded head read over the wire
         // (ho-16 review). Engine is a Sendable value, captured by copy.
         let engine = self.engine
@@ -222,7 +238,7 @@ final class PalanaSession {
         reloadHosts()
         // The launch update check (ho-12) — opt-out, one call, off the hot path.
         Task { await updateChecker.checkIfEnabled() }
-        guard let snapshot = SessionStore.load(from: SessionStore.defaultURL()) else { return }
+        guard let snapshot = SessionStore.load(from: sessionURL) else { return }
         focusedSide = snapshot.focused
         left.restore(snapshot.left)
         right.restore(snapshot.right)
@@ -361,7 +377,7 @@ final class PalanaSession {
             left: SessionSnapshot.Pane(of: left.state),
             right: SessionSnapshot.Pane(of: right.state),
             focused: focusedSide)
-        try? SessionStore.save(snapshot, to: SessionStore.defaultURL())
+        try? SessionStore.save(snapshot, to: sessionURL)
         columnStore.persist()
     }
 

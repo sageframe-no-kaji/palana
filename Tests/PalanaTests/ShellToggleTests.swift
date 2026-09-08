@@ -9,7 +9,9 @@
 // No PTY is ever spawned: the shell's view is never rendered, so the
 // terminal store is never summoned. No pane is ever pointed for real —
 // the host is a string on the pane state, and the one verb fired lands
-// on a phase that stops it before any gather.
+// on a phase that stops it before any gather. The session comes from
+// `TestSession`: its world is a temp directory and a recording door, so
+// nothing here reads the operator's config or can reach a host.
 
 import AppKit
 import PalanaCore
@@ -120,16 +122,18 @@ final class ShellToggleTests: XCTestCase {
     // MARK: - The session, as he hit it
 
     /// A session whose focused pane names a host — no wire, no read.
-    private func makeSession(pointed: Bool = true) -> PalanaSession {
-        let session = PalanaSession()
+    private func makeSession(pointed: Bool = true) throws -> PalanaSession {
+        let rig = try TestSession()
+        addTeardownBlock { rig.tearDown() }
+        let session = rig.session
         if pointed { session.left.state.host = "koan" }
         return session
     }
 
     /// The plan is showing ("move · the plan"); ⌘` goes to the shell with
     /// the plan dismissed.
-    func testPlanShowingYieldsShellFocusedWithTheOperationDismissed() {
-        let session = makeSession()
+    func testPlanShowingYieldsShellFocusedWithTheOperationDismissed() throws {
+        let session = try makeSession()
         session.operation.requested = .move
         session.operation.phase = .ready
         session.operation.panelShowing = true
@@ -147,9 +151,9 @@ final class ShellToggleTests: XCTestCase {
 
     /// A finished, failed, or cancelled result is showing; ⌘` goes to the
     /// shell with the result dismissed — the same road.
-    func testResultShowingYieldsShellFocusedWithTheResultDismissed() {
+    func testResultShowingYieldsShellFocusedWithTheResultDismissed() throws {
         for phase in [Phase.finished, .failed, .cancelled] {
-            let session = makeSession()
+            let session = try makeSession()
             session.shellMode = true
             session.operation.phase = phase
             session.operation.panelShowing = true
@@ -165,9 +169,9 @@ final class ShellToggleTests: XCTestCase {
     /// A live run: ⌘` shows the shell over it and cancels nothing; ⌘`
     /// again hands the keyboard back and the transcript returns, the run
     /// still live.
-    func testRunningShowsTheShellAndCancelsNothing() {
+    func testRunningShowsTheShellAndCancelsNothing() throws {
         for phase in Self.runningPhases {
-            let session = makeSession()
+            let session = try makeSession()
             session.operation.requested = .move
             session.operation.phase = phase
             session.operation.panelShowing = true
@@ -189,8 +193,8 @@ final class ShellToggleTests: XCTestCase {
 
     /// The run's panel is hidden (backtick stashed it); ⌘` brings the
     /// panel back showing the shell, the run untouched.
-    func testRunningWithHiddenPanelSummonsTheShell() {
-        let session = makeSession()
+    func testRunningWithHiddenPanelSummonsTheShell() throws {
+        let session = try makeSession()
         session.operation.phase = .enacting
         session.operation.panelShowing = false
 
@@ -203,8 +207,8 @@ final class ShellToggleTests: XCTestCase {
 
     /// A failure under the shell pulls the keyboard back; the transcript
     /// shows the failure.
-    func testFailureUnderTheShellResurfacesTheTranscript() {
-        let session = makeSession()
+    func testFailureUnderTheShellResurfacesTheTranscript() throws {
+        let session = try makeSession()
         session.operation.phase = .enacting
         session.operation.panelShowing = true
         session.toggleShellKeyboard()
@@ -219,8 +223,8 @@ final class ShellToggleTests: XCTestCase {
     }
 
     /// No pointed pane: the note, and nothing else moves.
-    func testNoHostKeepsTheNote() {
-        let session = makeSession(pointed: false)
+    func testNoHostKeepsTheNote() throws {
+        let session = try makeSession(pointed: false)
 
         session.toggleShellKeyboard()
 
@@ -232,8 +236,8 @@ final class ShellToggleTests: XCTestCase {
 
     /// Not in shell mode, idle: ⌘` enters it with the keyboard — the
     /// original summon, unchanged.
-    func testIdleSummonEntersShellModeFocused() {
-        let session = makeSession()
+    func testIdleSummonEntersShellModeFocused() throws {
+        let session = try makeSession()
 
         session.toggleShellKeyboard()
         XCTAssertTrue(session.shellMode)
@@ -247,7 +251,7 @@ final class ShellToggleTests: XCTestCase {
 
     /// ⌘` arriving through the shell-mode stand-down rides the same policy.
     func testShellModeChordReleasesThroughThePolicy() throws {
-        let session = makeSession()
+        let session = try makeSession()
         session.toggleShellKeyboard()
         XCTAssertTrue(session.shellFocused)
 
@@ -262,8 +266,8 @@ final class ShellToggleTests: XCTestCase {
 
     /// Clicking a pane releases the shell's keyboard; the shell stays on
     /// screen in the idle gap.
-    func testClickOnAPaneHandsTheKeyboardBack() {
-        let session = makeSession()
+    func testClickOnAPaneHandsTheKeyboardBack() throws {
+        let session = try makeSession()
         session.right.state.host = "koan"
         session.toggleShellKeyboard()
         XCTAssertTrue(session.shellFocused)
@@ -279,7 +283,7 @@ final class ShellToggleTests: XCTestCase {
     /// the next verb key reaches `beginOperation` — the run re-shows its
     /// panel — instead of the PTY.
     func testVerbAfterClickReachesBeginOperation() throws {
-        let session = makeSession()
+        let session = try makeSession()
         session.operation.phase = .enacting
         session.operation.panelShowing = true
         session.toggleShellKeyboard()
@@ -313,7 +317,7 @@ final class ShellToggleTests: XCTestCase {
 
     /// A click reaching the release path with no shell summoned changes nothing.
     func testClickAwayWithoutAShellIsInert() throws {
-        let session = makeSession()
+        let session = try makeSession()
         session.toggleShellKeyboard()
         let click = try XCTUnwrap(
             NSEvent.mouseEvent(

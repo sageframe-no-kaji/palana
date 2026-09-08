@@ -46,7 +46,7 @@ struct FinderDropDestinationTests {
         let recorded = RecordedConduit(transcript: ConduitTranscript())
         let field = Field(conduit: recorded, hosts: ["test-host"], cache: FieldCache())
         return Engine(
-            conduit: SSHConduit(configuration: SSHConfiguration()),
+            conduit: recorded,
             field: field,
             listing: Listing(conduit: recorded))
     }

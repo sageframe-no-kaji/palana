@@ -19,7 +19,10 @@ struct Engine: Sendable {
     static let localHost = PalanaCore.localHostName
 
     /// The single door to the wire.
-    let conduit: SSHConduit
+    ///
+    /// The protocol, not the live door: the app hands in an ``SSHConduit``,
+    /// tests a recording one. Nothing above the door knows which.
+    let conduit: any Conduit
     /// The topology and its facts.
     let field: Field
     /// The directory reader over the wire.
@@ -30,7 +33,7 @@ struct Engine: Sendable {
     let localListing: Listing
 
     /// Wires both doors.
-    init(conduit: SSHConduit, field: Field, listing: Listing) {
+    init(conduit: any Conduit, field: Field, listing: Listing) {
         self.conduit = conduit
         self.field = field
         self.listing = listing

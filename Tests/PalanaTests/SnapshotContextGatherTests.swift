@@ -32,7 +32,7 @@ final class SnapshotContextGatherTests: XCTestCase {
             hosts: [Self.host],
             cache: FieldCache(url: directory.appendingPathComponent("field-cache.json")))
         let engine = Engine(
-            conduit: SSHConduit(configuration: configuration),
+            conduit: conduit,
             field: field,
             listing: Listing(conduit: conduit))
         let settings = SettingsModel(

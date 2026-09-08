@@ -20,7 +20,7 @@ struct PaneModelPreviewModeTests {
         let recorded = RecordedConduit(transcript: ConduitTranscript())
         let field = Field(conduit: recorded, hosts: ["h"], cache: FieldCache())
         let engine = Engine(
-            conduit: SSHConduit(configuration: SSHConfiguration()),
+            conduit: recorded,
             field: field,
             listing: Listing(conduit: recorded))
         return PaneModel(engine: engine)

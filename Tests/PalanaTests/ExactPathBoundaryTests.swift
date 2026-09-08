@@ -122,7 +122,7 @@ struct PaneExactPathTests {
         try cache.save([host: HostFacts(capability: Dated(value: capability, discoveredAt: Date()))])
         let field = Field(conduit: conduit, hosts: [host], cache: cache)
         let engine = Engine(
-            conduit: SSHConduit(configuration: SSHConfiguration()),
+            conduit: conduit,
             field: field,
             listing: Listing(conduit: conduit))
         let pane = PaneModel(engine: engine)

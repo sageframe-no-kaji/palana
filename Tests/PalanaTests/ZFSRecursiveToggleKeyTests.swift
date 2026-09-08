@@ -16,10 +16,10 @@ import XCTest
 final class ZFSRecursiveToggleKeyTests: XCTestCase {
     /// Builds a bare operation model with no wire traffic.
     ///
-    /// `Field` and `Listing` take `RecordedConduit` over an empty transcript
-    /// (`PalanaCoreTests`' fixture idiom); `Engine.conduit` is typed
-    /// concretely as `SSHConduit` and goes unused by these tests — the
-    /// gather/toggle path under test never reaches it. `confirmDestroyTyped`
+    /// `Field`, `Listing`, and the `Engine` all take one `RecordedConduit`
+    /// over an empty transcript (`PalanaCoreTests`' fixture idiom) — no
+    /// live door anywhere; the gather/toggle path under test never reaches
+    /// the wire in any case. `confirmDestroyTyped`
     /// is forced off so `zfs-destroy` gathers field-less, as the settings
     /// default (`true`) would otherwise grow it a text field and make it
     /// indistinguishable from snapshot/rollback for this suite's purposes.
@@ -28,7 +28,7 @@ final class ZFSRecursiveToggleKeyTests: XCTestCase {
         let configuration = SSHConfiguration()
         let field = Field(conduit: recorded, hosts: ["test-host"], cache: FieldCache())
         let engine = Engine(
-            conduit: SSHConduit(configuration: configuration),
+            conduit: recorded,
             field: field,
             listing: Listing(conduit: recorded))
         let settings = SettingsModel(

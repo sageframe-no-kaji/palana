@@ -276,11 +276,18 @@ struct AddressRecoveryRoutingTests {
         #expect(rig.pane.state.host == nil)
     }
 
+    /// What this Mac's shell answers for `$HOME` — the product's source for
+    /// `~`, so a suite run with HOME redirected (the empty-HOME guard run)
+    /// still expects the home the pane will actually land in.
+    private static var shellHome: String {
+        ProcessInfo.processInfo.environment["HOME"] ?? FileManager.default.homeDirectoryForCurrentUser.path
+    }
+
     @Test("~ is expanded by the host that owns it before the probe runs — home itself is exact")
     func tildeExpandsBeforeTheProbe() async throws {
         let rig = try AddressRig.remote()
         defer { rig.tearDown() }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let home = Self.shellHome
 
         rig.pane.pointAddress("~")
         try await poll(message: "the pane did not land") { rig.pane.status == .ready }
@@ -295,7 +302,7 @@ struct AddressRecoveryRoutingTests {
     func tildeMissRecoversToHome() async throws {
         let rig = try AddressRig.remote()
         defer { rig.tearDown() }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let home = Self.shellHome
         let missing = "nowhere-\(UUID().uuidString)/x.md"
 
         rig.pane.pointAddress("~/" + missing)

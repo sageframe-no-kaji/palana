@@ -409,7 +409,7 @@ struct PaneModelRoundTripIdentityTests {
 
         let field = Field(conduit: gated, hosts: [host], cache: cache)
         let engine = Engine(
-            conduit: SSHConduit(configuration: SSHConfiguration()),
+            conduit: gated,
             field: field,
             listing: Listing(conduit: gated))
         let pane = PaneModel(engine: engine)

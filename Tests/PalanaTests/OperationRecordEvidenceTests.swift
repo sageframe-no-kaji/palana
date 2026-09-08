@@ -31,7 +31,7 @@ final class OperationRecordEvidenceTests: XCTestCase {
         let configuration = SSHConfiguration()
         let field = Field(conduit: recorded, hosts: ["test-host"], cache: FieldCache())
         let engine = Engine(
-            conduit: SSHConduit(configuration: configuration),
+            conduit: recorded,
             field: field,
             listing: Listing(conduit: recorded))
         let settings = SettingsModel(

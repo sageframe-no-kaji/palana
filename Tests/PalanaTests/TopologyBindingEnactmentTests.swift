@@ -66,7 +66,7 @@ final class TopologyBindingEnactmentTests: XCTestCase {
         let configuration = SSHConfiguration()
         let field = Field(conduit: conduit, hosts: [Self.host], cache: cache)
         let engine = Engine(
-            conduit: SSHConduit(configuration: configuration),
+            conduit: conduit,
             field: field,
             listing: Listing(conduit: conduit))
         let settings = SettingsModel(
