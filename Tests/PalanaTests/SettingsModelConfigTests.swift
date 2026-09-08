@@ -77,7 +77,11 @@ struct SettingsModelConfigTransactionTests {
         #expect(model.removeHost(alias: "chumon") == nil)
 
         let backups = try sandbox.backups()
-        #expect(backups.count == 2)
+        // A prerequisite, not an expectation: indexing an array whose
+        // count expectation merely recorded an issue aborted the whole
+        // suite with an index-out-of-range trap instead of reporting
+        // the file-coordination failure (2026-09-08 audit).
+        try #require(backups.count == 2)
         #expect(try Data(contentsOf: backups[0]) == original)
         #expect(try Data(contentsOf: backups[1]) == afterAdd)
         #expect(reloads == 2)
