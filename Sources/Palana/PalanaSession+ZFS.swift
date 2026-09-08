@@ -303,15 +303,23 @@ extension PalanaSession {
 
     /// Routes a read verb through the Conduit and into the transcript.
     func runWorkbenchRead(_ verb: WorkbenchVerb, on host: String) {
-        Task {
+        // One read at a time, and the session owns it: a replacement
+        // cancels its predecessor and waits for that command to go
+        // before starting its own.
+        let previous = workbenchReadTask
+        previous?.cancel()
+        workbenchReadTask = Task { [weak self] in
+            await previous?.value
+            guard let self, !Task.isCancelled else { return }
             let avail = await workbench.availability(of: verb, on: host)
             guard case .available = avail else { return }
-            guard !operation.terminalBusy else { return }
+            guard !operation.terminalBusy, !Task.isCancelled else { return }
             do {
                 let stream = try await workbench.run(verb, of: readsTool, on: host)
                 let cmd = readsTool.command(for: verb, on: host)
                 await operation.runToolRead(header: "\(cmd) · \(host)", stream: stream)
             } catch {
+                guard !Task.isCancelled else { return }
                 operation.appendToolError("read failed: \(error)")
             }
         }

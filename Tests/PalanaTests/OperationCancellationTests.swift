@@ -157,6 +157,54 @@ final class OperationCancellationTests: XCTestCase {
         XCTAssertTrue(transcript(operation).contains("fine"))
     }
 
+    func testACancelledToolReadReturnsOnlyAfterItsCommandIsGone() async throws {
+        // The read used to walk away from a stalled command: the panel
+        // moved on, the child ran to its side effect (2026-09-08 audit).
+        let operation = makeOperation()
+        let running = try await LocalConduit().run(
+            on: "local",
+            "echo $$ > \(quote(pidFile.path)); sleep 30; touch \(quote(marker.path))")
+        let read = Task { @MainActor in
+            await operation.runToolRead(header: "stalled", stream: running)
+        }
+        await waitUntil { self.pid() != nil }
+        let child = try XCTUnwrap(pid())
+
+        read.cancel()
+        await read.value
+
+        XCTAssertFalse(isAlive(child), "the command was gone before the read returned")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testTheSessionOwnsItsWorkbenchReadAndCancelsItAtQuit() async throws {
+        let rig = try TestSession()
+        defer { rig.tearDown() }
+        let session = rig.session
+        let running = try await LocalConduit().run(
+            on: "local",
+            "echo $$ > \(quote(pidFile.path)); sleep 30; touch \(quote(marker.path))")
+        session.workbenchReadTask = Task { [operation = session.operation] in
+            await operation.runToolRead(header: "stalled", stream: running)
+        }
+        await waitUntil { self.pid() != nil }
+        let child = try XCTUnwrap(pid())
+
+        // The call site stores its task rather than launching an orphan.
+        let verb = try XCTUnwrap(rig.session.readsTool.verbs.first)
+        session.runWorkbenchRead(verb, on: TestSession.host)
+        XCTAssertNotNil(session.workbenchReadTask, "the read is owned, not launched loose")
+        // …and that replacement cancelled the read it displaced.
+        let displaced = await waitUntil { !self.isAlive(child) }
+        XCTAssertTrue(displaced, "the replacement stopped the read it displaced")
+
+        await session.closeDoors()
+
+        XCTAssertNil(session.workbenchReadTask, "the session released the read it owned")
+        XCTAssertFalse(isAlive(child), "quitting awaited the command's exit")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
     func testRunToolReadDrainsChannelsIndependently() async throws {
         // stdout cannot finish until stderr has been read — a reader
         // that drains stdout first never returns.

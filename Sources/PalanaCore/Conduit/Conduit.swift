@@ -101,9 +101,18 @@ public struct RunningCommand: Sendable {
     /// Neither channel is waited on ahead of the other, so a command
     /// that fills one while holding the other open still drains.
     /// Single-consumer, like the channels it merges.
+    ///
+    /// A consumer that walks away — cancelled, or broken out of
+    /// mid-read — stops the command's process group, not merely the two
+    /// pumps feeding this stream. Cancelling the reader while leaving
+    /// the child running was the shape a stalled Workbench read took
+    /// (2026-09-08 audit): the panel moved on, the process did not.
+    /// Normal completion signals nothing: a command whose output has
+    /// simply ended is finishing on its own terms.
     public func output() -> AsyncStream<OutputChunk> {
         let stdout = stdout
         let stderr = stderr
+        let stop = stop
         return AsyncStream { continuation in
             let pump = Task {
                 await withTaskGroup(of: Void.self) { group in
@@ -120,7 +129,11 @@ public struct RunningCommand: Sendable {
                 }
                 continuation.finish()
             }
-            continuation.onTermination = { _ in pump.cancel() }
+            continuation.onTermination = { termination in
+                pump.cancel()
+                guard case .cancelled = termination else { return }
+                stop(Self.defaultKillGrace)
+            }
         }
     }
 

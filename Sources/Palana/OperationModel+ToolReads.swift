@@ -22,17 +22,26 @@ extension OperationModel {
         showPanel()
         echo.appendLine("── \(header)", kind: .note)
         var errorTail = Data()
-        for await chunk in stream.output() {
-            echo.append(chunk.data, channel: chunk.channel)
-            if chunk.channel == .stderr {
-                errorTail.append(chunk.data)
-                if errorTail.count > Self.errorTailLimit {
-                    errorTail = errorTail.suffix(Self.errorTailLimit)
+        // The exit is awaited inside the cancellation handler, so a
+        // cancelled read returns only once its command has gone. Before
+        // this the reader walked away and left the child running
+        // (2026-09-08 audit).
+        let status = await withTaskCancellationHandler {
+            for await chunk in stream.output() {
+                echo.append(chunk.data, channel: chunk.channel)
+                if chunk.channel == .stderr {
+                    errorTail.append(chunk.data)
+                    if errorTail.count > Self.errorTailLimit {
+                        errorTail = errorTail.suffix(Self.errorTailLimit)
+                    }
                 }
             }
+            return await stream.exitStatus()
+        } onCancel: {
+            stream.terminate()
         }
-        let status = await stream.exitStatus()
         echo.flushAll()
+        guard !Task.isCancelled else { return }
         guard status != 0 else { return }
         // Lossy decode on purpose: the tail shows what arrived.
         // swiftlint:disable:next optional_data_string_conversion

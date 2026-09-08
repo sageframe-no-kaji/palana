@@ -31,4 +31,30 @@ extension PalanaSession {
             runWorkbenchMutation(verb, on: host)
         }
     }
+
+    /// Cancels the Workbench read in flight and awaits its teardown.
+    ///
+    /// Awaiting matters: the read's own cancellation path stops the
+    /// command's process group and waits for it, so returning from here
+    /// means the command is gone, not merely asked to go.
+    func cancelWorkbenchRead() async {
+        let running = workbenchReadTask
+        workbenchReadTask = nil
+        running?.cancel()
+        await running?.value
+    }
+
+    /// Closes every ControlMaster — the quit path owns this.
+    ///
+    /// Cancels the owned Workbench read first and awaits it, then tears
+    /// down every live shell session (ho-11) and closes the run record.
+    /// Nothing outlives the window — no session, no terminal, no
+    /// half-stopped read.
+    func closeDoors() async {
+        await cancelWorkbenchRead()
+        operation.closeRecord()
+        terminalSessions.teardownAll()
+        // The same remote door the engine holds — one object, one close.
+        await sessionEngine.conduit.closeAll()
+    }
 }

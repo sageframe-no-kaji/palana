@@ -133,6 +133,40 @@ struct ProcessOwnershipTests {
         #expect(await command.running.exitStatus() == 2)
     }
 
+    @Test("a cancelled output consumer terminates and reaps the whole group")
+    func outputCancellationStopsTheGroup() async throws {
+        // The merged stream used to cancel only its two pumps: the
+        // consumer walked away and the child ran on to its side effect.
+        let running = try await LocalConduit().run(on: "local", delayedSideEffect)
+        let grandchild = try #require(await ProcessFixture.awaitPid(at: pidFile))
+        let consumer = Task {
+            for await _ in running.output() {}
+        }
+        consumer.cancel()
+        await consumer.value
+
+        #expect(await ProcessFixture.awaitDeath(of: grandchild), "the group went with the consumer")
+        #expect(!ProcessFixture.exists(marker), "the side effect never happened")
+        #expect(await running.exitStatus() == 128 + SIGTERM)
+    }
+
+    @Test("abandoning the merged stream mid-read stops the command too")
+    func abandonedOutputStopsTheCommand() async throws {
+        // The pid lands before the first chunk does, so the reader can
+        // walk away the instant it has one and still name the child.
+        let running = try await LocalConduit().run(
+            on: "local",
+            "\(ProcessFixture.recordPid(at: pidFile)); echo first; sleep 30; "
+                + "touch \(ShellQuote.quote(marker.path))")
+        for await chunk in running.output() {
+            _ = chunk
+            break  // the caller has what it wanted and walks away
+        }
+        let child = try #require(ProcessFixture.pid(at: pidFile))
+        #expect(await ProcessFixture.awaitDeath(of: child))
+        #expect(!ProcessFixture.exists(marker))
+    }
+
     @Test("output over a live command carries both channels to end")
     func outputLive() async throws {
         let running = try await LocalConduit().run(on: "local", "echo out; echo err >&2; exit 3")

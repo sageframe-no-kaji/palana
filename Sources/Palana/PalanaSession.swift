@@ -85,6 +85,12 @@ final class PalanaSession {
     /// Lazy per host, kept alive across mode exits, torn down at quit
     /// (`closeDoors()`'s partner, wired from the app delegate).
     let terminalSessions = TerminalSessionStore()
+    /// The Workbench read in flight — owned, so a replacement or a quit
+    /// can cancel it and await the command it holds.
+    ///
+    /// An unowned task over a stalled read outlived the consumer that
+    /// asked for it (2026-09-08 audit); nothing here outlives the window.
+    @ObservationIgnored var workbenchReadTask: Task<Void, Never>?
     /// True while the operator has a shell summoned (ho-11).
     ///
     /// The standing choice — the panel shows the shell whenever the plan
@@ -103,7 +109,6 @@ final class PalanaSession {
     /// visible and dimmed while the operator drives the panes.
     var shellFocused = false
 
-    private let conduit: any Conduit
     private let field: Field
     private let engine: Engine
     private let sshConfigURL: URL
@@ -146,7 +151,6 @@ final class PalanaSession {
         let settingsModel = SettingsModel(configURL: sshConfigURL, settingsURL: settingsURL)
         self.sshConfigURL = sshConfigURL
         self.sessionURL = sessionURL
-        self.conduit = remote
         self.settings = settingsModel
         self.favorites = FavoritesModel(url: favoritesURL)
         self.columnStore = ColumnStore(url: columnsURL)
@@ -379,16 +383,6 @@ final class PalanaSession {
             focused: focusedSide)
         try? SessionStore.save(snapshot, to: sessionURL)
         columnStore.persist()
-    }
-
-    /// Closes every ControlMaster — the quit path owns this.
-    ///
-    /// Also tears down every live shell session (ho-11) — nothing outlives
-    /// the window, the terminal included — and closes the run record.
-    func closeDoors() async {
-        operation.closeRecord()
-        terminalSessions.teardownAll()
-        await conduit.closeAll()
     }
 }
 
