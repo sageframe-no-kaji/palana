@@ -308,9 +308,11 @@ final class OperationModel {
         // Open the log session: blank separator then the run header.
         log.appendLine("")
         log.appendLine(OperationLog.headerLine(for: plan))
-        // Written before anything runs: an interrupted send-back still
-        // leaves the version it was bound to, and its staging path, in
-        // the record.
+        // Written before anything runs: a crash between the freeze and
+        // the release still leaves the recovery path in the record.
+        if let release = plan.moveRelease {
+            log.appendLine("# \(release.recoverySentence) until the delete is released")
+        }
         if let versionGuard = plan.versionGuard, let destination = plan.destination {
             log.appendLine(
                 "# bound to \(versionGuard.target) · staged at "
@@ -420,6 +422,13 @@ final class OperationModel {
             // it is the sentence that tells the operator where bytes are.
             echo.appendLine("\(note.kind.rawValue): \(note.detail)", kind: .note)
             log.appendLine("# \(note.kind.rawValue): \(note.detail)")
+        case .released(let authorization):
+            let sentence =
+                "delete released against the frozen source at "
+                + "\(authorization.release.host):\(authorization.release.quarantineDirectory)"
+                + " — \(authorization.source.entries.count) entries proven at the destination"
+            echo.appendLine(sentence, kind: .note)
+            log.appendLine("# \(sentence)")
         case .stepEnded(let index, let exitStatus):
             echo.flushAll()
             progress = nil
@@ -589,8 +598,8 @@ extension OperationModel {
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         formatter.timeZone = TimeZone(identifier: "UTC")
         // The suffix is not decoration: the token names this operation's
-        // staging directory, and two operations in one second must never
-        // name the same one.
+        // staging and quarantine directories, and two operations in one
+        // second must never name the same one.
         let unique = UUID().uuidString.prefix(8).lowercased()
         return "palana-\(formatter.string(from: Date()))-\(unique)"
     }

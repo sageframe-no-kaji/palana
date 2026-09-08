@@ -23,10 +23,19 @@ private func makeEntry(_ name: String, size: Int64 = 0) -> FileEntry {
 @Suite("Transports manifest gate")
 struct TransportsManifestTests {
     private static let entries = [makeEntry("f1", size: 5), makeEntry("f2", size: 5)]
-    private static let sourceCommand = ManifestFixture.command("/tank/a", ["f1", "f2"])
+    /// The source manifest is taken over the freeze, not the pathnames.
+    private static let sourceCommand = ManifestFixture.command(
+        MoveFixture.directory("/tank/a", "t1"), ["f1", "f2"])
     private static let destinationCommand = ManifestFixture.command("/tank/b", ["f1", "f2"])
     private static let copy = ConduitTranscript.Entry(
         host: "j", command: "cp -a /tank/a/f1 /tank/a/f2 /tank/b/", stdout: "", stderr: "", exit: 0)
+    /// The freeze that must run before either manifest is read.
+    private static let freeze = ConduitTranscript.Entry(
+        host: "j",
+        command: MoveFixture.quarantine("j", "/tank/a", ["f1", "f2"], "t1"),
+        stdout: "",
+        stderr: "",
+        exit: 0)
 
     private static func crossDatasetMove() throws -> Plan {
         try PlanEngine.plan(
@@ -82,11 +91,20 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stdout: landed),
             ])
         #expect(Self.isVerificationFailed(outcome.error))
-        #expect(!outcome.events.contains(.stepBegan(index: 1, step: plan.steps[1])))
+        #expect(!outcome.events.contains(.stepBegan(index: 2, step: plan.steps[2])))
+        #expect(
+            outcome.events.contains(
+                .recovery(
+                    RecoveryNote(
+                        kind: .retained,
+                        host: "j",
+                        detail: "the source is set aside at j:\(MoveFixture.directory("/tank/a", "t1"))"
+                            + " — nothing was deleted"))))
     }
 
     @Test("equal counts, a size change under the same digest length — refused")
@@ -98,6 +116,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stdout: landed),
             ])
@@ -113,6 +132,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stdout: landed),
             ])
@@ -128,6 +148,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stdout: landed),
             ])
@@ -144,6 +165,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stdout: ManifestFixture.file("f1")),
             ])
@@ -163,6 +185,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: ""),
                 Self.entry("j", Self.destinationCommand, stdout: ""),
             ])
@@ -177,6 +200,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stderr: "missing: ./f2\n", exit: 3),
             ])
@@ -192,6 +216,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry(
                     "j",
@@ -212,6 +237,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry(
                     "j",
                     Self.sourceCommand,
@@ -229,6 +255,7 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: "2\n"),
                 Self.entry("j", Self.destinationCommand, stdout: "2\n"),
             ])
@@ -244,9 +271,10 @@ struct TransportsManifestTests {
             plan,
             over: [
                 Self.copy,
+                Self.freeze,
                 Self.entry("j", Self.sourceCommand, stdout: source),
                 Self.entry("j", Self.destinationCommand, stdout: landed),
-                Self.entry("j", "rm -rf /tank/a/f1 /tank/a/f2"),
+                Self.entry("j", MoveFixture.remove("/tank/a", "t1")),
             ])
         #expect(outcome.error == nil)
         #expect(outcome.events.last == .finished)
@@ -291,12 +319,16 @@ struct TransportsManifestTests {
     func sameGateEveryTransport() async throws {
         for (plan, label) in try Self.movePlans() {
             let sourceHost = plan.source.host
-            let sourceCommand = ManifestFixture.command(plan.source.directory, ["f1", "f2"])
+            let frozen = MoveFixture.directory(plan.source.directory, "t1")
+            let sourceCommand = ManifestFixture.command(frozen, ["f1", "f2"])
             let destinationCommand = ManifestFixture.command("/rpool/b", ["f1", "f2"])
             let transfer = plan.steps[0]
+            let freeze = Self.entry(
+                sourceHost,
+                MoveFixture.quarantine(sourceHost, plan.source.directory, ["f1", "f2"], "t1"))
             let hostSteps: [ConduitTranscript.Entry] =
                 transfer.runsOn == .operatorMachine
-                ? [] : [Self.entry(sourceHost, transfer.command)]
+                ? [freeze] : [Self.entry(sourceHost, transfer.command), freeze]
             // Bytes differ at f2 — every transport must keep its delete closed.
             let outcome = await Self.enact(
                 plan,

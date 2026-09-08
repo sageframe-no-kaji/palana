@@ -56,9 +56,14 @@ struct MergeRouteTests {
             entries: [makeEntry("dir", kind: .directory)],
             facts: PlanFacts(sourceMountTarget: "/tank", destinationMountTarget: "/tank", collisions: [merge]))
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .delete])
-        #expect(plan.steps.map(\.gatedOnVerification) == [false, true])
-        #expect(plan.steps.map(\.command) == ["cp -a /tank/a/dir /tank/b/", "rm -rf /tank/a/dir"])
+        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
+        #expect(plan.steps.map(\.gatedOnVerification) == [false, false, true])
+        #expect(
+            plan.steps.map(\.command) == [
+                "cp -a /tank/a/dir /tank/b/",
+                MoveFixture.quarantine("jodo", "/tank/a", ["dir"], "t1"),
+                MoveFixture.remove("/tank/a", "t1"),
+            ])
         #expect(!plan.steps.contains { $0.command.hasPrefix("mv ") })
         #expect(plan.collisions?.sentence() == "will merge into dir")
     }
@@ -70,7 +75,7 @@ struct MergeRouteTests {
             entries: [makeEntry("dir", kind: .directory)],
             facts: PlanFacts(sourceDataset: tank, destinationDataset: tank, collisions: [merge]))
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .delete])
+        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
         #expect(plan.steps.last?.gatedOnVerification == true)
     }
 
@@ -96,7 +101,7 @@ struct MergeRouteTests {
             entries: [makeEntry("a.txt"), makeEntry("dir", kind: .directory), makeEntry("free")],
             facts: PlanFacts(sourceMountTarget: "/tank", destinationMountTarget: "/tank", collisions: items))
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .delete])
+        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
     }
 
     @Test("a replace on a proven-shared mount still renames — mv overwrites a file as the plan says")
@@ -165,7 +170,7 @@ struct MergeRouteLiveTests {
             // Both ends proven on one mount — the case that used to be mv.
             facts: PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/", collisions: collisions))
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .delete])
+        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
 
         let transports = Transports(conduit: LocalConduit()) { _, _, _ in 0 }
         var events: [EnactmentEvent] = []
@@ -239,9 +244,12 @@ struct MergeGateTranscriptTests {
             plan,
             over: [
                 Self.entry("cp -a /tank/a/dir /tank/b/"),
-                Self.entry(ManifestFixture.command("/tank/a", ["dir"]), stdout: source),
+                Self.entry(MoveFixture.quarantine("j", "/tank/a", ["dir"], "t1")),
+                Self.entry(
+                    ManifestFixture.command(MoveFixture.directory("/tank/a", "t1"), ["dir"]),
+                    stdout: source),
                 Self.entry(ManifestFixture.command("/tank/b", ["dir"]), stdout: landed),
-                Self.entry("rm -rf /tank/a/dir"),
+                Self.entry(MoveFixture.remove("/tank/a", "t1")),
             ])
         #expect(outcome.error == nil, "\(String(describing: outcome.error))")
         #expect(outcome.events.last == .finished)
@@ -259,7 +267,10 @@ struct MergeGateTranscriptTests {
             plan,
             over: [
                 Self.entry("cp -a /tank/a/dir /tank/b/"),
-                Self.entry(ManifestFixture.command("/tank/a", ["dir"]), stdout: source),
+                Self.entry(MoveFixture.quarantine("j", "/tank/a", ["dir"], "t1")),
+                Self.entry(
+                    ManifestFixture.command(MoveFixture.directory("/tank/a", "t1"), ["dir"]),
+                    stdout: source),
                 Self.entry(ManifestFixture.command("/tank/b", ["dir"]), stdout: landed),
             ])
         guard case EnactmentError.verificationFailed(.manifests(let src, let dst))? = outcome.error else {
@@ -269,8 +280,15 @@ struct MergeGateTranscriptTests {
         #expect(src.firstUnmatched(in: dst) == "dir/y")
         #expect(
             !outcome.events.contains {
-                guard case .stepBegan(1, _) = $0 else { return false }
+                guard case .stepBegan(2, _) = $0 else { return false }
                 return true
+            })
+        // The frozen source is named, so the operator can reach it.
+        #expect(
+            outcome.events.contains {
+                guard case .recovery(let note) = $0 else { return false }
+                return note.kind == .retained
+                    && note.detail.contains(MoveFixture.directory("/tank/a", "t1"))
             })
     }
 }

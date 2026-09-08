@@ -1,8 +1,9 @@
-// The whole gate, live on this Mac: a real copy-then-gated-delete plan
-// composed by the engine for a local move with no filesystem proof,
+// The whole gate, live on this Mac: a real copy-freeze-then-gated-delete
+// plan composed by the engine for a local move with no filesystem proof,
 // enacted through LocalConduit against a temporary tree. The faithful
-// case deletes the source; a destination tampered between copy and
-// check keeps every byte of the source where it was.
+// case deletes the frozen source; a destination tampered between copy
+// and check keeps every byte of it, under the named recovery directory
+// the run reports.
 
 import Foundation
 import Testing
@@ -44,6 +45,19 @@ struct TransportsLocalGateTests {
             facts: PlanFacts())
     }
 
+    /// Where a frozen source stands while the gate decides.
+    private var quarantine: URL {
+        source.appendingPathComponent(MoveRelease.quarantineName(token: "t1"))
+    }
+
+    /// The recovery note the run emitted, if any.
+    private func retained(_ events: [EnactmentEvent]) -> RecoveryNote? {
+        events.compactMap { event -> RecoveryNote? in
+            guard case .recovery(let note) = event, note.kind == .retained else { return nil }
+            return note
+        }.first
+    }
+
     private func enact(_ plan: Plan) async -> (error: (any Error)?, events: [EnactmentEvent]) {
         let transports = Transports(conduit: LocalConduit()) { _, _, _ in 0 }
         var events: [EnactmentEvent] = []
@@ -65,7 +79,7 @@ struct TransportsLocalGateTests {
         #expect(Set(entries.map(\.name)) == ["a.txt", "dir"])
         let plan = try plan(entries: entries)
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .delete])
+        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
 
         let outcome = await enact(plan)
         #expect(outcome.error == nil, "\(String(describing: outcome.error))")
@@ -109,12 +123,15 @@ struct TransportsLocalGateTests {
         #expect(src.firstUnmatched(in: dst) == "a.txt")
         #expect(
             !outcome.events.contains {
-                guard case .stepBegan(1, _) = $0 else { return false }
+                guard case .stepBegan(2, _) = $0 else { return false }
                 return true
             })
-        let kept = try Data(contentsOf: source.appendingPathComponent("a.txt"))
+        // Every byte survives, under the recovery name the run named.
+        let kept = try Data(contentsOf: quarantine.appendingPathComponent("a.txt"))
         #expect(kept == Data("hello".utf8))
-        #expect(FileManager.default.fileExists(atPath: source.appendingPathComponent("dir/b.txt").path))
+        #expect(FileManager.default.fileExists(atPath: quarantine.appendingPathComponent("dir/b.txt").path))
+        let note = try #require(retained(outcome.events))
+        #expect(note.detail.contains(quarantine.path))
     }
 
     @Test("a copy step that silently dropped a file keeps the source — the manifest omits it")
@@ -138,6 +155,8 @@ struct TransportsLocalGateTests {
         }
         #expect(host == PalanaCore.localHostName)
         #expect(detail.contains("missing: ./a.txt"))
-        #expect(FileManager.default.fileExists(atPath: source.appendingPathComponent("a.txt").path))
+        #expect(FileManager.default.fileExists(atPath: quarantine.appendingPathComponent("a.txt").path))
+        let note = try #require(retained(outcome.events))
+        #expect(note.detail.contains(quarantine.path))
     }
 }

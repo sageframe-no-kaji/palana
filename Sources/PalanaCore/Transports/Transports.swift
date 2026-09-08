@@ -67,36 +67,58 @@ public struct Transports: Sendable {
     /// exited — so a caller that awaits this has awaited the teardown.
     public func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
         try Self.refuseUnrunnable(plan)
-        var gatesReleased = false
-        for (index, step) in plan.steps.enumerated() {
-            try Task.checkCancellation()
-            if step.gatedOnVerification, !gatesReleased {
-                let report = try await verify(plan, emit: emit)
-                emit(.verified(report))
-                guard report.matched else {
-                    throw EnactmentError.verificationFailed(report)
+        var state = EnactmentState()
+        do {
+            for (index, step) in plan.steps.enumerated() {
+                try Task.checkCancellation()
+                try await openGate(for: step, plan: plan, state: &state, emit: emit)
+                emit(.stepBegan(index: index, step: step))
+                let result = try await runStep(step, index: index, plan: plan, emit: emit)
+                emit(.stepEnded(index: index, exitStatus: result.exitStatus))
+                for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
+                    emit(.recovery(note))
                 }
-                gatesReleased = true
+                try Self.raise(result, index: index)
+                if step.role == .quarantine { state.quarantined = true }
             }
-            emit(.stepBegan(index: index, step: step))
-            let result = try await runStep(step, index: index, plan: plan, emit: emit)
-            emit(.stepEnded(index: index, exitStatus: result.exitStatus))
-            // A composed program that had to leave data behind says so
-            // through a marker; nothing it retained is ever swallowed.
-            for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
-                emit(.recovery(note))
+        } catch {
+            // A source already frozen is a source the operator must be
+            // able to find, whatever stopped the run — a failed step, a
+            // closed gate, a cancellation.
+            if state.quarantined, let release = plan.moveRelease {
+                emit(
+                    .recovery(
+                        RecoveryNote(
+                            kind: .retained, host: release.host, detail: release.recoverySentence)))
             }
-            try Self.raise(result, index: index)
+            throw error
         }
         emit(.finished)
+    }
+
+    /// What the run has established — never a Boolean.
+    private struct EnactmentState {
+        /// What the passed gate authorised, and over which evidence.
+        var authorization: GateAuthorization?
+        /// True once the source has been frozen under the quarantine.
+        var quarantined = false
+    }
+
+    /// What a passed gate authorises.
+    private enum GateAuthorization {
+        /// A file move whose frozen source and destination both manifested.
+        case release(MoveReleaseAuthorization)
+        /// A zfs transfer whose received dataset exists.
+        case dataset(String)
     }
 
     /// Refuses, before a single step runs, a plan whose shape cannot
     /// carry the authority its steps claim.
     ///
-    /// A commit step with no version behind it is the shape a plan
-    /// written before this binding existed takes. It may not run: a plan
-    /// decoded from an older file stays readable and stays harmless.
+    /// A commit step with no version behind it and a gated delete with
+    /// no frozen source behind it are the shapes a plan written before
+    /// these bindings existed takes. Neither may run: a plan decoded
+    /// from an older file stays readable and stays harmless.
     private static func refuseUnrunnable(_ plan: Plan) throws {
         // A plan the engine would have refused must not run from here
         // either: the tool fails mid-way on the clash, after earlier
@@ -113,6 +135,62 @@ public struct Transports: Sendable {
         if plan.versionGuard != nil, !commits {
             throw EnactmentError.malformedPlan(
                 "a version-bound send-back with no commit step — nothing may be replaced")
+        }
+        guard plan.steps.contains(where: \.gatedOnVerification) else { return }
+        guard plan.receivedDataset != nil || plan.moveRelease != nil else {
+            throw EnactmentError.malformedPlan(
+                "a gated delete with no frozen source behind it — nothing may be deleted")
+        }
+        if plan.moveRelease != nil, !plan.steps.contains(where: { $0.role == .quarantine }) {
+            throw EnactmentError.malformedPlan(
+                "a move bound to a frozen source with no step that freezes it")
+        }
+    }
+
+    /// Verifies once, then proves this particular step is the one the
+    /// verification authorised.
+    private func openGate(
+        for step: PlanStep,
+        plan: Plan,
+        state: inout EnactmentState,
+        emit: @Sendable (EnactmentEvent) -> Void
+    ) async throws {
+        guard step.gatedOnVerification else { return }
+        if state.authorization == nil {
+            let report = try await verify(plan, emit: emit)
+            emit(.verified(report))
+            guard report.matched else {
+                throw EnactmentError.verificationFailed(report)
+            }
+            state.authorization = try Self.authorization(
+                from: report, plan: plan, quarantined: state.quarantined)
+        }
+        guard step.role == .delete, let release = plan.moveRelease else { return }
+        guard case .release(let authorized)? = state.authorization, authorized.release == release
+        else {
+            throw EnactmentError.malformedPlan(
+                "the delete is not bound to the source this run froze")
+        }
+        emit(.released(authorized))
+    }
+
+    /// Turns a matched report into the authority a step may claim.
+    private static func authorization(
+        from report: VerificationReport,
+        plan: Plan,
+        quarantined: Bool
+    ) throws -> GateAuthorization {
+        switch report {
+        case .datasetReceived(let name, _):
+            return .dataset(name)
+        case .manifests(let source, let destination):
+            guard let release = plan.moveRelease, quarantined else {
+                throw EnactmentError.malformedPlan(
+                    "manifests taken over a source that was never frozen — nothing may be deleted")
+            }
+            return .release(
+                MoveReleaseAuthorization(
+                    release: release, source: source, destination: destination))
         }
     }
 
@@ -261,9 +339,16 @@ public struct Transports: Sendable {
             let result = try await conduit.run(on: destination.host, command).collect()
             return .datasetReceived(name: received, exists: result.exitStatus == 0)
         }
-        let names = plan.entries.map(\.name)
+        // The source manifest is taken over the quarantine, not the
+        // pathnames the operator has since been free to refill — a move
+        // proves the bytes it froze, and deletes only those.
+        let release = plan.moveRelease
+        let names = release?.names ?? plan.entries.map(\.name)
         let source = try await manifest(
-            directory: plan.source.directory, names: names, on: plan.source.host, emit: emit)
+            directory: release?.quarantineDirectory ?? plan.source.directory,
+            names: names,
+            on: release?.host ?? plan.source.host,
+            emit: emit)
         let landed = try await manifest(
             directory: destination.directory, names: names, on: destination.host, emit: emit)
         return .manifests(source: source, destination: landed)

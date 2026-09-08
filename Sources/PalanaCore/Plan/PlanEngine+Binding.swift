@@ -1,10 +1,11 @@
-// Binding — where a composed plan is wrapped so that what it destroys is
-// exactly what it proved.
+// Binding — the two places a composed plan is wrapped so that what it
+// destroys is exactly what it proved.
 //
 // A send-back stages its bytes beside the destination and commits
-// against the version it was bound to. The wrap goes around the
-// transport's own steps rather than replacing them: the bytes still
-// travel the way the transport says they do.
+// against the version it was bound to. A move freezes its source under
+// an operation-owned quarantine and deletes only from there. Both wrap
+// the transport's own steps rather than replacing them: the bytes
+// still travel the way the transport says they do.
 
 import Foundation
 
@@ -14,15 +15,15 @@ extension PlanEngine {
         _ request: PlanRequest,
         facts: PlanFacts,
         classification: Classification,
-        transport: Transport
+        transport: Transport,
+        release: MoveRelease?
     ) -> [PlanStep] {
         let guarded = request.versionGuard.flatMap { versionGuard in
             request.destination.flatMap { destination in
                 request.entries.first.map { entry in
                     composeVersionBound(
                         request,
-                        route: Route(
-                            facts: facts, classification: classification, transport: transport),
+                        route: Route(facts: facts, classification: classification, transport: transport),
                         versionGuard: versionGuard,
                         destination: destination,
                         name: entry.name)
@@ -30,11 +31,12 @@ extension PlanEngine {
             }
         }
         if let guarded { return guarded }
-        return composeTransport(
+        let steps = composeTransport(
             request,
             facts: facts,
             classification: classification,
             transport: transport)
+        return bindRelease(steps, release: release)
     }
 
     /// How the bytes were routed — the three values every compose needs,
@@ -74,9 +76,7 @@ extension PlanEngine {
             classification: route.classification,
             transport: route.transport)
         let host = Runner.host(destination.host)
-        return [
-            PlanStep(runsOn: host, command: "mkdir -- \(ShellQuote.quote(staging))", role: .stage)
-        ]
+        return [PlanStep(runsOn: host, command: "mkdir -- \(ShellQuote.quote(staging))", role: .stage)]
             + transfer
             + [
                 PlanStep(
@@ -85,6 +85,53 @@ extension PlanEngine {
                         directory: destination.directory, name: name),
                     role: .promote)
             ]
+    }
+
+    /// Splits a gated delete into the freeze that earns it and the
+    /// removal of the frozen bytes.
+    ///
+    /// Every transport composes its move's back half the same way — one
+    /// gated `rm -rf` over the selected pathnames — so one rewrite here
+    /// binds them all. What is removed after this is the quarantine,
+    /// never a pathname the operator may have refilled.
+    static func bindRelease(_ steps: [PlanStep], release: MoveRelease?) -> [PlanStep] {
+        guard let release else { return steps }
+        let host = Runner.host(release.host)
+        return steps.flatMap { step -> [PlanStep] in
+            guard step.role == .delete, step.gatedOnVerification else { return [step] }
+            return [
+                PlanStep(runsOn: host, command: release.quarantineProgram(), role: .quarantine),
+                PlanStep(
+                    runsOn: host,
+                    command: release.releaseProgram(),
+                    role: .delete,
+                    gatedOnVerification: true),
+            ]
+        }
+    }
+
+    /// The frozen source a move's delete will be bound to, when the
+    /// move is one that deletes files rather than a dataset.
+    ///
+    /// Nil for a true rename (nothing is copied, so nothing is deleted)
+    /// and for a zfs move (its gate is the received dataset, and its
+    /// delete is `zfs destroy`, not `rm`).
+    static func moveRelease(
+        _ request: PlanRequest,
+        classification: Classification,
+        transport: Transport
+    ) -> MoveRelease? {
+        guard request.operation == .move, classification != .withinDatasetRename else { return nil }
+        switch transport {
+        case .zfsSendReceiveForwarded, .zfsSendReceiveProxied:
+            return nil
+        default:
+            return MoveRelease(
+                host: request.source.host,
+                sourceDirectory: request.source.directory,
+                names: request.entries.map(\.name),
+                token: request.token)
+        }
     }
 
     /// Refuses a version guard that does not name what the plan does.

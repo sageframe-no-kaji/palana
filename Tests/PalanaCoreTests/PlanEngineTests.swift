@@ -125,8 +125,8 @@ struct PlanClassificationTests {
         let plan = try PlanEngine.plan(
             request(.move, from: localSource, to: localDest), facts: facts)
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .delete])
-        #expect(plan.steps[1].gatedOnVerification)
+        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
+        #expect(plan.steps[2].gatedOnVerification)
         #expect(!plan.steps.contains { $0.command.hasPrefix("mv ") })
     }
 

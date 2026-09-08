@@ -95,13 +95,14 @@ struct TransportsTests {
     @Test("a gated move enacts in order: copy, visible verify both ends, then the release")
     func gatedMoveEnacts() async throws {
         let plan = try Self.crossDatasetMove()
-        let sourceCommand = ManifestFixture.command("/tank/a", ["f1", "f2"])
+        let sourceCommand = ManifestFixture.command(MoveFixture.directory("/tank/a", "t1"), ["f1", "f2"])
         let destinationCommand = ManifestFixture.command("/tank/b", ["f1", "f2"])
         let transports = Self.transports([
             Self.entry("j", "cp -a /tank/a/f1 /tank/a/f2 /tank/b/"),
+            Self.entry("j", MoveFixture.quarantine("j", "/tank/a", ["f1", "f2"], "t1")),
             Self.entry("j", sourceCommand, stdout: Self.twoFiles),
             Self.entry("j", destinationCommand, stdout: Self.twoFiles),
-            Self.entry("j", "rm -rf /tank/a/f1 /tank/a/f2"),
+            Self.entry("j", MoveFixture.remove("/tank/a", "t1")),
         ])
         let events = try await Self.collect(transports.enact(plan))
 
@@ -112,13 +113,21 @@ struct TransportsTests {
         let manifest = try TransferManifest.parse(Data(Self.twoFiles.utf8))
         let verified = EnactmentEvent.verified(.manifests(source: manifest, destination: manifest))
         #expect(events.contains(verified))
-        #expect(events.contains(.stepBegan(index: 1, step: plan.steps[1])))
+        #expect(events.contains(.stepBegan(index: 2, step: plan.steps[2])))
         #expect(events.last == .finished)
 
-        // Verification strictly precedes the gated step.
+        // The freeze strictly precedes verification, and verification
+        // strictly precedes the gated step it authorises.
+        let frozenAt = try #require(events.firstIndex(of: .stepEnded(index: 1, exitStatus: 0)))
         let verifiedAt = try #require(events.firstIndex(of: verified))
-        let gateAt = try #require(events.firstIndex(of: .stepBegan(index: 1, step: plan.steps[1])))
+        let gateAt = try #require(events.firstIndex(of: .stepBegan(index: 2, step: plan.steps[2])))
+        #expect(frozenAt < verifiedAt)
         #expect(verifiedAt < gateAt)
+        let released = events.contains {
+            guard case .released(let authorization) = $0 else { return false }
+            return authorization.release == plan.moveRelease && authorization.firstUnmatched == nil
+        }
+        #expect(released, "the delete named the frozen source it was authorised over")
     }
 
     @Test("a manifest mismatch closes the gate — the delete is never attempted")
@@ -129,7 +138,11 @@ struct TransportsTests {
         let landed = ManifestFixture.file("f1", size: 1)
         let transports = Self.transports([
             Self.entry("j", "cp -a /tank/a/f1 /tank/a/f2 /tank/b/"),
-            Self.entry("j", ManifestFixture.command("/tank/a", ["f1", "f2"]), stdout: Self.twoFiles),
+            Self.entry("j", MoveFixture.quarantine("j", "/tank/a", ["f1", "f2"], "t1")),
+            Self.entry(
+                "j",
+                ManifestFixture.command(MoveFixture.directory("/tank/a", "t1"), ["f1", "f2"]),
+                stdout: Self.twoFiles),
             Self.entry(
                 "j",
                 ManifestFixture.command("/tank/b", ["f1", "f2"]),
@@ -185,9 +198,13 @@ struct TransportsTests {
         let received = Box<Pipeline>()
         let transports = Self.transports(
             [
-                Self.entry("j", ManifestFixture.command("/tank/a", ["f1", "f2"]), stdout: Self.twoFiles),
+                Self.entry("j", MoveFixture.quarantine("j", "/tank/a", ["f1", "f2"], "t1")),
+                Self.entry(
+                    "j",
+                    ManifestFixture.command(MoveFixture.directory("/tank/a", "t1"), ["f1", "f2"]),
+                    stdout: Self.twoFiles),
                 Self.entry("k", ManifestFixture.command("/rpool/b", ["f1", "f2"]), stdout: Self.twoFiles),
-                Self.entry("j", "rm -rf /tank/a/f1 /tank/a/f2"),
+                Self.entry("j", MoveFixture.remove("/tank/a", "t1")),
             ]
         ) { pipeline, stepIndex, emit in
             await received.set(pipeline)

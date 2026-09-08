@@ -193,6 +193,8 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case property
         /// An operation-owned staging entry created at the destination.
         case stage
+        /// The source frozen under an operation-owned quarantine.
+        case quarantine
         /// A staged upload committed against the version it is bound to.
         case promote
     }
@@ -288,6 +290,13 @@ public struct Plan: Codable, Sendable, Equatable {
     /// key decodes as nil, and enactment refuses a commit step that
     /// has no version behind it.
     public var versionGuard: RemoteVersionGuard?
+    /// The frozen source a move's delete is bound to.
+    ///
+    /// Present on every move whose delete is gated on manifests.
+    /// Absent on renames, copies, zfs moves, and on plans written
+    /// before the binding existed — and a gated delete without one
+    /// cannot run.
+    public var moveRelease: MoveRelease?
 
     /// Assembles a plan.
     public init(
@@ -303,7 +312,8 @@ public struct Plan: Codable, Sendable, Equatable {
         receivedDataset: String? = nil,
         collisions: CollisionReport? = nil,
         topologyBinding: TopologyBinding? = nil,
-        versionGuard: RemoteVersionGuard? = nil
+        versionGuard: RemoteVersionGuard? = nil,
+        moveRelease: MoveRelease? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -318,6 +328,7 @@ public struct Plan: Codable, Sendable, Equatable {
         self.collisions = collisions
         self.topologyBinding = topologyBinding
         self.versionGuard = versionGuard
+        self.moveRelease = moveRelease
     }
 }
 

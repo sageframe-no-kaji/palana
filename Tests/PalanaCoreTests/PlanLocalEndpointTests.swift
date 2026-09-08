@@ -120,26 +120,27 @@ struct PlanLocalEndpointTests {
             plan.steps[0].command
                 == "ssh koan 'tar -cf - -C /rpool/cold -- a.txt '\\''with space'\\''' | "
                 + "tar -xpf - -C /Users/op/files")
-        #expect(plan.steps[1].runsOn == .host("koan"))
-        #expect(plan.steps[1].gatedOnVerification)
+        #expect(plan.steps[2].runsOn == .host("koan"))
+        #expect(plan.steps[2].gatedOnVerification)
     }
 
     @Test("a push move gates its delete on this machine")
     func pushMoveGatesDeleteHere() throws {
         let facts = PlanFacts(destinationCapability: Self.remoteRsync)
         let plan = try plan(.move, from: here, to: koan, facts: facts)
-        #expect(plan.steps.count == 2)
-        #expect(plan.steps[1].command == "rm -rf /Users/op/files/a.txt '/Users/op/files/with space'")
-        #expect(plan.steps[1].runsOn == .host("local"))
-        #expect(plan.steps[1].gatedOnVerification)
+        #expect(plan.steps.count == 3)
+        #expect(plan.steps[1].role == .quarantine)
+        #expect(plan.steps[2].command == MoveFixture.remove("/Users/op/files", "t1"))
+        #expect(plan.steps[2].runsOn == .host("local"))
+        #expect(plan.steps[2].gatedOnVerification)
     }
 
     @Test("a pull move gates its delete on the remote")
     func pullMoveGatesDeleteRemote() throws {
         let facts = PlanFacts(sourceCapability: Self.remoteRsync)
         let plan = try plan(.move, from: koan, to: here, facts: facts)
-        #expect(plan.steps[1].runsOn == .host("koan"))
-        #expect(plan.steps[1].gatedOnVerification)
+        #expect(plan.steps[2].runsOn == .host("koan"))
+        #expect(plan.steps[2].gatedOnVerification)
     }
 
     @Test("a local end wins over forwarding and the whole-dataset gate")

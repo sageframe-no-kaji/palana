@@ -143,6 +143,8 @@ public enum EnactmentEvent: Sendable, Equatable {
     case stepEnded(index: Int, exitStatus: Int32)
     /// Data retained for recovery, or put back where it was.
     case recovery(RecoveryNote)
+    /// The move's delete released against frozen, proven bytes.
+    case released(MoveReleaseAuthorization)
     /// The whole plan enacted.
     case finished
 }

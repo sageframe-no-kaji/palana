@@ -60,12 +60,15 @@ struct PlanCompositionTests {
     @Test("a cross-dataset move is cp -a then a gated rm — never a bare mv")
     func crossDatasetCommands() throws {
         let plan = try plan(.move, to: sameHostDest)
+        let names = ["a.txt", "with space"]
         #expect(
             plan.steps.map(\.command) == [
                 "cp -a /tank/media/a.txt '/tank/media/with space' /tank/other/",
-                "rm -rf /tank/media/a.txt '/tank/media/with space'",
+                MoveFixture.quarantine("jodo", "/tank/media", names, "t1"),
+                MoveFixture.remove("/tank/media", "t1"),
             ])
-        #expect(plan.steps.map(\.gatedOnVerification) == [false, true])
+        #expect(plan.steps.map(\.gatedOnVerification) == [false, false, true])
+        #expect(plan.moveRelease?.quarantineDirectory == MoveFixture.directory("/tank/media", "t1"))
     }
 
     @Test("a deletion is one rm where the entries stand")
@@ -96,9 +99,10 @@ struct PlanCompositionTests {
             plan.steps.map(\.command) == [
                 "rsync -a -s --partial --info=progress2 /tank/media/a.txt "
                     + "'/tank/media/with space' koan:/rpool/cold/",
-                "rm -rf /tank/media/a.txt '/tank/media/with space'",
+                MoveFixture.quarantine("jodo", "/tank/media", ["a.txt", "with space"], "t1"),
+                MoveFixture.remove("/tank/media", "t1"),
             ])
-        #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo")])
+        #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo"), .host("jodo")])
     }
 
     @Test("a copy composes the same transfer minus the delete")
@@ -126,9 +130,10 @@ struct PlanCompositionTests {
     func sameHostMovePrefersRsync() throws {
         let facts = PlanFacts(sourceCapability: Self.rsyncHost)
         let plan = try plan(.move, to: sameHostDest, facts: facts)
-        #expect(plan.steps.count == 2)
+        #expect(plan.steps.count == 3)
         #expect(plan.steps[0].command.hasPrefix("rsync -a -s --partial"))
-        #expect(plan.steps[1].gatedOnVerification)
+        #expect(plan.steps[1].role == .quarantine)
+        #expect(plan.steps[2].gatedOnVerification)
     }
 
     @Test("the proxy path is two ssh commands piped on the operator's machine")
@@ -139,7 +144,8 @@ struct PlanCompositionTests {
             plan.steps.map(\.command) == [
                 "ssh jodo 'tar -cf - -C /tank/media -- a.txt '\\''with space'\\''' | "
                     + "ssh koan 'tar -xpf - -C /rpool/cold'",
-                "rm -rf /tank/media/a.txt '/tank/media/with space'",
+                MoveFixture.quarantine("jodo", "/tank/media", ["a.txt", "with space"], "t1"),
+                MoveFixture.remove("/tank/media", "t1"),
             ])
         #expect(plan.steps.first?.runsOn == .operatorMachine)
     }

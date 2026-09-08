@@ -22,11 +22,13 @@ public enum PlanEngine {
         }
         let classification = classify(request, facts: facts)
         let transport = transport(for: classification, request: request, facts: facts)
+        let release = moveRelease(request, classification: classification, transport: transport)
         let steps = composeBound(
             request,
             facts: facts,
             classification: classification,
-            transport: transport)
+            transport: transport,
+            release: release)
         let sizeFacts = totalSize(request.entries, facts: facts)
         return Plan(
             operation: request.operation,
@@ -40,7 +42,8 @@ public enum PlanEngine {
             steps: steps,
             receivedDataset: zfsChild(request: request, facts: facts, transport: transport),
             collisions: collisions,
-            versionGuard: request.versionGuard
+            versionGuard: request.versionGuard,
+            moveRelease: release
         )
     }
 

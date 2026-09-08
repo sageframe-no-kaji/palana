@@ -38,3 +38,28 @@ enum ManifestFixture {
         TransferManifest.command(directory: directory, names: names)
     }
 }
+
+/// The move binding as the engine composes it — the freeze step, the
+/// release step, and the directory both name.
+enum MoveFixture {
+    static func release(_ host: String, _ directory: String, _ names: [String], _ token: String) -> MoveRelease {
+        MoveRelease(host: host, sourceDirectory: directory, names: names, token: token)
+    }
+
+    /// The quarantine command for a move the engine would compose.
+    static func quarantine(
+        _ host: String, _ directory: String, _ names: [String], _ token: String
+    ) -> String {
+        release(host, directory, names, token).quarantineProgram()
+    }
+
+    /// The gated release command.
+    static func remove(_ directory: String, _ token: String) -> String {
+        "rm -rf -- \(ShellQuote.quote(MoveRelease.quarantineDirectory(in: directory, token: token)))"
+    }
+
+    /// Where the frozen source stands during verification.
+    static func directory(_ source: String, _ token: String) -> String {
+        MoveRelease.quarantineDirectory(in: source, token: token)
+    }
+}
