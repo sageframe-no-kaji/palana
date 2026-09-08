@@ -54,10 +54,16 @@ final class DirectoryWatcher: @unchecked Sendable {
     }
 
     /// Opens the descriptor and arms the source — once; later calls are no-ops.
+    ///
+    /// Synchronous on purpose: the pane publishes `.ready` right after
+    /// this returns, and a change landing in the moments after a landing
+    /// must already have a descriptor listening. Opening it on the queue
+    /// asynchronously left a gap that a file created straight after the
+    /// landing fell through — the watcher tests caught it under load.
     func start() {
-        queue.async { [weak self] in
-            guard let self, !self.cancelled, self.source == nil else { return }
-            self.startLocked()
+        queue.sync {
+            guard !cancelled, source == nil else { return }
+            startLocked()
         }
     }
 

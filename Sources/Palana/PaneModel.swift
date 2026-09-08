@@ -460,9 +460,10 @@ final class PaneModel {
                 state.selection = [revealOnLand]
             }
         }
+        // The watcher is listening before the pane says it has landed.
+        keepCurrent(host: host, path: path, rebuild: !quiet)
         status = .ready
         lastError = nil
-        keepCurrent(host: host, path: path, rebuild: !quiet)
         guard !quiet else { return }
         isReading = false
         addressNotice = pendingAddressNotice
