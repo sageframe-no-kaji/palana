@@ -179,45 +179,41 @@ struct RoundTripCommitTests {
         #expect(isDirectory.boolValue)
     }
 
-    @Test("a host with no sha256 tool fails closed — the version cannot be proved, so nothing moves")
-    func noDigestToolFailsClosed() async throws {
+    @Test("an occupied recovery identity is refused without replacing either file")
+    func occupiedRecoveryIdentityRefuses() async throws {
         try makeTree(local: "mine", remote: "checked")
         defer { try? FileManager.default.removeItem(at: root) }
-        // A PATH holding only the movers, so `command -v` finds no
-        // digest tool — the shape of a host that cannot prove content.
-        let bin = root.appendingPathComponent("bin")
-        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        for tool in ["rm", "mv", "ln", "cp", "mkdir"] {
-            try? FileManager.default.createSymbolicLink(
-                atPath: bin.appendingPathComponent(tool).path, withDestinationPath: "/bin/\(tool)")
-        }
-        var plan = try plan(expecting: digest("checked"))
-        let commit = plan.steps[2]
-        plan.steps[2] = PlanStep(
-            runsOn: commit.runsOn,
-            command: "PATH=\(ShellQuote.quote(bin.path)); export PATH; \(commit.command)",
-            role: .promote)
+        try Data("older recovery".utf8).write(to: displaced)
 
-        let outcome = await enact(plan)
+        let outcome = await enact(try plan(expecting: digest("checked")))
         let stderrTail = try #require(refusal(outcome.error))
-        #expect(stderrTail.contains("no sha256 tool"))
+        #expect(stderrTail.contains("recovery name is already occupied"))
         #expect(try text(target) == "checked")
+        #expect(try text(displaced) == "older recovery")
+        #expect(!FileManager.default.fileExists(atPath: staging.path))
+    }
+
+    @Test("the commit refuses a host that cannot calculate SHA-256")
+    func noDigestToolFailsClosed() {
+        let program = guardValue(expecting: digest("checked"))
+            .commitProgram(directory: destination.path, name: name)
+        #expect(program.contains("command -v sha256sum"))
+        #expect(program.contains("command -v shasum"))
+        #expect(program.contains("no sha256 tool here, so the version cannot be proved"))
     }
 
     @Test("the commit sets the standing version aside before it takes the pathname")
     func promotionDisplacesBeforeItLinks() {
         let program = guardValue(expecting: digest("checked"))
             .commitProgram(directory: destination.path, name: name)
-        let displacedAt = try? #require(program.range(of: "mv -- note.txt palana-replaced-t1"))
-        let linkedAt = try? #require(
-            program.range(of: "ln -- palana-send-t1/note.txt note.txt"))
-        #expect(displacedAt != nil)
+        let preservedAt = program.range(of: "mv -n -- note.txt palana-replaced-t1")
+        let linkedAt = program.range(of: "ln -- palana-send-t1/note.txt note.txt")
+        #expect(preservedAt != nil)
         #expect(linkedAt != nil)
-        if let displacedAt, let linkedAt {
-            #expect(displacedAt.lowerBound < linkedAt.lowerBound)
+        if let preservedAt, let linkedAt {
+            #expect(preservedAt.lowerBound < linkedAt.lowerBound)
         }
-        // Never a bare rename onto the requested pathname: `ln` refuses
-        // atomically where `mv` would clobber whatever arrived.
+        #expect(!program.contains("mv -- note.txt palana-replaced-t1"))
         #expect(!program.contains("mv -- palana-send-t1/note.txt note.txt"))
     }
 
@@ -268,5 +264,56 @@ struct RoundTripCommitTests {
                     versionGuard: guardValue(expecting: nil)),
                 facts: PlanFacts())
         }
+    }
+
+    @Test("a guard with a different token or malformed digest is refused before composition")
+    func invalidGuardIdentityRefused() {
+        let pathData = RemoteIdentity.pathData(
+            directory: destination.path, name: Data(name.utf8))
+        for versionGuard in [
+            RemoteVersionGuard(
+                host: PalanaCore.localHostName,
+                pathData: pathData,
+                expectedDigest: digest("checked"),
+                token: "t2"),
+            RemoteVersionGuard(
+                host: PalanaCore.localHostName,
+                pathData: pathData,
+                expectedDigest: "not-a-digest",
+                token: "t1"),
+        ] {
+            #expect(throws: PlanError.self) {
+                try PlanEngine.plan(
+                    PlanRequest(
+                        operation: .copy,
+                        source: Locus(host: PalanaCore.localHostName, directory: source.path),
+                        entries: [entry()],
+                        destination: Locus(
+                            host: PalanaCore.localHostName, directory: destination.path),
+                        token: "t1",
+                        versionGuard: versionGuard),
+                    facts: PlanFacts())
+            }
+        }
+    }
+
+    @Test("a guarded plan whose privileged command was changed is refused before staging")
+    func changedPrivilegedCommandRefused() async throws {
+        try makeTree(local: "mine", remote: "checked")
+        defer { try? FileManager.default.removeItem(at: root) }
+        var plan = try plan(expecting: digest("checked"))
+        plan.steps[2] = PlanStep(
+            runsOn: .host(PalanaCore.localHostName),
+            command: "rm -f -- \(ShellQuote.quote(target.path))",
+            role: .promote)
+
+        let outcome = await enact(plan)
+        guard case EnactmentError.malformedPlan(let reason)? = outcome.error else {
+            Issue.record("expected malformedPlan, got \(String(describing: outcome.error))")
+            return
+        }
+        #expect(reason.contains("privileged steps"))
+        #expect(try text(target) == "checked")
+        #expect(!FileManager.default.fileExists(atPath: staging.path))
     }
 }

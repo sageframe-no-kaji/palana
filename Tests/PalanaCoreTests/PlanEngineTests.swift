@@ -82,7 +82,7 @@ struct PlanClassificationTests {
         #expect(classification == .withinDatasetRename)
     }
 
-    @Test("same host, different mount targets — the copy-then-gated-delete stands")
+    @Test("same host, different mount targets — classified for fail-closed refusal")
     func differentMountsStayConservative() {
         let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/srv")
         let classification = PlanEngine.classify(
@@ -90,7 +90,7 @@ struct PlanClassificationTests {
         #expect(classification == .crossDatasetCopyPlusDelete)
     }
 
-    @Test("the local Mac with no facts — unproven, so the verified copy-then-delete, never a claimed rename")
+    @Test("the local Mac with no facts — unproven, so never a claimed rename")
     func localUnprovenStaysConservative() {
         // The old table claimed a rename here; mv across volumes is a
         // copy-then-delete and the plan said "instant" over it.
@@ -117,17 +117,15 @@ struct PlanClassificationTests {
         #expect(classification == .withinDatasetRename)
     }
 
-    @Test("the local Mac, cross-volume facts — the copy-then-gated-delete, not mv")
-    func localCrossVolumeCopiesThenDeletes() throws {
+    @Test("the local Mac, cross-volume facts — refusal, never copy-then-delete")
+    func localCrossVolumeCopiesThenDeletes() {
         let localSource = Locus(host: "local", directory: "/Users/op/files")
         let localDest = Locus(host: "local", directory: "/Volumes/External/files")
         let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/Volumes/External")
-        let plan = try PlanEngine.plan(
-            request(.move, from: localSource, to: localDest), facts: facts)
-        #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .quarantine, .delete])
-        #expect(plan.steps[2].gatedOnVerification)
-        #expect(!plan.steps.contains { $0.command.hasPrefix("mv ") })
+        #expect(throws: PlanError.moveReleaseUnavailable) {
+            try PlanEngine.plan(
+                request(.move, from: localSource, to: localDest), facts: facts)
+        }
     }
 
     @Test("different hosts — cross-host transfer, datasets irrelevant")
@@ -165,7 +163,7 @@ struct PlanTransportTests {
     @Test("local classifications never pick a wire transport")
     func localStaysLocal() {
         let sameHostDest = Locus(host: "jodo", directory: "/tank/other")
-        let plan = try? PlanEngine.plan(request(.move, to: sameHostDest), facts: PlanFacts())
+        let plan = try? PlanEngine.plan(request(.copy, to: sameHostDest), facts: PlanFacts())
         #expect(plan?.transport == .local)
     }
 
@@ -323,7 +321,7 @@ struct PlanValueTests {
     @Test("a Plan round-trips through JSON whole — plans are values")
     func codableRoundTrip() throws {
         let plan = try PlanEngine.plan(
-            request(.move), facts: PlanFacts(agentForwarding: .available))
+            request(.copy), facts: PlanFacts(agentForwarding: .available))
         let data = try JSONEncoder().encode(plan)
         let decoded = try JSONDecoder().decode(Plan.self, from: data)
         #expect(decoded == plan)

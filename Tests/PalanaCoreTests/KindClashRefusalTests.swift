@@ -115,7 +115,7 @@ struct KindClashRefusalTests {
         let entries = [
             makeEntry("a.txt"), makeEntry("media", kind: .directory), makeEntry("link"),
         ]
-        let plan = try plan(.move, entries: entries, to: sameHostDest, collisions: items)
+        let plan = try plan(.copy, entries: entries, to: sameHostDest, collisions: items)
         let report = try #require(plan.collisions)
         #expect(report.items.count == 3)
         #expect(!report.hasKindClash)
@@ -123,14 +123,14 @@ struct KindClashRefusalTests {
 
     @Test("an ungathered destination is not a clash — the alarm line carries that truth")
     func ungatheredIsNotAClash() throws {
-        let plan = try plan(.move, entries: [makeEntry("notes")], to: sameHostDest, collisions: nil)
+        let plan = try plan(.copy, entries: [makeEntry("notes")], to: sameHostDest, collisions: nil)
         #expect(plan.collisions?.gathered == false)
     }
 
     @Test("enactment refuses a Plan that carries a clash — nothing runs, the door is never opened")
     func enactmentRefusesCarriedClash() async throws {
         let clash = collision("notes", standing: .directory, arriving: .file)
-        var plan = try plan(.move, entries: [makeEntry("notes")], to: sameHostDest, collisions: [])
+        var plan = try plan(.copy, entries: [makeEntry("notes")], to: sameHostDest, collisions: [])
         // A Plan is a value — decoded from a queue, built by hand — so
         // the gate must hold here too, not only in the engine.
         plan.collisions = CollisionReport(items: [clash], gathered: true)

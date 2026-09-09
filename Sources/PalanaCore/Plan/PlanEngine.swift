@@ -22,13 +22,11 @@ public enum PlanEngine {
         }
         let classification = classify(request, facts: facts)
         let transport = transport(for: classification, request: request, facts: facts)
-        let release = moveRelease(request, classification: classification, transport: transport)
-        let steps = composeBound(
+        let steps = try composeBound(
             request,
             facts: facts,
             classification: classification,
-            transport: transport,
-            release: release)
+            transport: transport)
         let sizeFacts = totalSize(request.entries, facts: facts)
         return Plan(
             operation: request.operation,
@@ -43,7 +41,7 @@ public enum PlanEngine {
             receivedDataset: zfsChild(request: request, facts: facts, transport: transport),
             collisions: collisions,
             versionGuard: request.versionGuard,
-            moveRelease: release
+            zfsReleaseGuard: zfsReleaseGuard(request: request, facts: facts, transport: transport)
         )
     }
 
@@ -90,7 +88,7 @@ public enum PlanEngine {
     }
 
     /// The dataset a zfs transport will create at the destination.
-    private static func zfsChild(
+    static func zfsChild(
         request: PlanRequest,
         facts: PlanFacts,
         transport: Transport
@@ -153,9 +151,8 @@ public enum PlanEngine {
     /// Unknown datasets classify conservatively: a rename is claimed
     /// only when both datasets are known and equal. A move that merges
     /// into a standing directory is never a rename, proof or no proof —
-    /// `mv` cannot merge (``mergesAtDestination(_:)``), so the move
-    /// takes the verified copy-then-delete route like a cross-filesystem
-    /// one.
+    /// `mv` cannot merge (``mergesAtDestination(_:)``), so the move is
+    /// classified as copy-plus-delete and refused during composition.
     static func classify(_ request: PlanRequest, facts: PlanFacts) -> Classification {
         switch request.operation {
         case .rename:
@@ -258,7 +255,13 @@ extension PlanEngine {
         facts: PlanFacts,
         classification: Classification,
         transport: Transport
-    ) -> [PlanStep] {
+    ) throws -> [PlanStep] {
+        let lacksAtomicMoveRelease =
+            request.operation == .move
+            && classification != .withinDatasetRename
+            && transport != .zfsSendReceiveForwarded
+            && transport != .zfsSendReceiveProxied
+        guard !lacksAtomicMoveRelease else { throw PlanError.moveReleaseUnavailable }
         switch transport {
         case .local:
             return composeLocal(request, facts: facts, classification: classification)
@@ -304,14 +307,7 @@ extension PlanEngine {
             return [PlanStep(runsOn: host, command: "mv \(sources) \(dest)", role: .rename)]
         case .crossDatasetCopyPlusDelete:
             let dest = quotedDestinationDirectory(request)
-            return [
-                PlanStep(runsOn: host, command: copyCommand(dest), role: .copy),
-                PlanStep(
-                    runsOn: host,
-                    command: "rm -rf \(sources)",
-                    role: .delete,
-                    gatedOnVerification: true),
-            ]
+            return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
         case .withinHostCopy:
             let dest = quotedDestinationDirectory(request)
             return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
@@ -333,22 +329,13 @@ extension PlanEngine {
         let destinationHost = request.destination?.host ?? ""
         let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
         let remote = ShellQuote.quote("\(destinationHost):\(destinationDirectorySlash(request))")
-        var steps = [
+        return [
             PlanStep(
                 runsOn: sourceHost,
                 command:
                     "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
                 role: .transfer)
         ]
-        if request.operation == .move {
-            steps.append(
-                PlanStep(
-                    runsOn: sourceHost,
-                    command: "rm -rf \(sources)",
-                    role: .delete,
-                    gatedOnVerification: true))
-        }
-        return steps
     }
 
     /// Composes the rsync-from-this-machine steps.
@@ -379,23 +366,13 @@ extension PlanEngine {
                 .joined(separator: " ")
             target = quotedDestinationDirectory(request)
         }
-        var steps = [
+        return [
             PlanStep(
                 runsOn: here,
                 command:
                     "\(rsyncInvocation(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: remoteHost))\(sources) \(target)",
                 role: .transfer)
         ]
-        if request.operation == .move {
-            let removed = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
-            steps.append(
-                PlanStep(
-                    runsOn: .host(request.source.host),
-                    command: "rm -rf \(removed)",
-                    role: .delete,
-                    gatedOnVerification: true))
-        }
-        return steps
     }
 
     /// Composes the tar-from-this-machine steps — the remote end has no
@@ -412,22 +389,12 @@ extension PlanEngine {
             pushing
             ? "\(pack) | ssh \(sshDestination(request.destination?.host ?? "")) \(ShellQuote.quote(unpack))"
             : "ssh \(sshDestination(request.source.host)) \(ShellQuote.quote(pack)) | \(unpack)"
-        var steps = [
+        return [
             PlanStep(
                 runsOn: .host(PalanaCore.localHostName),
                 command: command,
                 role: .transfer)
         ]
-        if request.operation == .move {
-            let removed = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
-            steps.append(
-                PlanStep(
-                    runsOn: .host(request.source.host),
-                    command: "rm -rf \(removed)",
-                    role: .delete,
-                    gatedOnVerification: true))
-        }
-        return steps
     }
 
     private static func composeTarStream(_ request: PlanRequest) -> [PlanStep] {
@@ -437,23 +404,13 @@ extension PlanEngine {
         let destinationHost = request.destination?.host ?? ""
         let pipeline = Pipeline(
             fromHost: request.source.host, fromCommand: pack, toHost: destinationHost, toCommand: unpack)
-        var steps = [
+        return [
             PlanStep(
                 runsOn: .operatorMachine,
                 command: pipelineCommand(pipeline),
                 role: .transfer,
                 pipeline: pipeline)
         ]
-        if request.operation == .move {
-            let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
-            steps.append(
-                PlanStep(
-                    runsOn: .host(request.source.host),
-                    command: "rm -rf \(sources)",
-                    role: .delete,
-                    gatedOnVerification: true))
-        }
-        return steps
     }
 
     private static func composeZfs(

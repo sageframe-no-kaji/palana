@@ -18,7 +18,7 @@ extension OperationModel {
     ///
     /// Volumes come and go, and a remembered table could claim a rename
     /// across one that has since arrived. Nil when `mount` fails: an
-    /// unproven ground takes the verified copy-then-gated-delete route.
+    /// unproven move is refused rather than released non-atomically.
     func localMounts() async -> [Mount]? {
         let command = MountTable.command(forKernel: "Darwin")
         guard

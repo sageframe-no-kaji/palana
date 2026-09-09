@@ -1,9 +1,8 @@
 // The Transports — enactment, first half (ho-06.1). Executes an
 // approved Plan exactly as composed: no improvisation between approval
 // and execution. Host steps run through the Conduit; proxied pipelines
-// run in-process through an injected runner. Gates open only when the
-// destination's manifest carries every entry of the source's — each
-// object's kind, size, link target, and SHA-256 — identically.
+// run in-process through an injected runner. A ZFS cleanup gate opens
+// only when its bound destination dataset exists.
 
 import Foundation
 
@@ -68,30 +67,16 @@ public struct Transports: Sendable {
     public func run(_ plan: Plan, emit: @Sendable (EnactmentEvent) -> Void) async throws {
         try Self.refuseUnrunnable(plan)
         var state = EnactmentState()
-        do {
-            for (index, step) in plan.steps.enumerated() {
-                try Task.checkCancellation()
-                try await openGate(for: step, plan: plan, state: &state, emit: emit)
-                emit(.stepBegan(index: index, step: step))
-                let result = try await runStep(step, index: index, plan: plan, emit: emit)
-                emit(.stepEnded(index: index, exitStatus: result.exitStatus))
-                for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
-                    emit(.recovery(note))
-                }
-                try Self.raise(result, index: index)
-                if step.role == .quarantine { state.quarantined = true }
+        for (index, step) in plan.steps.enumerated() {
+            try Task.checkCancellation()
+            try await openGate(for: step, plan: plan, state: &state, emit: emit)
+            emit(.stepBegan(index: index, step: step))
+            let result = try await runStep(step, index: index, plan: plan, emit: emit)
+            emit(.stepEnded(index: index, exitStatus: result.exitStatus))
+            for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
+                emit(.recovery(note))
             }
-        } catch {
-            // A source already frozen is a source the operator must be
-            // able to find, whatever stopped the run — a failed step, a
-            // closed gate, a cancellation.
-            if state.quarantined, let release = plan.moveRelease {
-                emit(
-                    .recovery(
-                        RecoveryNote(
-                            kind: .retained, host: release.host, detail: release.recoverySentence)))
-            }
-            throw error
+            try Self.raise(result, index: index)
         }
         emit(.finished)
     }
@@ -100,14 +85,10 @@ public struct Transports: Sendable {
     private struct EnactmentState {
         /// What the passed gate authorised, and over which evidence.
         var authorization: GateAuthorization?
-        /// True once the source has been frozen under the quarantine.
-        var quarantined = false
     }
 
     /// What a passed gate authorises.
     private enum GateAuthorization {
-        /// A file move whose frozen source and destination both manifested.
-        case release(MoveReleaseAuthorization)
         /// A zfs transfer whose received dataset exists.
         case dataset(String)
     }
@@ -115,10 +96,10 @@ public struct Transports: Sendable {
     /// Refuses, before a single step runs, a plan whose shape cannot
     /// carry the authority its steps claim.
     ///
-    /// A commit step with no version behind it and a gated delete with
-    /// no frozen source behind it are the shapes a plan written before
-    /// these bindings existed takes. Neither may run: a plan decoded
-    /// from an older file stays readable and stays harmless.
+    /// A commit step with no version behind it and a gated ZFS destroy
+    /// with no receive binding are shapes a plan written before these
+    /// bindings existed takes. Neither may run: a plan decoded from an
+    /// older file stays readable and stays harmless.
     private static func refuseUnrunnable(_ plan: Plan) throws {
         // A plan the engine would have refused must not run from here
         // either: the tool fails mid-way on the clash, after earlier
@@ -136,14 +117,83 @@ public struct Transports: Sendable {
             throw EnactmentError.malformedPlan(
                 "a version-bound send-back with no commit step — nothing may be replaced")
         }
-        guard plan.steps.contains(where: \.gatedOnVerification) else { return }
-        guard plan.receivedDataset != nil || plan.moveRelease != nil else {
-            throw EnactmentError.malformedPlan(
-                "a gated delete with no frozen source behind it — nothing may be deleted")
+        if let versionGuard = plan.versionGuard {
+            try validateVersionBoundPlan(plan, guard: versionGuard)
         }
-        if plan.moveRelease != nil, !plan.steps.contains(where: { $0.role == .quarantine }) {
+        if let zfsReleaseGuard = plan.zfsReleaseGuard {
+            try validateZFSReleasePlan(plan, guard: zfsReleaseGuard)
+        }
+        guard plan.steps.contains(where: \.gatedOnVerification) else { return }
+        guard plan.receivedDataset != nil, plan.zfsReleaseGuard != nil else {
             throw EnactmentError.malformedPlan(
-                "a move bound to a frozen source with no step that freezes it")
+                "a gated step with no bound ZFS receive behind it — nothing may be deleted")
+        }
+    }
+
+    /// A decoded or mutated plan receives no authority merely because it carries a guard value.
+    ///
+    /// Its privileged steps must be the exact stage
+    /// and commit described by that guard, on that host, in that order.
+    private static func validateVersionBoundPlan(
+        _ plan: Plan, guard versionGuard: RemoteVersionGuard
+    ) throws {
+        guard PlanEngine.validOperationToken(versionGuard.token),
+            let destination = plan.destination,
+            destination.host == versionGuard.host,
+            plan.entries.count == 1
+        else {
+            throw EnactmentError.malformedPlan("the version-bound plan has an invalid identity")
+        }
+        let pathData = RemoteIdentity.pathData(
+            directory: destination.directory, name: plan.entries[0].nameData)
+        guard pathData == versionGuard.pathData else {
+            throw EnactmentError.malformedPlan("the version guard names a different destination")
+        }
+        let stages = plan.steps.enumerated().filter { $0.element.role == .stage }
+        let promotes = plan.steps.enumerated().filter { $0.element.role == .promote }
+        guard stages.count == 1, promotes.count == 1,
+            let stage = stages.first, let promote = promotes.first,
+            stage.offset < promote.offset
+        else {
+            throw EnactmentError.malformedPlan("the version-bound plan has no unique stage and commit")
+        }
+        let runner = Runner.host(destination.host)
+        let staging = RemoteVersionGuard.stagingDirectory(
+            in: destination.directory, token: versionGuard.token)
+        let expectedStage = PlanStep(
+            runsOn: runner,
+            command: "mkdir -- \(ShellQuote.quote(staging))",
+            role: .stage)
+        let expectedPromote = PlanStep(
+            runsOn: runner,
+            command: versionGuard.commitProgram(
+                directory: destination.directory, name: plan.entries[0].name),
+            role: .promote)
+        guard stage.element == expectedStage, promote.element == expectedPromote else {
+            throw EnactmentError.malformedPlan(
+                "the version-bound plan's privileged steps do not match its guard")
+        }
+    }
+
+    /// A received dataset authorizes only the cleanup steps composed from
+    /// the same hosts, datasets, operation identity, and move/copy intent.
+    private static func validateZFSReleasePlan(
+        _ plan: Plan, guard release: ZFSReleaseGuard
+    ) throws {
+        guard PlanEngine.validOperationToken(release.token),
+            plan.transport == .zfsSendReceiveForwarded
+                || plan.transport == .zfsSendReceiveProxied,
+            plan.source.host == release.sourceHost,
+            plan.destination?.host == release.destinationHost,
+            plan.receivedDataset == release.receivedDataset,
+            (plan.operation == .move) == release.deletesSource
+        else {
+            throw EnactmentError.malformedPlan("the ZFS release has an invalid identity")
+        }
+        let gated = plan.steps.filter(\.gatedOnVerification)
+        guard gated == release.releaseSteps else {
+            throw EnactmentError.malformedPlan(
+                "the gated ZFS steps do not match the receive they claim")
         }
     }
 
@@ -162,35 +212,28 @@ public struct Transports: Sendable {
             guard report.matched else {
                 throw EnactmentError.verificationFailed(report)
             }
-            state.authorization = try Self.authorization(
-                from: report, plan: plan, quarantined: state.quarantined)
+            state.authorization = try Self.authorization(from: report)
         }
-        guard step.role == .delete, let release = plan.moveRelease else { return }
-        guard case .release(let authorized)? = state.authorization, authorized.release == release
+        guard let release = plan.zfsReleaseGuard,
+            case .dataset(let received)? = state.authorization,
+            received == release.receivedDataset,
+            release.releaseSteps.contains(step)
         else {
             throw EnactmentError.malformedPlan(
-                "the delete is not bound to the source this run froze")
+                "the gated ZFS step is not authorized by this receive")
         }
-        emit(.released(authorized))
     }
 
     /// Turns a matched report into the authority a step may claim.
     private static func authorization(
-        from report: VerificationReport,
-        plan: Plan,
-        quarantined: Bool
+        from report: VerificationReport
     ) throws -> GateAuthorization {
         switch report {
         case .datasetReceived(let name, _):
             return .dataset(name)
-        case .manifests(let source, let destination):
-            guard let release = plan.moveRelease, quarantined else {
-                throw EnactmentError.malformedPlan(
-                    "manifests taken over a source that was never frozen — nothing may be deleted")
-            }
-            return .release(
-                MoveReleaseAuthorization(
-                    release: release, source: source, destination: destination))
+        case .manifests:
+            throw EnactmentError.malformedPlan(
+                "file-manifest deletion has no atomic release primitive")
         }
     }
 
@@ -319,13 +362,7 @@ public struct Transports: Sendable {
 
     // MARK: - Verification
 
-    /// The gate's evidence, shaped per transport: manifests both ends
-    /// for file transfers, dataset existence for zfs — visibly, through
-    /// the Conduit.
-    ///
-    /// Both manifests must exist before either is read against the
-    /// other: a source that will not manifest is as closed a gate as a
-    /// destination that differs.
+    /// Reads the bound destination dataset's existence through the Conduit.
     private func verify(
         _ plan: Plan,
         emit: @Sendable (EnactmentEvent) -> Void
@@ -333,59 +370,12 @@ public struct Transports: Sendable {
         guard let destination = plan.destination else {
             throw EnactmentError.malformedPlan("gated steps but no destination to verify against")
         }
-        if let received = plan.receivedDataset {
-            let command = "zfs list -H -o name \(ShellQuote.quote(received))"
-            emit(.verifying(host: destination.host, command: command))
-            let result = try await conduit.run(on: destination.host, command).collect()
-            return .datasetReceived(name: received, exists: result.exitStatus == 0)
+        guard let received = plan.receivedDataset else {
+            throw EnactmentError.malformedPlan("a ZFS gate has no received dataset")
         }
-        // The source manifest is taken over the quarantine, not the
-        // pathnames the operator has since been free to refill — a move
-        // proves the bytes it froze, and deletes only those.
-        let release = plan.moveRelease
-        let names = release?.names ?? plan.entries.map(\.name)
-        let source = try await manifest(
-            directory: release?.quarantineDirectory ?? plan.source.directory,
-            names: names,
-            on: release?.host ?? plan.source.host,
-            emit: emit)
-        let landed = try await manifest(
-            directory: destination.directory, names: names, on: destination.host, emit: emit)
-        return .manifests(source: source, destination: landed)
-    }
-
-    /// One end's manifest, or `verificationUnavailable`.
-    ///
-    /// Unavailable on any nonzero status (a missing name, an unreadable
-    /// file, no SHA-256 tool), on bytes that do not parse as a
-    /// manifest, and on a manifest that omits a selected name — the
-    /// shape a masked `find` failure takes. Each keeps the gate closed.
-    private func manifest(
-        directory: String,
-        names: [String],
-        on host: String,
-        emit: @Sendable (EnactmentEvent) -> Void
-    ) async throws -> TransferManifest {
-        let command = TransferManifest.command(directory: directory, names: names)
-        emit(.verifying(host: host, command: command))
-        let result = try await conduit.run(on: host, command).collect()
-        guard result.exitStatus == 0 else {
-            let tail = result.stderrText.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw EnactmentError.verificationUnavailable(
-                host: host, detail: "manifest exited \(result.exitStatus): \(tail)")
-        }
-        let manifest: TransferManifest
-        do {
-            manifest = try TransferManifest.parse(result.stdout)
-        } catch {
-            throw EnactmentError.verificationUnavailable(
-                host: host, detail: "manifest unreadable: \(error)")
-        }
-        let missing = manifest.missingNames(from: names)
-        guard missing.isEmpty else {
-            throw EnactmentError.verificationUnavailable(
-                host: host, detail: "manifest omitted \(missing.joined(separator: ", "))")
-        }
-        return manifest
+        let command = "zfs list -H -o name \(ShellQuote.quote(received))"
+        emit(.verifying(host: destination.host, command: command))
+        let result = try await conduit.run(on: destination.host, command).collect()
+        return .datasetReceived(name: received, exists: result.exitStatus == 0)
     }
 }

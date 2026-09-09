@@ -2,10 +2,10 @@
 // destroys is exactly what it proved.
 //
 // A send-back stages its bytes beside the destination and commits
-// against the version it was bound to. A move freezes its source under
-// an operation-owned quarantine and deletes only from there. Both wrap
-// the transport's own steps rather than replacing them: the bytes
-// still travel the way the transport says they do.
+// against the version it was bound to. A ZFS transfer binds cleanup to
+// the dataset created by its receive. Generic POSIX copy-then-delete
+// moves are refused because they cannot establish an equivalent atomic
+// release boundary.
 
 import Foundation
 
@@ -15,28 +15,28 @@ extension PlanEngine {
         _ request: PlanRequest,
         facts: PlanFacts,
         classification: Classification,
-        transport: Transport,
-        release: MoveRelease?
-    ) -> [PlanStep] {
-        let guarded = request.versionGuard.flatMap { versionGuard in
-            request.destination.flatMap { destination in
-                request.entries.first.map { entry in
-                    composeVersionBound(
-                        request,
-                        route: Route(facts: facts, classification: classification, transport: transport),
-                        versionGuard: versionGuard,
-                        destination: destination,
-                        name: entry.name)
-                }
+        transport: Transport
+    ) throws -> [PlanStep] {
+        if let versionGuard = request.versionGuard {
+            guard let destination = request.destination, let entry = request.entries.first else {
+                return try composeTransport(
+                    request,
+                    facts: facts,
+                    classification: classification,
+                    transport: transport)
             }
+            return try composeVersionBound(
+                request,
+                route: Route(facts: facts, classification: classification, transport: transport),
+                versionGuard: versionGuard,
+                destination: destination,
+                name: entry.name)
         }
-        if let guarded { return guarded }
-        let steps = composeTransport(
+        return try composeTransport(
             request,
             facts: facts,
             classification: classification,
             transport: transport)
-        return bindRelease(steps, release: release)
     }
 
     /// How the bytes were routed — the three values every compose needs,
@@ -64,13 +64,13 @@ extension PlanEngine {
         versionGuard: RemoteVersionGuard,
         destination: Locus,
         name: String
-    ) -> [PlanStep] {
+    ) throws -> [PlanStep] {
         let staging = RemoteVersionGuard.stagingDirectory(
             in: destination.directory, token: request.token)
         var staged = request
         staged.destination = Locus(host: destination.host, directory: staging)
         staged.versionGuard = nil
-        let transfer = composeTransport(
+        let transfer = try composeTransport(
             staged,
             facts: route.facts,
             classification: route.classification,
@@ -87,53 +87,6 @@ extension PlanEngine {
             ]
     }
 
-    /// Splits a gated delete into the freeze that earns it and the
-    /// removal of the frozen bytes.
-    ///
-    /// Every transport composes its move's back half the same way — one
-    /// gated `rm -rf` over the selected pathnames — so one rewrite here
-    /// binds them all. What is removed after this is the quarantine,
-    /// never a pathname the operator may have refilled.
-    static func bindRelease(_ steps: [PlanStep], release: MoveRelease?) -> [PlanStep] {
-        guard let release else { return steps }
-        let host = Runner.host(release.host)
-        return steps.flatMap { step -> [PlanStep] in
-            guard step.role == .delete, step.gatedOnVerification else { return [step] }
-            return [
-                PlanStep(runsOn: host, command: release.quarantineProgram(), role: .quarantine),
-                PlanStep(
-                    runsOn: host,
-                    command: release.releaseProgram(),
-                    role: .delete,
-                    gatedOnVerification: true),
-            ]
-        }
-    }
-
-    /// The frozen source a move's delete will be bound to, when the
-    /// move is one that deletes files rather than a dataset.
-    ///
-    /// Nil for a true rename (nothing is copied, so nothing is deleted)
-    /// and for a zfs move (its gate is the received dataset, and its
-    /// delete is `zfs destroy`, not `rm`).
-    static func moveRelease(
-        _ request: PlanRequest,
-        classification: Classification,
-        transport: Transport
-    ) -> MoveRelease? {
-        guard request.operation == .move, classification != .withinDatasetRename else { return nil }
-        switch transport {
-        case .zfsSendReceiveForwarded, .zfsSendReceiveProxied:
-            return nil
-        default:
-            return MoveRelease(
-                host: request.source.host,
-                sourceDirectory: request.source.directory,
-                names: request.entries.map(\.name),
-                token: request.token)
-        }
-    }
-
     /// Refuses a version guard that does not name what the plan does.
     ///
     /// A guard is only a guard while it names the same host and the
@@ -147,6 +100,23 @@ extension PlanEngine {
         guard request.entries.count == 1 else {
             throw PlanError.versionGuardUnbindable("a bound send-back carries exactly one entry")
         }
+        guard versionGuard.token == request.token else {
+            throw PlanError.versionGuardUnbindable(
+                "the guard and upload name different operation identities")
+        }
+        guard Self.validOperationToken(versionGuard.token) else {
+            throw PlanError.versionGuardUnbindable("the operation identity is not a safe bare name")
+        }
+        let digestMalformed =
+            versionGuard.expectedDigest.map { digest in
+                digest.count != 64
+                    || !digest.allSatisfy { character in
+                        character.isHexDigit && !character.isUppercase
+                    }
+            } ?? false
+        if digestMalformed {
+            throw PlanError.versionGuardUnbindable("the expected SHA-256 digest is malformed")
+        }
         guard let destination = request.destination, destination.host == versionGuard.host else {
             throw PlanError.versionGuardUnbindable(
                 "the guard names \(versionGuard.host), the plan sends to "
@@ -158,5 +128,35 @@ extension PlanEngine {
             throw PlanError.versionGuardUnbindable(
                 "the guard names a different path than the plan's destination")
         }
+    }
+
+    /// Operation identities become bare filesystem names and must never
+    /// carry separators, shell whitespace, or relative-path components.
+    static func validOperationToken(_ token: String) -> Bool {
+        !token.isEmpty
+            && token.allSatisfy { character in
+                character.isASCII && (character.isLetter || character.isNumber || character == "-")
+            }
+    }
+
+    /// Binds a successful receive to the only cleanup commands it may release.
+    static func zfsReleaseGuard(
+        request: PlanRequest,
+        facts: PlanFacts,
+        transport: Transport
+    ) -> ZFSReleaseGuard? {
+        guard
+            transport == .zfsSendReceiveForwarded || transport == .zfsSendReceiveProxied,
+            let source = facts.selectionWholeDataset,
+            let destination = request.destination,
+            let received = zfsChild(request: request, facts: facts, transport: transport)
+        else { return nil }
+        return ZFSReleaseGuard(
+            sourceHost: request.source.host,
+            destinationHost: destination.host,
+            sourceDataset: source.name,
+            receivedDataset: received,
+            token: request.token,
+            deletesSource: request.operation == .move)
     }
 }

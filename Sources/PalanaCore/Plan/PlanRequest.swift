@@ -195,4 +195,7 @@ public enum PlanError: Error, Equatable, Sendable {
     /// other than a single-entry copy, or a destination it does not
     /// name. A guard that does not match what it guards is no guard.
     case versionGuardUnbindable(String)
+    /// A file move would require copy-then-delete across a boundary that
+    /// cannot atomically bind deletion to the verified bytes.
+    case moveReleaseUnavailable
 }

@@ -1,6 +1,6 @@
 // Enactment against the real fixture — the whole stack in one trace:
 // probe the flavor, list the entries, compose the Plan, enact it,
-// watch the events, verify the manifests released the gate. The rsync
+// watch the events, and prove the source and destination bytes. The rsync
 // path needs real rsync on the source (the probe fact decides — the
 // runner's openrsync skips itself); the tar proxy runs everywhere.
 // Never a live homelab host.
@@ -56,7 +56,7 @@ struct TransportsIntegrationTests {
         _ = try? await world.conduit.run(on: world.source, "rm -rf \(base)").collect()
     }
 
-    private static func movePlan(
+    private static func copyPlan(
         _ world: World, base: String, forwarding: ForwardingFact
     ) async throws -> Plan {
         let entries = try await Listing(conduit: world.conduit)
@@ -64,7 +64,7 @@ struct TransportsIntegrationTests {
         #expect(entries.count == 2)
         return try PlanEngine.plan(
             PlanRequest(
-                operation: .move,
+                operation: .copy,
                 source: Locus(host: world.source, directory: "\(base)/src"),
                 entries: entries,
                 destination: Locus(host: world.destination, directory: "\(base)/dst"),
@@ -89,7 +89,7 @@ struct TransportsIntegrationTests {
         return events
     }
 
-    private static func assertMoved(_ world: World, base: String) async throws {
+    private static func assertCopied(_ world: World, base: String) async throws {
         let listing = Listing(conduit: world.conduit)
         let after = try await listing.list(
             on: world.source, path: "\(base)/dst", flavor: world.capability.flavor)
@@ -98,11 +98,11 @@ struct TransportsIntegrationTests {
         #expect(payload.size > 100_000, "seq 1 20000 is six figures of bytes")
         let sourceLeft = try await listing.list(
             on: world.source, path: "\(base)/src", flavor: world.capability.flavor)
-        #expect(sourceLeft.isEmpty, "the gated delete ran and the source is empty")
+        #expect(Set(sourceLeft.map(\.name)) == ["payload.txt", "with space"])
     }
 
-    @Test("an rsync-direct move enacts end to end: events, progress, verify, gated delete")
-    func rsyncDirectMove() async throws {
+    @Test("an rsync-forwarded copy enacts end to end with progress")
+    func rsyncForwardedCopy() async throws {
         let world = try await Self.makeWorld()
         defer { Task { await world.conduit.closeAll() } }
         guard world.capability.rsyncVersion != nil else {
@@ -112,7 +112,7 @@ struct TransportsIntegrationTests {
         let base = try await Self.setUp(world, case: "rsync")
         defer { Task { await Self.tearDown(world, base: base) } }
 
-        let plan = try await Self.movePlan(world, base: base, forwarding: .available)
+        let plan = try await Self.copyPlan(world, base: base, forwarding: .available)
         #expect(plan.transport == .rsyncAgentForwarded)
         let events = try await Self.enactCollecting(plan, world: world)
 
@@ -123,18 +123,11 @@ struct TransportsIntegrationTests {
         }
         #expect(!progressReports.isEmpty, "progress2 produced observations")
         #expect(progressReports.last?.fraction == 1.0, "the bar finishes at 100 exactly")
-        let matched = events.contains {
-            if case .verified(.manifests(let source, let destination)) = $0 {
-                return source == destination && source.entries.count == 2
-            }
-            return false
-        }
-        #expect(matched, "both ends manifested the two entries identically")
-        try await Self.assertMoved(world, base: base)
+        try await Self.assertCopied(world, base: base)
     }
 
-    @Test("a tar-proxy move enacts through the operator's machine, bytes counted")
-    func tarProxyMove() async throws {
+    @Test("a tar-proxy copy enacts through the operator's machine, bytes counted")
+    func tarProxyCopy() async throws {
         let world = try await Self.makeWorld()
         defer { Task { await world.conduit.closeAll() } }
         let base = try await Self.setUp(world, case: "tar")
@@ -143,7 +136,7 @@ struct TransportsIntegrationTests {
         let sourceSum = "cksum \(base)/src/payload.txt | awk '{print $1, $2}'"
         let before = try await world.conduit.run(on: world.source, sourceSum).collect()
 
-        let plan = try await Self.movePlan(world, base: base, forwarding: .unprobed)
+        let plan = try await Self.copyPlan(world, base: base, forwarding: .unprobed)
         #expect(plan.transport == .tarStreamProxied)
         let events = try await Self.enactCollecting(plan, world: world)
 
@@ -153,7 +146,7 @@ struct TransportsIntegrationTests {
             return nil
         }
         #expect(counted.last ?? 0 > 100_000, "the byte counter saw the payload go through")
-        try await Self.assertMoved(world, base: base)
+        try await Self.assertCopied(world, base: base)
 
         // Byte fidelity: the transplanted payload checksums identically.
         let destinationSum = "cksum \(base)/dst/payload.txt | awk '{print $1, $2}'"
@@ -172,7 +165,7 @@ struct TransportsIntegrationTests {
         let base = try await Self.setUp(world, case: "capture")
         defer { Task { await Self.tearDown(world, base: base) } }
 
-        let plan = try await Self.movePlan(world, base: base, forwarding: .available)
+        let plan = try await Self.copyPlan(world, base: base, forwarding: .available)
         let events = try await Self.enactCollecting(plan, world: world)
         var stdout = Data()
         for case .outputChunk(0, .stdout, let data) in events {

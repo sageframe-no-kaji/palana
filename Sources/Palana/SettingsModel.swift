@@ -95,6 +95,9 @@ enum SSHConfigTransaction: Equatable {
     case refused(String)
 }
 
+/// Runs one coordinated config write and returns the coordinator's failure.
+typealias ConfigWriteCoordinator = @MainActor (URL, (URL) -> Void) -> NSError?
+
 // MARK: - SettingsModel
 
 /// Persisted settings and host-visibility control.
@@ -240,15 +243,21 @@ final class SettingsModel {
     private var transientNotice: String?
     private let configURL: URL
     private let settingsURL: URL
+    private let coordinateConfigWrite: ConfigWriteCoordinator
 
     /// Initialises from the ssh config and the settings file URLs.
     ///
     /// `configURL` is the same URL the session uses — respects
     /// `PALANA_SSH_CONFIG` so tests and dev launches stay off the real
     /// file. `settingsURL` lives beside `session.json`.
-    init(configURL: URL, settingsURL: URL) {
+    init(
+        configURL: URL,
+        settingsURL: URL,
+        coordinateConfigWrite: @escaping ConfigWriteCoordinator = SettingsModel.coordinateWrite
+    ) {
         self.configURL = configURL
         self.settingsURL = settingsURL
+        self.coordinateConfigWrite = coordinateConfigWrite
         self.configState = Self.readConfig(at: configURL)
         loadPersisted()
     }
@@ -365,10 +374,7 @@ final class SettingsModel {
         let replacement = SSHConfigDocument(text: newText, posixPermissions: baseline.posixPermissions ?? 0o600)
 
         var outcome = SSHConfigTransaction.refused("file coordination did not run — nothing written")
-        var coordinationError: NSError?
-        NSFileCoordinator().coordinate(
-            writingItemAt: configURL, options: .forReplacing, error: &coordinationError
-        ) { url in
+        let coordinationError = coordinateConfigWrite(configURL) { url in
             outcome = Self.replace(at: url, expecting: baseline, with: replacement)
         }
         if let coordinationError {
@@ -379,6 +385,17 @@ final class SettingsModel {
             onConfigChanged()
         }
         return outcome
+    }
+
+    /// The production coordination boundary, injectable for isolated tests.
+    private static func coordinateWrite(at url: URL, accessor: (URL) -> Void) -> NSError? {
+        var coordinationError: NSError?
+        NSFileCoordinator().coordinate(
+            writingItemAt: url,
+            options: .forReplacing,
+            error: &coordinationError,
+            byAccessor: accessor)
+        return coordinationError
     }
 
     /// The write half of the transaction, inside the coordinated scope.

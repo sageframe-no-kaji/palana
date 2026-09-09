@@ -27,7 +27,13 @@ private struct Sandbox {
 
     @MainActor
     func model() -> SettingsModel {
-        SettingsModel(configURL: configURL, settingsURL: settingsURL)
+        SettingsModel(
+            configURL: configURL,
+            settingsURL: settingsURL
+        ) { url, accessor in
+            accessor(url)
+            return nil
+        }
     }
 
     func configBytes() throws -> Data { try Data(contentsOf: configURL) }
@@ -63,6 +69,21 @@ private let original = Data(
 @MainActor
 @Suite("SettingsModel config transaction")
 struct SettingsModelConfigTransactionTests {
+    @Test("a file-coordination failure refuses the write before bytes change")
+    func coordinationFailureRefuses() throws {
+        let sandbox = try Sandbox(configBytes: original)
+        defer { sandbox.tearDown() }
+        let model = SettingsModel(
+            configURL: sandbox.configURL,
+            settingsURL: sandbox.settingsURL
+        ) { _, _ in CocoaError(.fileWriteNoPermission) as NSError }
+
+        let reason = model.addHost(HostBlock(alias: "mandala", hostName: "192.168.1.190"))
+        #expect(reason?.contains("file coordination failed") == true)
+        #expect(try sandbox.configBytes() == original)
+        #expect(try sandbox.backups().isEmpty)
+    }
+
     @Test("every write lands a versioned backup of the exact prior bytes and keeps the mode")
     func versionedBackups() throws {
         let sandbox = try Sandbox(configBytes: original)
@@ -113,8 +134,9 @@ struct SettingsModelConfigTransactionTests {
         #expect(
             SSHConfigParser.hosts(in: try sandbox.configText())
                 == ["jodo", "chumon", "added-by-vim", "mandala"])
-        #expect(try sandbox.backups().count == 1)
-        #expect(try Data(contentsOf: try sandbox.backups()[0]) == edited)
+        let backups = try sandbox.backups()
+        try #require(backups.count == 1)
+        #expect(try Data(contentsOf: backups[0]) == edited)
     }
 
     @Test("a hide toggle after an external edit is refused and the notice says why")

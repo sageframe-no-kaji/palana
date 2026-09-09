@@ -8,10 +8,10 @@
 // overwrites work nobody approved for replacement (2026-09-08 audit).
 // Here the bytes land in a staging directory of the operation's own on
 // the destination's filesystem, the commit re-reads the destination,
-// and promotion is a rename followed by `ln` — the version standing
-// there is always set aside under a named recovery entry before the
-// new one takes the pathname, `ln` refuses atomically if the pathname
-// was taken in between, and the set-aside version is removed only
+// and promotion uses a no-clobber rename — the version standing there
+// is always preserved under a named recovery entry before the new one
+// takes the pathname, `ln` refuses atomically if that pathname was
+// taken, and the preserved version is removed only
 // after it proves to be the one that was checked.
 
 import Foundation
@@ -134,8 +134,8 @@ extension RemoteVersionGuard {
         ].joined(separator: "; ")
     }
 
-    /// Sets the standing version aside, takes the pathname, then rules
-    /// on what was set aside.
+    /// Moves the standing version aside without clobbering, takes its
+    /// pathname, then rules on what was preserved.
     private func promotion(
         entry: String, staged: String, kept: String, keptPath: String, stage: String
     ) -> String {
@@ -146,13 +146,21 @@ extension RemoteVersionGuard {
                     + "; the version that was there is back where it was") + " >&2"
         return [
             "if [ -n \"$PALANA_EXPECT\" ]",
-            "then mv -- \(entry) \(kept) || "
+            "then [ ! -d \(kept) ] || "
+                + refusal(
+                    "the recovery name is already occupied",
+                    stage: stage,
+                    code: 6),
+            "mv -n -- \(entry) \(kept) 2>/dev/null || "
                 + refusal("the version standing there could not be set aside", stage: stage, code: 6),
+            "[ ! -e \(entry) ] && [ ! -L \(entry) ] || "
+                + refusal("the recovery name is already occupied", stage: stage, code: 6),
             "if ln -- \(staged) \(entry) 2>/dev/null",
             "then rm -f -- \(staged)",
             "PALANA_KEPT=$($PALANA_DG < \(kept) 2>/dev/null); PALANA_KEPT=${PALANA_KEPT#*= }"
                 + "; PALANA_KEPT=${PALANA_KEPT%% *}",
-            "if [ \"$PALANA_KEPT\" = \"$PALANA_EXPECT\" ]; then rm -f -- \(kept)",
+            "if [ \"$PALANA_KEPT\" = \"$PALANA_EXPECT\" ]; then rm -f -- \(kept) || "
+                + retention("the replaced version could not be removed", path: keptPath),
             "else "
                 + retention(
                     "the version replaced was not the one checked, so it is kept here", path: keptPath)

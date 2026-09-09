@@ -1,7 +1,7 @@
 // The local branch, live — "local" is a host and the fixture is the
-// other one. A push move and a pull copy run rsyncDirect end to end
-// through the router: real rsync on this Mac, real sshd in the
-// container, manifests releasing the gate. The forwarding probe answers
+// other one. Push and pull copies run rsyncDirect end to end through
+// the router: real rsync on this Mac and real sshd in the container.
+// The forwarding probe answers
 // from the container's own view of the world. Never a live homelab
 // host — this Mac's temp directory and the container only.
 
@@ -81,8 +81,8 @@ struct RoutingIntegrationTests {
         return events
     }
 
-    @Test("a push move runs rsyncDirect here, gates on manifests, deletes the source")
-    func pushMove() async throws {
+    @Test("a push copy runs rsyncDirect here and leaves the source standing")
+    func pushCopy() async throws {
         let world = try await Self.makeWorld(case: "push")
         defer { Task { await Self.tearDown(world) } }
         let src = world.localBase.appendingPathComponent("src")
@@ -96,7 +96,7 @@ struct RoutingIntegrationTests {
         #expect(entries.count == 2)
         let plan = try PlanEngine.plan(
             PlanRequest(
-                operation: .move,
+                operation: .copy,
                 source: Locus(host: "local", directory: src.path),
                 entries: entries,
                 destination: Locus(host: world.container, directory: "\(world.remoteBase)/dst")),
@@ -108,14 +108,8 @@ struct RoutingIntegrationTests {
 
         let events = try await Self.enactCollecting(plan, world: world)
         #expect(events.contains(.finished))
-        let verified = events.contains {
-            if case .verified(let report) = $0 { return report.matched }
-            return false
-        }
-        #expect(verified, "the manifest gate must have released the delete")
-        // The move's back half ran: the local source entries are gone.
         let remaining = try FileManager.default.contentsOfDirectory(atPath: src.path)
-        #expect(remaining.isEmpty)
+        #expect(remaining.sorted() == ["payload.txt", "with space"])
         // The bytes landed: the container counts both names.
         let countLanded = "find \(world.remoteBase)/dst -mindepth 1 | wc -l"
         let landed = try await world.remote.run(on: world.container, countLanded).collect()

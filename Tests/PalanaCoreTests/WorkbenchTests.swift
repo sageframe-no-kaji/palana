@@ -12,11 +12,6 @@ import Testing
 
 private enum WorkbenchFixtures {
     static let clock: @Sendable () -> Date = { Date(timeIntervalSince1970: 1_752_000_000) }
-    static func tempCacheURL() -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("palana-workbench-\(UUID().uuidString)")
-            .appendingPathComponent("field-cache.json")
-    }
     static func entry(
         _ host: String,
         _ command: String,
@@ -32,13 +27,22 @@ private enum WorkbenchFixtures {
             exit: exit
         )
     }
-    static func emptyField(hosts: [String]) -> Field {
+    static func emptyField(hosts: [String], cacheURL: URL) -> Field {
         Field(
             conduit: RecordedConduit(transcript: ConduitTranscript()),
             hosts: hosts,
-            cache: FieldCache(url: tempCacheURL()),
+            cache: FieldCache(url: cacheURL),
             now: clock
         )
+    }
+}
+
+private struct WorkbenchCacheSandbox {
+    let cacheURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("palana-workbench-cache-\(UUID().uuidString).json")
+
+    func tearDown() {
+        try? FileManager.default.removeItem(at: cacheURL)
     }
 }
 
@@ -211,6 +215,8 @@ struct SystemReadsToolTests {
 struct WorkbenchRunTests {
     @Test("df -h: raw stdout passes through collect unchanged")
     func runDfH() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "jodo"
         let expected =
             "Filesystem      Size  Used Avail Use% Mounted on\n"
@@ -221,7 +227,7 @@ struct WorkbenchRunTests {
         let conduit = RecordedConduit(transcript: transcript)
         let workbench = Workbench(
             conduit: conduit,
-            field: WorkbenchFixtures.emptyField(hosts: [host])
+            field: WorkbenchFixtures.emptyField(hosts: [host], cacheURL: sandbox.cacheURL)
         )
         let tool = SystemReadsTool()
         let verb = try #require(tool.verbs.first { $0.id == "df" })
@@ -232,6 +238,8 @@ struct WorkbenchRunTests {
     }
     @Test("zpool status: raw stdout passes through collect unchanged")
     func runZpoolStatus() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "jodo"
         let expected = "  pool: tank\n state: ONLINE\n"
         let transcript = ConduitTranscript(entries: [
@@ -240,7 +248,7 @@ struct WorkbenchRunTests {
         let conduit = RecordedConduit(transcript: transcript)
         let workbench = Workbench(
             conduit: conduit,
-            field: WorkbenchFixtures.emptyField(hosts: [host])
+            field: WorkbenchFixtures.emptyField(hosts: [host], cacheURL: sandbox.cacheURL)
         )
         let tool = SystemReadsTool()
         let verb = try #require(tool.verbs.first { $0.id == "zpool-status" })
@@ -250,6 +258,8 @@ struct WorkbenchRunTests {
     }
     @Test("run refuses a mutation verb — throws notARead")
     func runRefusesMutation() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "jodo"
         let mutationVerb = WorkbenchVerb(
             id: "delete",
@@ -260,7 +270,7 @@ struct WorkbenchRunTests {
         )
         let workbench = Workbench(
             conduit: RecordedConduit(transcript: ConduitTranscript()),
-            field: WorkbenchFixtures.emptyField(hosts: [host])
+            field: WorkbenchFixtures.emptyField(hosts: [host], cacheURL: sandbox.cacheURL)
         )
         let tool = SystemReadsTool()
         await #expect(throws: WorkbenchError.notARead) {
@@ -289,13 +299,14 @@ struct WorkbenchAvailabilityTests {
     private static let zfsList = "palana\t/palana\tyes\n"
     private static func fieldAfterDiscover(
         transcript: ConduitTranscript,
-        host: String
+        host: String,
+        cacheURL: URL
     ) async throws -> (Workbench, SystemReadsTool) {
         let conduit = RecordedConduit(transcript: transcript)
         let field = Field(
             conduit: conduit,
             hosts: [host],
-            cache: FieldCache(url: WorkbenchFixtures.tempCacheURL()),
+            cache: FieldCache(url: cacheURL),
             now: WorkbenchFixtures.clock
         )
         _ = try await field.discover(host)
@@ -303,6 +314,8 @@ struct WorkbenchAvailabilityTests {
     }
     @Test("zfs host: all four verbs available")
     func zfsHostAllAvailable() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "jodo"
         let transcript = ConduitTranscript(entries: [
             WorkbenchFixtures.entry(host, CapabilityProbe.command, stdout: Self.gnuZfsProbe),
@@ -311,13 +324,15 @@ struct WorkbenchAvailabilityTests {
                 host, MountTable.command(forKernel: "Linux"), stdout: Self.linuxMounts),
         ])
         let (workbench, tool) = try await Self.fieldAfterDiscover(
-            transcript: transcript, host: host)
+            transcript: transcript, host: host, cacheURL: sandbox.cacheURL)
         for verb in tool.verbs {
             #expect(await workbench.availability(of: verb, on: host) == .available)
         }
     }
     @Test("reachable host with no zfs: df available, zfs verbs unmet")
     func reachableNoZfsHost() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "jodo"
         let transcript = ConduitTranscript(entries: [
             WorkbenchFixtures.entry(host, CapabilityProbe.command, stdout: Self.gnuNoZfsProbe),
@@ -325,7 +340,7 @@ struct WorkbenchAvailabilityTests {
                 host, MountTable.command(forKernel: "Linux"), stdout: Self.linuxMounts),
         ])
         let (workbench, tool) = try await Self.fieldAfterDiscover(
-            transcript: transcript, host: host)
+            transcript: transcript, host: host, cacheURL: sandbox.cacheURL)
         let dfVerb = try #require(tool.verbs.first { $0.id == "df" })
         #expect(await workbench.availability(of: dfVerb, on: host) == .available)
         for verbID in ["zfs-list", "zpool-status", "zpool-list"] {
@@ -338,10 +353,12 @@ struct WorkbenchAvailabilityTests {
     }
     @Test("unprobed host: df available, zfs verbs unmet with not-yet-probed message")
     func unprobedHost() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "phantom"
         let workbench = Workbench(
             conduit: RecordedConduit(transcript: ConduitTranscript()),
-            field: WorkbenchFixtures.emptyField(hosts: [host])
+            field: WorkbenchFixtures.emptyField(hosts: [host], cacheURL: sandbox.cacheURL)
         )
         let tool = SystemReadsTool()
         let dfVerb = try #require(tool.verbs.first { $0.id == "df" })
@@ -356,6 +373,8 @@ struct WorkbenchAvailabilityTests {
     }
     @Test("unreachable host: df verb is unmet")
     func unreachableHost() async throws {
+        let sandbox = WorkbenchCacheSandbox()
+        defer { sandbox.tearDown() }
         let host = "koan"
         let transcript = ConduitTranscript(entries: [
             WorkbenchFixtures.entry(
@@ -369,7 +388,7 @@ struct WorkbenchAvailabilityTests {
         let field = Field(
             conduit: conduit,
             hosts: [host],
-            cache: FieldCache(url: WorkbenchFixtures.tempCacheURL()),
+            cache: FieldCache(url: sandbox.cacheURL),
             now: WorkbenchFixtures.clock
         )
         _ = try await field.discover(host)

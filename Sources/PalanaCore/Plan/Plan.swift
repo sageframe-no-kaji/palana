@@ -7,7 +7,8 @@ import Foundation
 
 /// What the operator asked for.
 public enum PlanOperation: String, Codable, Sendable {
-    /// Transfer then delete source, delete gated on verification.
+    /// Move the source by an atomic rename or a bound ZFS release.
+    /// Generic copy-then-delete moves are refused.
     case move
     /// Transfer, source untouched.
     case copy
@@ -26,9 +27,9 @@ public enum PlanOperation: String, Codable, Sendable {
 
 /// What the operation actually is, named before it runs.
 ///
-/// The committed vocabulary from the system design — a cross-dataset
-/// move is a copy-plus-delete wearing a rename's clothes, and saying so
-/// is the sentence this project exists to make true.
+/// The committed vocabulary from the system design. A cross-dataset
+/// move is classified honestly even though Palana now refuses that
+/// generic POSIX operation because deletion cannot be bound atomically.
 public enum Classification: String, Codable, Sendable {
     /// Same host, same dataset — a true rename.
     case withinDatasetRename = "within-dataset rename"
@@ -61,7 +62,7 @@ extension Classification {
         case .withinDatasetRename:
             return "move on the same disk (instant)"
         case .crossDatasetCopyPlusDelete:
-            return "copy, check, then delete the original"
+            return "move across storage boundaries (unavailable)"
         case .crossHostTransfer:
             return "move to another machine"
         case .withinHostCopy:
@@ -175,7 +176,7 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case copy
         /// A true rename.
         case rename
-        /// Source removal — the back half of a move, or a delete.
+        /// Source removal — an explicit delete or a bound ZFS release.
         case delete
         /// A zfs snapshot taken so send has a stable point.
         case snapshot
@@ -193,7 +194,7 @@ public struct PlanStep: Codable, Sendable, Equatable {
         case property
         /// An operation-owned staging entry created at the destination.
         case stage
-        /// The source frozen under an operation-owned quarantine.
+        /// A legacy quarantine step, retained only for decoding and refusing old plans.
         case quarantine
         /// A staged upload committed against the version it is bound to.
         case promote
@@ -290,14 +291,11 @@ public struct Plan: Codable, Sendable, Equatable {
     /// key decodes as nil, and enactment refuses a commit step that
     /// has no version behind it.
     public var versionGuard: RemoteVersionGuard?
-    /// The frozen source a move's delete is bound to.
+    /// The exact ZFS cleanup steps authorized by a successful receive.
     ///
-    /// Present on every move whose delete is gated on manifests.
-    /// Absent on renames, copies, zfs moves, and on plans written
-    /// before the binding existed — and a gated delete without one
-    /// cannot run.
-    public var moveRelease: MoveRelease?
-
+    /// Present on ZFS send/receive plans. An absent value keeps gated
+    /// destroys in older decoded plans closed.
+    public var zfsReleaseGuard: ZFSReleaseGuard?
     /// Assembles a plan.
     public init(
         operation: PlanOperation,
@@ -313,7 +311,7 @@ public struct Plan: Codable, Sendable, Equatable {
         collisions: CollisionReport? = nil,
         topologyBinding: TopologyBinding? = nil,
         versionGuard: RemoteVersionGuard? = nil,
-        moveRelease: MoveRelease? = nil
+        zfsReleaseGuard: ZFSReleaseGuard? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -328,7 +326,7 @@ public struct Plan: Codable, Sendable, Equatable {
         self.collisions = collisions
         self.topologyBinding = topologyBinding
         self.versionGuard = versionGuard
-        self.moveRelease = moveRelease
+        self.zfsReleaseGuard = zfsReleaseGuard
     }
 }
 

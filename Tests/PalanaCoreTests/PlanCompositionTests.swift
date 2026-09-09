@@ -57,18 +57,11 @@ struct PlanCompositionTests {
         #expect(plan.steps.first?.runsOn == .host("jodo"))
     }
 
-    @Test("a cross-dataset move is cp -a then a gated rm — never a bare mv")
-    func crossDatasetCommands() throws {
-        let plan = try plan(.move, to: sameHostDest)
-        let names = ["a.txt", "with space"]
-        #expect(
-            plan.steps.map(\.command) == [
-                "cp -a /tank/media/a.txt '/tank/media/with space' /tank/other/",
-                MoveFixture.quarantine("jodo", "/tank/media", names, "t1"),
-                MoveFixture.remove("/tank/media", "t1"),
-            ])
-        #expect(plan.steps.map(\.gatedOnVerification) == [false, false, true])
-        #expect(plan.moveRelease?.quarantineDirectory == MoveFixture.directory("/tank/media", "t1"))
+    @Test("a cross-dataset file move refuses without creating a release plan")
+    func crossDatasetCommands() {
+        #expect(throws: PlanError.moveReleaseUnavailable) {
+            try plan(.move, to: sameHostDest)
+        }
     }
 
     @Test("a deletion is one rm where the entries stand")
@@ -91,18 +84,11 @@ struct PlanCompositionTests {
             agentForwarding: .available)
     }
 
-    @Test("a forwarded cross-host move is rsync on the source host plus a gated rm")
-    func rsyncCommands() throws {
-        let plan = try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
-        #expect(plan.transport == .rsyncAgentForwarded)
-        #expect(
-            plan.steps.map(\.command) == [
-                "rsync -a -s --partial --info=progress2 /tank/media/a.txt "
-                    + "'/tank/media/with space' koan:/rpool/cold/",
-                MoveFixture.quarantine("jodo", "/tank/media", ["a.txt", "with space"], "t1"),
-                MoveFixture.remove("/tank/media", "t1"),
-            ])
-        #expect(plan.steps.map(\.runsOn) == [.host("jodo"), .host("jodo"), .host("jodo")])
+    @Test("a forwarded cross-host file move refuses before rsync")
+    func rsyncCommands() {
+        #expect(throws: PlanError.moveReleaseUnavailable) {
+            try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
+        }
     }
 
     @Test("a copy composes the same transfer minus the delete")
@@ -126,28 +112,19 @@ struct PlanCompositionTests {
         #expect(plan.steps.first?.role == .copy)
     }
 
-    @Test("a same-host move between datasets gates its rm behind the rsync copy")
-    func sameHostMovePrefersRsync() throws {
+    @Test("a same-host move between unproven filesystems refuses")
+    func sameHostMovePrefersRsync() {
         let facts = PlanFacts(sourceCapability: Self.rsyncHost)
-        let plan = try plan(.move, to: sameHostDest, facts: facts)
-        #expect(plan.steps.count == 3)
-        #expect(plan.steps[0].command.hasPrefix("rsync -a -s --partial"))
-        #expect(plan.steps[1].role == .quarantine)
-        #expect(plan.steps[2].gatedOnVerification)
+        #expect(throws: PlanError.moveReleaseUnavailable) {
+            try plan(.move, to: sameHostDest, facts: facts)
+        }
     }
 
-    @Test("the proxy path is two ssh commands piped on the operator's machine")
-    func tarStreamCommands() throws {
-        let plan = try plan(.move, to: crossHostDest)
-        #expect(plan.transport == .tarStreamProxied)
-        #expect(
-            plan.steps.map(\.command) == [
-                "ssh jodo 'tar -cf - -C /tank/media -- a.txt '\\''with space'\\''' | "
-                    + "ssh koan 'tar -xpf - -C /rpool/cold'",
-                MoveFixture.quarantine("jodo", "/tank/media", ["a.txt", "with space"], "t1"),
-                MoveFixture.remove("/tank/media", "t1"),
-            ])
-        #expect(plan.steps.first?.runsOn == .operatorMachine)
+    @Test("a proxied file move refuses before opening either SSH side")
+    func tarStreamCommands() {
+        #expect(throws: PlanError.moveReleaseUnavailable) {
+            try plan(.move, to: crossHostDest)
+        }
     }
 
     @Test("a whole-dataset move composes snapshot, send/receive, and gated destroys")
@@ -268,7 +245,7 @@ struct PlanCorpusTests {
             ])
     }
 
-    @Test("the recorded hostile listing plans a proxied move, every name armored")
+    @Test("the recorded hostile listing plans a proxied copy, every name armored")
     func planOverRecordedListing() throws {
         let transcript = try ConduitTranscript(
             contentsOf: SSHFixture.repoRoot.appendingPathComponent(
@@ -280,7 +257,7 @@ struct PlanCorpusTests {
 
         let plan = try PlanEngine.plan(
             PlanRequest(
-                operation: .move,
+                operation: .copy,
                 source: Locus(host: "palana@localhost", directory: "/tmp/palana-listing-corpus"),
                 entries: entries,
                 destination: Locus(host: "koan", directory: "/rpool/cold"),
@@ -290,7 +267,7 @@ struct PlanCorpusTests {
         #expect(plan.transport == .tarStreamProxied, "unprobed forwarding proxies")
         let transfer = try #require(plan.steps.first)
         #expect(transfer.command.contains("'new\nline'"), "hostile names armored in the pipe")
-        #expect(plan.steps.last?.gatedOnVerification == true)
+        #expect(plan.steps.count == 1)
         #expect(plan.totalSize == entries.map(\.size).reduce(0, +))
     }
 }

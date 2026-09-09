@@ -42,6 +42,10 @@ extension OperationModel {
             return "an entry's name does not survive composition — refusing rather than guessing"
         case PlanError.kindClash(let report):
             return report.clashSentence() ?? "won't work — kind mismatch at the destination"
+        case PlanError.versionGuardUnbindable(let reason):
+            return "the remote version cannot be bound — \(reason)"
+        case PlanError.moveReleaseUnavailable:
+            return "that move cannot be released atomically — copy it, then delete the source separately"
         case PlanError.zfsPoolRootRefused:
             return "that is the pool root — pālana manages datasets, never the pool itself"
         case PlanError.zfsMountpointNotAbsolute:
