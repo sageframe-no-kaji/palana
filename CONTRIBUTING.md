@@ -26,9 +26,9 @@ rather than a public issue.
 ## The beta deal
 
 File a real issue during the v0.x beta—a bug, a refusal on a host pālana
-hasn't met, a plan that said something untrue—and your 1.0 license is free.
-"Real" means reproducible or informative, not a typo report; judged by the
-author, generously.
+hasn't met, a plan that said something untrue—and the 1.0 build is yours at no
+charge. "Real" means reproducible or informative, not a typo report; judged by
+the author, generously. The beta runs through 4 November 2026.
 
 ## Patches
 
@@ -61,5 +61,10 @@ usually be redirected to one.
 GPL-3.0 in, GPL-3.0 out. You keep your copyright; your contribution is
 accepted under the project license. **There is no CLA and there never will
 be**—which means once your code is in, nobody (the author included) can
-relicense pālana closed. The full policy: [The license,
-plainly](https://palana.sageframe.net/licensing/).
+relicense pālana closed. The license is the ordinary
+[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html), unmodified, and a copy
+is in [LICENSE](LICENSE).
+
+Building from source is free at every version, permanently. What the 1.0 price
+buys is the built artifact — the signed, notarized app and its 1.x updates —
+never permission to run the software, which GPL-3.0 already grants you.
