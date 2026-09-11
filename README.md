@@ -37,7 +37,7 @@ You open pālana. The panes are where you left them — left on jodo, right poin
 
 In the left pane you select 214 files — camera archives, 41.3 GB — and press the move key. Nothing moves. The plan panel opens: cross-host transfer, source and destination datasets named, transport rsync host-to-host, auth agent-forwarded direct, and under that the exact command that will run, one you could paste into a terminal yourself. You read it. Enter.
 
-The command echoes into the panel and its output streams under it. A progress bar moves. The bytes travel jodo → koan and your laptop never carries one of them. Counts verify, the source entries delete as the plan said they would, both panes refresh. You saw everything before it happened, and everything that happened was something you saw.
+The command echoes into the panel and its output streams under it. A progress bar moves. The bytes travel jodo → koan and your laptop never carries one of them. rsync removes each source file after transferring it, then pālana checks for anything that remains and refreshes both panes. A source file changed during transfer remains on jodo and makes the move fail.
 
 You close pālana. It stops. The field has been tended.
 
@@ -166,9 +166,27 @@ Items the architecture is prepared for but v1 does not include:
 
 ## Requirements
 
-- **macOS 14 or later**
-- **Your existing SSH setup.** pālana runs your `ssh` and expects `rsync` on the hosts — both where they already are. Nothing to install, nothing to configure beyond the `~/.ssh/config` you already have.
-- **For ZFS awareness:** `zfs` on the hosts, not on the Mac. `zfs send/receive` wants delegated permissions (`zfs allow`) on the datasets involved.
+- **macOS 14 or later.**
+- **SSH on the Mac.** pālana runs the system binary at `/usr/bin/ssh` with
+  your `~/.ssh/config`, keys, agent, and jump-host rules. No separate SSH
+  configuration is required.
+- **rsync on the Mac.** macOS supplies openrsync at `/usr/bin/rsync`, and
+  pālana composes the flag set it accepts. GNU rsync 3.1 or later is preferred;
+  `brew install rsync` installs it. That version provides the transfer progress
+  bar and `-s` (`--protect-args`), which sends spaces and shell characters in
+  remote paths without shell interpretation. pālana finds the installed binary
+  and selects its flags without a setting.
+- **rsync on remote hosts.** It is required for the faster transfer routes and
+  for copy-based file moves. A cross-host file copy uses a tar stream when a
+  required endpoint lacks rsync, and a same-host copy uses `cp -a` when that
+  host lacks it. These fallback copies have no transfer progress. A copy-based
+  move is refused when its route cannot use rsync for source removal.
+  Same-filesystem moves use `mv`, and whole-dataset ZFS moves use `zfs send`
+  and `zfs receive`.
+- **ZFS on remote hosts that use ZFS features.** Dataset trees, snapshots,
+  mount state, and send/receive run on those hosts. The Mac does not need ZFS.
+  `zfs send` and `zfs receive` require delegated permissions (`zfs allow`) on
+  the datasets involved.
 
 ## Development
 
