@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-09-08
+updated: 2026-09-11
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,27 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-09-11, eighteenth block — FILE MOVES RELEASE PROGRESSIVELY THROUGH CONTENT-CHECKED RSYNC
+
+**COMPLETED**
+- **`def967f` restores conventional file-move behavior without restoring the old unchecked delete gate.** Same-filesystem moves still use `mv`, whole-dataset moves still use the bound ZFS release, and other supported file moves run rsync with engine-owned `--checksum --remove-source-files`. Source files leave only after their individual transfers; empty selected source directories are removed bottom-up with `rmdir`; every selected source entry still present is named through a `palana-retained:` recovery note and fails the run. Tar and `cp -a` remain copy-only, so a move with no supported rsync route refuses before enactment.
+- **The checksum is an exercised safety requirement, not decoration.** A live adversarial test creates an existing destination with the source's size and modification time but different bytes. Plain rsync's quick check accepts that false match and removes the source; the committed command transfers the correct bytes before source removal. Engine-owned flags follow operator flags, and custom source-removal flags are refused, so settings cannot turn a copy into a move or disable the content check.
+- **The operator contract is visible before Enter.** The plan panel says that files are removed after transfer, neither location may be modified during the move, and interruption may split the selection between source and destination. Decoded or mutated plans are refused unless source removal, transport, operation, cleanup, and retained-source accounting agree.
+- **Documentation matches the implementation.** `README.md`, `CHANGELOG.md`, the system design, and release notes changed with the code. Public help, requirements, move, plan, and ZFS pages changed in `palana-web` at `6ca69f1`; the Eleventy build wrote all 17 pages cleanly.
+- **Verification on `def967f`:** strict swift-format and SwiftLint clean; build clean; 1310 tests across Swift Testing and XCTest green with unavailable disposable SSH/ZFS fixture suites skipped; PalanaCore line coverage 97.50% (floor 90); application-logic line coverage 55.48% (floor 35). The site build is green. Both repositories are pushed.
+
+**NEXT**
+- **Release acceptance, not more code:** perform one cross-filesystem move in the app, confirm the warning sits above the commands, and confirm successful source removal and destination bytes. Then build and tag a new beta; `v0.7-beta` still points to `544661e`, whose file-move behavior is the earlier refusal, so that existing artifact must not be described as containing `def967f`.
+
+**ACTION ITEMS / BLOCKS**
+- No code block. The local Docker sshd and Lima ZFS fixtures were unavailable, so their integration suites did not run locally; pushed CI supplies the disposable sshd fixture, while ZFS remains a local-only integration path.
+- The progressive rsync contract assumes a quiescent source and destination during the move. Cancellation or failure can leave complete files split between both locations; the retained-source result names what remains instead of claiming completion.
+
+**PROJECT LIFECYCLE**
+- `beta` — progressive moves and their documentation are implemented on `main`; one hands check and a replacement beta artifact remain before this behavior reaches downloaders.
 
 ---
 
