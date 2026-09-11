@@ -84,11 +84,21 @@ struct PlanCompositionTests {
             agentForwarding: .available)
     }
 
-    @Test("a forwarded cross-host file move refuses before rsync")
-    func rsyncCommands() {
-        #expect(throws: PlanError.moveReleaseUnavailable) {
-            try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
-        }
+    @Test("a forwarded cross-host move removes each source file rsync confirmed")
+    func rsyncCommands() throws {
+        let plan = try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
+        #expect(plan.steps.map(\.role) == [.transfer, .cleanup, .verify])
+        #expect(
+            plan.steps[0].command
+                == "rsync -a -s --partial --info=progress2 --remove-source-files "
+                + "/tank/media/a.txt '/tank/media/with space' koan:/rpool/cold/")
+        // The sweep takes only empty directories, bottom-up, and only
+        // inside the selected trees. No recursive removal anywhere.
+        #expect(plan.steps[1].command.contains("rmdir"))
+        #expect(!plan.steps[1].command.contains("rm -r"))
+        // Status is not the signal: openrsync declines and exits 0.
+        #expect(plan.steps[2].command.contains("palana-retained:"))
+        #expect(plan.steps.allSatisfy { $0.runsOn == .host("jodo") })
     }
 
     @Test("a copy composes the same transfer minus the delete")
@@ -112,12 +122,13 @@ struct PlanCompositionTests {
         #expect(plan.steps.first?.role == .copy)
     }
 
-    @Test("a same-host move between unproven filesystems refuses")
-    func sameHostMovePrefersRsync() {
+    @Test("a same-host move between unproven filesystems rides rsync's own removal")
+    func sameHostMovePrefersRsync() throws {
         let facts = PlanFacts(sourceCapability: Self.rsyncHost)
-        #expect(throws: PlanError.moveReleaseUnavailable) {
-            try plan(.move, to: sameHostDest, facts: facts)
-        }
+        let plan = try plan(.move, to: sameHostDest, facts: facts)
+        #expect(plan.steps.map(\.role) == [.copy, .cleanup, .verify])
+        #expect(plan.steps[0].command.hasPrefix("rsync -a -s --partial"))
+        #expect(plan.steps[0].command.contains("--remove-source-files"))
     }
 
     @Test("a proxied file move refuses before opening either SSH side")
