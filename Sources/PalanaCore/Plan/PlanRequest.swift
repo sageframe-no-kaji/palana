@@ -108,8 +108,8 @@ public struct PlanFacts: Sendable, Equatable {
     ///
     /// `nil` or whitespace-only means absent. The engine trims and appends
     /// the value verbatim — no validation, no escaping. The panel shows
-    /// the exact command; a bad flag fails at enactment, which is the
-    /// system's honesty working.
+    /// the exact command; source-removal flags are reserved to the plan
+    /// engine so a copy cannot become a move through settings.
     public var rsyncOperatorFlags: String?
     /// The collision facts for a destination-ful plan, gathered fresh per
     /// plan by the app (the same pattern as `recursiveSizes`).
@@ -195,7 +195,8 @@ public enum PlanError: Error, Equatable, Sendable {
     /// other than a single-entry copy, or a destination it does not
     /// name. A guard that does not match what it guards is no guard.
     case versionGuardUnbindable(String)
-    /// A file move would require copy-then-delete across a boundary that
-    /// cannot atomically bind deletion to the verified bytes.
+    /// A file move has no supported rename, ZFS, or rsync release path.
     case moveReleaseUnavailable
+    /// Custom rsync flags attempted to control source-file removal.
+    case rsyncFlagsControlSourceRemoval
 }

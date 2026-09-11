@@ -13,8 +13,8 @@ extension PlanEngine {
     /// but `mv` across volumes is a copy-then-delete in a rename's
     /// clothes, and the plan said "instant" over a copy that could be
     /// interrupted half-way (2026-09-06 review). The app now reads this
-    /// Mac's mount table for the proof; moves without that proof, local
-    /// or remote, are refused unless ZFS provides the release boundary.
+    /// Mac's mount table for the proof; moves without that proof take a
+    /// progressive rsync route where available, otherwise they refuse.
     static func provenSameFilesystem(_ facts: PlanFacts) -> Bool {
         if let source = facts.sourceDataset, let destination = facts.destinationDataset {
             if source.name == destination.name { return true }
@@ -35,8 +35,9 @@ extension PlanEngine {
     /// plan's "will merge into dir" was false and no manifest ever
     /// checked the result (2026-09-07 hands session). Copy tools merge,
     /// but safely releasing the source cannot be bound on generic POSIX
-    /// storage, so merge moves are refused. Replaces (file onto file)
-    /// stay renames: `mv` overwrites a file exactly as the plan says.
+    /// storage, so merge moves use progressive rsync where available.
+    /// Replaces (file onto file) stay renames: `mv` overwrites a file
+    /// exactly as the plan says.
     static func mergesAtDestination(_ facts: PlanFacts) -> Bool {
         facts.collisions?.contains { $0.nature == .merge } ?? false
     }

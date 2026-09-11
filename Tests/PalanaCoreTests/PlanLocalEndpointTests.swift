@@ -123,16 +123,28 @@ struct PlanLocalEndpointTests {
         #expect(plan.steps.count == 1)
     }
 
-    @Test("a push move refuses before touching either machine")
-    func pushMoveGatesDeleteHere() {
-        let facts = PlanFacts(destinationCapability: Self.remoteRsync)
-        #expect(throws: PlanError.moveReleaseUnavailable) {
-            try plan(.move, from: here, to: koan, facts: facts)
-        }
+    @Test("a push move removes files here and accounts here")
+    func pushMoveReleasesHere() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.localFloor, destinationCapability: Self.remoteRsync)
+        let plan = try plan(.move, from: here, to: koan, facts: facts)
+        #expect(plan.steps.map(\.role) == [.transfer, .verify])
+        #expect(plan.steps[0].command.contains("--remove-source-files"))
+        #expect(plan.steps[1].runsOn == .host("local"))
     }
 
-    @Test("a pull move refuses before touching either machine")
-    func pullMoveGatesDeleteRemote() {
+    @Test("a pull move removes files remotely and accounts remotely")
+    func pullMoveReleasesRemote() throws {
+        let facts = PlanFacts(
+            sourceCapability: Self.remoteRsync, destinationCapability: Self.localModern)
+        let plan = try plan(.move, from: koan, to: here, facts: facts)
+        #expect(plan.steps.map(\.role) == [.transfer, .verify])
+        #expect(plan.steps[0].command.contains("--remove-source-files"))
+        #expect(plan.steps[1].runsOn == .host("koan"))
+    }
+
+    @Test("a direct pull refuses when this Mac cannot pass the removal option")
+    func pullMoveNeedsBothRsyncs() {
         let facts = PlanFacts(sourceCapability: Self.remoteRsync)
         #expect(throws: PlanError.moveReleaseUnavailable) {
             try plan(.move, from: koan, to: here, facts: facts)

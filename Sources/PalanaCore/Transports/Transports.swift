@@ -101,6 +101,7 @@ public struct Transports: Sendable {
     /// bindings existed takes. Neither may run: a plan decoded from an
     /// older file stays readable and stays harmless.
     private static func refuseUnrunnable(_ plan: Plan) throws {
+        try Self.validateProgressiveMovePlan(plan)
         // A plan the engine would have refused must not run from here
         // either: the tool fails mid-way on the clash, after earlier
         // entries already moved.

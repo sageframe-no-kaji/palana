@@ -16,8 +16,10 @@ without ever routing through your Mac.
   a plan first: the entries and sizes, the classification (within-dataset rename,
   cross-dataset copy-plus-delete, cross-host transfer), the transport and its auth
   path, and the exact commands. Enter enacts; Esc dismisses.
-- **Server-side transfers.** Host-to-host moves run host to host — agent-forwarded
-  direct when it can, proxied through your Mac when it can't. The plan names which.
+- **Server-side transfers.** Host-to-host copies and rsync moves run host to host.
+  A file move compares contents, removes each source file after transfer, warns
+  that interruption may split the selection, and refuses when a required
+  endpoint lacks supported rsync. Tar fallback remains copy-only.
 - **ZFS, natively.** Dataset boundaries are first-class; a cross-dataset move is
   named as what it is. Whole-dataset moves offer `zfs send | ssh | zfs receive`.
   The **ZFS workbench** manages datasets and snapshots (create, destroy, rename,

@@ -45,7 +45,9 @@ extension OperationModel {
         case PlanError.versionGuardUnbindable(let reason):
             return "the remote version cannot be bound — \(reason)"
         case PlanError.moveReleaseUnavailable:
-            return "that move cannot be released atomically — copy it, then delete the source separately"
+            return "that move has no supported rsync path — copy it, then delete the source separately"
+        case PlanError.rsyncFlagsControlSourceRemoval:
+            return "source removal belongs to the move command — remove that option from rsync flags"
         case PlanError.zfsPoolRootRefused:
             return "that is the pool root — pālana manages datasets, never the pool itself"
         case PlanError.zfsMountpointNotAbsolute:
@@ -74,4 +76,7 @@ extension OperationModel {
             return nil
         }
     }
+
+    static let progressiveMoveNotice =
+        "files are removed from the source after transfer · do not modify either location during the move · interruption may split files between them"
 }

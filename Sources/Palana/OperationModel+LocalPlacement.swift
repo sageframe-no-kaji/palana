@@ -18,7 +18,7 @@ extension OperationModel {
     ///
     /// Volumes come and go, and a remembered table could claim a rename
     /// across one that has since arrived. Nil when `mount` fails: an
-    /// unproven move is refused rather than released non-atomically.
+    /// unproven move takes the progressive rsync route or refuses.
     func localMounts() async -> [Mount]? {
         let command = MountTable.command(forKernel: "Darwin")
         guard

@@ -174,21 +174,26 @@ A cross-host move, traced end to end.
    jodo:/tank/sage/jodo/kanyo/archive → koan:/rpool/sage/koan/cold
    transport: rsync host-to-host · auth: agent-forwarded direct
 
-   ssh jodo 'rsync ... /tank/sage/jodo/kanyo/archive/ koan:/rpool/sage/koan/cold/'
-   then: delete source entries — runs after count verification
+   files are removed from the source after transfer
+   do not modify either location during the move
+   interruption may split files between them
+
+   ssh jodo 'rsync ... --checksum --remove-source-files ... koan:/rpool/sage/koan/cold/'
+   ssh jodo 'find ... -depth -type d -exec rmdir ...'
+   ssh jodo 'test that no selected source entry remains'
    ```
 
    The panel's final face is ho-08's. The content is committed here: classification, transport, auth path, and the real commands, every time. The operator reads it. Enter.
 
-6. **The Transport** opens the Conduit session to jodo and runs rsync toward koan with `--info=progress2`. The command echoes into the plan panel's terminal surface as it runs — the same command the plan showed, now with its real output streaming under it. Progress parses from remote stderr into a progress bar. The bytes travel jodo → koan. The operator's machine orchestrates and never carries a byte.
+6. **The Transport** opens the Conduit session to jodo and runs rsync toward koan with `--info=progress2 --checksum --remove-source-files`. The command echoes into the plan panel's terminal surface as it runs — the same command the plan showed, now with its real output streaming under it. The checksum comparison prevents an existing same-size, same-time destination from standing in for different source bytes. Progress parses from remote stderr into a progress bar. Each source file is removed after its transfer; the bytes travel jodo → koan, and the operator's machine orchestrates without carrying them.
 
-7. Completion verifies counts. The deletion half of the move renders as its own already-approved plan step and runs.
+7. Completion removes emptied selected directories with `rmdir`, then checks every selected source pathname. Anything retained is named and the run fails rather than claiming a complete move. The operator contract is explicit before Enter: neither location may be modified during the operation, and interruption may split files between them.
 
 8. **The panes refresh** — one listing command each.
 
 The operator saw everything before it happened, and everything that happened was something they saw.
 
-The same components compose every other operation. A move within one dataset classifies as a within-dataset rename and the plan shows one `mv`. A move between datasets on the same host classifies as a cross-dataset copy-plus-delete — the landmine named before it is stepped on, which is the sentence this project exists to make true. A whole dataset moving between ZFS-capable hosts gets `zfs send | ssh | zfs receive` offered in the plan. Different facts in, different Plan out, same trace through the same seven components.
+The same components compose every other operation. A move within one dataset classifies as a within-dataset rename and the plan shows one `mv`. A move between datasets on the same host classifies as a cross-dataset copy-plus-delete and uses the same progressive rsync release when the host supports it. A whole dataset moving between ZFS-capable hosts gets `zfs send | ssh | zfs receive` offered in the plan. A file move with no supported rsync route refuses; different facts in, different Plan out, same trace through the same seven components.
 
 ---
 

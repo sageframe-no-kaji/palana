@@ -13,6 +13,9 @@ public enum PlanEngine {
     /// Composes a Plan, or refuses with a typed reason.
     public static func plan(_ request: PlanRequest, facts: PlanFacts) throws -> Plan {
         try validate(request)
+        if request.operation == .move || request.operation == .copy {
+            try validateRsyncOperatorFlags(facts.rsyncOperatorFlags)
+        }
         let collisions = collisionReport(for: request, facts: facts)
         // A kind clash is refused before composition: the tool would
         // fail on it mid-run, after earlier entries already moved, and
@@ -256,12 +259,14 @@ extension PlanEngine {
         classification: Classification,
         transport: Transport
     ) throws -> [PlanStep] {
-        let lacksAtomicMoveRelease =
-            request.operation == .move
-            && classification != .withinDatasetRename
-            && transport != .zfsSendReceiveForwarded
-            && transport != .zfsSendReceiveProxied
-        guard !lacksAtomicMoveRelease else { throw PlanError.moveReleaseUnavailable }
+        let supportsMove =
+            classification == .withinDatasetRename
+            || transport == .zfsSendReceiveForwarded
+            || transport == .zfsSendReceiveProxied
+            || carriesSourceRemoval(transport: transport, request: request, facts: facts)
+        guard request.operation != .move || supportsMove else {
+            throw PlanError.moveReleaseUnavailable
+        }
         switch transport {
         case .local:
             return composeLocal(request, facts: facts, classification: classification)
@@ -291,9 +296,9 @@ extension PlanEngine {
         // progress and resume where cp -a is opaque and starts over
         // (second hands session: "on a local machine you might want
         // that for a big copy"). cp -a stays the floor.
-        let copyCommand: (String) -> String = { dest in
+        let copyCommand: (String, Bool) -> String = { dest, removingSource in
             facts.sourceCapability?.rsync != nil
-                ? "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(dest)"
+                ? "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags, removingSource: removingSource)) \(sources) \(dest)"
                 : "cp -a \(sources) \(dest)"
         }
         switch classification {
@@ -307,10 +312,11 @@ extension PlanEngine {
             return [PlanStep(runsOn: host, command: "mv \(sources) \(dest)", role: .rename)]
         case .crossDatasetCopyPlusDelete:
             let dest = quotedDestinationDirectory(request)
-            return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
+            return [PlanStep(runsOn: host, command: copyCommand(dest, true), role: .copy)]
+                + sourceReleaseSteps(request, on: request.source.host)
         case .withinHostCopy:
             let dest = quotedDestinationDirectory(request)
-            return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
+            return [PlanStep(runsOn: host, command: copyCommand(dest, false), role: .copy)]
         case .creation:
             return composeCreate(request)
         case .modificationTimeUpdate:
@@ -329,13 +335,39 @@ extension PlanEngine {
         let destinationHost = request.destination?.host ?? ""
         let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
         let remote = ShellQuote.quote("\(destinationHost):\(destinationDirectorySlash(request))")
+        let moving = request.operation == .move
+        let invocation = rsyncInvocation(
+            runningOn: facts.sourceCapability,
+            operatorFlags: facts.rsyncOperatorFlags,
+            removingSource: moving)
         return [
             PlanStep(
                 runsOn: sourceHost,
                 command:
-                    "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
+                    "\(invocation) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
                 role: .transfer)
-        ]
+        ] + (moving ? sourceReleaseSteps(request, on: request.source.host) : [])
+    }
+
+    /// Closes a progressive rsync move by removing empty selected
+    /// directories and refusing success while any selected source remains.
+    static func sourceReleaseSteps(_ request: PlanRequest, on host: String) -> [PlanStep] {
+        var steps: [PlanStep] = []
+        let directories = zip(request.entries, sourcePaths(request))
+            .compactMap { entry, path in entry.kind == .directory ? path : nil }
+        if !directories.isEmpty {
+            steps.append(
+                PlanStep(
+                    runsOn: .host(host),
+                    command: emptyDirectorySweep(sources: directories),
+                    role: .cleanup))
+        }
+        steps.append(
+            PlanStep(
+                runsOn: .host(host),
+                command: leftoverSourceReport(sources: sourcePaths(request), host: host),
+                role: .verify))
+        return steps
     }
 
     /// Composes the rsync-from-this-machine steps.
@@ -366,13 +398,18 @@ extension PlanEngine {
                 .joined(separator: " ")
             target = quotedDestinationDirectory(request)
         }
+        let moving = request.operation == .move
+        let invocation = rsyncInvocation(
+            runningOn: localCapability,
+            operatorFlags: facts.rsyncOperatorFlags,
+            removingSource: moving)
         return [
             PlanStep(
                 runsOn: here,
                 command:
-                    "\(rsyncInvocation(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: remoteHost))\(sources) \(target)",
+                    "\(invocation) \(rsyncPathGuard(for: remoteHost))\(sources) \(target)",
                 role: .transfer)
-        ]
+        ] + (moving ? sourceReleaseSteps(request, on: request.source.host) : [])
     }
 
     /// Composes the tar-from-this-machine steps — the remote end has no

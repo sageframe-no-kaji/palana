@@ -43,8 +43,8 @@ struct MergeRouteTests {
         #expect(PlanEngine.classify(request(.move), facts: facts) == .crossDatasetCopyPlusDelete)
     }
 
-    @Test("a directory merge move refuses rather than copy then delete")
-    func mergeMoveRefuses() {
+    @Test("a directory merge move refuses without rsync")
+    func mergeMoveRefusesWithoutRsync() {
         let facts = PlanFacts(
             sourceMountTarget: "/tank",
             destinationMountTarget: "/tank",
@@ -52,6 +52,20 @@ struct MergeRouteTests {
         #expect(throws: PlanError.moveReleaseUnavailable) {
             try PlanEngine.plan(request(.move), facts: facts)
         }
+    }
+
+    @Test("a directory merge move uses progressive rsync")
+    func mergeMoveUsesRsync() throws {
+        let facts = PlanFacts(
+            sourceMountTarget: "/tank",
+            destinationMountTarget: "/tank",
+            sourceCapability: HostCapability(
+                kernel: "Linux", flavor: .gnu, zfs: nil, rsync: "rsync  version 3.2.7"),
+            collisions: [collision()])
+        let plan = try PlanEngine.plan(request(.move), facts: facts)
+        #expect(plan.classification == .crossDatasetCopyPlusDelete)
+        #expect(plan.steps.map(\.role) == [.copy, .cleanup, .verify])
+        #expect(plan.steps[0].command.contains("--remove-source-files"))
     }
 
     @Test("a directory merge copy remains available")

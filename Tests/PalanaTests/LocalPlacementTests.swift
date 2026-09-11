@@ -115,4 +115,17 @@ final class LocalPlacementTests: XCTestCase {
             OperationModel.describe(PlanError.kindClash(report)),
             "won't work — notes is a folder here and a file there")
     }
+
+    func testProgressiveMoveLanguageStatesTheOperatingContract() {
+        XCTAssertEqual(
+            OperationModel.progressiveMoveNotice,
+            "files are removed from the source after transfer · do not modify either location "
+                + "during the move · interruption may split files between them")
+        XCTAssertEqual(
+            OperationModel.describe(PlanError.moveReleaseUnavailable),
+            "that move has no supported rsync path — copy it, then delete the source separately")
+        XCTAssertEqual(
+            OperationModel.describe(PlanError.rsyncFlagsControlSourceRemoval),
+            "source removal belongs to the move command — remove that option from rsync flags")
+    }
 }

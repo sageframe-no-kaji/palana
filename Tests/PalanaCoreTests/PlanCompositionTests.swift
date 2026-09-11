@@ -84,11 +84,16 @@ struct PlanCompositionTests {
             agentForwarding: .available)
     }
 
-    @Test("a forwarded cross-host file move refuses before rsync")
-    func rsyncCommands() {
-        #expect(throws: PlanError.moveReleaseUnavailable) {
-            try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
-        }
+    @Test("a forwarded cross-host file move removes each source after transfer")
+    func rsyncCommands() throws {
+        let plan = try plan(.move, to: crossHostDest, facts: Self.forwardedRsyncFacts)
+        #expect(plan.steps.map(\.role) == [.transfer, .verify])
+        #expect(
+            plan.steps[0].command
+                == "rsync -a -s --partial --info=progress2 --checksum --remove-source-files "
+                + "/tank/media/a.txt '/tank/media/with space' koan:/rpool/cold/")
+        #expect(plan.steps[1].command.contains("palana-retained:"))
+        #expect(plan.steps.allSatisfy { $0.runsOn == .host("jodo") })
     }
 
     @Test("a copy composes the same transfer minus the delete")
@@ -112,12 +117,25 @@ struct PlanCompositionTests {
         #expect(plan.steps.first?.role == .copy)
     }
 
-    @Test("a same-host move between unproven filesystems refuses")
-    func sameHostMovePrefersRsync() {
+    @Test("a same-host move between unproven filesystems rides rsync")
+    func sameHostMovePrefersRsync() throws {
         let facts = PlanFacts(sourceCapability: Self.rsyncHost)
-        #expect(throws: PlanError.moveReleaseUnavailable) {
-            try plan(.move, to: sameHostDest, facts: facts)
-        }
+        let plan = try plan(.move, to: sameHostDest, facts: facts)
+        #expect(plan.steps.map(\.role) == [.copy, .verify])
+        #expect(plan.steps[0].command.contains("--remove-source-files"))
+    }
+
+    @Test("a directory move sweeps empty source directories before accounting")
+    func directoryMoveSweepsEmpties() throws {
+        let facts = PlanFacts(sourceCapability: Self.rsyncHost)
+        let plan = try plan(
+            .move,
+            to: sameHostDest,
+            entries: [makeEntry("folder", kind: .directory)],
+            facts: facts)
+        #expect(plan.steps.map(\.role) == [.copy, .cleanup, .verify])
+        #expect(plan.steps[1].command.contains("find \"$p\" -depth -type d -exec rmdir"))
+        #expect(!plan.steps[1].command.contains("rm -r"))
     }
 
     @Test("a proxied file move refuses before opening either SSH side")

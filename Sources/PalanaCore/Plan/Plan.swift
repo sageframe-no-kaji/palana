@@ -7,8 +7,7 @@ import Foundation
 
 /// What the operator asked for.
 public enum PlanOperation: String, Codable, Sendable {
-    /// Move the source by an atomic rename or a bound ZFS release.
-    /// Generic copy-then-delete moves are refused.
+    /// Move the source by rename, ZFS release, or progressive rsync.
     case move
     /// Transfer, source untouched.
     case copy
@@ -28,8 +27,8 @@ public enum PlanOperation: String, Codable, Sendable {
 /// What the operation actually is, named before it runs.
 ///
 /// The committed vocabulary from the system design. A cross-dataset
-/// move is classified honestly even though Palana now refuses that
-/// generic POSIX operation because deletion cannot be bound atomically.
+/// move is classified honestly whether its release is a rename, ZFS,
+/// or rsync removing each source file after transfer.
 public enum Classification: String, Codable, Sendable {
     /// Same host, same dataset — a true rename.
     case withinDatasetRename = "within-dataset rename"
@@ -62,7 +61,7 @@ extension Classification {
         case .withinDatasetRename:
             return "move on the same disk (instant)"
         case .crossDatasetCopyPlusDelete:
-            return "move across storage boundaries (unavailable)"
+            return "move across storage boundaries"
         case .crossHostTransfer:
             return "move to another machine"
         case .withinHostCopy:
@@ -327,6 +326,21 @@ public struct Plan: Codable, Sendable, Equatable {
         self.topologyBinding = topologyBinding
         self.versionGuard = versionGuard
         self.zfsReleaseGuard = zfsReleaseGuard
+    }
+
+    /// Whether the plan performs a progressive rsync move whose files
+    /// may be split between source and destination if interrupted.
+    public var usesProgressiveRsyncMove: Bool {
+        guard operation == .move else { return false }
+        switch transport {
+        case .rsyncAgentForwarded, .rsyncDirect:
+            return true
+        case .local:
+            return classification == .crossDatasetCopyPlusDelete
+        case .tarStreamProxied, .tarStreamDirect, .zfsSendReceiveForwarded,
+            .zfsSendReceiveProxied:
+            return false
+        }
     }
 }
 

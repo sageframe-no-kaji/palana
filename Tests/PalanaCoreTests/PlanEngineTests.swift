@@ -117,15 +117,22 @@ struct PlanClassificationTests {
         #expect(classification == .withinDatasetRename)
     }
 
-    @Test("the local Mac, cross-volume facts — refusal, never copy-then-delete")
-    func localCrossVolumeCopiesThenDeletes() {
+    @Test("the local Mac, cross-volume facts — progressive rsync when available")
+    func localCrossVolumeCopiesThenDeletes() throws {
         let localSource = Locus(host: "local", directory: "/Users/op/files")
         let localDest = Locus(host: "local", directory: "/Volumes/External/files")
-        let facts = PlanFacts(sourceMountTarget: "/", destinationMountTarget: "/Volumes/External")
-        #expect(throws: PlanError.moveReleaseUnavailable) {
-            try PlanEngine.plan(
-                request(.move, from: localSource, to: localDest), facts: facts)
-        }
+        let facts = PlanFacts(
+            sourceMountTarget: "/",
+            destinationMountTarget: "/Volumes/External",
+            sourceCapability: HostCapability(
+                kernel: "Darwin",
+                flavor: .bsd,
+                zfs: nil,
+                rsync: "openrsync: protocol version 29"))
+        let plan = try PlanEngine.plan(
+            request(.move, from: localSource, to: localDest), facts: facts)
+        #expect(plan.classification == .crossDatasetCopyPlusDelete)
+        #expect(plan.steps[0].command.contains("--remove-source-files"))
     }
 
     @Test("different hosts — cross-host transfer, datasets irrelevant")

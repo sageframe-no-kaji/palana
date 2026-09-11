@@ -305,6 +305,10 @@ struct PlanPanel: View {
             .foregroundStyle(Theme.inkFaint)
         Text(plan.transport.plainDescription)
             .foregroundStyle(Theme.inkFaint)
+        if plan.usesProgressiveRsyncMove {
+            Text(OperationModel.progressiveMoveNotice)
+                .foregroundStyle(Theme.alarm)
+        }
         Spacer().frame(height: 8)
         ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, step in
             Text(stepLine(step))

@@ -3,9 +3,8 @@
 //
 // A send-back stages its bytes beside the destination and commits
 // against the version it was bound to. A ZFS transfer binds cleanup to
-// the dataset created by its receive. Generic POSIX copy-then-delete
-// moves are refused because they cannot establish an equivalent atomic
-// release boundary.
+// the dataset created by its receive. Progressive rsync moves remove
+// each source file after transfer and account for anything left behind.
 
 import Foundation
 
