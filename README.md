@@ -2,7 +2,7 @@
 
 *Tend your field.*
 
-> pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs moves and copies server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
+> pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs supported file operations server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
 
 **Status:** **v0.7-beta** — feature-complete and in public beta through **4 November 2026**. The headless engine and the app surface are both there: dual-pane SSH file management, plan → enact, cross-host transfers, the field view, the ZFS workbench (dataset tools, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. A native, signed, notarized macOS app. Source open under GPL-3.0.
 
@@ -23,7 +23,7 @@ And the field has no map. Eleven machines, dozens of services, multiple pools �
 ## What pālana Does
 
 - **Plan → enact.** Every operation — copy, move, delete — compiles to a plan first: the entries with their sizes, the classification (within-dataset rename, cross-dataset copy-plus-delete, cross-host transfer), the transport with its auth path, the exact commands that will run. Dry-run is not a mode. It is the default. Enter enacts. Esc dismisses.
-- **Server-side transfers.** Moves between hosts run host to host. The fast path forwards your SSH agent so host A authenticates to host B directly — your key never leaves your machine. When forwarding isn't available, pālana proxies through your machine instead. You don't choose. The plan names which path it will use.
+- **Server-side transfers.** Copies between hosts run host to host. The fast path forwards your SSH agent so host A authenticates to host B directly — your key never leaves your machine. When forwarding isn't available, pālana proxies through your machine instead. You don't choose. The plan names which path it will use.
 - **ZFS, natively.** Dataset boundaries are first-class facts. A cross-dataset move is named as what it is before it runs. When both ends are whole datasets, the plan offers `zfs send | ssh | zfs receive` — block-level, an order of magnitude faster for large moves.
 - **The field view.** One keystroke summons the topology — machines, pools, datasets, reachability — as an overlay. Pick a node, a pane points there, the overlay vanishes. Discovery happens on demand, never continuously.
 - **The plan panel is a real terminal surface.** The plan's commands display there before enactment, and when Enter fires, the enactment echoes there live — the real commands, the real output, streaming. The claim that "these are the commands" is checkable by watching them run.
@@ -35,9 +35,9 @@ And the field has no map. Eleven machines, dozens of services, multiple pools �
 
 You open pālana. The panes are where you left them — left on jodo, right pointed nowhere useful. You tap the field view key and the topology appears: your machines, their pools, their datasets, remembered from last visit and marked as remembered. You pick a dataset on koan. The overlay vanishes and the right pane is there.
 
-In the left pane you select 214 files — camera archives, 41.3 GB — and press the move key. Nothing moves. The plan panel opens: cross-host transfer, source and destination datasets named, transport rsync host-to-host, auth agent-forwarded direct, and under that the exact command that will run, one you could paste into a terminal yourself. You read it. Enter.
+In the left pane you select 214 files — camera archives, 41.3 GB — and press the copy key. Nothing moves. The plan panel opens: cross-host copy, source and destination datasets named, transport rsync host-to-host, auth agent-forwarded direct, and under that the exact command that will run, one you could paste into a terminal yourself. You read it. Enter.
 
-The command echoes into the panel and its output streams under it. A progress bar moves. The bytes travel jodo → koan and your laptop never carries one of them. rsync removes each source file after transferring it, then pālana checks for anything that remains and refreshes both panes. A source file changed during transfer remains on jodo and makes the move fail.
+The command echoes into the panel and its output streams under it. A progress bar moves. The bytes travel jodo → koan and your laptop never carries one of them. The source remains on jodo, the destination appears on koan, and both panes refresh.
 
 You close pālana. It stops. The field has been tended.
 
@@ -176,13 +176,13 @@ Items the architecture is prepared for but v1 does not include:
   bar and `-s` (`--protect-args`), which sends spaces and shell characters in
   remote paths without shell interpretation. pālana finds the installed binary
   and selects its flags without a setting.
-- **rsync on remote hosts.** It is required for the faster transfer routes and
-  for copy-based file moves. A cross-host file copy uses a tar stream when a
-  required endpoint lacks rsync, and a same-host copy uses `cp -a` when that
-  host lacks it. These fallback copies have no transfer progress. A copy-based
-  move is refused when its route cannot use rsync for source removal.
-  Same-filesystem moves use `mv`, and whole-dataset ZFS moves use `zfs send`
-  and `zfs receive`.
+- **rsync on remote hosts.** It is required for the faster transfer routes. A
+  cross-host file copy uses a tar stream when a required endpoint lacks rsync,
+  and a same-host copy uses `cp -a` when that host lacks it. These fallback
+  copies have no transfer progress. File moves use `mv` only when both paths
+  are proven to share one filesystem. Whole-dataset ZFS moves use `zfs send`
+  and `zfs receive`; other moves are refused because pālana cannot atomically
+  bind source deletion to the transferred bytes.
 - **ZFS on remote hosts that use ZFS features.** Dataset trees, snapshots,
   mount state, and send/receive run on those hosts. The Mac does not need ZFS.
   `zfs send` and `zfs receive` require delegated permissions (`zfs allow`) on

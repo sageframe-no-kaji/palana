@@ -256,21 +256,12 @@ extension PlanEngine {
         classification: Classification,
         transport: Transport
     ) throws -> [PlanStep] {
-        // A move that copies has to delete, and it may only delete what
-        // it can bind to a verified copy. Three shapes can: a rename,
-        // which the kernel makes atomic; a whole-dataset send/receive,
-        // which zfs checksums end to end; and an rsync from a proved
-        // family, which removes each source file after confirming that
-        // file and refuses outright to remove one that changed while it
-        // was read. Every other move is refused.
-        let releases =
-            classification == .withinDatasetRename
-            || transport == .zfsSendReceiveForwarded
-            || transport == .zfsSendReceiveProxied
-            || carriesSourceRemoval(transport: transport, facts: facts)
-        guard request.operation != .move || releases else {
-            throw PlanError.moveReleaseUnavailable
-        }
+        let lacksAtomicMoveRelease =
+            request.operation == .move
+            && classification != .withinDatasetRename
+            && transport != .zfsSendReceiveForwarded
+            && transport != .zfsSendReceiveProxied
+        guard !lacksAtomicMoveRelease else { throw PlanError.moveReleaseUnavailable }
         switch transport {
         case .local:
             return composeLocal(request, facts: facts, classification: classification)
@@ -300,9 +291,9 @@ extension PlanEngine {
         // progress and resume where cp -a is opaque and starts over
         // (second hands session: "on a local machine you might want
         // that for a big copy"). cp -a stays the floor.
-        let copyCommand: (String, Bool) -> String = { dest, removingSource in
+        let copyCommand: (String) -> String = { dest in
             facts.sourceCapability?.rsync != nil
-                ? "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags, removingSource: removingSource)) \(sources) \(dest)"
+                ? "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(sources) \(dest)"
                 : "cp -a \(sources) \(dest)"
         }
         switch classification {
@@ -316,11 +307,10 @@ extension PlanEngine {
             return [PlanStep(runsOn: host, command: "mv \(sources) \(dest)", role: .rename)]
         case .crossDatasetCopyPlusDelete:
             let dest = quotedDestinationDirectory(request)
-            return [PlanStep(runsOn: host, command: copyCommand(dest, true), role: .copy)]
-                + sourceReleaseSteps(request, on: request.source.host)
+            return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
         case .withinHostCopy:
             let dest = quotedDestinationDirectory(request)
-            return [PlanStep(runsOn: host, command: copyCommand(dest, false), role: .copy)]
+            return [PlanStep(runsOn: host, command: copyCommand(dest), role: .copy)]
         case .creation:
             return composeCreate(request)
         case .modificationTimeUpdate:
@@ -339,40 +329,12 @@ extension PlanEngine {
         let destinationHost = request.destination?.host ?? ""
         let sources = sourcePaths(request).map(ShellQuote.quote).joined(separator: " ")
         let remote = ShellQuote.quote("\(destinationHost):\(destinationDirectorySlash(request))")
-        let moving = request.operation == .move
-        let invocation = rsyncInvocation(
-            runningOn: facts.sourceCapability,
-            operatorFlags: facts.rsyncOperatorFlags,
-            removingSource: moving)
         return [
             PlanStep(
                 runsOn: sourceHost,
                 command:
-                    "\(invocation) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
+                    "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
                 role: .transfer)
-        ] + (moving ? sourceReleaseSteps(request, on: request.source.host) : [])
-    }
-
-    /// The two steps that close a move once rsync has removed the files
-    /// it confirmed: the emptied directories, and the accounting.
-    ///
-    /// The sweep uses `rmdir` bottom-up over the selected trees only, so
-    /// a directory still holding a file rsync declined to remove simply
-    /// stays. The report then counts what remains and fails the run if
-    /// anything does — rsync 3.x signals that refusal with exit 23, but
-    /// openrsync signals it with exit 0, so status is not a signal a
-    /// move can trust.
-    static func sourceReleaseSteps(_ request: PlanRequest, on host: String) -> [PlanStep] {
-        let sources = sourcePaths(request)
-        return [
-            PlanStep(
-                runsOn: .host(host),
-                command: emptyDirectorySweep(sources: sources),
-                role: .cleanup),
-            PlanStep(
-                runsOn: .host(host),
-                command: leftoverSourceReport(sources: sources, host: host),
-                role: .verify),
         ]
     }
 
@@ -404,18 +366,13 @@ extension PlanEngine {
                 .joined(separator: " ")
             target = quotedDestinationDirectory(request)
         }
-        let moving = request.operation == .move
-        let invocation = rsyncInvocation(
-            runningOn: localCapability,
-            operatorFlags: facts.rsyncOperatorFlags,
-            removingSource: moving)
         return [
             PlanStep(
                 runsOn: here,
                 command:
-                    "\(invocation) \(rsyncPathGuard(for: remoteHost))\(sources) \(target)",
+                    "\(rsyncInvocation(runningOn: localCapability, operatorFlags: facts.rsyncOperatorFlags)) \(rsyncPathGuard(for: remoteHost))\(sources) \(target)",
                 role: .transfer)
-        ] + (moving ? sourceReleaseSteps(request, on: request.source.host) : [])
+        ]
     }
 
     /// Composes the tar-from-this-machine steps — the remote end has no
@@ -593,7 +550,7 @@ extension PlanEngine {
 
     // MARK: - Path helpers
 
-    static func sourcePaths(_ request: PlanRequest) -> [String] {
+    private static func sourcePaths(_ request: PlanRequest) -> [String] {
         request.entries.map { join(request.source.directory, $0.name) }
     }
 
