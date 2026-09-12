@@ -1,10 +1,10 @@
 # The Palana Ho Process
 
-This directory is Palana's public build record. It shows how the project moved
-from premise to architecture, from architecture to bounded work, and from work
-to tested software. The record includes decisions that were later revised,
-failed approaches, practitioner feedback, and the repair work that followed a
-full-codebase review.
+This directory is Palana's sanitized public build record. It shows how the
+project moved from premise to architecture, from architecture to bounded work,
+and from work to tested software. The record includes decisions that were later
+revised, failed approaches, practitioner feedback, and the repair work that
+followed a full-codebase review.
 
 Palana was designed and built with the
 [Ho System](https://github.com/sageframe-no-kaji/ho-system), a method for
@@ -70,8 +70,20 @@ Commit identifiers connect process claims to the corresponding code, while test
 counts and hands-on verdicts record the evidence available at that time rather
 than the state of the current branch.
 
-The process record contains no credentials or authentication material. Private
-machine names, filesystem paths, account identifiers, network details, and
-exact fleet counts have been generalized. Names such as `source-host`,
-`storage-host`, `service-host`, and `appliance-host` belong to the synthetic
-public topology, while operational values remain outside the repository.
+## Publication Boundary
+
+The canonical operational record lives in a separate private repository because
+Kamae 6 and executable agent handoffs need exact local state. This directory is
+a deterministic export of that record, not the source used to resume work.
+Private machine names, filesystem paths, account identifiers, network details,
+and exact fleet counts are generalized during export. Names such as
+`source-host`, `storage-host`, `service-host`, and `appliance-host` belong to the
+synthetic public topology.
+
+`publication.json` identifies the immutable private revision from which this
+tree was generated. The private exporter refuses when a known operational
+identifier survives, and this repository independently rejects credentials,
+personal home paths, email addresses, and private network addresses through
+[`scripts/check-ho-process-public`](../scripts/check-ho-process-public). Neither
+record is a credential store: passwords, private keys, tokens, and
+authentication material belong in the Keychain or a secret manager.

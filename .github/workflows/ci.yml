@@ -17,6 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ho process publication boundary
+        run: scripts/check-ho-process-public
+
       # The .swift-format config follows the local toolchain (Swift 6.2);
       # the runner's default Xcode ships an older swift-format that cannot
       # read it. Newest available Xcode wins.

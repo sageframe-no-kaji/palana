@@ -23,7 +23,7 @@ candidate to bring pālana in line later." We bring pālana in line.
 **Reference (read it first):**
 `/path/to/reference-app/Sources/ReferenceApp/Color+Theme.swift`
 (the `RGBA` / `Palette` / dynamic-`NSColor` pattern) and
-`.../ReferenceApp/AppAppearance.swift` (the System/Light/Dark model).
+`.../Sharibako/AppAppearance.swift` (the System/Light/Dark model).
 
 **Out of scope:** per-view dark overrides; theming the terminal (SwiftTerm renders
 its own colors). Keep the warm register — never pure black/white, one moss accent,

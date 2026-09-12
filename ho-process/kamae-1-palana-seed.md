@@ -167,7 +167,7 @@ _Opinions, not commitments. Kamae 2 commits._
 
 3. **Plan before enact.** No operation executes without first showing what will happen. The plan's commands are real — an operator could copy them into a terminal and get the same result.
 
-4. **The field is legible.** One keystroke shows the fleet, its datasets, and its state. The whole topology is navigable without opening a terminal.
+4. **The field is legible.** One keystroke shows several machines, their datasets, their state. The whole topology navigable without opening a terminal.
 
 5. **The plugin API works.** The ZFS tool is built on the same interface any future plugin would use, without modifying core. The second plugin follows the pattern the first one proved.
 

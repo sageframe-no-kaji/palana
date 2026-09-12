@@ -27,6 +27,13 @@ repos:
   # Swift: format, lint, type-check (compile)
   - repo: local
     hooks:
+      - id: ho-process-public
+        name: ho-process public boundary
+        entry: scripts/check-ho-process-public
+        language: system
+        pass_filenames: false
+        files: ^ho-process/
+
       - id: swift-format
         name: swift-format lint
         entry: swift-format lint --recursive --strict Sources Tests

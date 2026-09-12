@@ -60,9 +60,9 @@ ho-07's law holds: everything that can be wrong is a pure value in the core. A `
 
 The queued indicator lands here because it rides the same facts the overlay renders. A row in a pane whose full path is a remembered dataset's mountpoint gets one quiet glyph in `inkFaint`—the boundary made visible where the operator is actually standing, not a second topology. The test is an exact mountpoint match against cached topology—a pure function, no probe, no promise when facts are absent. Which glyph is the hands session's question—the code commits the seam, the session prunes the mark.
 
-### Discovery (deferred to execution) — the overlay against the practitioner's private cache
+### Discovery (deferred to execution) — the overlay against the practitioner's real cache
 
-The fixture cache holds one container host and a throwaway pool. The practitioner's private cache was represented in this public record by synthetic storage, service, and appliance hosts plus the `github-*` aliases that polluted the menu—the overlay renders whatever is there, and the hands session judged the rendering against that shape, including whether the alias pollution earned its filter.
+The fixture cache holds one container host and a throwaway pool. The practitioner's real `field-cache.json` holds storage-host, service-host, appliance-host, and the `github-*` aliases that pollute the menu—the overlay renders whatever is there, and the hands session judges the rendering against the real shape, including whether the alias pollution earns its filter now.
 
 ---
 
@@ -88,7 +88,7 @@ Each task carries its own verification—lint, build, the full suite—and lands
 
 ### Done means
 
-- `f` summons the topology from the private cache instantly, every fact aged, never-visited hosts named as such
+- `f` summons the topology from the real cache instantly, every fact aged, never-visited hosts named as such
 - Enter points the focused pane at a host or a mounted dataset and the overlay vanishes—under two seconds end to end
 - `r` re-probes one host in place—proven against the fixture, and proven in kind against appliance-host's stale-flavor shape by a recorded-facts test
 - Dataset mountpoint rows in the pane wear the mark when topology is remembered, and nothing probes to earn it
@@ -98,9 +98,9 @@ Each task carries its own verification—lint, build, the full suite—and lands
 
 ## Phase 3 — Reflect
 
-**The design held, and the private cache did the judging.** The overlay rendered a large storage host, a smaller service host, and the github aliases as honest rust refusals, while the grammar carried the session without a collision. What the Think phase didn't anticipate came from the map being honest about what it knows: the github rows prompted the filter question the ho had deliberately held, the service host prompted "what about the ground that isn't ZFS," and both resolved into direction rather than code.
+**The design held, and the real cache did the judging.** The overlay rendered his cache instantly—a large storage host and a smaller service host, the github aliases as honest rust refusals—and the grammar carried the session without a collision. What the Think phase didn't anticipate came from the map being honest about what it knows: the github rows prompted the filter question the ho had deliberately held, service-host prompted "what about the ground that isn't ZFS," and both resolved into direction rather than code.
 
-**Decision review.** `f` drew no complaint. The in-window overlay held—no window machinery fought back. Decision 4 proved itself in anger: `r` on the synthetic appliance host traded the stale BSD for BusyBox in one keystroke—the cache shows the healing. And the config-as-control surface passed its deepest test unprompted: he asked "can I add to the field?", was told the ▾ menu edits `~/.ssh/config`, and a newly configured host appeared in the map with its dataset tree before the session ended—edit, reload, probe, no code helping. His verdict on the mechanism, verbatim: "i love that that is the control."
+**Decision review.** `f` drew no complaint. The in-window overlay held—no window machinery fought back. Decision 4 proved itself in anger: `r` on appliance-host traded the stale BSD for BusyBox in one keystroke, live, at 20:23—the cache shows the healing. And the config-as-control surface passed its deepest test unprompted: he asked "can I add to the field?", was told the ▾ menu edits `~/.ssh/config`, and new-host appeared in the map with 10 datasets before the session ended—edit, reload, probe, no code helping. His verdict on the mechanism, verbatim: "i love that that is the control."
 
 **Delegation review.** All three agent tasks ran on `claude-sonnet-4-6` and came back spec-faithful and green. What the session's review caught is the argument for keeping review at the top tier: probe refusals held in state but never rendered (silence where the law says failures render in place), the missing scroll-follow (ho-07's first hands finding, about to be rediscovered), a cancellation seam opened by making `commit` async, and a type-body budget tipped at the brink.
 

@@ -8,10 +8,11 @@ A native Mac file manager for the homelab operator — dual panes over SSH, a Pl
 
 ## Reading order for a fresh session
 
-1. `README.md` — what the project is (Kamae 3)
-2. `ho-process/kamae-2-palana-system-design.md` — committed architecture and stack (Kamae 2)
-3. `ho-process/kamae-4-palana-ho-overview.md` — build sequence (Kamae 4)
-4. The current ho in `ho-process/hos/` — the bounded scope for this session (Kamae 5)
+1. `ho-process-private/kamae-6-palana-state-memory.md`, when present — current operational state (Kamae 6); a public-only clone has no private handoff
+2. `README.md` — what the project is (Kamae 3)
+3. `ho-process-private/kamae-2-palana-system-design.md` — committed architecture and stack (Kamae 2)
+4. `ho-process-private/kamae-4-palana-ho-overview.md` — build sequence (Kamae 4)
+5. The current ho in `ho-process-private/hos/` — the bounded scope for this session (Kamae 5)
 
 ## Verification rhythm
 
@@ -40,19 +41,24 @@ Run after every implementation, before every commit:
 
 - Multi-product Swift package: `PalanaCore` (library — Conduit, Field, Listing, Plan Engine, Transports, Workbench arrive with their hos), `Palana` (SwiftUI app target — the Surface).
 - Private prompts in `prompts/` (gitignored).
-- `ho-process/` is tracked publicly — the build record is part of the methodology demonstration (Sharibako precedent).
+- `ho-process-private/` is the canonical nested private process repository; `ho-process/` is its generated, sanitized public derivative.
 - SwiftPM only. `xcode/` arrives at ho-11 if signing demands it.
 
 ## Ho process
 
-Ho documents for this project live in `ho-process/` (publicly tracked):
+Canonical Ho documents for this project live in `ho-process-private/`:
 
-- `ho-process/kamae-1-palana-seed.md` — Kamae 1 (parti)
-- `ho-process/kamae-2-palana-system-design.md` — Kamae 2 (architecture)
+- `ho-process-private/kamae-1-palana-seed.md` — Kamae 1 (parti)
+- `ho-process-private/kamae-2-palana-system-design.md` — Kamae 2 (architecture)
 - `README.md` (repo root) — Kamae 3 (canonical public document)
-- `ho-process/kamae-4-palana-ho-overview.md` — Kamae 4 (build sequence)
-- `ho-process/hos/` — per-ho documents (Kamae 5)
-- `ho-process/agent-tasks/` — child agent task specs (dandori format)
+- `ho-process-private/kamae-4-palana-ho-overview.md` — Kamae 4 (build sequence)
+- `ho-process-private/hos/` — per-ho documents (Kamae 5)
+- `ho-process-private/kamae-6-palana-state-memory.md` — Kamae 6 (living state)
+- `ho-process-private/agent-tasks/` — child agent task specs (dandori format)
+
+The public `ho-process/` tree is generated output. Never edit it directly; use
+`ho-process-private/scripts/publish-public --apply`, review the public diff, and
+push the public repository before pushing the private source.
 
 ## References
 

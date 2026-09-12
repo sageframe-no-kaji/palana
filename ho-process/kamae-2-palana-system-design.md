@@ -158,7 +158,7 @@ Four boundary statements hold the system's shape. Only the Conduit touches `ssh`
 
 A cross-host move, traced end to end.
 
-1. The operator's left pane sits on source-host at `/pool/source/archive`. The right pane sits on storage-host at `/pool/destination/cold`. 214 files are selected, 41.3GB. The move key goes down.
+1. The operator's left pane sits on source-host at `/tank/sage/source-host/service-host/archive`. The right pane sits on storage-host at `/system-pool/sage/storage-host/cold`. 214 files are selected, 41.3GB. The move key goes down.
 
 2. **The Surface** forwards intent to the Plan Engine — source pane state, destination pane state, operation. It composes nothing.
 
@@ -171,14 +171,14 @@ A cross-host move, traced end to end.
    ```
    move · cross-host transfer
    214 entries · 41.3 GB
-   source-host:/pool/source/archive → storage-host:/pool/destination/cold
+   source-host:/tank/sage/source-host/service-host/archive → storage-host:/system-pool/sage/storage-host/cold
    transport: rsync host-to-host · auth: agent-forwarded direct
 
    files are removed from the source after transfer
    do not modify either location during the move
    interruption may split files between them
 
-   ssh source-host 'rsync ... --checksum --remove-source-files ... storage-host:/pool/destination/cold/'
+   ssh source-host 'rsync ... --checksum --remove-source-files ... storage-host:/system-pool/sage/storage-host/cold/'
    ssh source-host 'find ... -depth -type d -exec rmdir ...'
    ssh source-host 'test that no selected source entry remains'
    ```
@@ -214,13 +214,13 @@ The organizing data model is the ZFS topology itself — `pool/machine/service` 
 
 ```
 source-host
-└── pool-a
-    └── projects
-        ├── archive        ← service dataset
+└── tank
+    └── sage/source-host
+        ├── service-host          ← service dataset
         └── ...
 storage-host
-└── pool-b
-    └── backups
+└── system-pool
+    └── sage/storage-host
         ├── cold           ← service dataset
         └── ...
 ```

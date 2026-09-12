@@ -4,6 +4,7 @@
 .PHONY: verify coverage sshd-fixture sshd-fixture-stop zfs-fixture zfs-fixture-destroy
 
 verify:
+	scripts/check-ho-process-public
 	swift-format lint --recursive --strict Sources Tests
 	swiftlint lint --strict --quiet
 	swift build

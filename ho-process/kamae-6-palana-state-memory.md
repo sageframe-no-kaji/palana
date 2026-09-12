@@ -74,7 +74,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 **ACTION ITEMS / BLOCKS**
 - No blocks. Nothing pushed; `main` still at `80344c1`.
 - **Two orchestrator decisions to ratify:** (1) Task 5's stop condition — macOS has no atomic compare-and-replace against a non-coordinating editor; accepted the coordinated re-read/compare/backup/rename with its microsecond residual window (recorded in `d104491`). (2) Exact manifest agreement refuses source deletion for a move that merges into a non-empty directory; the old count gate already refused that case, so it is a carried limitation, not a regression — a subset check is the one-line relaxation in `VerificationReport.matched` if he wants merges to complete.
-- **Test-rig hazard:** six PalanaTests rigs build `Engine` over a live `SSHConduit`; a path that reaches `engine.conduit(for: remote)` (e.g. `resolveTilde` on a remote `~`) goes to the configured host. An intermediate run of the recovery task sent read-only `test -d` probes to a private host before the probe moved onto the fake `Listing`. Committed tests avoid the door; a fake conduit for `Engine` would close the hazard.
+- **Test-rig hazard:** six PalanaTests rigs build `Engine` over a live `SSHConduit`; a path that reaches `engine.conduit(for: remote)` (e.g. `resolveTilde` on a remote `~`) goes to the real host. An intermediate run of the recovery task sent read-only `test -d` probes to storage-host before the probe moved onto the fake `Listing`. Committed tests avoid the door; a fake conduit for `Engine` would close the hazard.
 - Every typed remote pointing now costs one `test` round trip before its listing (structured pointings untouched).
 - Carried: `PalanaSession.init` is not instantiable under test (reads the real `~/.ssh/config`), which is why the application floor sits at 35; injectable init is the next ratchet. `HostOnboardingForm`'s remove preview still uses a Host-only scan (may over-warn about a following `Match`). Site never deployed; publish-root hazard; dmg held at his word.
 
@@ -120,7 +120,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 **ACTION ITEMS / BLOCKS**
 - No blocks. `7f3d36c` pushed; CI green.
-- **The site has never been deployed.** `palana.sageframe.net` resolving to a private DNS address is correct locally — not a fault, as first reported here in error. It simply has no public deploy yet. `public/_data/site.json` still says `v0.4-beta`, and the site's download buttons point at `/releases/latest`, which is still the July beta.
+- **The site has never been deployed.** `palana.sageframe.net` resolving to `private DNS address` is his dnsmasq and is CORRECT locally — not a fault, as first reported here in error. It simply has no public deploy yet. `public/_data/site.json` still says `v0.4-beta`, and the site's download buttons point at `/releases/latest`, which is still the July beta.
 - **Publish-root hazard for the site deploy.** `palana-web` carries `node_modules/` and `_site/` beside `public/`. Per his standing rule, `.gitignore` is not a publish boundary — the deploy root must be `_site` alone, with an `.assetsignore`, verified against the live URL (fetch `/.git/HEAD`, expect 404).
 - **Local parallel runs stay flaky** even after this fix — only CI was serialized. `CONTRIBUTING.md` tells contributors to run `swift test`, so they will meet it. Proposed, not done: `--no-parallel` in `make verify` too.
 - ZFS VM was left **stopped** this session; the 5 ZFS tests fail locally until `scripts/zfs-fixture.sh start`. CI never runs them at all.
@@ -140,10 +140,10 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   - His verdicts: `r` works, `*` works, click works, open-in-Finder works, bare-path addresses work. **The panel key monitor DOES fire for the favorites panel** — the eleventh-block worry, and [[palana-panel-esc-key-monitor]], did not bite here.
 - **BOTH FIXTURES BROUGHT UP AND THE SUITE IS FULLY GREEN — 936/936, first time since the fixtures went down.** Docker sshd container on 2223; Lima VM `palana-zfs` with pool `palana` ONLINE. PalanaCore line coverage **96.85%** (floor 90). `make verify` clean end to end.
 - **The 27 "failures" were never code.** With fixtures up they fell to 3, all fixture-state drift from past hands sessions, now repaired in place:
-  - `palana/stray-dataset` was **mounted at `/`**, where it shadowed every path lookup — which is why a system path resolved to a dataset instead of nil. Moved to a safe fixture mountpoint; **kept, not destroyed** (a `zfs destroy` was refused by the permission guard, correctly — and moving it was enough).
-  - Two fixture datasets had been assigned unrelated temporary mountpoints. Both inherited back to their defaults.
+  - `palana/stray-dataset` was **mounted at `/`**, where it shadowed every path lookup — which is why `/var/log/syslog` resolved to a dataset instead of nil. Moved to `/palana/stray-dataset`; **kept, not destroyed** (a `zfs destroy` was refused by the permission guard, correctly — and moving it was enough).
+  - `palana/tank/media/photos` had been set to `/palana/children-moved`, and `palana/detached` to `/palana/tank/stray-child/temp`. Both inherited back to their defaults.
   - The VM's own `~/.ssh/known_hosts` carried a stale `localhost` ECDSA key, which failed the self-ssh forwarding test. Re-scanned.
-- **`scripts/zfs-fixture.sh` is now self-healing** so this cannot cost a session again: `ensure` only ever created, so drift was silent. A new `reconcile` puts each designed dataset back at its designed mountpoint on every `start`, and datasets the fixture never made are **named on stderr, never destroyed** — a hands-session leftover is the operator's to remove, not a script's. Verified idempotent: a second run reconciles nothing and names the two synthetic strays.
+- **`scripts/zfs-fixture.sh` is now self-healing** so this cannot cost a session again: `ensure` only ever created, so drift was silent. A new `reconcile` puts each designed dataset back at its designed mountpoint on every `start`, and datasets the fixture never made are **named on stderr, never destroyed** — a hands-session leftover is the operator's to remove, not a script's. Verified idempotent (a second run reconciles nothing and names `stray-dataset` + `tank/stray-child`).
 
 **NEXT**
 - **v1.0 / ho-12 (the ship).** The build is green, covered, and hands-verified; the pipeline already exists (`scripts/build_macos.sh`, notarize, `RELEASING.md`). Nothing technical is in the way — the remaining work is the ho itself and his word to tag.
@@ -153,7 +153,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 - No blocks. Everything pushed to `main` (`0fd4d9b` and earlier); the fixture-script hardening is the only uncommitted work at the time of writing.
 - **CI NEVER RUNS THE ZFS PATH.** `.github/workflows/ci.yml` brings up an sshd fixture on the runner but no Lima VM, so every ZFS integration test — mutation round trip, dataset boundaries, zfs send/receive transports — is proven ONLY on a local run with the VM up. Worth knowing before v1.0: green CI is not the same as a green wire.
 - **Fixtures are UP and left up.** Stop with `scripts/sshd-fixture.sh stop` and `limactl stop palana-zfs`. The ZFS `destroy` target deletes the whole 100GiB VM, not just the pool — reach for the reconcile path first.
-- Two synthetic strays remain in the fixture pool by choice. Harmless where they now sit; the fixture names them on every start.
+- Two strays remain in the pool by choice: `palana/stray-dataset`, `palana/tank/stray-child`. Harmless where they now sit; the fixture names them on every start.
 - **DECISION STILL OWED** from the twelfth block: the go-to sheet and bare paths (a picked host is treated as an explicit host; local-first is only for input naming no host). Unchanged, his call.
 
 **PROJECT LIFECYCLE**
@@ -460,7 +460,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 - **ho-10.1 hands round, built live on his verdicts** (three commits on
   main after the click fix): panel text scales with the size steps
   (keys-panel ruling applied); the tree reads cache-then-discovers-then-
-  re-reads (stray-missing and create-not-showing both dead); every
+  re-reads (stray-dataset-missing and create-not-showing both dead); every
   ready plan says "⏎ press enter to run this plan" in green in the term
   + the header's armed-Return block grew words; rollback/destroy-snapshot
   gathers list the dataset's snapshots under the field (ShellQuote went
@@ -586,7 +586,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   rollback/destroy-snapshot over plain ssh, readable plan, native Mac —
   nobody else has it.
 - **The two-cursor failure witnessed**: his destroy aimed at pool root
-  (panel tree selection) while his pane cursor sat on a stray fixture dataset — the
+  (panel tree selection) while his pane cursor sat on stray-dataset — the
   panel-as-primary-mutation-surface is structurally confusing. His
   framing sealed: ZFS management is a SEPARATE activity → pane MODE with
   explicit boundary (background shift) is the right surface (ho-10.2/3).
@@ -618,7 +618,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   (his ratified instinct; panel demotes to launcher/overview).
   Installable third-party plugins: post-v1 seed thinking, banked.
 - ho-10 is CLOSED (read-only Workbench) — no gap before ho-11.
-- Fixture VM dies with his reboot; a stray dataset mounted manually by him
+- Fixture VM dies with his reboot; stray-dataset mounted manually by him
   (root); t62-prx-* leftovers still in pool (fine — destroy targets).
 
 **PROJECT LIFECYCLE**
@@ -929,8 +929,8 @@ session (and any hook) knows exactly where the build stands. Newest block on top
   square and rebuild (one command).
 - Non-blocking: the ship pipeline now exists ahead of ho-12; when ho-12 opens it
   formalizes what's already built rather than starting cold.
-- Notarization uses a Keychain profile outside the repository; the signing
-  identity is supplied through the release environment. See `RELEASING.md`.
+- Notarization uses keychain profile `private-notary-profile`; signing identity
+  `Developer ID Application: <release-identity>`. See `RELEASING.md`.
 
 **PROJECT LIFECYCLE**
 - `beta` — v0.4-beta public. (Was `dev` through Phases 1–3 + the ho-9.x surface

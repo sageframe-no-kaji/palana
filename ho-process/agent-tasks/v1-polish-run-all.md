@@ -10,7 +10,7 @@ Execute in this order (they are independent subsystems; order only minimizes
 Theme.swift churn):
 
 1. `ho-process/hos/ho-13-universal-text-scale.md` — ⌘+/−/0 zoom the whole surface via one persisted fontScale + a `Theme.font()` factory.
-2. `ho-process/hos/ho-15-dark-mode.md` — port Sharibako's `Palette` pattern + the dark values into `Theme`; System/Light/Dark toggle. (13 and 15 both touch `Theme.swift` — sequential, so no conflict.) **Read the reference impl first:** `/path/to/reference-app/Sources/ReferenceApp/Color+Theme.swift` and `.../ReferenceApp/AppAppearance.swift`.
+2. `ho-process/hos/ho-15-dark-mode.md` — port Sharibako's `Palette` pattern + the dark values into `Theme`; System/Light/Dark toggle. (13 and 15 both touch `Theme.swift` — sequential, so no conflict.) **Read the reference impl first:** `/path/to/reference-app/Sources/ReferenceApp/Color+Theme.swift` and `.../AppAppearance.swift`.
 3. `ho-process/hos/ho-14-drag-into-folders.md` — folder rows become drop targets; accent hover wash; falls through to pane cwd.
 4. `ho-process/hos/ho-16-the-preview-pane.md` — a third pane mode (`v`) that previews the other pane's cursor: local text (scrollable mono), image/PDF (QuickLook), info card. Local only for v1.
 

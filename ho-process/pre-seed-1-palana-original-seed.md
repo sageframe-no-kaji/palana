@@ -23,7 +23,7 @@ The specific pain points:
 
 **ZFS cross-dataset moves are invisible landmines.** In a ZFS homelab where every service has its own dataset (`system-pool/sage/machine/service`), moving files between datasets is not a rename — it's a cross-dataset copy plus delete. Every file manager treats it as a rename and either fails silently or produces corrupt results. The operator discovers this after the fact. The actual quote from the working session that motivated this project: _"Moving between datasets — that's what fucking kills me!"_
 
-**The field has no map.** An operator with several machines, dozens of services, multiple ZFS pools, backup replication schedules, and a config vault has no single view of what exists where. The topology lives in their head, supplemented by markdown files they update manually. Sanoid is running across several machines but the operator has to SSH into each one to check. Syncoid replication is pushing to a storage host but the operator has to read timer logs to know if it's current. The coverage matrix — which datasets are backed up by which systems — is a manually-maintained table that goes stale the day it's written.
+**The field has no map.** An operator with several machines, dozens of services, multiple ZFS pools, backup replication schedules, and a config vault has no single view of what exists where. The topology lives in their head, supplemented by markdown files they update manually. Sanoid is running across several machines but the operator has to SSH into each one to check. Syncoid replication is pushing to storage-host but the operator has to read timer logs to know if it's current. The coverage matrix — which datasets are backed up by which systems — is a manually-maintained table that goes stale the day it's written.
 
 **Dashboards watch. Nobody works.** Grafana shows metrics. Portainer shows containers. Cockpit shows system state. None of them let you _do_ anything that matters at the infrastructure level. You can restart a container in Portainer but you can't move a ZFS dataset. You can see disk usage in Cockpit but you can't manage the dataset topology. The dashboards are security cameras. The garden needs a gardener with tools.
 
@@ -276,7 +276,7 @@ Planned plugins: Mujō (backup/resilience), ZFS management (dataset CRUD, snapsh
 
 3. **Plan before enact.** No destructive operation executes without first showing what will happen. Dry-run is the default, not a mode.
 
-4. **The field is legible.** Opening pālana shows me the fleet, its datasets, its services, and its state. I can navigate the entire topology without opening a terminal.
+4. **The field is legible.** Opening pālana shows me the fleet, its datasets, their services, and their state. I can navigate the entire topology without opening a terminal.
 
 5. **Forteller works inside pālana.** Every fortell command — deploy, beam, summon, status, ask — is available within the workbench. Same behavior, GUI surface.
 
