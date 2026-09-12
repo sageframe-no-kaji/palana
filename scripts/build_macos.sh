@@ -29,7 +29,13 @@ DISPLAY_NAME="pālana"                   # shown in Finder / menu bar / About
 BUNDLE_ID="com.sageframe.palana"
 VERSION="${VERSION:-1.0.0}"             # CFBundleShortVersionString (numeric)
 DMG_SUFFIX="${DMG_SUFFIX:-}"            # trailing label on the dmg name; "" to omit
+RELEASE_CHANNEL="${RELEASE_CHANNEL:-$DMG_SUFFIX}"
 MIN_MACOS="14.0"
+
+if [[ -n "$RELEASE_CHANNEL" && ! "$RELEASE_CHANNEL" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+    echo "ERROR: RELEASE_CHANNEL must contain only letters, numbers, dots, underscores, or hyphens"
+    exit 1
+fi
 
 if [[ -n "$DMG_SUFFIX" ]]; then
     DMG_NAME="palana-${VERSION}-${DMG_SUFFIX}.dmg"
@@ -131,6 +137,10 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key>       <string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key>           <string>${VERSION}</string>
+$(
+        [[ -n "$RELEASE_CHANNEL" ]] \
+            && printf '    <key>PalanaReleaseChannel</key>     <string>%s</string>\n' "$RELEASE_CHANNEL"
+    )\
     <key>LSMinimumSystemVersion</key>    <string>${MIN_MACOS}</string>
     <key>NSHighResolutionCapable</key>   <true/>
     <key>NSPrincipalClass</key>          <string>NSApplication</string>

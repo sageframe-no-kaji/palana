@@ -54,7 +54,7 @@ struct AboutView: View {
             appMark
                 .frame(width: 92, height: 92)
                 .padding(.top, 24)
-            Text("Version \(Links.appVersion)")
+            Text("Version \(Links.appDisplayVersion)")
                 .font(Theme.font(14, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 20)
@@ -105,20 +105,17 @@ struct AboutView: View {
         .tint(Theme.accent)
     }
 
-    /// The launch update-check note, worded to match the Help-menu opt-out.
-    private static let updateBlurb =
-        "Checks GitHub for the latest version on launch "
-        + "(turn off: Help → Check for Updates on Startup)."
-
     private var updateNote: some View {
         VStack(spacing: 5) {
-            Text(Self.updateBlurb)
-                .multilineTextAlignment(.center)
+            Text("Checks GitHub for updates when pālana opens.")
+            Text("Turn off in Help → Check for Updates on Startup.")
             Link("How the check works", destination: Links.help)
+                .foregroundStyle(Theme.accent)
         }
         .font(Theme.font(11))
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
         .foregroundStyle(Theme.inkFaint)
-        .tint(Theme.accent)
         .padding(.horizontal, 28)
     }
 }

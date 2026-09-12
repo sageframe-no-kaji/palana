@@ -427,7 +427,7 @@ extension SettingsForm {
                 .tint(Theme.accent)
                 .font(.system(size: 12))
             HStack(spacing: 8) {
-                Text("Version \(session.updateChecker.currentVersion ?? "dev build")")
+                Text("Version \(Links.appDisplayVersion)")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.inkFaint)
                 Button("check now") {

@@ -27,6 +27,23 @@ enum Links {
             ?? "dev build"
     }
 
+    /// The version text shown to the operator, including a release channel
+    /// such as `beta` when the build declares one.
+    static var appDisplayVersion: String {
+        displayVersion(
+            appVersion,
+            releaseChannel: Bundle.main.infoDictionary?["PalanaReleaseChannel"] as? String)
+    }
+
+    static func displayVersion(_ version: String, releaseChannel: String?) -> String {
+        guard let releaseChannel = releaseChannel?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !releaseChannel.isEmpty
+        else {
+            return version
+        }
+        return "\(version) \(releaseChannel)"
+    }
+
     /// Filing a bug — a pre-filled issue on the public tracker.
     ///
     /// The running version and macOS are baked into the body, so every report
@@ -34,7 +51,7 @@ enum Links {
     /// the "what version am I on" friction. A `.github` issue template structures
     /// a raw `issues/new` for anyone who arrives without the query.
     static var reportBug: URL {
-        let version = appVersion
+        let version = appDisplayVersion
         let os = ProcessInfo.processInfo.operatingSystemVersionString
         let body = """
             **What happened**
