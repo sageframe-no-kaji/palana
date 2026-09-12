@@ -21,7 +21,7 @@ agent-tasks:
 
 # ho-9.3 — The Mounts Fact and the Host Map
 
-The Field learns its third topology question, and the answer gets a surface. Today the Field knows what a host can do (the capability probe) and where its ZFS datasets sit (the topology read). What it cannot answer is the ground itself—kanyo runs the production containers on plain ext4, and to pālana that filesystem does not exist. The mounts fact fixes this: every filesystem, not just ZFS, discovered on demand and remembered like every other fact. The host map renders it—the practitioner's ask, verbatim: "an info pane, like ??, pulled up from the top bar menu"—hosts, filesystems present, aged honestly.
+The Field learns its third topology question, and the answer gets a surface. Today the Field knows what a host can do (the capability probe) and where its ZFS datasets sit (the topology read). What it cannot answer is the ground itself—a service-host profile uses plain ext4, and to pālana that filesystem does not exist. The mounts fact fixes this: every filesystem, not just ZFS, discovered on demand and remembered like every other fact. The host map renders it—the practitioner's ask, verbatim: "an info pane, like ??, pulled up from the top bar menu"—hosts, filesystems present, aged honestly.
 
 **Out of scope:** capacity (how full a filesystem is—a `df`-shaped fact, its own question, queued not built). The local machine's mounts in the map (the local row appears and says "this machine"—the Field's memory is remote memory, and growing local discovery into the Field is a bigger move than this ho needs). Pointing a pane from a map row (the field view owns the pointing verbs—if his hands want it here too, that is a feedback round). A probe-all sweep. Any polling, anywhere.
 
@@ -37,7 +37,7 @@ The Field learns its third topology question, and the answer gets a surface. Tod
 
 ### Decision 2 — The read keys on the kernel, not the flavor
 
-The committed direction said findmnt-shaped on GNU, with the BSD/BusyBox variants to decide or a degradation to name. The engineering answer dissolves the question: the mount table is the kernel's truth, not the userland's. On Linux—GNU and BusyBox alike—`cat /proc/mounts` reads the kernel's own table in a format the kernel documents: six space-separated fields, spaces in paths escaped as octal `\040`. One parser serves kanyo and zencat at identical fidelity, and BusyBox's vendor-trimmed flag roulette (ho-07.5's lesson) never enters the game because `cat` is the whole dependency. Everywhere else—Darwin, the real BSDs—`mount` answers in the stable `source on target (fstype, options)` shape, parsed by splitting at the first " on " and the last " (". `HostCapability.kernel` already carries the selector. No degradation to name: both paths carry the full four fields. Lines that fit neither shape are skipped—stray noise is not topology, the ZFS parse's own law.
+The committed direction said findmnt-shaped on GNU, with the BSD/BusyBox variants to decide or a degradation to name. The engineering answer dissolves the question: the mount table is the kernel's truth, not the userland's. On Linux—GNU and BusyBox alike—`cat /proc/mounts` reads the kernel's own table in a format the kernel documents: six space-separated fields, spaces in paths escaped as octal `\040`. One parser serves service-host and appliance-host at identical fidelity, and BusyBox's vendor-trimmed flag roulette (ho-07.5's lesson) never enters the game because `cat` is the whole dependency. Everywhere else—Darwin, the real BSDs—`mount` answers in the stable `source on target (fstype, options)` shape, parsed by splitting at the first " on " and the last " (". `HostCapability.kernel` already carries the selector. No degradation to name: both paths carry the full four fields. Lines that fit neither shape are skipped—stray noise is not topology, the ZFS parse's own law.
 
 ### Decision 3 — Mounts ride discover, the third exchange
 
@@ -72,7 +72,7 @@ Implementation on `claude-sonnet-4-6`, review and verification with the session�
 ### Done means
 
 - One probe records a host's mount table beside its datasets—Linux proven live against the container fixture, BSD proven live against this machine, BusyBox proven by corpus
-- kanyo-shaped ground—ext4, no zfs—renders in the map, which is the reason this ho exists
+- service-host-shaped ground—ext4, no zfs—renders in the map, which is the reason this ho exists
 - `F` and the titlebar glyph summon a panel that stays up while the panes work, and Esc puts it away
 - Pane rows at filesystem boundaries wear ◆ for datasets and ◇ for plain mounts
 - Verification rhythm green, coverage floor holds, `gh run list` consulted after push, no test mutates anything anywhere
@@ -81,7 +81,7 @@ Implementation on `claude-sonnet-4-6`, review and verification with the session�
 
 ## Phase 3 — Reflect
 
-**The design held, and the question that worried the Think phase dissolved.** The mount table is the kernel's truth, not the userland's. `cat /proc/mounts` served kanyo-class ext4 and zencat's vendor BusyBox at one fidelity, and the flag roulette ho-07.5 warned about never entered the game—`cat` was the whole dependency. koan's real table came back forty mounts where a fabricated corpus had imagined ten: virtiofs, efivarfs, iso9660, the overlay noise of a host that does real work. efivarfs classified system as intended, the unknown fstypes classified storage, and the unfamiliar showed rather than hid—the classifier's one law paid off. The map rendered koan's one hundred fifty-nine datasets grouped by pool, citadel-rex and mediapool and mu-karuna and rpool standing apart, `/` inside rpool where it lives.
+**The design held, and the question that worried the Think phase dissolved.** The mount table is the kernel's truth, not the userland's. `cat /proc/mounts` served a service-host ext4 profile and a constrained BusyBox profile at one fidelity, and the flag roulette ho-07.5 warned about never entered the game—`cat` was the whole dependency. The private storage host's table returned dozens of mounts where a fabricated corpus had imagined ten: virtiofs, efivarfs, iso9660, and the overlay noise of a host that does real work. efivarfs classified system as intended, the unknown fstypes classified storage, and the unfamiliar showed rather than hid—the classifier's one law paid off. The map rendered many datasets grouped under four synthetic pool names, with `/` inside the system pool where it lives.
 
 **The pinned panel was the right reading of "like ??".** He summoned it, probed a cold host in place, drove the panes while it floated—reference, not modal, the ask exactly. The f/F split held under his hands: `f` points the panes, `F` is the reference map, and "those work" ratified keeping them apart. The one confusion was never the model—round 2's fold landed in the `f` card and he looked for it in `F`. The fix was to land the tree in both, everywhere the shape repeats.
 

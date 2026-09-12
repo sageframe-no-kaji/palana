@@ -71,7 +71,7 @@ ho-9.8 Decisions 2, 3, 6 govern (read `ho-process/hos/ho-9.8-columns.md`). This 
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 scripts/sshd-fixture.sh start   # if not already up
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict

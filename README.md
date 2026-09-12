@@ -111,7 +111,7 @@ Not a management tool — management implies control. Not a monitoring tool — 
 
 pālana is the first tool of **Kṣetra-Ops**, a suite for tending homelab infrastructure, and it is governed by the suite's philosophy, **bīja**: no hidden causality, no automation without presence. Every principle above — the plan before the action, the on-demand discovery, the absence of a daemon — is that philosophy rendered as interaction design.
 
-It is part of [Sageframe](https://atmarcus.net), a body of self-built tools and methodology by Andrew Marcus, and it is designed and built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). The `ho-process/` directory is the public build record — seed, system design, and the documents that follow.
+It is part of [Sageframe](https://atmarcus.net), a body of self-built tools and methodology by Andrew Marcus, and it is designed and built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). The [`ho-process/`](ho-process/README.md) directory is the public build record — seed, system design, and the documents that follow.
 
 ## How It Works
 
@@ -204,7 +204,7 @@ swift build
 
 `swift test --enable-code-coverage` runs the suite. Format, lint, and build run pre-commit. The coverage floor is enforced in CI. Integration tests run against a local sshd container and a file-backed throwaway ZFS pool — never against live hosts.
 
-pālana is also an experiment in method: the full Kamae chain — seed, system design, this README, and the build that follows — is authored and executed by the agent under the practitioner's discipline, with the practitioner's hands reserved for the UI sessions. The record of whether that held is in `ho-process/`, in public.
+pālana is also an experiment in method: the full Kamae chain — seed, system design, this README, and the build that follows — is authored and executed by the agent under the practitioner's discipline, with the practitioner's hands reserved for the UI sessions. The record of whether that held is in [`ho-process/`](ho-process/README.md), in public.
 
 ## License
 

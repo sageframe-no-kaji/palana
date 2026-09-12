@@ -59,7 +59,7 @@ Seven components, sliced by experience and purpose, not by technical layer. Thes
                                    │ ssh
                  ┌─────────────────┼─────────────────┐
                  ▼                 ▼                 ▼
-               jodo              koan             chumon   ...
+               source-host              storage-host             new-host   ...
 ```
 
 Two lines in the diagram carry most of the architecture. The Workbench API line is the only thing the app and its plugins can see — everything above it is surface, everything below it is truth. The Conduit is the only door to the hosts — every fact discovered, every listing read, every byte moved passes through one component that does nothing but run the operator's own `ssh`. Both lines exist for the same reason: a boundary you can point at is a boundary you can test.
@@ -158,34 +158,34 @@ Four boundary statements hold the system's shape. Only the Conduit touches `ssh`
 
 A cross-host move, traced end to end.
 
-1. The operator's left pane sits on jodo at `/tank/sage/jodo/kanyo/archive`. The right pane sits on koan at `/rpool/sage/koan/cold`. 214 files are selected, 41.3GB. The move key goes down.
+1. The operator's left pane sits on source-host at `/pool/source/archive`. The right pane sits on storage-host at `/pool/destination/cold`. 214 files are selected, 41.3GB. The move key goes down.
 
 2. **The Surface** forwards intent to the Plan Engine — source pane state, destination pane state, operation. It composes nothing.
 
 3. **The Plan Engine** asks the Field for dataset boundaries at both paths. Source and destination are different datasets on different hosts. Classification: cross-host transfer. This is not a rename. It is a transfer followed by a delete, and the plan will say so.
 
-4. Both hosts are ZFS-capable, but the selection is a subtree of a dataset, not a whole dataset — `zfs send` is off the table. Transport: rsync host-to-host, agent-forwarded. The Field knows jodo can reach koan — probed once, remembered.
+4. Both hosts are ZFS-capable, but the selection is a subtree of a dataset, not a whole dataset — `zfs send` is off the table. Transport: rsync host-to-host, agent-forwarded. The Field knows source-host can reach storage-host — probed once, remembered.
 
 5. **The Plan** renders in the plan panel, monospace: the entries, 41.3GB total, the classification named, the transport named with its auth path, the exact rsync command that will run. In shape:
 
    ```
    move · cross-host transfer
    214 entries · 41.3 GB
-   jodo:/tank/sage/jodo/kanyo/archive → koan:/rpool/sage/koan/cold
+   source-host:/pool/source/archive → storage-host:/pool/destination/cold
    transport: rsync host-to-host · auth: agent-forwarded direct
 
    files are removed from the source after transfer
    do not modify either location during the move
    interruption may split files between them
 
-   ssh jodo 'rsync ... --checksum --remove-source-files ... koan:/rpool/sage/koan/cold/'
-   ssh jodo 'find ... -depth -type d -exec rmdir ...'
-   ssh jodo 'test that no selected source entry remains'
+   ssh source-host 'rsync ... --checksum --remove-source-files ... storage-host:/pool/destination/cold/'
+   ssh source-host 'find ... -depth -type d -exec rmdir ...'
+   ssh source-host 'test that no selected source entry remains'
    ```
 
    The panel's final face is ho-08's. The content is committed here: classification, transport, auth path, and the real commands, every time. The operator reads it. Enter.
 
-6. **The Transport** opens the Conduit session to jodo and runs rsync toward koan with `--info=progress2 --checksum --remove-source-files`. The command echoes into the plan panel's terminal surface as it runs — the same command the plan showed, now with its real output streaming under it. The checksum comparison prevents an existing same-size, same-time destination from standing in for different source bytes. Progress parses from remote stderr into a progress bar. Each source file is removed after its transfer; the bytes travel jodo → koan, and the operator's machine orchestrates without carrying them.
+6. **The Transport** opens the Conduit session to source-host and runs rsync toward storage-host with `--info=progress2 --checksum --remove-source-files`. The command echoes into the plan panel's terminal surface as it runs — the same command the plan showed, now with its real output streaming under it. The checksum comparison prevents an existing same-size, same-time destination from standing in for different source bytes. Progress parses from remote stderr into a progress bar. Each source file is removed after its transfer; the bytes travel source-host → storage-host, and the operator's machine orchestrates without carrying them.
 
 7. Completion removes emptied selected directories with `rmdir`, then checks every selected source pathname. Anything retained is named and the run fails rather than claiming a complete move. The operator contract is explicit before Enter: neither location may be modified during the operation, and interruption may split files between them.
 
@@ -213,14 +213,14 @@ All remote truth lives on the hosts and is re-derivable. The cache is a convenie
 The organizing data model is the ZFS topology itself — `pool/machine/service` — rendered by the Field. It already encodes the organism: which host, which function, where the data lives. pālana does not invent a schema over the field. It reads the one the field already has:
 
 ```
-jodo
-└── tank
-    └── sage/jodo
-        ├── kanyo          ← service dataset
+source-host
+└── pool-a
+    └── projects
+        ├── archive        ← service dataset
         └── ...
-koan
-└── rpool
-    └── sage/koan
+storage-host
+└── pool-b
+    └── backups
         ├── cold           ← service dataset
         └── ...
 ```
@@ -246,7 +246,7 @@ Pool, machine, service — the model as the seed states it. The field cache reco
 **Non-obvious evaluations:**
 
 - **System `ssh` over an embedded SSH library.** This is a philosophical choice wearing an engineering costume. An embedded library (libssh2, swift-nio-ssh) would give pālana its own transport stack — and its own key handling, its own config parsing, its own ProxyJump semantics, all subtly divergent from what the operator's terminal does. Wrapping the system binary means the operator's `~/.ssh/config`, keys, agent, and ProxyJump apply identically, every planned command is something the operator could read and run themselves, and there is no parallel transport stack to audit. The cost — parsing process output instead of calling an API — is exactly the discipline the Plan Engine wants anyway, because the plan's commands have to be real.
-- **Transport order is decided by the Plan Engine, not the operator.** Agent forwarding is the fast path — jodo authenticates to koan with the forwarded agent, the key never leaves the operator's machine. Proxying through the operator's machine is the fallback — slower, zero inter-host trust required. The operator doesn't choose. The plan names which path it will use, and the naming is the point: the choice is visible, not hidden.
+- **Transport order is decided by the Plan Engine, not the operator.** Agent forwarding is the fast path — source-host authenticates to storage-host with the forwarded agent, the key never leaves the operator's machine. Proxying through the operator's machine is the fallback — slower, zero inter-host trust required. The operator doesn't choose. The plan names which path it will use, and the naming is the point: the choice is visible, not hidden.
 - **`zfs send/receive` only when both ends are whole datasets.** Block-level, an order of magnitude faster for large moves — and meaningless for a subtree, which is a file-level operation. The Plan Engine's classification draws this line, the plan states it, and rsync carries everything the send stream can't.
 
 **Testing architecture.** The Conduit is a protocol, and that single seam carries the whole strategy:

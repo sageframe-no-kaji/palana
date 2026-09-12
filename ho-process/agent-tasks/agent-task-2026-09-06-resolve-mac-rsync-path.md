@@ -32,7 +32,7 @@ Measured on the practitioner's machine, 2026-09-06, mid-transfer:
 
 The same root cause produces a second visible symptom, which is how it was
 confirmed: remote paths came back inner-quoted
-(`'koan:'\''/citadel-rex/…'\'''`), the `remotePath` branch that only runs when
+(`'storage-host:'\''/pool-a/…'\'''`), the `remotePath` branch that only runs when
 `modernHere` is false.
 
 Nothing is broken — openrsync transfers correctly and the degrade is by design.
@@ -54,7 +54,7 @@ needed underneath it — without it the probe cannot *find* 3.4.1 to name.
 Scope is **local only, by design, not by timidity**. Remote hosts are probed
 over ssh with the remote's own non-interactive PATH, which is exactly the PATH
 the operator gets from `ssh host 'rsync …'`. Remote plans are already truthful,
-so they must stay byte-identical. Verified this session: `ssh koan` reports
+so they must stay byte-identical. Verified this session: `ssh storage-host` reports
 rsync 3.2.7 correctly today.
 
 Three couplings that will silently defeat a naive implementation:

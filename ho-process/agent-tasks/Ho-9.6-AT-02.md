@@ -61,7 +61,7 @@ App-target code carries no test target — decision truth is AT-01's. If URL-par
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

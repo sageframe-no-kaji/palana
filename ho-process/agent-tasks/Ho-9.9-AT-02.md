@@ -43,7 +43,7 @@ App-target code carries no test target (the SwiftPM wall)—the tested truth liv
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

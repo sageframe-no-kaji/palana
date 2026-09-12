@@ -66,7 +66,7 @@ Use a unique temp directory per test (the codebase's fixtures note: shared paths
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

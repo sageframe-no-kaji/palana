@@ -22,7 +22,7 @@ Practitioner decisions, 2026-09-06:
 - No setting controls bare-path scope. The same pasted address must mean the same thing on every installation.
 - `/path` and `~/path` mean this Mac, regardless of the focused pane or whether the path also exists remotely.
 - `local:/path` is explicitly local.
-- `koan:/path`, `koan:~/path`, and `koan:` explicitly name a remote host; an empty remote path means that host's home.
+- `storage-host:/path`, `storage-host:~/path`, and `storage-host:` explicitly name a remote host; an empty remote path means that host's home.
 - `:/path` is the explicit shorthand for the current pane's host.
 - The interface shows the resolved host before navigation.
 
@@ -61,13 +61,13 @@ Sequence this task after the full-review repair tasks `repair-ssh-configuration`
    - `local:/path`, `local:~/path`, and `local:` are explicit local addresses.
    - `host:/path`, `host:~/path`, and `host:` are explicit host addresses; empty path means `~`.
    - `:/path`, `:~/path`, and `:` use the current pane host; refuse with a specific error when the pane has no host.
-   - Preserve the existing colon-free bare-host shorthand (`koan` means `koan:~`) for compatibility. Other colon-free relative text is not newly interpreted as a local relative path.
+   - Preserve the existing colon-free bare-host shorthand (`storage-host` means `storage-host:~`) for compatibility. Other colon-free relative text is not newly interpreted as a local relative path.
 
 4. **Bare local means local only.** Remove the existence-based `resolveBarePath` local-then-remote fallback and its remote probe. A normalized bare path points to `PalanaCore.localHostName` directly; normal pane reading still decides whether it is a directory, a file to reveal in its parent, or absent.
 
 5. **Replace the go-to sheet's dual authority.** `GoToBar` becomes one address field rather than a host picker plus independent path field. Prefill it with the current pane's explicit address (`host:path`) so the existing location remains visible, but replacing it with a pasted bare path changes the resolved scope to local.
 
-6. **Show resolution before commit.** While the field contains a valid address, show a quiet resolved-scope line such as `this Mac · /Users/...`, `koan · /srv/...`, or `current pane: koan · /srv/...`. Show parse errors inline and disable Go until the address parses.
+6. **Show resolution before commit.** While the field contains a valid address, show a quiet resolved-scope line such as `this Mac · /Users/...`, `storage-host · /srv/...`, or `current pane: storage-host · /srv/...`. Show parse errors inline and disable Go until the address parses.
 
 7. **Do not perform shell expansion.** `$HOME`, command substitution, backticks, pipes, redirects, semicolons, and glob characters are never executed or expanded. They remain literal pathname characters only where the grammar already establishes a path; otherwise the parser refuses them as malformed host input.
 
@@ -75,10 +75,10 @@ Sequence this task after the full-review repair tasks `repair-ssh-configuration`
    - trailing newline and surrounding whitespace;
    - straight-quoted and smart-quoted local and remote addresses;
    - escaped spaces, quotes, backslashes, and apostrophes;
-   - `file:///Users/Andrew/My%20File`;
+   - `file:///Users/example/My%20File`;
    - `/tmp/a:b` remaining local;
    - `~/notes` and `~` resolving local;
-   - `koan:/tank`, `koan:~/notes`, and `koan:`;
+   - `storage-host:/tank`, `storage-host:~/notes`, and `storage-host:`;
    - `:/tank` with a remote, local, and absent current host;
    - `local:/Users` and `local:`;
    - matched quotes removed once while internal quotes remain;
@@ -122,7 +122,7 @@ Manual check after automated verification:
 1. Focus a pane on a remote host.
 2. Open `⇧⌘G` and paste a local Finder path surrounded by quotes and ending in a newline.
 3. Confirm the sheet shows `this Mac` before Go and the pane lands locally.
-4. Repeat with `koan:/...` and `:/...`; confirm each shows its resolved remote host before Go.
+4. Repeat with `storage-host:/...` and `:/...`; confirm each shows its resolved remote host before Go.
 
 **Do Not**
 

@@ -19,7 +19,7 @@ agent-tasks:
 
 # ho-9.4 — Favorites
 
-A file surface earns its second visit by remembering the first. The operator reaches the same handful of directories across a handful of hosts—koan's media pool, this Mac's projects, zencat's config—and types the address every time. Favorites remembers the location so the address bar doesn't have to. A location is a host and a path; a favorite is that pair, named, kept in `favorites.json` beside the session and the settings, jumped to with one act. Fourth on the Checkpoint 3 slate, first of the between-Workbench-and-ship run by the ratified order.
+A file surface earns its second visit by remembering the first. The operator reaches the same handful of directories across a handful of hosts—storage-host's media pool, this Mac's projects, appliance-host's config—and types the address every time. Favorites remembers the location so the address bar doesn't have to. A location is a host and a path; a favorite is that pair, named, kept in `favorites.json` beside the session and the settings, jumped to with one act. Fourth on the Checkpoint 3 slate, first of the between-Workbench-and-ship run by the ratified order.
 
 Two scopes, sealed in the slate: **host-bound** favorites belong to one host and surface in that host's context; **global** favorites are the cross-machine bookmark bar, jumpable from anywhere and switching the pane's host on the way. The distinction is presentation, not a different kind of thing—both are a host and a path. The engineering is one store; where each scope shows and how it feels is the hands session's to settle.
 
@@ -47,7 +47,7 @@ public struct Favorite: Codable, Identifiable, Sendable, Equatable {
 public enum FavoriteScope: String, Codable, Sendable { case host, global }
 ```
 
-A location is favorited at most once—`id` is `host:path`, and scope is a property you flip, not a second entry. `label` is nil in v1 and carries no editor; it exists so renaming favorites later is a field default, not a Codable migration. `path` is stored as the pane's own path, normalized by stripping a trailing slash except at root, so `koan:/tank/media` and `koan:/tank/media/` are one favorite. Equality is exact string after that trim.
+A location is favorited at most once—`id` is `host:path`, and scope is a property you flip, not a second entry. `label` is nil in v1 and carries no editor; it exists so renaming favorites later is a field default, not a Codable migration. `path` is stored as the pane's own path, normalized by stripping a trailing slash except at root, so `storage-host:/tank/media` and `storage-host:/tank/media/` are one favorite. Equality is exact string after that trim.
 
 ### Decision 2 — Persistence mirrors SessionStore exactly
 

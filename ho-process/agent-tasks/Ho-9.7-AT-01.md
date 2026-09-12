@@ -50,7 +50,7 @@ App-target only — no test target. The attributed-string builder is pure enough
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

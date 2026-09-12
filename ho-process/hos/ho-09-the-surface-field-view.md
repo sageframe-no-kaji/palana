@@ -22,7 +22,7 @@ agent-tasks:
 
 # ho-09 — The Surface: Field View
 
-The map, summoned. One keystroke brings the topology—machines, datasets, reachability—rendered instantly from what the Field remembers, every fact marked with when it was learned. Pick a node and a pane points there. Ask again and the Field looks again—the explicit re-probe ho-07.5 promised, the verb that clears zencat's stale flavor without deleting a file. Then it vanishes and the panes keep the whole window. The ho ends in the third UI/UX session, and Checkpoint 3 consolidates the findings from all three.
+The map, summoned. One keystroke brings the topology—machines, datasets, reachability—rendered instantly from what the Field remembers, every fact marked with when it was learned. Pick a node and a pane points there. Ask again and the Field looks again—the explicit re-probe ho-07.5 promised, the verb that clears appliance-host's stale flavor without deleting a file. Then it vanishes and the panes keep the whole window. The ho ends in the third UI/UX session, and Checkpoint 3 consolidates the findings from all three.
 
 **Out of scope:** services in the overlay—the field view does not promise more than the Field can answer, and services arrive with the services plugin, post-v1. Any polling—discovery stays on demand, ho-03's law. A probe-all verb—the operator probes the host he is asking about, one at a time. Host onboarding—the "add a host" surface mutates `~/.ssh/config` and gets its own Think phase at Checkpoint 3. Filtering the `github-*` aliases out of the topology—a real want, queued for the hands session to confirm before it becomes code. Type-to-filter in the overlay—the host list is small and the vocabulary should stay small until hands say otherwise.
 
@@ -30,7 +30,7 @@ The map, summoned. One keystroke brings the topology—machines, datasets, reach
 
 - Field view contents and summon key (deferred decision 8)—resolved here as engineering calls, validated by the practitioner's hands at session end. Summon, point a pane, dismiss—under two seconds end to end.
 
-**Carries from the sessions between:** the explicit re-probe control (ho-07.5 Decision 4—zencat's cache may still say BSD, and the interim answer was deleting `field-cache.json`). Dataset and mount-boundary indicators in the pane (queued at ho-07's close—rides the Field's facts). And the field-use docs owe one operator truth: `~` on a remote means the remote user's home, which on the fixture container is `/config`—read twice as a bug by the practitioner's own hands.
+**Carries from the sessions between:** the explicit re-probe control (ho-07.5 Decision 4—appliance-host's cache may still say BSD, and the interim answer was deleting `field-cache.json`). Dataset and mount-boundary indicators in the pane (queued at ho-07's close—rides the Field's facts). And the field-use docs owe one operator truth: `~` on a remote means the remote user's home, which on the fixture container is `/config`—read twice as a bug by the practitioner's own hands.
 
 ---
 
@@ -50,7 +50,7 @@ Rows come from `hosts()` and remembered facts, nothing else. `local` first, then
 
 ### Decision 4 — Remembered is an age, and `r` is the only way to make it younger
 
-Every fact group already carries `discoveredAt`—`Dated<Value>` is the whole staleness model, and this ho adds no second one. The host row wears one age—reachability's stamp, because every `discover` writes it—rendered relative and quiet ("just now," "3h ago," "2d ago") in `inkFaint`. `r` on any row re-probes that row's host through `Field.discover`: the row says "probing…" in place, the card updates when the answer lands, and an unreachable answer records as the typed fact it is—rust-colored detail, nothing thrown at the operator. This is the verb that heals zencat: `r`, one round trip, BusyBox replaces the remembered BSD, and the pane's next read resolves the corrected flavor from memory. No fan-out, no refresh-all—the no-polling law extended to its natural edge.
+Every fact group already carries `discoveredAt`—`Dated<Value>` is the whole staleness model, and this ho adds no second one. The host row wears one age—reachability's stamp, because every `discover` writes it—rendered relative and quiet ("just now," "3h ago," "2d ago") in `inkFaint`. `r` on any row re-probes that row's host through `Field.discover`: the row says "probing…" in place, the card updates when the answer lands, and an unreachable answer records as the typed fact it is—rust-colored detail, nothing thrown at the operator. This is the verb that heals appliance-host: `r`, one round trip, BusyBox replaces the remembered BSD, and the pane's next read resolves the corrected flavor from memory. No fan-out, no refresh-all—the no-polling law extended to its natural edge.
 
 ### Decision 5 — The outline is a pure value in the core, the Surface renders it
 
@@ -60,9 +60,9 @@ ho-07's law holds: everything that can be wrong is a pure value in the core. A `
 
 The queued indicator lands here because it rides the same facts the overlay renders. A row in a pane whose full path is a remembered dataset's mountpoint gets one quiet glyph in `inkFaint`—the boundary made visible where the operator is actually standing, not a second topology. The test is an exact mountpoint match against cached topology—a pure function, no probe, no promise when facts are absent. Which glyph is the hands session's question—the code commits the seam, the session prunes the mark.
 
-### Discovery (deferred to execution) — the overlay against the practitioner's real cache
+### Discovery (deferred to execution) — the overlay against the practitioner's private cache
 
-The fixture cache holds one container host and a throwaway pool. The practitioner's real `field-cache.json` holds koan, kanyo, zencat, and the `github-*` aliases that pollute the menu—the overlay renders whatever is there, and the hands session judges the rendering against the real shape, including whether the alias pollution earns its filter now.
+The fixture cache holds one container host and a throwaway pool. The practitioner's private cache was represented in this public record by synthetic storage, service, and appliance hosts plus the `github-*` aliases that polluted the menu—the overlay renders whatever is there, and the hands session judged the rendering against that shape, including whether the alias pollution earned its filter.
 
 ---
 
@@ -88,9 +88,9 @@ Each task carries its own verification—lint, build, the full suite—and lands
 
 ### Done means
 
-- `f` summons the topology from the real cache instantly, every fact aged, never-visited hosts named as such
+- `f` summons the topology from the private cache instantly, every fact aged, never-visited hosts named as such
 - Enter points the focused pane at a host or a mounted dataset and the overlay vanishes—under two seconds end to end
-- `r` re-probes one host in place—proven against the fixture, and proven in kind against zencat's stale-flavor shape by a recorded-facts test
+- `r` re-probes one host in place—proven against the fixture, and proven in kind against appliance-host's stale-flavor shape by a recorded-facts test
 - Dataset mountpoint rows in the pane wear the mark when topology is remembered, and nothing probes to earn it
 - The verification rhythm is green—lint, build, full suite, coverage floor—and the practitioner's feel feedback from the third session is recorded and carried to Checkpoint 3
 
@@ -98,15 +98,15 @@ Each task carries its own verification—lint, build, the full suite—and lands
 
 ## Phase 3 — Reflect
 
-**The design held, and the real cache did the judging.** The overlay rendered his cache instantly—koan at 159 datasets, kanyo at 18, the github aliases as honest rust refusals—and the grammar carried the session without a collision. What the Think phase didn't anticipate came from the map being honest about what it knows: the github rows prompted the filter question the ho had deliberately held, kanyo prompted "what about the ground that isn't ZFS," and both resolved into direction rather than code.
+**The design held, and the private cache did the judging.** The overlay rendered a large storage host, a smaller service host, and the github aliases as honest rust refusals, while the grammar carried the session without a collision. What the Think phase didn't anticipate came from the map being honest about what it knows: the github rows prompted the filter question the ho had deliberately held, the service host prompted "what about the ground that isn't ZFS," and both resolved into direction rather than code.
 
-**Decision review.** `f` drew no complaint. The in-window overlay held—no window machinery fought back. Decision 4 proved itself in anger: `r` on zencat traded the stale BSD for BusyBox in one keystroke, live, at 20:23—the cache shows the healing. And the config-as-control surface passed its deepest test unprompted: he asked "can I add to the field?", was told the ▾ menu edits `~/.ssh/config`, and chumon appeared in the map with 10 datasets before the session ended—edit, reload, probe, no code helping. His verdict on the mechanism, verbatim: "i love that that is the control."
+**Decision review.** `f` drew no complaint. The in-window overlay held—no window machinery fought back. Decision 4 proved itself in anger: `r` on the synthetic appliance host traded the stale BSD for BusyBox in one keystroke—the cache shows the healing. And the config-as-control surface passed its deepest test unprompted: he asked "can I add to the field?", was told the ▾ menu edits `~/.ssh/config`, and a newly configured host appeared in the map with its dataset tree before the session ended—edit, reload, probe, no code helping. His verdict on the mechanism, verbatim: "i love that that is the control."
 
 **Delegation review.** All three agent tasks ran on `claude-sonnet-4-6` and came back spec-faithful and green. What the session's review caught is the argument for keeping review at the top tier: probe refusals held in state but never rendered (silence where the law says failures render in place), the missing scroll-follow (ho-07's first hands finding, about to be rediscovered), a cancellation seam opened by making `commit` async, and a type-body budget tipped at the brink.
 
 **What broke that the tests didn't catch—and what CI caught that the session nearly didn't.** CI had been red since ho-08's first code push: the rsync floor compose carried `-s`, which openrsync refuses—hidden locally by this Mac's real rsync 3.4.1, declared "openrsync-safe" by the very test that asserted it. Under it a deeper incompatibility: rsync ≥3.2.4 protects remote args by default, so a floor-style inner quote arrives literal on a modern client—no one flag set serves an unknown local rsync. The errata makes `rsyncDirect` ask for both binaries known (unknown falls to tar), keeps `-s` for the modern compose, and inner-quotes remote paths for the floor. The routing live tests now probe this machine's own rsync and feed it as fact—modern proven here, floor proven on the runner, the self-skip the ho-08 record imagined replaced by a floor that works. Two session lessons re-learned the hard way: `swift test | tail` masked a failing run at one commit (the build record's own recorded trap), and the ho-08 scratch timing probe flaked against a mutating `/private/tmp`—deleted per its own header, and the finding that a directory changing between the listing's name pass and stat batch refuses as `malformedListing` is queued as a real v1 edge.
 
-**The third session's queue, for Checkpoint 3.** Sealed direction: `# palana: hide` comments in `~/.ssh/config` as the host filter, edited by a settings surface for operators who don't speak ssh config. Settings live in pālana's own popped panels, mirrored to the Apple Settings scene; a settings gear joins the titlebar when they exist. The host map grows from a mounts fact (`findmnt`-shaped, new Field vocabulary)—all hosts, filesystems present including the non-ZFS ground kanyo asked about—surface decided when it opens. Built mid-session as round 1: the titlebar `?`. Standing from earlier sessions: create/rename, favorites, drag-and-drop, host onboarding, help-card cmd-swallow verify, design polish, the NSMenu refit.
+**The third session's queue, for Checkpoint 3.** Sealed direction: `# palana: hide` comments in `~/.ssh/config` as the host filter, edited by a settings surface for operators who don't speak ssh config. Settings live in pālana's own popped panels, mirrored to the Apple Settings scene; a settings gear joins the titlebar when they exist. The host map grows from a mounts fact (`findmnt`-shaped, new Field vocabulary)—all hosts, filesystems present including the non-ZFS ground service-host asked about—surface decided when it opens. Built mid-session as round 1: the titlebar `?`. Standing from earlier sessions: create/rename, favorites, drag-and-drop, host onboarding, help-card cmd-swallow verify, design polish, the NSMenu refit.
 
 ---
 

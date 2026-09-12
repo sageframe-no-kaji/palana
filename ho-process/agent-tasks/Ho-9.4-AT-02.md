@@ -66,7 +66,7 @@ ho-9.4 Decisions 3–5 govern (read `ho-process/hos/ho-9.4-favorites.md`). AT-01
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

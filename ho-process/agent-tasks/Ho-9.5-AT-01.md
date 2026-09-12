@@ -69,7 +69,7 @@ Reuse the config-text fixtures the existing parser tests use. Assert long text b
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

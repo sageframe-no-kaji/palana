@@ -54,7 +54,7 @@ ho-9.2 Decisions 1–3 govern (read `ho-process/hos/ho-9.2-settings.md`). Read `
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

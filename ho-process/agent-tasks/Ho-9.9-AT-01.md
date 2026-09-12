@@ -57,7 +57,7 @@ ho-9.9 Decisions 1, 4, 5 govern (read `ho-process/hos/ho-9.9-collision-facts.md`
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

@@ -19,7 +19,7 @@ bare-host-alias input keep their exact current behavior.
 colon → split into `host:path`; no colon → the entire input is treated as a
 host alias (`point(host: typed, path: "~")` — the "bare host means home"
 feature). A pasted Mac path like
-`/Users/atmarcus/Library/CloudStorage/GoogleDrive-atmarcus@gmail.com/My Drive/Job Search/2026/57`
+`/Users/example/Library/CloudStorage/ExampleDrive/Project Files/Document`
 contains no colon, so it is never considered as a path, and the operator is
 forced to type `local:` first. Observed in the field 2026-07-27.
 
@@ -62,7 +62,7 @@ cannot begin with `/`, which is what makes the classification unambiguous.
    revealed (the 53de538 behavior). Not found locally and the pane is on a
    remote host: same check there, same directory/file handling. Found
    nowhere: a refusal in the existing error surface naming both attempts —
-   e.g. `not found on this Mac or koan: <path>`. `hostPath` and `host`
+   e.g. `not found on this Mac or storage-host: <path>`. `hostPath` and `host`
    cases behave byte-for-byte as today.
 
 3. **One funnel** — the pane address field and the go-to sheet (⇧⌘G) both
@@ -70,7 +70,7 @@ cannot begin with `/`, which is what makes the classification unambiguous.
    has its own parse, unify; do not leave two parsers.
 
 4. **Tests.** Classifier (Core): the Google Drive path above (spaces, `@`,
-   no colon) → `barePath`; `koan:/tank` → `hostPath`; `koan` → `host`;
+   no colon) → `barePath`; `storage-host:/tank` → `hostPath`; `storage-host` → `host`;
    `local:/Users` → `hostPath`; `/` → `barePath`; `~/notes` → not
    `barePath`. Resolution (app target, with existence checks injectable):
    local hit → local point; local miss + remote hit → remote point; both

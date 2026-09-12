@@ -51,7 +51,7 @@ ho-9.6 Decisions 1, 3, 5 govern (read `ho-process/hos/ho-9.6-drag-and-drop.md`).
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

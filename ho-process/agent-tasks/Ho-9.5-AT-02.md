@@ -61,7 +61,7 @@ ho-9.5 Decisions 3–6 govern (read `ho-process/hos/ho-9.5-host-onboarding.md`).
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

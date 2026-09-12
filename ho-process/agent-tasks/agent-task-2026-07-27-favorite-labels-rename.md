@@ -18,7 +18,7 @@ panel's existing ⌘Z.
 **Problem**
 
 Starred paths render as raw paths. A deep location — observed in the field:
-`…s@gmail.com/My Drive/Job Search/2026` — truncates into an unreadable tail
+`…ExampleDrive/Project Files` — truncates into an unreadable tail
 in the panel. The path is the favorite's identity, but it's a poor display
 name for exactly the locations worth starring.
 

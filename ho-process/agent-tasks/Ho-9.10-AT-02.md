@@ -57,7 +57,7 @@ App-target code carries no test target. AT-01 carries the watcher truth. Anythin
 **Verification**
 
 ```bash
-cd /Users/atmarcus/Vaults/sageframe-no-kaji-dev/palana
+cd /path/to/palana
 swift-format lint --recursive --strict Sources Tests
 swiftlint lint --strict
 swift build

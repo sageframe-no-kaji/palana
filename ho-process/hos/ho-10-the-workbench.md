@@ -34,7 +34,7 @@ The reshaping, named plainly: the overview's ho-10 (Phase 4) reads "Plugin API +
 
 ### Decision 1 — A button aims at the focused pane's host
 
-The Workbench reads the ground the operator is already looking at. A tool button runs against `focusedPane.state.host`—no new host-picker ceremony, no parallel selector. The field view and the host map answer "which hosts exist"; the focused pane answers "which host now," and the strip follows it. Local is a host—the `LocalConduit` path ho-07's promotion built—so `df` and `zpool status` read this Mac exactly as they read koan. When the focus moves, the strip re-gates against the new host (Decision 2). A dedicated Workbench target—pinning the strip to a host regardless of pane—is a refinement the hands may ask for; v1 follows the focus.
+The Workbench reads the ground the operator is already looking at. A tool button runs against `focusedPane.state.host`—no new host-picker ceremony, no parallel selector. The field view and the host map answer "which hosts exist"; the focused pane answers "which host now," and the strip follows it. Local is a host—the `LocalConduit` path ho-07's promotion built—so `df` and `zpool status` read this Mac exactly as they read storage-host. When the focus moves, the strip re-gates against the new host (Decision 2). A dedicated Workbench target—pinning the strip to a host regardless of pane—is a refinement the hands may ask for; v1 follows the focus.
 
 ### Decision 2 — Each tool declares a capability, gated against the Field's facts
 
@@ -43,7 +43,7 @@ A button offers itself only when the focused host can answer it. Each tool verb 
 - `df` requires reachability alone—POSIX everywhere, BusyBox included.
 - `zfs list` and `zpool status` require zfs present—the same signal the field card renders as its `zfs` token, the presence of a `zfsTopology` fact after discovery.
 
-A button whose requirement the focused host does not meet renders disabled with a plain reason in reach of the cursor—"koan has no zfs," "not yet probed—the Field hasn't reached this host." An unprobed host disables the zfs buttons and names why; the operator probes from the field or the map, exactly as today. No silent absence—the map's law that a count is never hidden governs here too. Gating asks the Field's cached facts and never probes on its own; the tool is a reader, not a discoverer.
+A button whose requirement the focused host does not meet renders disabled with a plain reason in reach of the cursor—"storage-host has no zfs," "not yet probed—the Field hasn't reached this host." An unprobed host disables the zfs buttons and names why; the operator probes from the field or the map, exactly as today. No silent absence—the map's law that a count is never hidden governs here too. Gating asks the Field's cached facts and never probes on its own; the tool is a reader, not a discoverer.
 
 ### Decision 3 — The terminal grows the strip; the Workbench is the plan panel come of age
 

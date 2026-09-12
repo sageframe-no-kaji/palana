@@ -21,9 +21,9 @@ The specific pain points:
 
 **No file manager does server-side operations.** Every existing tool — ForkLift, Finder, Transmit, Cyberduck, every SFTP client — routes file operations through the operator's machine. Drag a file from server A to server B and the bytes travel: A → your laptop → B. The interface presents a direct operation while executing an indirect one. For small files this is invisible. For a 100GB camera dataset being moved between ZFS pools, it's catastrophic — slow, fragile, and the failure mode is baffling because the operator didn't know their machine was in the middle.
 
-**ZFS cross-dataset moves are invisible landmines.** In a ZFS homelab where every service has its own dataset (`rpool/sage/machine/service`), moving files between datasets is not a rename — it's a cross-dataset copy plus delete. Every file manager treats it as a rename and either fails silently or produces corrupt results. The operator discovers this after the fact. The actual quote from the working session that motivated this project: _"Moving between datasets — that's what fucking kills me!"_
+**ZFS cross-dataset moves are invisible landmines.** In a ZFS homelab where every service has its own dataset (`system-pool/sage/machine/service`), moving files between datasets is not a rename — it's a cross-dataset copy plus delete. Every file manager treats it as a rename and either fails silently or produces corrupt results. The operator discovers this after the fact. The actual quote from the working session that motivated this project: _"Moving between datasets — that's what fucking kills me!"_
 
-**The field has no map.** An operator with eleven machines, dozens of services, multiple ZFS pools, backup replication schedules, and a config vault has no single view of what exists where. The topology lives in their head, supplemented by markdown files they update manually. Sanoid is running on three machines but the operator has to SSH into each one to check. Syncoid replication is pushing to koan but the operator has to read timer logs to know if it's current. The coverage matrix — which datasets are backed up by which systems — is a manually-maintained table that goes stale the day it's written.
+**The field has no map.** An operator with several machines, dozens of services, multiple ZFS pools, backup replication schedules, and a config vault has no single view of what exists where. The topology lives in their head, supplemented by markdown files they update manually. Sanoid is running across several machines but the operator has to SSH into each one to check. Syncoid replication is pushing to a storage host but the operator has to read timer logs to know if it's current. The coverage matrix — which datasets are backed up by which systems — is a manually-maintained table that goes stale the day it's written.
 
 **Dashboards watch. Nobody works.** Grafana shows metrics. Portainer shows containers. Cockpit shows system state. None of them let you _do_ anything that matters at the infrastructure level. You can restart a container in Portainer but you can't move a ZFS dataset. You can see disk usage in Cockpit but you can't manage the dataset topology. The dashboards are security cameras. The garden needs a gardener with tools.
 
@@ -41,7 +41,7 @@ Dual-pane (ForkLift) or single-pane file managers for Mac. SFTP, SCP, various pr
 
 Terminal-based dual-pane file managers. Fast, keyboard-driven, powerful for local operations.
 
-**Where they fall short:** Single-machine tools. They work beautifully on the machine you're SSHed into. They don't see the field. You can run MC on koan and manage koan's files, but you can't see jodo at the same time. The dual-pane model is right — left pane source, right pane destination — but the scope is wrong.
+**Where they fall short:** Single-machine tools. They work beautifully on the machine you're SSHed into. They don't see the field. You can run MC on storage-host and manage storage-host's files, but you can't see source-host at the same time. The dual-pane model is right — left pane source, right pane destination — but the scope is wrong.
 
 ### Portainer / Cockpit / Proxmox UI
 
@@ -116,7 +116,7 @@ pālana is a workbench with a plugin architecture. Each tool is a view into a di
 
 ## 4. Audience
 
-**Primary: Me.** Eleven machines. Dozens of services. Multiple ZFS pools. Backup replication across hosts. A config vault managed by Forteller. I need this tool because the alternative is a dozen terminal tabs and my memory.
+**Primary: Me.** Several machines. Dozens of services. Multiple ZFS pools. Backup replication across hosts. A config vault managed by Forteller. I need this tool because the alternative is a dozen terminal tabs and my memory.
 
 **Secondary: ZFS homelab operators** with 5–20 machines who have hit the cross-dataset move problem, who are frustrated by file managers that lie about network operations, and who want a single surface for tending their infrastructure. This is a smaller audience than Forteller's — the ZFS requirement narrows it — but the people who need it are passionate and vocal.
 
@@ -180,7 +180,7 @@ Forteller remains Python. pālana invokes it as a subprocess — `fortell deploy
 
 _Primary: SSH agent forwarding._ pālana connects to host A with agent forwarding enabled. The Forteller key is in the operator's SSH agent. When pālana tells host A to rsync to host B, host A authenticates to B using the forwarded agent. The key never leaves the operator's machine. This is the fast path — standard multi-hop SSH, no key distribution between hosts.
 
-_Fallback: Proxy through the operator's machine._ pālana opens SSH connections to both A and B and tunnels the data through itself via ProxyJump. Basho becomes the control plane. Slightly slower but requires zero inter-host trust — each host only needs to trust the operator's Forteller key, which it already does.
+_Fallback: Proxy through the operator's machine._ pālana opens SSH connections to both A and B and tunnels the data through itself via ProxyJump. operator-host becomes the control plane. Slightly slower but requires zero inter-host trust — each host only needs to trust the operator's Forteller key, which it already does.
 
 Agent forwarding first. Proxy fallback automatic. The operator doesn't choose — pālana tries the fast path and degrades gracefully.
 
@@ -276,7 +276,7 @@ Planned plugins: Mujō (backup/resilience), ZFS management (dataset CRUD, snapsh
 
 3. **Plan before enact.** No destructive operation executes without first showing what will happen. Dry-run is the default, not a mode.
 
-4. **The field is legible.** Opening pālana shows me my eleven machines, their datasets, their services, and their state. I can navigate the entire topology without opening a terminal.
+4. **The field is legible.** Opening pālana shows me the fleet, its datasets, its services, and its state. I can navigate the entire topology without opening a terminal.
 
 5. **Forteller works inside pālana.** Every fortell command — deploy, beam, summon, status, ask — is available within the workbench. Same behavior, GUI surface.
 

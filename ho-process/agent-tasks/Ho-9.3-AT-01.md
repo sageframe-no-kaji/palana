@@ -16,7 +16,7 @@ PalanaCore learns the mounts fact: a `Mount` vocabulary, a `MountTable` composer
 
 **Context**
 
-The Field answers two topology questions today: capability (one probe round trip, `CapabilityProbe`) and ZFS datasets (`ZFSTopology`, read when zfs is present). This task adds the third: the full mount table, every filesystem, so non-ZFS ground (kanyo's ext4) becomes visible. ho-9.3 Decision 2 keys the read on `HostCapability.kernel`, not the userland flavor—`/proc/mounts` is the kernel's own table and serves GNU and BusyBox identically, `mount` serves Darwin and the BSDs. Facts are discovered on demand, cached, and aged—no polling exists in this system. Read `Sources/PalanaCore/Field/` before writing: `Field.swift`, `HostFacts.swift`, `ZFSTopology.swift`, `CapabilityProbe.swift` establish every pattern this task follows, including DocC on all public declarations (swift-format strict enforces it).
+The Field answers two topology questions today: capability (one probe round trip, `CapabilityProbe`) and ZFS datasets (`ZFSTopology`, read when zfs is present). This task adds the third: the full mount table, every filesystem, so non-ZFS ground (service-host's ext4) becomes visible. ho-9.3 Decision 2 keys the read on `HostCapability.kernel`, not the userland flavor—`/proc/mounts` is the kernel's own table and serves GNU and BusyBox identically, `mount` serves Darwin and the BSDs. Facts are discovered on demand, cached, and aged—no polling exists in this system. Read `Sources/PalanaCore/Field/` before writing: `Field.swift`, `HostFacts.swift`, `ZFSTopology.swift`, `CapabilityProbe.swift` establish every pattern this task follows, including DocC on all public declarations (swift-format strict enforces it).
 
 **Files**
 
@@ -76,8 +76,8 @@ The Field answers two topology questions today: capability (one probe round trip
 
 5. **`MountTableTests`** — inline corpora, one test per truth:
 
-   - A kanyo-shaped `/proc/mounts`: ext4 root, `/proc`, `/sys`, `cgroup2`, several `overlay` lines, a `tmpfs`, an `nfs4` line—asserting counts per `MountKind`, field extraction, and that overlay classifies as system.
-   - A zencat-shaped BusyBox `/proc/mounts`: squashfs root read-only (`ro` in options), tmpfs, proc—asserting `readOnly` and classification.
+   - A service-host-shaped `/proc/mounts`: ext4 root, `/proc`, `/sys`, `cgroup2`, several `overlay` lines, a `tmpfs`, an `nfs4` line—asserting counts per `MountKind`, field extraction, and that overlay classifies as system.
+   - An appliance-host-shaped BusyBox `/proc/mounts`: squashfs root read-only (`ro` in options), tmpfs, proc—asserting `readOnly` and classification.
    - An escape line: `/dev/sdb1 /mnt/with\040space ext4 rw 0 0` decodes to `/mnt/with space`.
    - A Darwin `mount` corpus: `/dev/disk3s1s1 on / (apfs, sealed, local, read-only, journaled)`, `devfs on /dev (devfs, local, nobrowse)`, `map auto_home on /System/Volumes/Data/home (autofs, automounted, nobrowse)`—asserting the space-carrying source parses whole and root reads `readOnly`.
    - A FreeBSD-shaped line: `zroot/ROOT/default on / (zfs, local, noatime, nfsv4acls)`.

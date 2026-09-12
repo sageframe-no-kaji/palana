@@ -153,7 +153,7 @@ This order is intentional. Process cancellation and verification are shared foun
 
 - SEVERITY: Minor
 - WHERE: `Sources/PalanaCore/Field/SSHConfigParser.swift:147`, `Sources/PalanaCore/Field/SSHConfigParser.swift:186`
-- ISSUE: Tokenization does not implement inline SSH-config comments. `Host jodo # production` produces bogus aliases `#` and `production`, while commented text after `Include` is treated as more include paths.
+- ISSUE: Tokenization does not implement inline SSH-config comments. `Host source-host # production` produces bogus aliases `#` and `production`, while commented text after `Include` is treated as more include paths.
 - FIX: Stop tokenization at an unquoted `#` according to OpenSSH configuration rules.
 
 - SEVERITY: Minor

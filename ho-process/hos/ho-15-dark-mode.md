@@ -9,7 +9,7 @@ shape: ha
 phase: 6 — the v1 polish
 builds-on:
   - design/palana-design-system.md
-reference-implementation: /Users/atmarcus/Vaults/sageframe-no-kaji-dev/sharibako/Sources/Sharibako/Color+Theme.swift
+reference-implementation: /path/to/reference-app/Sources/ReferenceApp/Color+Theme.swift
 ---
 
 # ho-15 — Dark mode
@@ -21,9 +21,9 @@ design gamble**: the sibling project **Sharibako** already built dark mode for
 candidate to bring pālana in line later." We bring pālana in line.
 
 **Reference (read it first):**
-`~/Vaults/sageframe-no-kaji-dev/sharibako/Sources/Sharibako/Color+Theme.swift`
+`/path/to/reference-app/Sources/ReferenceApp/Color+Theme.swift`
 (the `RGBA` / `Palette` / dynamic-`NSColor` pattern) and
-`.../Sharibako/AppAppearance.swift` (the System/Light/Dark model).
+`.../ReferenceApp/AppAppearance.swift` (the System/Light/Dark model).
 
 **Out of scope:** per-view dark overrides; theming the terminal (SwiftTerm renders
 its own colors). Keep the warm register — never pure black/white, one moss accent,

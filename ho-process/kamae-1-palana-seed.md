@@ -29,9 +29,9 @@ The specific pain points, unchanged since March because nothing has fixed them:
 
 **No file manager does server-side operations.** Every existing tool — ForkLift, Finder, Transmit, Cyberduck, every SFTP client — routes file operations through the operator's machine. Drag a file from server A to server B and the bytes travel A → laptop → B. The interface presents a direct operation while executing an indirect one. For a 100GB camera dataset moving between ZFS pools, that indirection is catastrophic — slow, fragile, and baffling when it fails, because the operator didn't know their machine was in the middle. The interface lied.
 
-**ZFS cross-dataset moves are invisible landmines.** In a homelab where every service has its own dataset (`rpool/sage/machine/service`), moving files between datasets is not a rename — it is a cross-dataset copy plus delete. Every file manager treats it as a rename and either fails silently or produces corrupt results. The operator discovers this after the fact. The quote from the working session that started this project: _"Moving between datasets — that's what fucking kills me!"_
+**ZFS cross-dataset moves are invisible landmines.** In a homelab where every service has its own dataset (`system-pool/sage/machine/service`), moving files between datasets is not a rename — it is a cross-dataset copy plus delete. Every file manager treats it as a rename and either fails silently or produces corrupt results. The operator discovers this after the fact. The quote from the working session that started this project: _"Moving between datasets — that's what fucking kills me!"_
 
-**The field has no map.** Eleven machines, dozens of services, multiple ZFS pools, replication schedules, a config vault — and no single view of what exists where. Sanoid runs on three machines and checking it means three SSH sessions. The coverage matrix — which datasets are backed up by which systems — is a manually-maintained table that goes stale the day it's written.
+**The field has no map.** Several machines, dozens of services, multiple ZFS pools, replication schedules, a config vault — and no single view of what exists where. Sanoid runs across several machines and checking it means separate SSH sessions. The coverage matrix — which datasets are backed up by which systems — is a manually-maintained table that goes stale the day it's written.
 
 **Dashboards watch. Nobody works.** Grafana shows the disk filling. Then you open a terminal, SSH in, and do the work somewhere the dashboard can't see. The watching surface and the working surface are completely disconnected. The dashboards are security cameras. The garden needs a gardener with tools.
 
@@ -39,7 +39,7 @@ The specific pain points, unchanged since March because nothing has fixed them:
 
 **ForkLift / Transmit / Cyberduck.** Mac file managers with network protocols. All operations route through the client. Host-to-host transfer is impossible. No ZFS awareness, no plan-before-execute, and the interaction is a little ratchet — the seams show. Designed for uploading files to a web server, not for tending a distributed homelab.
 
-**yazi / ranger / Midnight Commander.** Terminal file managers. yazi in particular gets the feel right — keyboard-first, fluid, fast. But they are single-machine tools. You can run yazi on koan and manage koan's files. You cannot see jodo at the same time, and you cannot move a file between them. The keyboard grammar is right — the scope is wrong.
+**yazi / ranger / Midnight Commander.** Terminal file managers. yazi in particular gets the feel right — keyboard-first, fluid, fast. But they are single-machine tools. You can run yazi on storage-host and manage storage-host's files. You cannot see source-host at the same time, and you cannot move a file between them. The keyboard grammar is right — the scope is wrong.
 
 **Finder.** No dual pane. That absence is brutal, and it is twenty years old.
 
@@ -51,7 +51,7 @@ The specific pain points, unchanged since March because nothing has fixed them:
 
 ## 3. The Vision
 
-pālana is the place where you sit down and tend your infrastructure. You open it and see two panes — left pane pointed at one host, right pane at another. You summon the field view, pick a dataset on jodo, and the pane goes there. You select 40GB of camera archives and press the key for move. pālana does not move anything. It shows you a plan: these files, this size, source dataset and destination dataset named, cross-dataset copy-plus-delete declared as what it is, transport chosen — rsync host-to-host, or `zfs send` if both ends are datasets. The plan's data sits in a quiet monospace block, because that is where the truth lives. You read it. You press Enter. The bytes travel jodo → koan directly, and your laptop orchestrates without ever touching them.
+pālana is the place where you sit down and tend your infrastructure. You open it and see two panes — left pane pointed at one host, right pane at another. You summon the field view, pick a dataset on source-host, and the pane goes there. You select 40GB of camera archives and press the key for move. pālana does not move anything. It shows you a plan: these files, this size, source dataset and destination dataset named, cross-dataset copy-plus-delete declared as what it is, transport chosen — rsync host-to-host, or `zfs send` if both ends are datasets. The plan's data sits in a quiet monospace block, because that is where the truth lives. You read it. You press Enter. The bytes travel source-host → storage-host directly, and your laptop orchestrates without ever touching them.
 
 You close pālana. It stops. Nothing watches while you're away, nothing mutates behind your back. The field has been tended, and you know what you did because you did it deliberately — the tool showed you what it would do before it did it.
 
@@ -63,7 +63,7 @@ You close pālana. It stops. Nothing watches while you're away, nothing mutates 
 
 ## 4. Audience
 
-**Primary: me.** Eleven machines, dozens of services, multiple ZFS pools, replication across hosts. The alternative is a dozen terminal tabs and my memory.
+**Primary: me.** Several machines, dozens of services, multiple ZFS pools, replication across hosts. The alternative is a dozen terminal tabs and my memory.
 
 **Secondary: ZFS homelab operators on Macs** — people with 5 to 20 machines who have hit the cross-dataset move problem, who know their file manager lies about network operations, and who want one surface for the work. The ZFS requirement narrows this audience. The people inside it are passionate and unserved.
 
@@ -167,7 +167,7 @@ _Opinions, not commitments. Kamae 2 commits._
 
 3. **Plan before enact.** No operation executes without first showing what will happen. The plan's commands are real — an operator could copy them into a terminal and get the same result.
 
-4. **The field is legible.** One keystroke shows eleven machines, their datasets, their state. The whole topology navigable without opening a terminal.
+4. **The field is legible.** One keystroke shows the fleet, its datasets, and its state. The whole topology is navigable without opening a terminal.
 
 5. **The plugin API works.** The ZFS tool is built on the same interface any future plugin would use, without modifying core. The second plugin follows the pattern the first one proved.
 
