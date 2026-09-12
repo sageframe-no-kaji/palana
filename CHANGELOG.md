@@ -3,6 +3,20 @@
 All notable changes to pālana. Versions are git tags; the binary is a signed,
 notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
+## v0.8-beta — progressive moves
+
+- File moves across filesystems and hosts use content-checked rsync, removing
+  each source file only after its destination copy lands. Empty source
+  directories are removed afterward, and anything retained is reported.
+- The plan warns before enactment that files move progressively and that neither
+  location should change during the operation.
+- The release build produces a universal Apple Silicon and Intel application
+  without depending on SwiftPM's broken combined-architecture Metal path.
+- About, Settings, and bug reports identify the build as `0.8.0 beta` while the
+  update comparator retains the numeric bundle version.
+
+Signed, notarized, and stapled for macOS 14 or later.
+
 ## v1.0 — the first full release
 
 pālana is a native Mac app for tending a homelab: calm, keyboard-first,
@@ -49,6 +63,8 @@ Signed and notarized (Developer ID), macOS 14+. Source open under GPL-3.0.
 
 | Tag | What it marked |
 |---|---|
+| v0.8-beta | Progressive content-checked file moves and the repaired universal release build. |
+| v0.7-beta | Feature-complete beta after the whole-codebase safety review. |
 | v0.6 | The v1 polish — universal text-scale, dark mode, drag-into-folders, the preview pane. |
 | v0.5 | The Workbench (ZFS tool, pane mode, mount seam) and the interactive terminal. |
 | v0.4-beta | First public build — signed, notarized `.dmg`. |

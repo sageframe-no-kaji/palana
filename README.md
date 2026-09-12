@@ -4,9 +4,9 @@
 
 > pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs supported file operations server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
 
-**Status:** **v0.7-beta** — feature-complete and in public beta through **4 November 2026**. The headless engine and the app surface are both there: dual-pane SSH file management, plan → enact, cross-host transfers, the field view, the ZFS workbench (dataset tools, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. A native, signed, notarized macOS app. Source open under GPL-3.0.
+**Status:** **v0.8-beta** — feature-complete and in public beta through **4 November 2026**. The headless engine and the app surface are both there: dual-pane SSH file management, plan → enact, cross-host transfers, the field view, the ZFS workbench (dataset tools, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. A native, signed, notarized macOS app. Source open under GPL-3.0.
 
-**▸ Get pālana.** The beta is a signed, notarized macOS app on the [releases page](https://github.com/sageframe-no-kaji/palana/releases/latest) (macOS 14 or later), free to download through 4 November 2026. At 1.0 the built app is $29 once — building the source is free at every version. **Feedback and bugs** go to the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues); file a real one during the beta and the 1.0 build is yours at no charge.
+**▸ Get pālana.** [Download v0.8-beta](https://github.com/sageframe-no-kaji/palana/releases/download/v0.8-beta/palana-0.8.0-beta.dmg), a signed and notarized app for macOS 14 or later, free through 4 November 2026. At 1.0 the built app is $29 once — building the source is free at every version. **Feedback and bugs** go to the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues); file a real one during the beta and the 1.0 build is yours at no charge.
 
 ---
 
@@ -145,7 +145,7 @@ The full design — every decision with its rationale — is public in the build
 
 | | |
 |---|---|
-| **Now** | v0.7-beta — feature-complete, in public beta through 4 November 2026. The headless engine (Conduit, Field, Listing, Plan Engine, Transports) at ~97% coverage, and the whole surface on it: dual panes, plan → enact, cross-host transfers, the field view, the ZFS workbench (datasets, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. Signed, notarized, with a launch update check. |
+| **Now** | v0.8-beta — feature-complete, in public beta through 4 November 2026. The headless engine (Conduit, Field, Listing, Plan Engine, Transports) at ~97% coverage, and the whole surface on it: dual panes, plan → enact, cross-host transfers, the field view, the ZFS workbench (datasets, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. Signed, notarized, with a launch update check. |
 | **Next** | Snapshot-history — browse a file's past like a directory, restore with a copy. The homelab's time machine. |
 | **Later** | An operations queue; more Workbench tools as the practice demands. |
 
@@ -163,7 +163,7 @@ Items the architecture is prepared for but v1 does not include:
 
 ## Download
 
-**pālana v0.7-beta** — a signed and notarized macOS app, no App Store — is on the [releases page](https://github.com/sageframe-no-kaji/palana/releases/latest). Drag it to Applications and open it; it runs on macOS 14 or later. The beta is free to download through 4 November 2026. At 1.0 the built app costs $29 once, covering 1.x updates, with no subscription, no license key, and no account. Prefer to build it yourself? That is free at every version — the source is here, GPL-3.0, see [Development](#development).
+**[Download pālana v0.8-beta](https://github.com/sageframe-no-kaji/palana/releases/download/v0.8-beta/palana-0.8.0-beta.dmg)** — a signed and notarized macOS app, no App Store. Drag it to Applications and open it; it runs on macOS 14 or later. The beta is free to download through 4 November 2026. At 1.0 the built app costs $29 once, covering 1.x updates, with no subscription, no license key, and no account. Prefer to build it yourself? That is free at every version — the source is here, GPL-3.0, see [Development](#development).
 
 ## Requirements
 

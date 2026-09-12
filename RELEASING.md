@@ -7,14 +7,13 @@ build product in a `.app` by hand. No Xcode project.
 ## The sequence
 
 1. **Build + sign + notarize** — run the build script locally, test the DMG
-2. **Upload the DMG to Payhip** — this is the download (the paid binary)
-3. **Push the tag + a notes-only GitHub Release** — the public version marker
-4. **Update the site** — `palana.sageframe.net` carries the buy button + changelog
+2. **Push the tag + GitHub Release** — attach the beta DMG and publish it as Latest
+3. **Update the site** — link Download directly to the versioned DMG asset
 
-> The **binary is sold on Payhip**, not attached to a public GitHub download.
-> The GitHub Release is notes-only (tag + changelog + a link to the site); the
-> in-app update check reads that tag for the version and points the operator at
-> the site. Keep them in lockstep: a new tag means a new Payhip upload.
+> Public beta binaries are attached directly to GitHub Releases. Publish the beta
+> as GitHub's normal Latest release, not as a GitHub prerelease: the in-app update
+> check reads GitHub's latest-release endpoint. The release name and tag still
+> identify the build as beta.
 
 ---
 
@@ -63,45 +62,34 @@ Open the DMG, drag to Applications, launch it, and click through before publishi
   invalidates it. The script signs the executable, then the bundle.
 - **Use `ditto` for DMG staging, not `cp -r`** — `cp -r` follows symlinks and
   corrupts the bundle, breaking the signature and notarization.
-- **Notarize the DMG, not the app** — submit the `.dmg` to notarytool.
-- **Staple after notarization** — `xcrun stapler staple dist/<name>.dmg`.
+- **Notarize both layers** — notarize and staple the app before placing it in
+  the DMG, then notarize and staple the DMG.
 - **Hardened runtime, empty entitlements** — `scripts/entitlements.plist` is
   deliberately empty (pure Swift, no dynamically-loaded code). Add an entitlement
   only when a concrete capability needs it, with a comment saying why.
 
 ---
 
-## Step 2 — Tag
+## Step 2 — Tag and publish the beta
 
 ```bash
 git push origin main
-git tag v<version>          # e.g. v0.4-beta
+git tag -a v<version> -m "pālana <version>"  # e.g. v0.8-beta
 git push origin v<version>
-```
-
----
-
-## Step 2 — Upload to Payhip
-
-The verified `dist/palana-<version>.dmg` is the product. Upload it to the Payhip
-listing as the new version's file. This is what buyers download.
-
-## Step 3 — Tag + a notes-only GitHub Release
-
-```bash
-git push origin main
 gh release create v<version> \
+    dist/palana-<numeric-version>-beta.dmg \
+    --verify-tag \
+    --latest \
     --title "pālana <version>" \
     --notes-file packaging/release-notes-<version>.md
 ```
 
-**No binary is attached** — the notes point at `palana.sageframe.net` (Payhip).
-The in-app update check reads this release's tag for the version, so a tag with no
-release is invisible to it; always cut the release. Pre-1.0 builds are
-`--prerelease`.
+Do not pass `--prerelease` for the public beta. GitHub excludes prereleases from
+the latest-release endpoint that pālana checks on launch.
 
-## Step 4 — The site
+## Step 3 — The site
 
-Update `palana.sageframe.net` (the `sageframe-dharma/palana` site): the download/
-buy button to the new Payhip version, and the changelog. The Help menu, About,
-and the update announce all point here.
+Update `palana.sageframe.net` (the `sageframe-dharma/palana` site): point the
+primary button directly at the versioned GitHub DMG asset, and point release
+notes at the exact GitHub release page. The Help menu, About, and update announce
+all point to the site.
