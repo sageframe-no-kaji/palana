@@ -325,6 +325,7 @@ struct FavoritesContent: View {
                     let groups = FavoritesOutline.groups(
                         from: favoritesModel.all,
                         collapsed: panelModel.collapsed)
+                    let numbers = FavoritesOutline.numbers(from: favoritesModel.all)
                     if groups.isEmpty {
                         emptyState
                     } else {
@@ -332,7 +333,8 @@ struct FavoritesContent: View {
                             FavoritesGroupView(
                                 group: group,
                                 panelModel: panelModel,
-                                actions: actions
+                                actions: actions,
+                                numbers: numbers
                             ) {
                                 panelModel.toggle(key: group.key)
                             }
@@ -375,6 +377,7 @@ struct FavoritesContent: View {
         ("r", "renames"),
         ("8", "stars"),
         ("tab", "switches"),
+        ("⌘1–9", "jumps"),
         ("*", "opens"),
     ]
 
@@ -396,7 +399,8 @@ struct FavoritesContent: View {
                 .help(
                     "esc closes the column · r renames the favorite under the cursor · "
                         + "8 stars the focused pane's directory · tab switches which pane a "
-                        + "jump lands in · * opens and closes this column")
+                        + "jump lands in · ⌘1–9 jumps to that numbered favorite · "
+                        + "* opens and closes this column")
         }
     }
 

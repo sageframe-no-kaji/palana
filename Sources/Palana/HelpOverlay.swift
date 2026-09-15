@@ -119,7 +119,8 @@ struct HelpOverlay: View {
             HelpRow(keys: "⇧⌘G", what: "go to host : path"),
             HelpRow(keys: "⇧⌘L", what: "operations log"),
             HelpRow(keys: "8", what: "star highlighted entry"),
-            HelpRow(keys: "⌘8", what: "star this folder"),
+            HelpRow(keys: "⇧⌘8", what: "star this folder"),
+            HelpRow(keys: "⌘1 – ⌘9", what: "open favorite 1–9 in this pane"),
         ])
 
     private static let terminalReadsSection = HelpSection(

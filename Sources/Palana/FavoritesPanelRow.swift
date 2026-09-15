@@ -49,6 +49,8 @@ struct FavoritesGroupView: View {
     let panelModel: FavoritesPanelModel
     /// The operations a row can reach — jump, unstar, scope, label.
     let actions: FavoritesPanelActions
+    /// Each numbered favorite's ⌘ number, keyed by favorite id — whole-list order.
+    var numbers: [String: Int] = [:]
     /// Called when the operator taps the disclosure chevron.
     let onToggle: () -> Void
 
@@ -99,7 +101,8 @@ struct FavoritesGroupView: View {
 
     @ViewBuilder private var favoriteRows: some View {
         ForEach(group.favorites) { fav in
-            FavoriteRowView(favorite: fav, panelModel: panelModel, actions: actions)
+            FavoriteRowView(
+                favorite: fav, panelModel: panelModel, actions: actions, number: numbers[fav.id])
         }
     }
 }
@@ -114,6 +117,8 @@ struct FavoriteRowView: View {
     let panelModel: FavoritesPanelModel
     /// The operations this row can reach — jump, unstar, scope, label.
     let actions: FavoritesPanelActions
+    /// The ⌘ number that opens this favorite — nil past the ninth.
+    var number: Int?
 
     @State private var hovering = false
     /// When this row's name was last clicked — the double-click guard reads it.
@@ -141,6 +146,13 @@ struct FavoriteRowView: View {
                 if hovering || isSelected {
                     scopeToggleButton
                     unstarButton
+                }
+                if let number {
+                    Text("⌘\(number)")
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.inkFaint)
+                        .help("⌘\(number) opens this favorite in the focused pane")
                 }
             }
         }

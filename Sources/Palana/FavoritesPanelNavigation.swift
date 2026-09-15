@@ -38,6 +38,14 @@ extension PalanaSession {
             favorites.undo()
             return true
         }
+        // ⌘1–⌘9 — with the column holding the keyboard, a numbered favorite
+        // lands where the column's arrows aim, same as ⏎ on its row.
+        if let number = Grammar.token(for: event).flatMap(FavoritesOutline.number(forChord:)) {
+            if let fav = FavoritesOutline.favorite(number: number, in: favorites.all) {
+                favPanelJump(fav)
+            }
+            return true
+        }
         let rows = FavoritesOutline.flatRows(
             from: favorites.all, collapsed: favoritesPanelModel.collapsed)
         guard !rows.isEmpty else { return false }
@@ -221,6 +229,15 @@ extension PalanaSession {
     func chooseFavorite(_ favorite: Favorite, for side: SessionSnapshot.Side) {
         let pane = side == .left ? left : right
         pane.point(host: favorite.host, path: favorite.path)
+    }
+
+    /// Opens favorite N — ⌘1–⌘9 — in the focused pane.
+    ///
+    /// Numbered in the favorites panel's display order across every group,
+    /// open or collapsed. A number past the list's end moves nothing.
+    func openNumberedFavorite(_ number: Int) {
+        guard let favorite = FavoritesOutline.favorite(number: number, in: favorites.all) else { return }
+        focusedPane.point(host: favorite.host, path: favorite.path)
     }
 
     /// Promotes or demotes a favorite's scope in place.

@@ -3,6 +3,15 @@
 All notable changes to pālana. Versions are git tags; the binary is a signed,
 notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
+## Unreleased
+
+- ⌘1–⌘9 open the first nine favorites in the focused pane, numbered in the
+  favorites panel's order (Global first, then each host). The panel shows each
+  row's number; with the panel holding the keyboard, the number jumps where the
+  panel's arrows aim.
+- Starring the current folder moves from ⌘8 to ⇧⌘8 — the shifted 8 is `*`, the
+  favorites key. `8` still stars the highlighted entry.
+
 ## v0.8-beta — progressive moves
 
 - File moves across filesystems and hosts use content-checked rsync, removing

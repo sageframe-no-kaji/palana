@@ -91,6 +91,49 @@ public enum FavoritesOutline {
         return rows
     }
 
+    // MARK: - Numbers
+
+    /// How many favorites carry a number — ⌘1 through ⌘9.
+    ///
+    /// ⌘0 stays the text-zoom reset, so the numbers stop at nine. The list
+    /// itself is uncapped; favorites past the ninth are simply unnumbered.
+    public static let numberedCount = 9
+
+    /// The favorites ⌘1–⌘9 reach, in the panel's display order.
+    ///
+    /// Every group counts, open or collapsed, so a number names the same
+    /// favorite whichever host the operator stands on and however the
+    /// column is folded.
+    ///
+    /// - Parameter favorites: The flat, insertion-ordered favorites list.
+    /// - Returns: At most ``numberedCount`` favorites; index 0 is ⌘1.
+    public static func numbered(from favorites: [Favorite]) -> [Favorite] {
+        Array(groups(from: favorites, collapsed: []).flatMap(\.favorites).prefix(numberedCount))
+    }
+
+    /// The favorite a number reaches — nil outside 1…9 or past the list's end.
+    public static func favorite(number: Int, in favorites: [Favorite]) -> Favorite? {
+        let reachable = numbered(from: favorites)
+        guard number >= 1, number <= reachable.count else { return nil }
+        return reachable[number - 1]
+    }
+
+    /// Each numbered favorite's number, keyed by favorite id.
+    ///
+    /// A duplicated id keeps its first number rather than trapping.
+    public static func numbers(from favorites: [Favorite]) -> [String: Int] {
+        Dictionary(numbered(from: favorites).enumerated().map { ($1.id, $0 + 1) }) { first, _ in first }
+    }
+
+    /// The number a grammar chord token names — `cmd-1` through `cmd-9` — or nil.
+    public static func number(forChord token: String) -> Int? {
+        guard token.hasPrefix("cmd-") else { return nil }
+        let digit = token.dropFirst(4)
+        guard digit.count == 1, let number = Int(digit), (1...numberedCount).contains(number)
+        else { return nil }
+        return number
+    }
+
     // MARK: - Builder
 
     /// Builds the display-ready groups for the favorites column.

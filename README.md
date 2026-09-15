@@ -81,7 +81,8 @@ Five rule groups — learn the rules and the keys generate themselves.
 | `⇧⌘G` | go to host : path |
 | `⇧⌘L` | operations log |
 | `8` | star highlighted entry |
-| `⌘8` | star this folder |
+| `⇧⌘8` | star this folder |
+| `⌘1 – ⌘9` | open favorite 1–9 in this pane (the favorites panel's order) |
 
 **families** — sequence prefixes
 

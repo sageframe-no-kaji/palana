@@ -668,13 +668,19 @@ extension PalanaSession {
 // MARK: - Help, settings, and field overlay keys
 
 extension PalanaSession {
-    /// Global chords — settings and the text zoom.
+    /// Global chords — settings, the text zoom, and the numbered favorites.
     ///
     /// Fired regardless of overlay or focus, and extracted from `handle` to
     /// keep that method within the complexity limit. Not private: ho-11's
     /// shell-mode stand-down (`PalanaSession+Shell.swift`) reuses it so
     /// `cmd-,`/menus keep working while the PTY holds the panel.
     func handleGlobalChord(_ token: String) -> Bool {
+        // ⌘1–⌘9 open a numbered favorite. Consumed even past the list's end,
+        // so an unassigned number is quiet rather than a system beep.
+        if let number = FavoritesOutline.number(forChord: token) {
+            openNumberedFavorite(number)
+            return true
+        }
         switch token {
         case "cmd-,":
             fieldVisible = false
@@ -695,7 +701,10 @@ extension PalanaSession {
             TextScale.shared.reset()
         case "cmd-k":
             operation.clearTranscript()
-        case "cmd-8":
+        case "cmd-shift-*", "cmd-shift-8":
+            // ⇧⌘8 — the shifted 8 is `*`, the favorites key; ⌘8 went to the
+            // numbered favorites. macOS reports the shifted character, so the
+            // grammar names it cmd-shift-*; the digit form is the belt.
             starFocusedDirectory()
         case "cmd-left":
             focusedPane.historyBack()
