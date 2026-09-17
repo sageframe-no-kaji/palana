@@ -99,10 +99,20 @@ struct FavoritesGroupView: View {
             .contentShape(Rectangle())
     }
 
+    /// The rows, each told which favorite follows it.
+    ///
+    /// A drop below a row lands before that next favorite — nil at the end of
+    /// the group, which the core reads as "last". The row needs no more of the
+    /// group than its own successor.
     @ViewBuilder private var favoriteRows: some View {
-        ForEach(group.favorites) { fav in
+        let favorites = group.favorites
+        ForEach(Array(favorites.enumerated()), id: \.element.id) { index, fav in
             FavoriteRowView(
-                favorite: fav, panelModel: panelModel, actions: actions, number: numbers[fav.id])
+                favorite: fav,
+                panelModel: panelModel,
+                actions: actions,
+                number: numbers[fav.id],
+                nextID: index + 1 < favorites.count ? favorites[index + 1].id : nil)
         }
     }
 }
@@ -119,8 +129,16 @@ struct FavoriteRowView: View {
     let actions: FavoritesPanelActions
     /// The ⌘ number that opens this favorite — nil past the ninth.
     var number: Int?
+    /// The favorite that follows this one in the group — nil when this is last.
+    ///
+    /// A drop on this row's lower half lands before it.
+    var nextID: String?
 
     @State private var hovering = false
+    /// True while a dragged favorite hovers this row.
+    @State private var isDropTarget = false
+    /// The row's measured height — the drop's upper/lower half turns on it.
+    @State private var rowHeight: CGFloat = 22
     /// When this row's name was last clicked — the double-click guard reads it.
     @State private var lastClickAt: Date?
     /// The armed-but-not-yet-open rename, waiting out a possible second click.
@@ -162,10 +180,47 @@ struct FavoriteRowView: View {
             RoundedRectangle(cornerRadius: 5)
                 .fill(Theme.accent.opacity(isSelected ? 0.18 : 0))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(Theme.accent.opacity(isDropTarget ? 0.8 : 0), lineWidth: 1)
+        )
+        .background(heightReader)
         .id(cursorID)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .contextMenu { rowMenu }
+        // The payload is the favorite's id as plain text. A custom drag type
+        // would need a declared UTType, and this binary has no bundle to
+        // declare one in — the pane drags learned that the hard way (ho-9.10).
+        .draggable(favorite.id) { dragPreview }
+        .dropDestination(for: String.self) { items, location in
+            guard let dragged = items.first else { return false }
+            // Upper half lands before this row, lower half after it.
+            actions.move(dragged, location.y > rowHeight / 2 ? nextID : favorite.id)
+            return true
+        } isTargeted: { targeted in
+            isDropTarget = targeted
+        }
+    }
+
+    /// Measures the row so a drop can tell its upper half from its lower.
+    private var heightReader: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear { rowHeight = proxy.size.height }
+                .onChange(of: proxy.size.height) { _, height in rowHeight = height }
+        }
+    }
+
+    /// What the cursor carries while a favorite is being dragged.
+    private var dragPreview: some View {
+        Text(favorite.displayTitle)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.ink)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 5).fill(Theme.ground))
     }
 
     /// The row's name — the label when it has one, `host:path` when it does not.

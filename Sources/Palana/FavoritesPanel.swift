@@ -116,6 +116,11 @@ struct FavoritesPanelActions {
     let setScope: (String, FavoriteScope) -> Void
     /// Commit a name field (id, label — nil clears the label).
     let setLabel: (String, String?) -> Void
+    /// Move a favorite before another (id, target — nil sends it to the group's end).
+    ///
+    /// Defaulted so a caller that never reorders — a test rig, a preview —
+    /// builds without wiring one.
+    var move: (String, String?) -> Void = { _, _ in }
 
     /// Commits whatever name field is open on the panel, if one is.
     ///
@@ -377,6 +382,7 @@ struct FavoritesContent: View {
         ("r", "renames"),
         ("8", "stars"),
         ("tab", "switches"),
+        ("⌥↑↓", "reorders"),
         ("⌘1–9", "jumps"),
         ("*", "opens"),
     ]
@@ -399,7 +405,9 @@ struct FavoritesContent: View {
                 .help(
                     "esc closes the column · r renames the favorite under the cursor · "
                         + "8 stars the focused pane's directory · tab switches which pane a "
-                        + "jump lands in · ⌘1–9 jumps to that numbered favorite · "
+                        + "jump lands in · ⌥↑ and ⌥↓ move the favorite under the cursor "
+                        + "within its group, as a drag does · "
+                        + "⌘1–9 jumps to that numbered favorite · "
                         + "* opens and closes this column")
         }
     }

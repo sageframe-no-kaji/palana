@@ -57,6 +57,14 @@ extension PalanaSession {
             return true
         }
         let currentRow = rows[cursorIndex]
+        // ⌥↑ / ⌥↓ — reorder within the group, the keyboard's half of the drag.
+        // Checked before the plain arrows so the cursor does not walk instead.
+        if event.modifierFlags.contains(.option), keyCode == 126 || keyCode == 125 {
+            if case .favorite(let fav) = currentRow {
+                favorites.move(id: fav.id, by: keyCode == 126 ? -1 : 1)
+            }
+            return true
+        }
         let arrowConsumed = handleFavoritesPanelArrow(
             keyCode: keyCode,
             hasShift: hasShift,
@@ -257,6 +265,9 @@ extension PalanaSession {
                 setScope: { [weak self] id, scope in self?.favorites.setScope(id: id, scope) },
                 setLabel: { [weak self] id, label in
                     self?.favorites.setLabel(id: id, label: label)
+                },
+                move: { [weak self] id, target in
+                    self?.favorites.move(id: id, before: target)
                 }))
     }
 }

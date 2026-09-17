@@ -73,6 +73,52 @@ public struct FavoritesList: Codable, Sendable, Equatable {
         all[index].scope = scope
     }
 
+    /// Moves a favorite to sit before `target`, or last when `target` is nil.
+    ///
+    /// Reordering happens **within one group only** — the favorite's own
+    /// scope and host. A target in another group is refused, so a drag can
+    /// never promote, demote, or change hosts; those stay with
+    /// ``setScope(id:_:)``. The group's slots in `all` are rewritten in
+    /// place, so every other group keeps its position and the panel's
+    /// section order never moves under a drag.
+    ///
+    /// - Parameters:
+    ///   - id: The favorite being moved.
+    ///   - target: The favorite it should precede; nil sends it to the group's end.
+    public mutating func move(id: String, before target: String?) {
+        guard id != target, let moved = all.first(where: { $0.id == id }) else { return }
+        let slots = all.indices.filter { all[$0].scope == moved.scope && all[$0].host == moved.host }
+        var members = slots.map { all[$0] }
+        // A target outside this group is refused — the drag lands nowhere.
+        if let target, !members.contains(where: { $0.id == target }) { return }
+        guard let from = members.firstIndex(where: { $0.id == id }) else { return }
+        members.remove(at: from)
+        let insertion = target.flatMap { id in members.firstIndex { $0.id == id } } ?? members.count
+        members.insert(moved, at: insertion)
+        for (slot, favorite) in zip(slots, members) {
+            all[slot] = favorite
+        }
+    }
+
+    /// Moves a favorite one place up (-1) or down (+1) within its own group.
+    ///
+    /// Clamped at the group's ends: the first favorite cannot move up, the
+    /// last cannot move down. Any other offset than ±1 walks that many
+    /// places and stops at the boundary.
+    public mutating func move(id: String, by offset: Int) {
+        guard offset != 0, let moved = all.first(where: { $0.id == id }) else { return }
+        let members = all.filter { $0.scope == moved.scope && $0.host == moved.host }
+        guard let from = members.firstIndex(where: { $0.id == id }) else { return }
+        let destination = max(0, min(members.count - 1, from + offset))
+        guard destination != from else { return }
+        // Moving down lands *before* the favorite past the destination.
+        let target =
+            destination + 1 < members.count && destination > from
+            ? members[destination + 1].id
+            : (destination > from ? nil : members[destination].id)
+        move(id: id, before: target)
+    }
+
     /// Sets or clears a favorite's display label in place.
     ///
     /// The text is trimmed; nil, empty, or whitespace-only clears the label and

@@ -85,6 +85,22 @@ final class FavoritesModel {
         persist()
     }
 
+    /// Moves a favorite before `target` within its own group (nil: to the end).
+    ///
+    /// One undo step per drop, like every other mutation here.
+    func move(id: String, before target: String?) {
+        snapshot()
+        list.move(id: id, before: target)
+        persist()
+    }
+
+    /// Moves a favorite one place up (-1) or down (+1) within its own group.
+    func move(id: String, by offset: Int) {
+        snapshot()
+        list.move(id: id, by: offset)
+        persist()
+    }
+
     // MARK: - Undo
 
     /// Pops the last pre-mutation snapshot and restores it.

@@ -9,6 +9,10 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
   favorites panel's order (Global first, then each host). The panel shows each
   row's number; with the panel holding the keyboard, the number jumps where the
   panel's arrows aim.
+- Favorites reorder by drag inside the panel, and by ⌥↑ / ⌥↓ on the row under
+  the cursor. A favorite moves within its own group — Global or one host — so a
+  drag never changes scope or host, and the sections never shuffle. The ⌘
+  numbers follow the new order, and ⌘Z undoes a move.
 - Starring the current folder moves from ⌘8 to ⇧⌘8 — the shifted 8 is `*`, the
   favorites key. `8` still stars the highlighted entry.
 
