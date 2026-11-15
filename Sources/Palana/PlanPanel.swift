@@ -90,6 +90,9 @@ struct PlanPanel: View {
                                         planBlock(plan)
                                     }
                                     transcript
+                                    if operation.phase == .failed, operation.renameCommitOffer != nil {
+                                        RenameCommitOfferView(accept: operation.acceptRenameCommit)
+                                    }
                                 }
                                 Color.clear.frame(height: 1).id("panel-bottom")
                             }
