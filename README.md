@@ -2,198 +2,170 @@
 
 *Tend your field.*
 
-> pālana is a place to sit down and tend your infrastructure. A native Mac app — calm, keyboard-first, dual-pane — that plans every operation before enacting it, runs supported file operations server-side over SSH, and speaks ZFS natively. Select the files, press the key, read the plan, press Enter. The bytes travel host to host and your machine orchestrates without ever carrying them. A plugin workbench grows with the practice — the ZFS tool first, the rest as tending demands. It runs when you open it and stops when you close it. Nothing watches while you're away.
+pālana is a native Mac file manager for the machines you run yourself. It has two panes, and each pane can show this Mac or any host in your `~/.ssh/config`. Before a file operation runs, pālana composes a plan and shows it to you: what will change, which machine will carry the data, and the exact commands. Press Enter to run the plan, or Esc to dismiss it. When the hosts support it, a transfer between two servers runs directly from one to the other, and your Mac sends only the command. On hosts that have ZFS, pālana also shows datasets and snapshots and plans ZFS operations the same way. pālana runs while you have it open. It installs no background process.
 
-**Status:** **v0.8-beta** — feature-complete and in public beta through **4 November 2026**. The headless engine and the app surface are both there: dual-pane SSH file management, plan → enact, cross-host transfers, the field view, the ZFS workbench (dataset tools, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. A native, signed, notarized macOS app. Source open under GPL-3.0.
+**Status:** v1.0, the first full release. A signed and notarized universal app for macOS 14 or later. The source is open under GPL-3.0.
 
-**▸ Get pālana.** [Download v0.8-beta](https://github.com/sageframe-no-kaji/palana/releases/download/v0.8-beta/palana-0.8.0-beta.dmg), a signed and notarized app for macOS 14 or later, free through 4 November 2026. At 1.0 the built app is $29 once — building the source is free at every version. **Feedback and bugs** go to the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues); file a real one during the beta and the 1.0 build is yours at no charge.
+**Get pālana:** the app is at [palana.sageframe.net](https://palana.sageframe.net). The build costs US $29 once and includes all 1.x updates. There is no account, license key, or activation. Building from source is free at every version; see [Development](#development). Report bugs and send feedback through the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues).
 
 ---
 
-## What's Broken
+## The problem
 
-There is no place to sit down and tend a homelab.
+Mac file managers that connect to servers over SFTP, such as Transmit, copy between two servers by relaying the data through the Mac. It travels from server A to the laptop and then to server B. The interface shows one copy, but the laptop's network link, sleep, and uptime are now part of the transfer. For a large archive moving between two machines in the same rack, that route is slow, and a failure is hard to diagnose if you did not know the laptop was in the middle.
 
-Every Mac file manager that speaks a network protocol — ForkLift, Transmit, Cyberduck — relays file operations through your machine. Drag a file from server A to server B and the bytes travel A → laptop → B. The interface presents a direct operation while executing an indirect one. For a 100GB archive moving between ZFS pools, that indirection is catastrophic — slow, fragile, and baffling when it fails, because you didn't know your machine was in the middle. The interface lied.
+ZFS adds a second problem. When each service has its own dataset, two directories that look like neighbors can be separate filesystems. A move between them is not a rename: the data is copied and the source is removed, with the duration and the failure modes of a copy. You need to know which kind of move you are starting before it starts.
 
-ZFS makes it worse. When every service has its own dataset, moving files between datasets is not a rename — it is a copy plus delete wearing a rename's clothes. File managers treat it as a rename and either fail silently or produce corrupt results. You discover this after the fact.
+A homelab with a dozen machines and several pools often has no single view that shows them together. A monitoring dashboard reports that a disk is filling, and then the work happens in a stack of terminal tabs. pālana keeps a record of each host's capabilities, pools, and datasets and shows it beside the panes where you do the work.
 
-And the field has no map. Eleven machines, dozens of services, multiple pools — visible only as a stack of SSH tabs held together by memory. Grafana shows the disk filling, and then you open a terminal and do the work somewhere the graph can't see. Dashboards watch. Nobody works.
+## What pālana does
 
-## What pālana Does
+- **Plans before actions.** Copy, move, delete, rename, create, and touch each compose a plan before anything runs. The plan shows the number of entries and their total size, what kind of operation it is (for example, a move on the same disk, a move across storage boundaries, or a move to another machine), the source and destination, any destination entries it would replace or merge, how the data travels and authenticates, and every command in the order it will run. Enter runs the plan. Esc dismisses it. Dry-run is not a mode you remember to turn on: every operation starts as one.
+- **Server-to-server transfers.** A copy or move between two SSH hosts runs on the source host and sends the data directly to the destination when three conditions hold: the source has rsync 3.1 or later, the destination has rsync, and the source can authenticate to the destination through your forwarded SSH agent. Agent forwarding lets the source host ask your Mac's SSH agent to sign the login, so your private key stays on the Mac. When those conditions do not hold, a copy streams through your Mac with tar, and a move that needs a copy is refused. You do not choose the route. The plan names it.
+- **Moves that remove the source.** A move within one filesystem uses `mv`. A move across filesystems, datasets, or hosts uses rsync with `--checksum --remove-source-files`: rsync compares file contents and removes each source file after it transfers that file. pālana then removes the empty source directories and names any source entry that remains. Before you press Enter, the plan warns you not to modify either location during the move, because an interruption can leave files split between them.
+- **ZFS where ZFS exists.** On hosts with ZFS, pālana reads datasets and mountpoints and uses them to decide what kind of move an operation is. When the selection is a whole dataset and the destination directory is a dataset mountpoint on another ZFS host, a copy or move uses `zfs send -R` piped into `zfs receive -u` instead of copying files. `Z` switches a pane to the host's dataset tree, where you can create, destroy, rename, snapshot, and roll back, set or inherit mountpoints, and mount or unmount. Each of these is a plan. Hosts without ZFS show none of it.
+- **The field.** `f` opens a card that lists this Mac and each host from your SSH config, with its reachability, the age of its facts, its userland (GNU, BSD, or BusyBox), whether it has rsync, ZFS, and passwordless sudo, and its pools and datasets. Enter on a row points the focused pane there and closes the card. `F` opens a floating host map that adds each host's mounts. pālana reads these facts when you ask (`r` on a host row). Nothing probes on a schedule.
+- **The plan panel.** Before Enter, the panel at the bottom of the window shows the plan. After Enter, it shows each command as it starts and streams its output, with a progress bar when rsync or `zfs send` reports progress. You can compare the commands you approved with the commands that ran. Each enacted run is also appended to `~/Library/Application Support/palana/operations.log`.
+- **A shell per host.** `` ⌘` `` opens an interactive terminal for the focused host in the panel, through your own `ssh`, so full-screen programs such as vim and htop work. Each host keeps its own shell. `` ⌘` `` moves the keyboard between the shell and the panes.
+- **Preview.** `v` turns the right pane into a preview of the file under the left pane's cursor: text (up to the first 256 KB) in a scrollable monospace view, images and PDFs through Quick Look, and an information card for every file. Remote text, images, PDFs, and SVG files are previewed too; remote binary files are fetched only when they are 25 MB or smaller.
+- **Remote editing.** Opening a remote file copies it to a local folder and opens it in its Mac application. When you save, pālana uploads the change if the remote file has not changed since it was fetched. A changed or missing remote file always asks first. Settings can require confirmation for every upload.
+- **Favorites, drag and drop, and settings.** Star folders and open them with `⌘1`–`⌘9`. Drag entries between panes, or from Finder, to compose a copy plan; hold Option to compose a move. Settings add or hide hosts in your SSH config, set rsync exclusions and extra flags, and choose the appearance. `⌘+`, `⌘−`, and `⌘0` zoom the whole window.
 
-- **Plan → enact.** Every operation — copy, move, delete — compiles to a plan first: the entries with their sizes, the classification (within-dataset rename, cross-dataset copy-plus-delete, cross-host transfer), the transport with its auth path, the exact commands that will run. Dry-run is not a mode. It is the default. Enter enacts. Esc dismisses.
-- **Server-side transfers.** Copies and supported moves between hosts run host to host. The fast path forwards your SSH agent so host A authenticates to host B directly — your key never leaves your machine. When forwarding or rsync isn't available, copies use a tar stream through your machine; moves refuse. You don't choose. The plan names which path it will use.
-- **Moves mean move.** Across filesystems and hosts, rsync removes each source file after transferring it, then pālana removes empty source directories and reports anything left behind. The plan warns before Enter: do not modify either location during the move, and interruption may split files between them.
-- **ZFS, natively.** Dataset boundaries are first-class facts. A cross-dataset move is named as what it is before it runs. When both ends are whole datasets, the plan offers `zfs send | ssh | zfs receive` — block-level, an order of magnitude faster for large moves.
-- **The field view.** One keystroke summons the topology — machines, pools, datasets, reachability — as an overlay. Pick a node, a pane points there, the overlay vanishes. Discovery happens on demand, never continuously.
-- **The plan panel is a real terminal surface.** The plan's commands display there before enactment, and when Enter fires, the enactment echoes there live — the real commands, the real output, streaming. The claim that "these are the commands" is checkable by watching them run.
-- **The Workbench.** A plugin architecture from day one. A plugin gets the SSH layer, the topology, and a surface slot. The ZFS tool — dataset management, snapshots, pool visualization — ships at v1 and proves the API.
-- **The live shell.** `⌘\`` drops a real interactive terminal into the panel, per host — vim, htop, whatever — over your own `ssh`, without leaving pālana.
-- **The preview pane.** Press `v` and the right pane follows the left's cursor: text scrollable and monospace, images and PDFs via Quick Look, an info card always. Local files, and remote text and images too.
+## A first session
 
-## Your First Session
+You open pālana. The panes are where you left them: the left one on jodo, the right one pointed somewhere you no longer need. You press `f`, and the field card shows your machines with their pools and datasets, each fact marked with how long ago it was read. You choose a dataset on koan and press Enter. The card closes, and the right pane shows that dataset.
 
-You open pālana. The panes are where you left them — left on jodo, right pointed nowhere useful. You tap the field view key and the topology appears: your machines, their pools, their datasets, remembered from last visit and marked as remembered. You pick a dataset on koan. The overlay vanishes and the right pane is there.
+In the left pane you select 214 files of camera archives, 41.3 GB in total, and press `y` to copy them. Nothing moves yet. The plan panel opens: *copy to another machine*, 214 entries, 41.3 GB, `jodo:/tank/camera → koan:/tank/archive`, and the route, *rsync, run host-to-host, using the forwarded ssh key*. Under that is the exact rsync command that will run on jodo, one you could paste into a terminal yourself. You read it and press Enter.
 
-In the left pane you select 214 files — camera archives, 41.3 GB — and press the copy key. Nothing moves. The plan panel opens: cross-host copy, source and destination datasets named, transport rsync host-to-host, auth agent-forwarded direct, and under that the exact command that will run, one you could paste into a terminal yourself. You read it. Enter.
+The command appears in the panel and its output streams under it. A progress bar moves. The data travels from jodo to koan, and none of it passes through your laptop. When the copy finishes, the files are still on jodo, they are now on koan, and both panes refresh.
 
-The command echoes into the panel and its output streams under it. A progress bar moves. The bytes travel jodo → koan and your laptop never carries one of them. The source remains on jodo, the destination appears on koan, and both panes refresh.
+You quit pālana. It closes its SSH connections, and nothing keeps running.
 
-You close pālana. It stops. The field has been tended.
+## Keys
 
-## Keybindings
+The keys follow five rules: lowercase letters are verbs, `r` and `a` open a name field, a small set of keys open surfaces, `⌘` belongs to the app, and a few prefixes start two-key sequences. Press `?` in the app for the same reference in a floating panel. The full map is at [palana.sageframe.net/keys](https://palana.sageframe.net/keys/).
 
-Five rule groups — learn the rules and the keys generate themselves.
+**navigate**
 
-**verbs** — a lowercase letter states an intent; the plan panel opens before anything runs
+| key | action |
+|---|---|
+| `j` / `k`, `↓` / `↑` | cursor down / up |
+| `h` / `l`, `←` / `→` | parent directory / enter directory |
+| `Enter` | open the directory or file |
+| `Space` | select and advance |
+| `Tab` | switch pane |
+| `/` | jump to a name |
+| `.` | show or hide dotfiles |
+
+**verbs.** A lowercase letter states an intent, and the plan panel opens before anything runs.
 
 | key | verb |
 |---|---|
-| `y` | copy to other pane |
-| `m` | move to other pane |
-| `d` | delete |
+| `y` | copy to the other pane |
+| `m` | move to the other pane |
+| `d` | delete permanently (does not use the Trash) |
 | `r` | rename |
-| `a` | create (trailing `/` = directory) |
-| `t` | touch — update modified |
+| `a` | create (a trailing `/` creates a directory) |
+| `t` | touch (update the modification time) |
 
-**names** — `r` and `a` open the name field; `⏎` does the whole job
+**names.** `r` and `a` open the name field. `⏎` commits the name and composes the plan.
 
-**surfaces** — six summons, the set is closed
+**surfaces**
 
 | key | surface |
 |---|---|
-| `f` | field view |
-| `F` | host map (floats) |
+| `f` | field card |
+| `F` | host map (floating panel) |
 | `*` | favorites panel |
-| `` ` `` | terminal |
-| `?` | this card · `?` again floats it |
+| `v` | preview in the right pane |
+| `` ` `` | plan panel |
+| `` ⌘` `` | shell for the focused host |
+| `?` | key reference (floating panel) |
 | `⌘,` | settings |
 
-**app** — `⌘` belongs to the app, never to files
+**app.** `⌘` keys act on the app, never on files.
 
 | key | action |
 |---|---|
 | `⌘R` | refresh |
 | `⌘← / ⌘→` | back / forward |
 | `⌘+ / ⌘− / ⌘0` | zoom in / out / reset |
-| `⌘K` | clear terminal |
-| `⇧⌘G` | go to host : path |
-| `⇧⌘L` | operations log |
-| `8` | star highlighted entry |
+| `⌘K` | clear the plan panel's transcript |
+| `⇧⌘G` | go to `host:path` |
+| `⇧⌘L` | open the operations log |
+| `8` | star the highlighted entry |
 | `⇧⌘8` | star this folder |
-| `⌘1 – ⌘9` | open favorite 1–9 in this pane (the favorites panel's order) |
+| `⌘1 – ⌘9` | open favorite 1–9 in this pane (in the favorites panel's order) |
 
-**families** — sequence prefixes
+In the favorites panel, drag a favorite or press `⌥↑` / `⌥↓` to reorder it within its group. `⌘Z` undoes the last change.
 
-| prefix | family |
+**families.** These prefixes start two-key sequences.
+
+| keys | action |
 |---|---|
-| `c c / c d / c f / c n` | clipboard: path · directory · filename · name |
-| `, n / , s / , m` | sort: by name · size · modified (again flips) |
+| `c c / c d / c f / c n` | copy the path · directory · filename · name without extension |
+| `, n / , s / , m` | sort by name · size · modified (repeat to reverse) |
 | `g g / G` | top / bottom |
 
-## What pālana Is Not
-
-- **Not a dashboard or a monitor.** No alerts, no graphs, no watching. You cannot act from a graph anyway.
-- **Not a daemon.** It runs when you open it and stops when you close it. There is no component that could outlive the window.
-- **Not a sync tool.** No background replication, no continuous mutation. Every operation is one you enacted.
-- **Not a Docker manager.** pālana sees services, not containers.
-- **Not cross-platform.** Native Mac only. No Linux client, no web version. The cost is named and accepted.
-- **Not an SMB/NFS/SFTP tool.** SSH is the only transport. This is a tool for tending your own machines, not for connecting to arbitrary ones.
-- **No trust ceremony.** Trust is your `~/.ssh/config`. If you can SSH to it, pālana can see it — no key distribution, no parallel identity.
-
-## Naming
-
-**pālana** (पालन) — Sanskrit: to tend, nurture, sustain, steward. Not creation but ongoing care.
-
-Not a management tool — management implies control. Not a monitoring tool — monitoring implies watching. A tending tool. You open it the way you walk through a garden: not because something is broken, but because tending is how things stay healthy.
-
-## Where pālana Sits
-
-pālana is the first tool of **Kṣetra-Ops**, a suite for tending homelab infrastructure, and it is governed by the suite's philosophy, **bīja**: no hidden causality, no automation without presence. Every principle above — the plan before the action, the on-demand discovery, the absence of a daemon — is that philosophy rendered as interaction design.
-
-It is part of [Sageframe](https://atmarcus.net), a body of self-built tools and methodology by Andrew Marcus, and it is designed and built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). The [`ho-process/`](ho-process/README.md) directory is the public build record — seed, system design, and the documents that follow.
-
-## How It Works
-
-**PalanaCore** is a headless Swift library that owns everything true — the topology, the directory reads, the plan engine, the transports — and carries a 90% test-coverage floor. **Palana**, the SwiftUI app, is a thin surface over it that renders state and forwards intent and decides nothing. All host contact passes through one component, **the Conduit**, which wraps the system `ssh` binary — your config, your keys, your agent, your ProxyJump behavior, exactly as they work in your terminal, with ControlMaster multiplexing keeping per-command overhead near zero. **The plan engine** is a pure function from gathered facts to a Plan, which makes it the most testable object in the system — and it had better be, because it is the part that must never lie.
-
-## Architecture
-
-Seven components, sliced by how the operator thinks about the work:
-
-- **The Conduit** — SSH execution, and the only component that touches a host.
-- **The Field** — the topology. Hosts from `~/.ssh/config`, facts discovered on demand, last-known state cached as memory.
-- **The Listing** — remote directory reads. One command per directory.
-- **The plan engine** — classification, transport selection, command composition. Facts in, Plan out.
-- **The Transports** — enactment. rsync direct, proxy fallback, `zfs send/receive`, progress parsed from remote streams.
-- **The Workbench** — the plugin API. The Conduit, the Field, and a surface slot, handed in.
-- **The Surface** — the app. Panes, plan panel, field view, keyboard grammar.
-
-The full design — every decision with its rationale — is public in the build record: [`ho-process/kamae-2-palana-system-design.md`](ho-process/kamae-2-palana-system-design.md).
-
-## Tech Stack
-
-- **Language:** Swift 6, strict concurrency
-- **Package:** SwiftPM multi-product — PalanaCore library + Palana app
-- **UI:** SwiftUI (macOS 14+)
-- **Transport:** the system `ssh` and `rsync` binaries via Foundation `Process` — no embedded SSH library, no parallel transport stack
-- **Testing:** swift-testing, ≥90% line coverage on PalanaCore
-- **Lint and format:** swift-format + SwiftLint strict
-- **Distribution:** signed and notarized `.dmg`, direct download
-
-## Current State
-
-| | |
-|---|---|
-| **Now** | v0.8-beta — feature-complete, in public beta through 4 November 2026. The headless engine (Conduit, Field, Listing, Plan Engine, Transports) at ~97% coverage, and the whole surface on it: dual panes, plan → enact, cross-host transfers, the field view, the ZFS workbench (datasets, snapshots, mount), the interactive shell, the preview pane, drag-and-drop, dark mode, one-key zoom. Signed, notarized, with a launch update check. |
-| **Next** | Snapshot-history — browse a file's past like a directory, restore with a copy. The homelab's time machine. |
-| **Later** | An operations queue; more Workbench tools as the practice demands. |
-
-## What's Ahead
-
-Items the architecture is prepared for but v1 does not include:
-
-**An operations queue.** v1 enacts one plan at a time, synchronously. Plans are values — a queue is a list of them, and it is the first post-release enhancement.
-
-**Forteller and Mujō plugins.** Config deployment and backup-state tooling, each arriving on the Workbench API when it exists and as the practice demands.
-
-**A services plugin.** Extends the field view's vocabulary from machines and datasets to the services running on them.
-
-**A silent in-app installer.** pālana checks for a newer release on launch and points you to it; a silent in-app updater (Sparkle) is a later option if the cadence wants it.
-
-## Download
-
-**[Download pālana v0.8-beta](https://github.com/sageframe-no-kaji/palana/releases/download/v0.8-beta/palana-0.8.0-beta.dmg)** — a signed and notarized macOS app, no App Store. Drag it to Applications and open it; it runs on macOS 14 or later. The beta is free to download through 4 November 2026. At 1.0 the built app costs $29 once, covering 1.x updates, with no subscription, no license key, and no account. Prefer to build it yourself? That is free at every version — the source is here, GPL-3.0, see [Development](#development).
+**ZFS mode.** `Z` enters the dataset tree. Then `c` `x` `r` create, destroy, or rename a dataset; `n` `k` `b` create, destroy, or roll back a snapshot; `p` `i` set or inherit the mountpoint; `m` `u` mount or unmount. With the plan panel engaged (`⇧Tab`), `d` `z` `s` `p` run `df -h`, `zfs list`, `zpool status`, and `zpool list` on the focused host.
 
 ## Requirements
 
 - **macOS 14 or later.**
-- **SSH on the Mac.** pālana runs the system binary at `/usr/bin/ssh` with
-  your `~/.ssh/config`, keys, agent, and jump-host rules. No separate SSH
-  configuration is required.
-- **rsync on the Mac.** macOS supplies openrsync at `/usr/bin/rsync`, and
-  pālana composes the flag set it accepts. GNU rsync 3.1 or later is preferred;
-  `brew install rsync` installs it. That version provides the transfer progress
-  bar and `-s` (`--protect-args`), which sends spaces and shell characters in
-  remote paths without shell interpretation. pālana finds the installed binary
-  and selects its flags without a setting.
-- **rsync on remote hosts.** It is required for the faster transfer routes. A
-  cross-host file copy uses a tar stream when a required endpoint lacks rsync,
-  and a same-host copy uses `cp -a` when that host lacks it. These fallback
-  copies have no transfer progress. File moves use `mv` when both paths are
-  proven to share one filesystem, and supported rsync otherwise. The rsync
-  route uses `--checksum --remove-source-files`, so destination comparisons use
-  file contents before files leave the source progressively. Do not modify
-  either location during the move, and an interruption may leave files split
-  between source and destination. Empty source directories are removed afterward
-  with `rmdir`, and any retained source entry is named as a failed partial move.
-  A file move refuses when a required endpoint lacks a supported rsync.
-  Whole-dataset ZFS moves use `zfs send` and `zfs receive`.
-- **ZFS on remote hosts that use ZFS features.** Dataset trees, snapshots,
-  mount state, and send/receive run on those hosts. The Mac does not need ZFS.
-  `zfs send` and `zfs receive` require delegated permissions (`zfs allow`) on
-  the datasets involved.
+- **SSH on the Mac, without login prompts.** pālana runs the system binary at `/usr/bin/ssh` with your `~/.ssh/config`, keys, agent, and jump-host rules. Each host must connect without a password, passphrase, or host-key prompt. `ssh -o BatchMode=yes <alias> true` succeeds when a host is ready. No separate SSH setup is required.
+- **rsync on the Mac.** macOS includes openrsync at `/usr/bin/rsync`, and pālana composes the flags it accepts. GNU rsync 3.1 or later is preferred; `brew install rsync` installs it. It adds the transfer progress bar and `-s` (`--protect-args`), which sends spaces and shell characters in remote paths without shell interpretation. pālana finds the installed rsync and chooses its flags without a setting.
+- **rsync on remote hosts.** The faster routes need rsync. A copy between two hosts uses a tar stream through the Mac when a required endpoint lacks rsync, and a copy within one host uses `cp -a` when that host lacks it. These fallback copies show no transfer progress. A move uses `mv` when both paths are proven to be on one filesystem and rsync otherwise; it is refused when a required endpoint lacks a supported rsync. A whole-dataset move between ZFS hosts uses `zfs send` and `zfs receive`.
+- **ZFS only where you use ZFS.** Dataset trees, snapshots, mount state, and send/receive run on the remote hosts. The Mac does not need ZFS. `zfs send` and `zfs receive` need delegated permissions (`zfs allow`) on the datasets involved. On Linux, mount and unmount also need a narrow passwordless sudo rule; the [mount grant](https://palana.sageframe.net/sudo/) page gives it.
+- **Remote userlands.** GNU, BSD, and BusyBox hosts are supported.
+
+## What pālana does not do
+
+- **Monitoring.** There are no alerts and no graphs. pālana reads host facts when you ask. While its window is frontmost, it re-lists remote panes every ten seconds so they stay current.
+- **Background work.** pālana installs no daemon or launch agent. Quitting closes its SSH connections and stops the commands it started. If the app crashes, its idle SSH control connections exit on their own within ten minutes.
+- **Synchronization.** There is no background replication. Every file operation is a plan you ran. Saved remote edits are the one exception: they upload when you save, unless you turn on confirmation in Settings.
+- **Containers.** pālana does not show or manage Docker containers or services.
+- **Other platforms.** pālana is a native Mac app. There is no Linux client and no web version.
+- **Other protocols.** SSH is the only transport. pālana does not connect over SMB, NFS, SFTP, FTP, or cloud storage.
+- **A separate trust setup.** If `ssh <alias>` works in Terminal without prompts, pālana can use that host. It keeps no keys or credentials of its own.
+
+## How it works
+
+**PalanaCore** is a headless Swift library that holds the logic: host discovery, directory listing, address parsing, plan composition, transfer execution, and verification. CI holds it to a 90 percent line-coverage floor; it measured 97.5 percent at the last code change before v1.0. **Palana**, the SwiftUI app, holds window state, panels, keyboard routing, local file watching, remote pane refresh, shells, and settings, and calls PalanaCore for everything else.
+
+All host contact passes through one component, the Conduit, which runs the system `ssh` binary. Your config, keys, agent, and ProxyJump rules work exactly as they do in your terminal. The Conduit reuses one ControlMaster connection per host, so commands after the first skip the SSH handshake. The plan engine is a pure function from a request and gathered facts to a Plan value. Host reads and execution happen outside it, so tests check every composed command without contacting a host.
+
+The components:
+
+- **The Conduit:** SSH execution, and the only component that contacts a host.
+- **The Field:** hosts from `~/.ssh/config`, their facts read on request, and the last-known state cached with timestamps.
+- **The Listing:** remote directory reads, one command per directory, parsed for GNU, BSD, and BusyBox output.
+- **The plan engine:** classification, transport selection, and command composition. Facts in, Plan out.
+- **The Transports:** enactment. Direct rsync, the tar proxy, `zfs send/receive`, and progress parsed from the remote output.
+- **The Workbench:** the tool interface. A tool declares verbs and what each one requires (a reachable host, ZFS, or passwordless sudo). The Workbench checks those requirements against the Field's facts, runs read verbs through the Conduit, and sends mutations through the plan engine. Two tools ship in the app: the system reads and the ZFS dataset tool. External plugins are not loaded.
+- **The Surface:** the app's panes, plan panel, field card, and keyboard grammar.
+
+The full design, with the reasoning for each decision, is in the build record: [`ho-process/kamae-2-palana-system-design.md`](ho-process/kamae-2-palana-system-design.md).
+
+## Tech stack
+
+- **Language:** Swift 6 with strict concurrency checking
+- **Package:** SwiftPM, multi-product: the PalanaCore library and the Palana app
+- **UI:** SwiftUI and AppKit, macOS 14 or later
+- **Terminal:** [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) for the per-host shell
+- **Transport:** the system `ssh`, `rsync`, `tar`, and `zfs` binaries, run through Foundation `Process`. There is no embedded SSH library.
+- **Testing:** Swift Testing and XCTest, with a 90 percent line-coverage floor on PalanaCore
+- **Lint and format:** swift-format and SwiftLint, both strict
+- **Distribution:** a signed, notarized, universal `.dmg`, sold at [palana.sageframe.net](https://palana.sageframe.net)
+
+## What's ahead
+
+The architecture leaves room for these, and none of them is in 1.0:
+
+- **An operations queue.** 1.0 runs one plan at a time. Plans are values, so a queue is a list of them.
+- **More Workbench tools.** Forteller (configuration deployment) and Mujō (backup state) would use the same tool interface.
+- **Services in the field.** A services tool would add the services that run on each machine to the field's vocabulary.
+- **Snapshot history.** Browse a file's earlier versions across ZFS snapshots as if they were directories, and restore one with an ordinary copy. This is an idea under consideration, not a scheduled feature.
+- **In-app updates.** pālana checks for a newer release at launch and links to the site. A silent updater (Sparkle) remains an option for later.
 
 ## Development
 
@@ -203,14 +175,29 @@ cd palana
 swift build
 ```
 
-`swift test --enable-code-coverage` runs the suite. Format, lint, and build run pre-commit. The coverage floor is enforced in CI. Integration tests run against a local sshd container and a file-backed throwaway ZFS pool — never against live hosts.
+Before you open a pull request, run the same checks CI runs:
 
-pālana is also an experiment in method: the full Kamae chain — seed, system design, this README, and the build that follows — is authored and executed by the agent under the practitioner's discipline, with the practitioner's hands reserved for the UI sessions. The record of whether that held is in [`ho-process/`](ho-process/README.md), in public.
+```sh
+swift-format lint --recursive --strict Sources Tests
+swiftlint lint --strict
+swift build
+swift test --enable-code-coverage
+```
+
+The pre-commit hooks run the format and lint checks and a type-checking build. CI also runs the test suite and enforces the coverage floors. Integration tests run against disposable fixtures only: an sshd container (or, in CI, the runner's own sshd) and a file-backed throwaway ZFS pool in a Lima VM. They never touch live hosts. See [CONTRIBUTING.md](CONTRIBUTING.md) for what makes a useful bug report or patch, and [RELEASING.md](RELEASING.md) for how a release is built.
+
+pālana is also an experiment in method. An AI coding agent wrote the Kamae documents (the seed, the system design, this README, and the build plan) and carried out the build under the Ho System's discipline. The author's own hands were reserved for the interface sessions. The record of how that went is public in [`ho-process/`](ho-process/README.md).
 
 ## License
 
-pālana is open source under [GPL-3.0](LICENSE). Clone it, build it, run it, change it. Building from source is free at every version, permanently — what $29 buys at 1.0 is the built artifact: the universal, signed, notarized, stapled app that opens without a Gatekeeper detour, and its 1.x updates.
+pālana is open source under [GPL-3.0](LICENSE). You can clone it, build it, run it, and change it. Building from source is free at every version. The $29 buys the build: the universal, signed, notarized, and stapled app that opens without a Gatekeeper warning, and its 1.x updates. The right to run the software comes from GPL-3.0, not from the purchase.
+
+## Where pālana sits
+
+pālana is the first tool of **Kṣetra-Ops**, a suite for tending homelab infrastructure. The suite follows one principle, **bīja**: no hidden causality, and no automation without the operator present. In pālana that principle shows up as the plan before every action, discovery only on request, and no background process.
+
+pālana is part of [Sageframe](https://atmarcus.net), a body of self-built tools and methodology by Andrew Marcus, and it is designed and built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). The [`ho-process/`](ho-process/README.md) directory is the public build record: the seed, the system design, and the documents that follow.
 
 ---
 
-*pālana is a [Sageframe](https://atmarcus.net) project by [Andrew Marcus](https://atmarcus.net), built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system). Last meaningful update: 2026-07-09.*
+*pālana (पालन) is Sanskrit for tending, nurturing, and sustaining. It is a [Sageframe](https://atmarcus.net) project by [Andrew Marcus](https://atmarcus.net), built with the [Ho System](https://github.com/sageframe-no-kaji/ho-system).*
