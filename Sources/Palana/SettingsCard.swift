@@ -379,10 +379,13 @@ extension SettingsForm {
                     .focused($flagsFocused)
                     .onExitCommand { flagsFocused = false }
             }
-            Text("always on: -a, --partial resume · progress when the rsync speaks it")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.inkFaint)
-                .padding(.leading, 8)
+            Text(
+                "these flags apply to copies only · moves use pālana's own flags"
+                    + " · always on: -a, --partial resume · progress when the rsync speaks it"
+            )
+            .font(.system(size: 10))
+            .foregroundStyle(Theme.inkFaint)
+            .padding(.leading, 8)
         }
     }
 }
