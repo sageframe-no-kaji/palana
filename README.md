@@ -8,6 +8,21 @@ pālana is a native Mac file manager for the machines you run yourself. It has t
 
 **Get pālana:** the app is at [palana.sageframe.net](https://palana.sageframe.net). The build costs US $29 once and includes all 1.x updates. There is no account, license key, or activation. Building from source is free at every version; see [Development](#development). Report bugs and send feedback through the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues).
 
+<p align="center">
+  <img src="screenshots/run.png" width="720" alt="pālana copying a file from koan to samu: the rsync command, a progress line, and a progress bar at 32 percent"><br>
+  <em>A copy from koan to samu runs host to host, with progress.</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/plan-dark.png" width="720" alt="pālana in dark appearance showing a copy plan from a local folder to koan before it runs"><br>
+  <em>Every operation shows its plan before you press Enter.</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/zfs.png" width="720" alt="The left pane in ZFS mode, listing koan's datasets and their mountpoints"><br>
+  <em>On a ZFS host, Z opens the dataset tree.</em>
+</p>
+
 ---
 
 ## The problem
