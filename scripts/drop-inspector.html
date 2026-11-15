@@ -1,0 +1,43 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Drop inspector</title>
+<!-- Development aid: drag anything from pālana onto the box to see exactly
+     what a web page receives — the pasteboard types, any files, and the text
+     of every string type. Open with: open -a "Google Chrome" scripts/drop-inspector.html
+     (also try Safari). -->
+<style>
+  body { font: 14px -apple-system, sans-serif; margin: 24px; background: #f7f5ef; color: #222; }
+  #zone { border: 3px dashed #6b7f5c; border-radius: 12px; padding: 48px; text-align: center; font-size: 18px; }
+  #zone.over { background: #e3ead9; }
+  pre { background: #fff; border: 1px solid #ddd; padding: 12px; white-space: pre-wrap; word-break: break-all; }
+  h2 { margin-top: 24px; font-size: 15px; }
+</style>
+<div id="zone">Drop here (like a website upload box)</div>
+<div id="out"></div>
+<script>
+  const zone = document.getElementById('zone');
+  const out = document.getElementById('out');
+  let n = 0;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    const dt = e.dataTransfer;
+    const lines = [];
+    lines.push('types: ' + JSON.stringify([...dt.types]));
+    lines.push('files: ' + dt.files.length);
+    for (const f of dt.files) lines.push('  file: ' + f.name + '  (' + f.size + ' bytes, type "' + f.type + '")');
+    for (const t of dt.types) {
+      if (t === 'Files') continue;
+      const v = dt.getData(t);
+      lines.push('--- ' + t + ' ---\n' + (v.length > 2000 ? v.slice(0, 2000) + ' …' : v));
+    }
+    const block = document.createElement('div');
+    block.innerHTML = '<h2>Drop ' + (++n) + ' — ' + new Date().toLocaleTimeString() + '</h2>';
+    const pre = document.createElement('pre');
+    pre.textContent = lines.join('\n');
+    block.appendChild(pre);
+    out.prepend(block);
+  });
+</script>
