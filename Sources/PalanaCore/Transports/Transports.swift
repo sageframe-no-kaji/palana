@@ -76,6 +76,7 @@ public struct Transports: Sendable {
                 result = try await runStep(step, index: index, plan: plan, emit: emit)
             } catch {
                 await Self.reportRetainedSources(plan, failedStep: step, conduit: conduit, emit: emit)
+                Self.reportStagingLeft(plan, failedIndex: index, emit: emit)
                 throw error
             }
             emit(.stepEnded(index: index, exitStatus: result.exitStatus))
@@ -84,6 +85,7 @@ public struct Transports: Sendable {
             }
             if result.exitStatus != 0 {
                 await Self.reportRetainedSources(plan, failedStep: step, conduit: conduit, emit: emit)
+                Self.reportStagingLeft(plan, failedIndex: index, emit: emit)
             }
             try Self.raise(result, index: index)
         }

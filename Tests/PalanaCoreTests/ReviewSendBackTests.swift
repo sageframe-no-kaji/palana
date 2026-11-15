@@ -346,3 +346,82 @@ struct NoHardLinkVolumeTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: remote.path) == ["note.txt"])
     }
 }
+
+// MARK: - Finding 13: staging after a failed send-back
+
+@Suite("Review finding 13 — staging after a failed send-back", .serialized)
+struct FailedSendBackStagingTests {
+    private func sendBack(_ scratch: CommitScratch) throws -> (plan: Plan, edit: URL) {
+        let edit = scratch.root.appendingPathComponent("edit")
+        try FileManager.default.createDirectory(at: edit, withIntermediateDirectories: true)
+        try Data("mine".utf8).write(to: edit.appendingPathComponent(scratch.name))
+        try? FileManager.default.removeItem(at: scratch.stage)
+        var versionGuard = scratch.guardValue(expecting: "checked")
+        versionGuard.host = PalanaCore.localHostName
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .copy,
+                source: Locus(host: PalanaCore.localHostName, directory: edit.path),
+                entries: [remainderEntry(scratch.name)],
+                destination: Locus(host: PalanaCore.localHostName, directory: scratch.directory.path),
+                token: "t1",
+                versionGuard: versionGuard),
+            facts: PlanFacts())
+        return (plan, edit)
+    }
+
+    private func notes(_ events: [EnactmentEvent]) -> [RecoveryNote] {
+        events.compactMap { event in
+            if case .recovery(let note) = event { return note }
+            return nil
+        }
+    }
+
+    @Test("a transfer that fails leaves staging, and a retained note names it")
+    func failedTransferNamesStaging() async throws {
+        let scratch = try CommitScratch(remote: "checked")
+        defer { try? FileManager.default.removeItem(at: scratch.root) }
+        let (plan, edit) = try sendBack(scratch)
+        // The edit vanishes after the plan was read: the copy fails.
+        try FileManager.default.removeItem(at: edit.appendingPathComponent(scratch.name))
+        let sink = EventSink()
+        await #expect(throws: EnactmentError.self) {
+            try await Transports(conduit: LocalConduit()) { _, _, _ in 0 }.run(plan) { sink.record($0) }
+        }
+        #expect(scratch.exists(scratch.stage))
+        #expect(scratch.text(scratch.target) == "checked")
+        let named = notes(sink.events).filter {
+            $0.kind == .retained && $0.detail.hasPrefix("\(PalanaCore.localHostName):\(scratch.stage.path) — ")
+        }
+        #expect(named.count == 1)
+    }
+
+    @Test("a failed stage step made nothing, and a failed commit names its own: no staging note")
+    func otherStepsNameNothing() async throws {
+        let scratch = try CommitScratch(remote: "checked")
+        defer { try? FileManager.default.removeItem(at: scratch.root) }
+        let (plan, _) = try sendBack(scratch)
+        let host = PalanaCore.localHostName
+        let stageFails = RecordedConduit(
+            transcript: ConduitTranscript(entries: [
+                .init(host: host, command: plan.steps[0].command, stdout: "", stderr: "", exit: 1)
+            ]))
+        let commitFails = RecordedConduit(
+            transcript: ConduitTranscript(
+                entries: plan.steps.map { step in
+                    .init(
+                        host: host,
+                        command: step.command,
+                        stdout: "",
+                        stderr: "",
+                        exit: step.role == .promote ? 5 : 0)
+                }))
+        for conduit in [stageFails, commitFails] {
+            let sink = EventSink()
+            await #expect(throws: EnactmentError.self) {
+                try await Transports(conduit: conduit) { _, _, _ in 0 }.run(plan) { sink.record($0) }
+            }
+            #expect(notes(sink.events).isEmpty)
+        }
+    }
+}
