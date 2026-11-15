@@ -307,17 +307,27 @@ public final class RoundTripWatcher: RoundTripWatching, @unchecked Sendable {
     /// Safe to call multiple times (idempotent). After cancellation no
     /// further callbacks will be delivered. Both file descriptors are
     /// closed in their respective cancel handlers.
+    ///
+    /// The queued block holds the watcher strongly, so a caller that drops
+    /// its reference right after `cancel()` still gets its descriptors
+    /// closed (the weak capture this replaced could leak both).
     public func cancel() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            guard !self.cancelled else { return }
-            self.cancelled = true
-            self.debounceWorkItem?.cancel()
-            self.debounceWorkItem = nil
-            self.fileSource?.cancel()
-            self.dirSource?.cancel()
+        queue.async { [self] in
+            guard !cancelled else { return }
+            cancelled = true
+            debounceWorkItem?.cancel()
+            debounceWorkItem = nil
+            fileSource?.cancel()
+            dirSource?.cancel()
             // FDs are closed in the cancel handlers (see startLocked).
         }
+    }
+
+    /// Backstop: a watcher released with armed sources cancels them, so
+    /// their cancel handlers close the descriptors.
+    deinit {
+        fileSource?.cancel()
+        dirSource?.cancel()
     }
 
     /// Advances the stat baseline to what was just sent — and no further.

@@ -46,14 +46,31 @@ extension OperationModel {
             return "the remote version cannot be bound — \(reason)"
         case PlanError.moveReleaseUnavailable:
             return "that move has no supported rsync path — copy it, then delete the source separately"
-        case PlanError.rsyncFlagsControlSourceRemoval:
-            return "source removal belongs to the move command — remove that option from rsync flags"
+        case PlanError.rsyncFlagsControlSourceRemoval, PlanError.rsyncFlagsQuoted,
+            PlanError.sourceIsDestination, PlanError.destinationInsideSelection:
+            return describeSafetyRefusal(error)
         case PlanError.zfsPoolRootRefused:
             return "that is the pool root — pālana manages datasets, never the pool itself"
         case PlanError.zfsMountpointNotAbsolute:
             return "a mountpoint must be an absolute path — /like/this, not ~ or relative"
         default:
             return describeNamingPlanError(error)
+        }
+    }
+
+    /// The place and rsync-flag refusals (review 2026-11-15), nil for anything else.
+    static func describeSafetyRefusal(_ error: any Error) -> String? {
+        switch error {
+        case PlanError.rsyncFlagsControlSourceRemoval:
+            return "source removal belongs to the move command — remove that option from rsync flags"
+        case PlanError.rsyncFlagsQuoted:
+            return "rsync flags can't contain quotes, backslashes, or $ — write the options plainly"
+        case PlanError.sourceIsDestination:
+            return "the destination is the source folder — nothing would move"
+        case PlanError.destinationInsideSelection:
+            return "the destination is inside the selection — a folder can't go inside itself"
+        default:
+            return nil
         }
     }
 

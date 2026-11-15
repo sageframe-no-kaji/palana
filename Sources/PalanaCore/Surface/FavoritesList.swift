@@ -75,8 +75,10 @@ public struct FavoritesList: Codable, Sendable, Equatable {
 
     /// Moves a favorite to sit before `target`, or last when `target` is nil.
     ///
-    /// Reordering happens **within one group only** — the favorite's own
-    /// scope and host. A target in another group is refused, so a drag can
+    /// Reordering happens **within one group only** — the group the panel
+    /// shows: every global favorite together, whatever its host, and each
+    /// host's own favorites (``inSameGroup(_:_:)``). A target in another
+    /// group is refused, so a drag can
     /// never promote, demote, or change hosts; those stay with
     /// ``setScope(id:_:)``. The group's slots in `all` are rewritten in
     /// place, so every other group keeps its position and the panel's
@@ -87,7 +89,7 @@ public struct FavoritesList: Codable, Sendable, Equatable {
     ///   - target: The favorite it should precede; nil sends it to the group's end.
     public mutating func move(id: String, before target: String?) {
         guard id != target, let moved = all.first(where: { $0.id == id }) else { return }
-        let slots = all.indices.filter { all[$0].scope == moved.scope && all[$0].host == moved.host }
+        let slots = all.indices.filter { Self.inSameGroup(all[$0], moved) }
         var members = slots.map { all[$0] }
         // A target outside this group is refused — the drag lands nowhere.
         if let target, !members.contains(where: { $0.id == target }) { return }
@@ -107,7 +109,7 @@ public struct FavoritesList: Codable, Sendable, Equatable {
     /// places and stops at the boundary.
     public mutating func move(id: String, by offset: Int) {
         guard offset != 0, let moved = all.first(where: { $0.id == id }) else { return }
-        let members = all.filter { $0.scope == moved.scope && $0.host == moved.host }
+        let members = all.filter { Self.inSameGroup($0, moved) }
         guard let from = members.firstIndex(where: { $0.id == id }) else { return }
         let destination = max(0, min(members.count - 1, from + offset))
         guard destination != from else { return }
@@ -117,6 +119,18 @@ public struct FavoritesList: Codable, Sendable, Equatable {
             ? members[destination + 1].id
             : (destination > from ? nil : members[destination].id)
         move(id: id, before: target)
+    }
+
+    /// True when two favorites sit in the same panel group.
+    ///
+    /// Matches ``FavoritesOutline/groups(from:collapsed:)``: one Global
+    /// group of every `.global` favorite, whatever its host, and one group
+    /// per host for `.host` favorites. Grouping globals by host as well
+    /// refused drags the panel showed as legal and made ⌥↑/⌥↓ skip rows
+    /// (review 2026-11-15, finding 9).
+    static func inSameGroup(_ lhs: Favorite, _ rhs: Favorite) -> Bool {
+        guard lhs.scope == rhs.scope else { return false }
+        return lhs.scope == .global || lhs.host == rhs.host
     }
 
     /// Sets or clears a favorite's display label in place.

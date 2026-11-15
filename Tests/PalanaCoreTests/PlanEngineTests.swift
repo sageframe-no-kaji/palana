@@ -132,7 +132,7 @@ struct PlanClassificationTests {
         let plan = try PlanEngine.plan(
             request(.move, from: localSource, to: localDest), facts: facts)
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps[0].command.contains("--remove-source-files"))
+        #expect(plan.steps.contains { $0.command.contains("--remove-source-files") })
     }
 
     @Test("different hosts — cross-host transfer, datasets irrelevant")

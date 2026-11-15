@@ -121,8 +121,10 @@ struct PlanCompositionTests {
     func sameHostMovePrefersRsync() throws {
         let facts = PlanFacts(sourceCapability: Self.rsyncHost)
         let plan = try plan(.move, to: sameHostDest, facts: facts)
-        #expect(plan.steps.map(\.role) == [.copy, .verify])
-        #expect(plan.steps[0].command.contains("--remove-source-files"))
+        // The place guard runs first on a same-host move (review 2026-11-15).
+        #expect(plan.steps.map(\.role) == [.verify, .copy, .verify])
+        #expect(plan.steps[0].command.contains("palana-refused"))
+        #expect(plan.steps[1].command.contains("--remove-source-files"))
     }
 
     @Test("a directory move sweeps empty source directories before accounting")
@@ -133,9 +135,9 @@ struct PlanCompositionTests {
             to: sameHostDest,
             entries: [makeEntry("folder", kind: .directory)],
             facts: facts)
-        #expect(plan.steps.map(\.role) == [.copy, .cleanup, .verify])
-        #expect(plan.steps[1].command.contains("find \"$p\" -depth -type d -exec rmdir"))
-        #expect(!plan.steps[1].command.contains("rm -r"))
+        #expect(plan.steps.map(\.role) == [.verify, .copy, .cleanup, .verify])
+        #expect(plan.steps[2].command.contains("find \"$p\" -depth -type d -exec rmdir"))
+        #expect(!plan.steps[2].command.contains("rm -r"))
     }
 
     @Test("a proxied file move refuses before opening either SSH side")

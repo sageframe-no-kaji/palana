@@ -199,4 +199,12 @@ public enum PlanError: Error, Equatable, Sendable {
     case moveReleaseUnavailable
     /// Custom rsync flags attempted to control source-file removal.
     case rsyncFlagsControlSourceRemoval
+    /// Custom rsync flags carry quotes, escapes, or substitutions the
+    /// shell would resolve into options no check has seen.
+    case rsyncFlagsQuoted
+    /// A same-host copy or move whose destination is the source directory.
+    case sourceIsDestination
+    /// A same-host copy or move whose destination lies inside a selected
+    /// directory.
+    case destinationInsideSelection
 }

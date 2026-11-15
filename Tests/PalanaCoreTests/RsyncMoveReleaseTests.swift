@@ -47,7 +47,7 @@ struct RsyncMoveReleaseTests {
             let result = try plan(
                 to: sameHostDestination,
                 facts: PlanFacts(sourceCapability: capability))
-            #expect(result.steps[0].command.contains("--remove-source-files"))
+            #expect(result.steps.contains { $0.command.contains("--remove-source-files") })
         }
     }
 
@@ -132,7 +132,7 @@ struct RsyncMoveReleaseTests {
 
     @Test("operator flags cannot disable or replace move source removal")
     func moveRejectsSourceRemovalFlags() {
-        for flag in ["--no-remove-source-files", "--remove-sent", "--remove-source"] {
+        for flag in ["--remove-sent", "--remove-source", "--rem", "--remove-s", "--REMOVE-SOURCE-FILES"] {
             var facts = PlanFacts(
                 sourceCapability: Self.modern,
                 destinationCapability: Self.modern,
@@ -144,17 +144,17 @@ struct RsyncMoveReleaseTests {
         }
     }
 
-    @Test("move-owned checksum follows operator flags that could disable it")
-    func moveChecksumCannotBeDisabled() throws {
+    @Test(
+        "a move carries no operator flags — nothing can change what lands before the source goes",
+        arguments: ["--no-checksum", "--append", "--compare-dest=/srv/x", "-n", "-m", "--exclude=cache/"])
+    func moveDropsOperatorFlags(flag: String) throws {
         let facts = PlanFacts(
             sourceCapability: Self.modern,
             destinationCapability: Self.modern,
             agentForwarding: .available,
-            rsyncOperatorFlags: "--no-checksum")
-        let result = try plan(to: crossHostDestination, facts: facts)
-        let command = result.steps[0].command
-        let operatorOption = try #require(command.range(of: "--no-checksum"))
-        let ownedOption = try #require(command.range(of: "--checksum --remove-source-files"))
-        #expect(operatorOption.upperBound < ownedOption.lowerBound)
+            rsyncOperatorFlags: flag)
+        let command = try plan(to: crossHostDestination, facts: facts).steps[0].command
+        #expect(!command.contains(flag))
+        #expect(command.contains("--checksum --remove-source-files"))
     }
 }

@@ -89,15 +89,23 @@ final class FavoritesModel {
     ///
     /// One undo step per drop, like every other mutation here.
     func move(id: String, before target: String?) {
-        snapshot()
-        list.move(id: id, before: target)
-        persist()
+        commitIfChanged { $0.move(id: id, before: target) }
     }
 
     /// Moves a favorite one place up (-1) or down (+1) within its own group.
     func move(id: String, by offset: Int) {
+        commitIfChanged { $0.move(id: id, by: offset) }
+    }
+
+    /// Applies a reorder, recording an undo step and saving only when the
+    /// order actually changed — a refused drag or a move past the group's
+    /// end leaves no empty ⌘Z step behind.
+    private func commitIfChanged(_ change: (inout FavoritesList) -> Void) {
+        var next = list
+        change(&next)
+        guard next.all.map(\.id) != list.all.map(\.id) else { return }
         snapshot()
-        list.move(id: id, by: offset)
+        list = next
         persist()
     }
 

@@ -24,8 +24,19 @@ set -euo pipefail
 
 CORE_FLOOR="${1:-90}"
 APP_FLOOR="${2:-35}"
-PROFDATA=.build/debug/codecov/default.profdata
-BINARY=.build/debug/PalanaPackageTests.xctest/Contents/MacOS/PalanaPackageTests
+# SwiftPM's native layout writes one combined test bundle under
+# .build/debug; Swift 6.4's build system writes one bundle per test target
+# under .build/out/Products/Debug. Measure whichever this toolchain made.
+if [[ -f .build/out/Products/Debug/codecov/default.profdata ]]; then
+    PROFDATA=.build/out/Products/Debug/codecov/default.profdata
+    OBJECTS=(
+        .build/out/Products/Debug/PalanaCoreTests.xctest/Contents/MacOS/PalanaCoreTests
+        -object .build/out/Products/Debug/PalanaTests.xctest/Contents/MacOS/PalanaTests
+    )
+else
+    PROFDATA=.build/debug/codecov/default.profdata
+    OBJECTS=(.build/debug/PalanaPackageTests.xctest/Contents/MacOS/PalanaPackageTests)
+fi
 
 CORE_IGNORE='(Tests/|\.build/|Sources/Palana/)'
 
@@ -37,19 +48,19 @@ APP_IGNORE="(Tests/|\\.build/|Sources/PalanaCore/|${RENDERING_PATTERN})"
 REQUIRED_APP_FILES="OperationModel.swift OperationLog.swift RoundTripCenter.swift SettingsModel.swift PaneModel.swift PalanaSession.swift"
 
 echo "== PalanaCore =="
-xcrun llvm-cov report "$BINARY" \
+xcrun llvm-cov report "${OBJECTS[@]}" \
     -instr-profile "$PROFDATA" \
     -ignore-filename-regex="$CORE_IGNORE"
 
 echo
 echo "== Application logic (Sources/Palana minus rendering) =="
-xcrun llvm-cov report "$BINARY" \
+xcrun llvm-cov report "${OBJECTS[@]}" \
     -instr-profile "$PROFDATA" \
     -ignore-filename-regex="$APP_IGNORE"
 
 check_floor() {
     local label="$1" ignore="$2" floor="$3" required="$4"
-    xcrun llvm-cov export "$BINARY" \
+    xcrun llvm-cov export "${OBJECTS[@]}" \
         -instr-profile "$PROFDATA" \
         -ignore-filename-regex="$ignore" \
         -summary-only \

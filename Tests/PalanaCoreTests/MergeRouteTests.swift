@@ -64,8 +64,8 @@ struct MergeRouteTests {
             collisions: [collision()])
         let plan = try PlanEngine.plan(request(.move), facts: facts)
         #expect(plan.classification == .crossDatasetCopyPlusDelete)
-        #expect(plan.steps.map(\.role) == [.copy, .cleanup, .verify])
-        #expect(plan.steps[0].command.contains("--remove-source-files"))
+        #expect(plan.steps.map(\.role) == [.verify, .copy, .cleanup, .verify])
+        #expect(plan.steps[1].command.contains("--remove-source-files"))
     }
 
     @Test("a directory merge copy remains available")

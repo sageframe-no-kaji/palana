@@ -71,13 +71,34 @@ final class DirectoryWatcher: @unchecked Sendable {
     ///
     /// The descriptor closes in the source's cancel handler; no callback
     /// fires after this.
+    ///
+    /// The queued block holds the watcher strongly: callers drop their
+    /// reference straight after `cancel()`, and a weak capture let the
+    /// watcher die first, so the source was never cancelled and its
+    /// descriptor never closed — one leak per local navigation (review
+    /// 2026-11-15, finding 3).
     func cancel() {
-        queue.async { [weak self] in
-            guard let self, !self.cancelled else { return }
-            self.cancelled = true
-            self.pending?.cancel()
-            self.pending = nil
-            self.source?.cancel()
+        queue.async { [self] in
+            guard !cancelled else { return }
+            cancelled = true
+            pending?.cancel()
+            pending = nil
+            source?.cancel()
+        }
+    }
+
+    /// Backstop: a watcher released while its source is armed cancels the
+    /// source, so the cancel handler closes the descriptor.
+    deinit {
+        source?.cancel()
+    }
+
+    /// The descriptor the armed source watches, or nil — for tests.
+    func watchedDescriptor() async -> Int32? {
+        await withCheckedContinuation { continuation in
+            queue.async { [weak self] in
+                continuation.resume(returning: self?.source.map { Int32($0.handle) })
+            }
         }
     }
 

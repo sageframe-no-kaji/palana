@@ -214,6 +214,11 @@ enum DropResult: Sendable {
 ///   - moveHeld: Whether Option was held at drop time (captured before the
 ///     async hops to avoid checking modifier state off-thread).
 /// - Returns: A ``DropResult`` or `nil` when the providers carry nothing usable.
+///
+/// Main-actor isolated: both callers are main-actor drop handlers, and the
+/// providers never leave that actor (Swift 6.4's region checker rejects
+/// sending the non-Sendable `NSItemProvider` array to a nonisolated function).
+@MainActor
 func resolveDropProviders(
     providers: [NSItemProvider],
     moveHeld: Bool

@@ -13,6 +13,7 @@ public enum PlanEngine {
     /// Composes a Plan, or refuses with a typed reason.
     public static func plan(_ request: PlanRequest, facts: PlanFacts) throws -> Plan {
         try validate(request)
+        try validatePlace(request)
         if request.operation == .move || request.operation == .copy {
             try validateRsyncOperatorFlags(facts.rsyncOperatorFlags)
         }
@@ -312,7 +313,8 @@ extension PlanEngine {
             return [PlanStep(runsOn: host, command: "mv \(sources) \(dest)", role: .rename)]
         case .crossDatasetCopyPlusDelete:
             let dest = quotedDestinationDirectory(request)
-            return [PlanStep(runsOn: host, command: copyCommand(dest, true), role: .copy)]
+            return progressivePlaceGuard(request)
+                + [PlanStep(runsOn: host, command: copyCommand(dest, true), role: .copy)]
                 + sourceReleaseSteps(request, on: request.source.host)
         case .withinHostCopy:
             let dest = quotedDestinationDirectory(request)
@@ -347,6 +349,12 @@ extension PlanEngine {
                     "\(invocation) \(rsyncPathGuard(for: destinationHost))\(sources) \(remote)",
                 role: .transfer)
         ] + (moving ? sourceReleaseSteps(request, on: request.source.host) : [])
+    }
+
+    /// The host-side place guard a same-host progressive move runs first;
+    /// empty for every other plan.
+    static func progressivePlaceGuard(_ request: PlanRequest) -> [PlanStep] {
+        placeGuardStep(request).map { [$0] } ?? []
     }
 
     /// Closes a progressive rsync move by removing empty selected

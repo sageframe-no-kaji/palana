@@ -69,14 +69,19 @@ fi
 # fast native single-arch build; any other explicit value is passed to SwiftPM.
 if [[ -z "${ARCH_FLAGS+x}" ]]; then
     echo "==> Building ${APP_NAME}  (version ${VERSION}, universal arm64 + x86_64)"
+    # Swift 6.4's build system writes every architecture to the same
+    # Products directory, so each executable is copied aside before the next
+    # build overwrites it.
+    MERGE_DIR="$(mktemp -d)"
     swift build -c release --arch arm64
     ARM_BIN_DIR="$(swift build -c release --arch arm64 --show-bin-path)"
+    cp "$ARM_BIN_DIR/$APP_NAME" "$MERGE_DIR/$APP_NAME-arm64"
     swift build -c release --arch x86_64
     INTEL_BIN_DIR="$(swift build -c release --arch x86_64 --show-bin-path)"
+    cp "$INTEL_BIN_DIR/$APP_NAME" "$MERGE_DIR/$APP_NAME-x86_64"
 
-    MERGE_DIR="$(mktemp -d)"
     BIN="$MERGE_DIR/$APP_NAME"
-    lipo -create "$ARM_BIN_DIR/$APP_NAME" "$INTEL_BIN_DIR/$APP_NAME" -output "$BIN"
+    lipo -create "$MERGE_DIR/$APP_NAME-arm64" "$MERGE_DIR/$APP_NAME-x86_64" -output "$BIN"
 else
     echo "==> Building ${APP_NAME}  (version ${VERSION}, archs: ${ARCH_FLAGS:-native})"
     # shellcheck disable=SC2086

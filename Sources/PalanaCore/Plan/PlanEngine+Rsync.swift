@@ -21,10 +21,13 @@ extension PlanEngine {
     /// paths by inner-quoting instead — see `composeRsyncDirect`.
     ///
     /// When ``operatorFlags`` is non-nil and non-empty after trimming,
-    /// the trimmed value is appended after the base set. A move's
-    /// content check and source-removal flags follow it so custom flags
-    /// cannot disable the engine-owned comparison. The paths come last,
-    /// and the panel shows exactly what will run.
+    /// the trimmed value is appended after the base set — on copies only.
+    /// A move takes no operator flags: `--append`, `--compare-dest`,
+    /// `--dry-run` or an excluded directory would change what lands
+    /// while the engine still removes the source (review 2026-11-15,
+    /// finding 2). A move's flags are the base set plus the engine-owned
+    /// content check and source removal. The paths come last, and the
+    /// panel shows exactly what will run.
     static func rsyncFlags(
         runningOn capability: HostCapability?,
         operatorFlags: String? = nil,
@@ -34,7 +37,8 @@ extension PlanEngine {
             Self.modernRsync(capability)
             ? "-a -s --partial --info=progress2"
             : "-a --partial"
-        if let trimmed = operatorFlags?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty {
+        let trimmed = operatorFlags?.trimmingCharacters(in: .whitespaces) ?? ""
+        if !removingSource, !trimmed.isEmpty {
             base += " \(trimmed)"
         }
         if removingSource {
@@ -96,18 +100,6 @@ extension PlanEngine {
         case .tarStreamProxied, .tarStreamDirect, .zfsSendReceiveForwarded,
             .zfsSendReceiveProxied:
             return false
-        }
-    }
-
-    /// Refuses custom flags that would let a copy delete source files
-    /// or let an operator disable the move semantics shown in the plan.
-    static func validateRsyncOperatorFlags(_ flags: String?) throws {
-        guard let lowercased = flags?.lowercased() else { return }
-        let controlsSourceRemoval =
-            lowercased.contains("remove-source")
-            || lowercased.contains("remove-sent")
-        guard !controlsSourceRemoval else {
-            throw PlanError.rsyncFlagsControlSourceRemoval
         }
     }
 
