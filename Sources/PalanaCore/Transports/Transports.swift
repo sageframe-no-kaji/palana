@@ -71,10 +71,19 @@ public struct Transports: Sendable {
             try Task.checkCancellation()
             try await openGate(for: step, plan: plan, state: &state, emit: emit)
             emit(.stepBegan(index: index, step: step))
-            let result = try await runStep(step, index: index, plan: plan, emit: emit)
+            let result: StepResult
+            do {
+                result = try await runStep(step, index: index, plan: plan, emit: emit)
+            } catch {
+                await Self.reportRetainedSources(plan, failedStep: step, conduit: conduit, emit: emit)
+                throw error
+            }
             emit(.stepEnded(index: index, exitStatus: result.exitStatus))
             for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
                 emit(.recovery(note))
+            }
+            if result.exitStatus != 0 {
+                await Self.reportRetainedSources(plan, failedStep: step, conduit: conduit, emit: emit)
             }
             try Self.raise(result, index: index)
         }

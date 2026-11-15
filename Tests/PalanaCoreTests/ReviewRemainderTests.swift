@@ -221,3 +221,137 @@ struct MoveMetadataTests {
         #expect(result.metadataNotice == nil)
     }
 }
+
+// MARK: - Finding 7: accounting after a failed move
+
+@Suite("Review finding 7 — what a failed move reports")
+struct FailedMoveAccountingTests {
+    private static let modern = HostCapability(
+        kernel: "Linux", flavor: .gnu, zfs: nil, rsync: "rsync  version 3.4.1  protocol version 32")
+
+    /// Two files and a directory from jodo to koan, forwarded: transfer,
+    /// sweep, report.
+    private static func crossHostMove() throws -> Plan {
+        var photos = remainderEntry("photos")
+        photos.kind = .directory
+        return try PlanEngine.plan(
+            PlanRequest(
+                operation: .move,
+                source: Locus(host: "jodo", directory: "/tank/media"),
+                entries: [remainderEntry("a.txt"), remainderEntry("b.txt"), photos],
+                destination: Locus(host: "koan", directory: "/rpool/cold"),
+                token: "t1"),
+            facts: PlanFacts(
+                sourceCapability: modern, destinationCapability: modern, agentForwarding: .available))
+    }
+
+    private static func notes(_ events: [EnactmentEvent]) -> [RecoveryNote] {
+        events.compactMap { event in
+            if case .recovery(let note) = event { return note }
+            return nil
+        }
+    }
+
+    @Test("a transfer that exits 23 partway still reports what remains, and the run still fails")
+    func exit23Reports() async throws {
+        let plan = try Self.crossHostMove()
+        #expect(plan.steps.map(\.role) == [.transfer, .cleanup, .verify])
+        let remains = "palana-retained: jodo:/tank/media/b.txt — source entry remains after the progressive move"
+        let conduit = RecordedConduit(
+            transcript: ConduitTranscript(entries: [
+                .init(
+                    host: "jodo",
+                    command: plan.steps[0].command,
+                    stdout: "",
+                    stderr: "rsync: [sender] send_files failed to open \"/tank/media/b.txt\": "
+                        + "Permission denied (13)\nrsync error: some files/attrs were not transferred"
+                        + " (code 23) at main.c(1338) [sender=3.4.1]\n",
+                    exit: 23),
+                .init(host: "jodo", command: plan.steps[2].command, stdout: "", stderr: remains + "\n", exit: 1),
+            ]))
+        let sink = EventSink()
+        await #expect {
+            try await Transports(conduit: conduit) { _, _, _ in -1 }.run(plan) { sink.record($0) }
+        } throws: { error in
+            guard case EnactmentError.stepFailed(let index, let status, _) = error else { return false }
+            return index == 0 && status == 23
+        }
+        let events = sink.events
+        #expect(events.contains(.stepBegan(index: 2, step: plan.steps[2])))
+        #expect(events.contains(.stepEnded(index: 2, exitStatus: 1)))
+        #expect(!events.contains(.stepBegan(index: 1, step: plan.steps[1])), "the sweep never runs")
+        #expect(
+            Self.notes(events)
+                == [
+                    RecoveryNote(
+                        kind: .retained,
+                        host: "jodo",
+                        detail: "jodo:/tank/media/b.txt — source entry remains after the progressive move")
+                ])
+        #expect(!events.contains(.finished))
+    }
+
+    @Test("a failed place guard moved nothing, so no report runs")
+    func placeGuardFailureReportsNothing() async throws {
+        let plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .move,
+                source: Locus(host: "jodo", directory: "/tank/media"),
+                entries: [remainderEntry()],
+                destination: Locus(host: "jodo", directory: "/tank/other"),
+                token: "t1"),
+            facts: PlanFacts(sourceCapability: Self.modern))
+        let report = try #require(plan.steps.last)
+        let conduit = RecordedConduit(
+            transcript: ConduitTranscript(entries: [
+                .init(host: "jodo", command: plan.steps[0].command, stdout: "", stderr: "refused\n", exit: 3),
+                .init(
+                    host: "jodo",
+                    command: report.command,
+                    stdout: "",
+                    stderr: "palana-retained: jodo:/tank/media/a.txt — x\n",
+                    exit: 1),
+            ]))
+        let sink = EventSink()
+        await #expect(throws: EnactmentError.self) {
+            try await Transports(conduit: conduit) { _, _, _ in -1 }.run(plan) { sink.record($0) }
+        }
+        #expect(Self.notes(sink.events).isEmpty)
+    }
+
+    @Test("a cancelled transfer still reports what remains, then surfaces the cancellation")
+    func cancelledTransferReports() async throws {
+        let directory = try ProcessFixture.makeDirectory()
+        let sourceDirectory = directory.appendingPathComponent("src")
+        let destinationDirectory = directory.appendingPathComponent("dst")
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationDirectory, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: sourceDirectory.appendingPathComponent("a.txt"))
+        let pidFile = directory.appendingPathComponent("pid")
+        let openrsync = HostCapability(
+            kernel: "Darwin", flavor: .bsd, zfs: nil, rsync: "openrsync: protocol version 29")
+        var plan = try PlanEngine.plan(
+            PlanRequest(
+                operation: .move,
+                source: Locus(host: PalanaCore.localHostName, directory: sourceDirectory.path),
+                entries: [remainderEntry()],
+                destination: Locus(host: PalanaCore.localHostName, directory: destinationDirectory.path),
+                token: "t1"),
+            facts: PlanFacts(sourceCapability: openrsync))
+        // The transfer waits before rsync starts, so cancelling it leaves
+        // the source whole: what the report must then name.
+        let transfer = try #require(plan.steps.firstIndex { $0.role == .copy })
+        plan.steps[transfer].command =
+            "\(ProcessFixture.recordPid(at: pidFile)); sleep 30; " + plan.steps[transfer].command
+        let sink = EventSink()
+        let task = Task {
+            try await Transports(conduit: LocalConduit()).run(plan) { sink.record($0) }
+        }
+        _ = try #require(await ProcessFixture.awaitPid(at: pidFile))
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        let notes = Self.notes(sink.events)
+        #expect(notes.count == 1)
+        #expect(notes.first?.detail.contains("/src/a.txt — source entry remains") == true)
+    }
+}
