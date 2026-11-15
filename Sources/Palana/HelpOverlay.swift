@@ -105,7 +105,7 @@ struct HelpOverlay: View {
             HelpRow(keys: "v", what: "preview — right pane follows left"),
             HelpRow(keys: "`", what: "terminal"),
             HelpRow(keys: "⌘`", what: "live shell — ⌘` moves the keyboard"),
-            HelpRow(keys: "?", what: "this card · ? again floats it"),
+            HelpRow(keys: "?", what: "show or hide this card"),
             HelpRow(keys: "⌘,", what: "settings"),
         ])
 
