@@ -295,6 +295,11 @@ public struct Plan: Codable, Sendable, Equatable {
     /// Present on ZFS send/receive plans. An absent value keeps gated
     /// destroys in older decoded plans closed.
     public var zfsReleaseGuard: ZFSReleaseGuard?
+    /// The one line naming what a progressive move will not keep —
+    /// extended attributes, Finder tags, ACLs — when an end cannot
+    /// carry them. nil on every other plan, and on plans written
+    /// before the field existed.
+    public var metadataNotice: String?
     /// Assembles a plan.
     public init(
         operation: PlanOperation,
@@ -310,7 +315,8 @@ public struct Plan: Codable, Sendable, Equatable {
         collisions: CollisionReport? = nil,
         topologyBinding: TopologyBinding? = nil,
         versionGuard: RemoteVersionGuard? = nil,
-        zfsReleaseGuard: ZFSReleaseGuard? = nil
+        zfsReleaseGuard: ZFSReleaseGuard? = nil,
+        metadataNotice: String? = nil
     ) {
         self.operation = operation
         self.classification = classification
@@ -326,6 +332,7 @@ public struct Plan: Codable, Sendable, Equatable {
         self.topologyBinding = topologyBinding
         self.versionGuard = versionGuard
         self.zfsReleaseGuard = zfsReleaseGuard
+        self.metadataNotice = metadataNotice
     }
 
     /// Whether the plan performs a progressive rsync move whose files

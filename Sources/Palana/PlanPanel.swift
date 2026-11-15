@@ -309,6 +309,10 @@ struct PlanPanel: View {
             Text(OperationModel.progressiveMoveNotice)
                 .foregroundStyle(Theme.alarm)
         }
+        if let notice = plan.metadataNotice {
+            Text(notice)
+                .foregroundStyle(Theme.alarm)
+        }
         Spacer().frame(height: 8)
         ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, step in
             Text(stepLine(step))

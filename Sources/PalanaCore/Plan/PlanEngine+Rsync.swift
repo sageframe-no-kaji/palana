@@ -28,10 +28,16 @@ extension PlanEngine {
     /// finding 2). A move's flags are the base set plus the engine-owned
     /// content check and source removal. The paths come last, and the
     /// panel shows exactly what will run.
+    ///
+    /// A move also asks for `-X` and `-A` where ``MoveMetadata`` proves
+    /// both ends carry them: the source is deleted after the transfer,
+    /// so what `-a` leaves behind is lost (review 2026-11-15, finding 4).
+    /// Copies are unchanged — the original keeps its metadata.
     static func rsyncFlags(
         runningOn capability: HostCapability?,
         operatorFlags: String? = nil,
-        removingSource: Bool = false
+        removingSource: Bool = false,
+        keeping metadata: MoveMetadata = .none
     ) -> String {
         var base =
             Self.modernRsync(capability)
@@ -42,6 +48,8 @@ extension PlanEngine {
             base += " \(trimmed)"
         }
         if removingSource {
+            if metadata.xattrs { base += " -X" }
+            if metadata.acls { base += " -A" }
             base += " --checksum --remove-source-files"
         }
         return base
@@ -59,13 +67,15 @@ extension PlanEngine {
     static func rsyncInvocation(
         runningOn capability: HostCapability?,
         operatorFlags: String? = nil,
-        removingSource: Bool = false
+        removingSource: Bool = false,
+        keeping metadata: MoveMetadata = .none
     ) -> String {
         let binary = capability?.rsyncPath.map(ShellQuote.quote) ?? "rsync"
         let flags = rsyncFlags(
             runningOn: capability,
             operatorFlags: operatorFlags,
-            removingSource: removingSource)
+            removingSource: removingSource,
+            keeping: metadata)
         return "\(binary) \(flags)"
     }
 
@@ -124,4 +134,66 @@ extension PlanEngine {
             "[ \"$n\" -eq 0 ]",
         ].joined(separator: "; ")
     }
+
+    /// What a progressive move can keep beyond `-a`, given both ends.
+    ///
+    /// The `.local` route runs one rsync, which is both ends. Every
+    /// other route runs one rsync at each host: the sender and the
+    /// receiver must both list a capability before the flag is asked
+    /// for. ACLs also need the same kernel: macOS and Linux ACLs do not
+    /// translate, and rsync aborts the transfer with a protocol error
+    /// when it tries (Darwin to Linux, rsync 3.4.1 to 3.5.2, verified
+    /// 2026-11-15).
+    static func moveMetadata(transport: Transport, facts: PlanFacts) -> MoveMetadata {
+        let ends =
+            transport == .local
+            ? [facts.sourceCapability]
+            : [facts.sourceCapability, facts.destinationCapability]
+        let xattrs = ends.allSatisfy { $0?.rsyncXattrs == true }
+        let aclRsyncs = ends.allSatisfy { $0?.rsyncACLs == true }
+        let sameKernel = Set(ends.map { $0?.kernel }).count == 1
+        return MoveMetadata(
+            xattrs: xattrs,
+            acls: aclRsyncs && sameKernel,
+            kernels: aclRsyncs && !sameKernel ? ends.compactMap { $0?.kernel } : [])
+    }
+
+    /// The plan's one line naming what a progressive move will not
+    /// keep, or nil when it keeps everything rsync can ask for.
+    static func moveMetadataNotice(_ metadata: MoveMetadata) -> String? {
+        let cannot = "an rsync at one end cannot carry them"
+        var clauses: [String] = []
+        switch (metadata.xattrs, metadata.acls, metadata.kernels.isEmpty) {
+        case (true, true, _):
+            return nil
+        case (false, false, true):
+            clauses.append("extended attributes, Finder tags and ACLs — \(cannot)")
+        case (false, _, _):
+            clauses.append("extended attributes and Finder tags — \(cannot)")
+        case (true, false, _):
+            break
+        }
+        if !metadata.acls, !metadata.kernels.isEmpty {
+            let between = metadata.kernels.joined(separator: " and ")
+            clauses.append("ACLs — they do not carry between \(between)")
+        } else if metadata.xattrs, !metadata.acls {
+            clauses.append("ACLs — \(cannot)")
+        }
+        return "this move does not keep " + clauses.joined(separator: " · ")
+    }
+}
+
+/// What a progressive move keeps beyond `rsync -a`.
+struct MoveMetadata: Equatable, Sendable {
+    /// Both ends carry extended attributes — the move asks for `-X`.
+    var xattrs: Bool
+    /// Both ends carry ACLs on the same kernel — the move asks for `-A`.
+    var acls: Bool
+    /// The two kernels, when both rsyncs carry ACLs but the kernels
+    /// differ; empty otherwise.
+    var kernels: [String]
+
+    /// Keeps nothing beyond `-a` — every copy, and any move whose ends
+    /// are unproven.
+    static let none = Self(xattrs: false, acls: false, kernels: [])
 }
