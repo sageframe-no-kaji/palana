@@ -1,39 +1,32 @@
 # Contributing to pālana
 
-The short version: **bug reports are the most valuable contribution**, small
-patches are welcome, and features start as conversations—this is an authored
-project with a public design record, and architecture flows from that record,
-not from pull requests.
+Bug reports are the most useful contribution. Small patches are welcome.
+Features start as a conversation in an issue, because pālana is an authored
+project with a public design record, and its architecture follows that record
+rather than individual pull requests.
 
 ## Bug reports
 
-A good pālana bug report is easy to write because the app leaves artifacts.
-Include what you have of:
+The app records most of what a good report needs. Include what you have of:
 
-- pālana version (About panel) and macOS version
-- the host's OS and userland if a host is involved (the field view's
-  capability tokens—GNU, BSD, BusyBox—are exactly this)
-- **what the plan showed** and what actually ran—the plan panel text, and
-  the matching entry from `~/Library/Application Support/palana/operations.log`
-- for connection problems: the probe verdict from the field view (`f`, then
-  `r` on the host's row), and whether `ssh <alias>` works in your terminal
+- the pālana version (from the About panel) and the macOS version
+- the host's operating system and userland, if a host is involved (the field
+  card shows the userland as GNU, BSD, or BusyBox)
+- **what the plan showed and what actually ran**: the plan panel text, and the
+  matching entry from `~/Library/Application Support/palana/operations.log`
+- for connection problems: the probe result from the field card (`f`, then `r`
+  on the host's row), and whether `ssh -o BatchMode=yes <alias> true` succeeds
+  in Terminal
 
-File at [issues](https://github.com/sageframe-no-kaji/palana/issues).
-**Security issues**: report privately via
-[GitHub Security Advisories](https://github.com/sageframe-no-kaji/palana/security/advisories)
-rather than a public issue.
-
-## The beta deal
-
-File a real issue during the v0.x beta—a bug, a refusal on a host pālana
-hasn't met, a plan that said something untrue—and the 1.0 build is yours at no
-charge. "Real" means reproducible or informative, not a typo report; judged by
-the author, generously. The beta runs through 4 November 2026.
+File reports in the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues).
+Report **security issues** privately through
+[GitHub Security Advisories](https://github.com/sageframe-no-kaji/palana/security/advisories),
+not in a public issue.
 
 ## Patches
 
-Keep them small and scoped—one change per PR. Before opening one, the
-verification rhythm must pass clean:
+Keep each pull request small and limited to one change. Before you open one,
+these checks must pass:
 
 ```sh
 swift-format lint --recursive --strict Sources Tests
@@ -42,29 +35,36 @@ swift build
 swift test
 ```
 
-PalanaCore holds a **≥90% line-coverage floor** (`swift test
---enable-code-coverage`). A patch that adds behavior adds the tests that
-specify it; a patch that drops coverage below the floor isn't mergeable yet.
+PalanaCore has a **90 percent line-coverage floor** (`swift test
+--enable-code-coverage`), and CI enforces it. A patch that adds behavior also
+adds the tests that specify it. A patch that drops coverage below the floor
+cannot be merged until it adds tests.
+
+Tests never run mutating operations against live hosts. Use the recorded
+Conduit transcripts for unit tests and the disposable sshd and ZFS fixtures
+(`scripts/sshd-fixture.sh`, `scripts/zfs-fixture.sh`) for integration tests.
 
 ## Features and design
 
-The design record governs. Before proposing a feature, read in this order:
-`README.md`, `ho-process/kamae-2-palana-system-design.md`, then
-`ho-process/kamae-4-palana-ho-overview.md`—many "why doesn't it…" questions
-are answered there as decisions with reasoning (SSH-only, no daemon, no
-embedded SSH stack, plans before mutations). Open an issue describing the
-problem before writing code; feature PRs that skip that conversation will
-usually be redirected to one.
+The design record governs the architecture. Before you propose a feature, read
+`README.md`, then `ho-process/kamae-2-palana-system-design.md`, then
+`ho-process/kamae-4-palana-ho-overview.md`. Many "why doesn't it…" questions
+are answered there as decisions with reasons: SSH only, no daemon, no embedded
+SSH stack, and a plan before every change. Open an issue that describes the
+problem before you write code. A feature pull request without that
+conversation will usually be redirected to one.
 
 ## Licensing of contributions
 
-GPL-3.0 in, GPL-3.0 out. You keep your copyright; your contribution is
-accepted under the project license. **There is no CLA and there never will
-be**—which means once your code is in, nobody (the author included) can
-relicense pālana closed. The license is the ordinary
-[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html), unmodified, and a copy
-is in [LICENSE](LICENSE).
+Contributions come in under GPL-3.0 and stay under GPL-3.0. You keep your
+copyright, and your contribution is accepted under the project license.
+**There is no contributor license agreement, and there never will be.** Once
+your code is in, nobody, including the author, can relicense pālana as closed
+source. The license is the ordinary, unmodified
+[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html), and a copy is in
+[LICENSE](LICENSE).
 
-Building from source is free at every version, permanently. What the 1.0 price
-buys is the built artifact — the signed, notarized app and its 1.x updates —
-never permission to run the software, which GPL-3.0 already grants you.
+Building from source is free at every version. The $29 build sold at
+[palana.sageframe.net](https://palana.sageframe.net) is the signed, notarized
+app and its 1.x updates. It is never permission to run the software, because
+GPL-3.0 already grants that.
