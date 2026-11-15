@@ -52,6 +52,18 @@ struct RsyncProgressTests {
         #expect(report?.bytesTransferred == 3000)
     }
 
+    @Test("rsync 3.5 names the byte unit and still parses")
+    func rsync35ByteUnit() {
+        // Captured from rsync 3.5.2 (linuxserver/openssh-server, 2026-11-15).
+        let partial = RsyncProgress.parse(line: "         32,768 B    1%    0 B/s    0:00:00  ")
+        #expect(partial?.bytesTransferred == 32768)
+        #expect(partial?.fraction == 0.01)
+        let done = RsyncProgress.parse(
+            line: "      3,000,000 B  100%  495 MB/s    0:00:00 (xfr#1, to-chk=0/1)")
+        #expect(done?.bytesTransferred == 3_000_000)
+        #expect(done?.fraction == 1.0)
+    }
+
     @Test("the recorded fixture stream parses and finishes at 1.0")
     func recordedStream() throws {
         let url = SSHFixture.repoRoot.appendingPathComponent(

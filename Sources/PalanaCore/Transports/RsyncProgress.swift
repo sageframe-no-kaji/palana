@@ -29,13 +29,15 @@ struct RsyncProgress: Sendable {
         return reports
     }
 
-    /// One progress2 line: `  1,234,567  45%    1.23MB/s    0:00:07 …`.
+    /// One progress2 line: `  1,234,567  45%    1.23MB/s    0:00:07 …`,
+    /// or rsync 3.5's `  1,234,567 B  45%  1.23 MB/s  0:00:07 …`, which
+    /// names the byte unit.
     ///
     /// Bytes and percent are the stable fields; everything after is
     /// carried raw. Non-progress lines return nil and stay out of the
     /// reports — they still reach the echo as ordinary output.
     static func parse(line: String) -> ProgressReport? {
-        let pattern = /^\s*([\d,]+)\s+(\d+)%/
+        let pattern = /^\s*([\d,]+)(?:\s*B)?\s+(\d+)%/
         guard let match = line.firstMatch(of: pattern) else { return nil }
         let digits = match.1.replacing(",", with: "")
         guard let bytes = Int64(digits), let percent = Int(match.2) else { return nil }
