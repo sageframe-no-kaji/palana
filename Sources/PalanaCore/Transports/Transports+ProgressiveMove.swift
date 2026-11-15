@@ -65,10 +65,10 @@ extension Transports {
             emit(.outputChunk(stepIndex: index, channel: .stderr, data: result.stderr))
         }
         emit(.stepEnded(index: index, exitStatus: result.exitStatus))
-        // Lossy on purpose: one undecodable byte must not cost every note
-        // (review 2026-11-15, finding 11).
-        // swiftlint:disable:next optional_data_string_conversion
-        for note in RecoveryNote.notes(in: String(decoding: result.stderr, as: UTF8.self), host: host) {
+        var scanner = RecoveryNoteScanner(host: host)
+        scanner.consume(result.stderr)
+        scanner.finish()
+        for note in scanner.notes {
             emit(.recovery(note))
         }
     }

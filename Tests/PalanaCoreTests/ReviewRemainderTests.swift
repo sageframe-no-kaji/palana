@@ -355,3 +355,93 @@ struct FailedMoveAccountingTests {
         #expect(notes.first?.detail.contains("/src/a.txt — source entry remains") == true)
     }
 }
+
+// MARK: - Finding 11: notes from long reports
+
+@Suite("Review finding 11 — notes from long reports")
+struct LongReportNotesTests {
+    private static func note(_ index: Int) -> String {
+        let path = "/tank/media/" + String(repeating: "deeply-nested-directory/", count: 5) + "file-\(index).bin"
+        return "palana-retained: jodo:\(path) — source entry remains after the progressive move"
+    }
+
+    @Test("sixty long-path notes, about 10 KB of report, all reach the run")
+    func sixtyNotes() async throws {
+        let stderr = (0..<60).map { Self.note($0) + "\n" }.joined()
+        #expect(stderr.utf8.count > 4096 * 2)
+        let step = PlanStep(runsOn: .host("jodo"), command: "report", role: .verify)
+        let plan = Plan(
+            operation: .copy,
+            classification: .withinHostCopy,
+            entries: [],
+            totalSize: 0,
+            source: Locus(host: "jodo", directory: "/tank/media"),
+            destination: Locus(host: "jodo", directory: "/tank/other"),
+            transport: .local,
+            steps: [step])
+        let conduit = RecordedConduit(
+            transcript: ConduitTranscript(entries: [
+                .init(host: "jodo", command: "report", stdout: "", stderr: stderr, exit: 1)
+            ]))
+        let sink = EventSink()
+        await #expect {
+            try await Transports(conduit: conduit) { _, _, _ in -1 }.run(plan) { sink.record($0) }
+        } throws: { error in
+            guard case EnactmentError.stepFailed(_, _, let tail) = error else { return false }
+            return !tail.isEmpty
+        }
+        let notes = sink.events.compactMap { event -> RecoveryNote? in
+            if case .recovery(let note) = event { return note }
+            return nil
+        }
+        #expect(notes.count == 60)
+        #expect(notes.first?.detail.contains("file-0.bin — source entry remains") == true)
+        #expect(notes.last?.detail.contains("file-59.bin — source entry remains") == true)
+    }
+
+    @Test("an em dash split across two chunks still reads whole")
+    func splitCharacter() {
+        let bytes = Data((Self.note(1) + "\n").utf8)
+        let dash = bytes.firstRange(of: Data("—".utf8))?.lowerBound ?? bytes.startIndex
+        var scanner = RecoveryNoteScanner(host: "jodo")
+        scanner.consume(bytes[..<(dash + 1)])
+        scanner.consume(bytes[(dash + 1)...])
+        scanner.finish()
+        #expect(scanner.notes.count == 1)
+        #expect(scanner.notes.first?.detail.contains("file-1.bin — source") == true)
+    }
+
+    @Test("an undecodable byte costs at most its own line")
+    func badByte() {
+        var scanner = RecoveryNoteScanner(host: "jodo")
+        scanner.consume(Data("palana-retained: jodo:/a\u{2014}x\n".utf8))
+        scanner.consume(Data([0x70, 0xFF, 0x0A]))
+        var invalidNote = Data("palana-retained: jodo:/b".utf8)
+        invalidNote.append(0xC3)
+        invalidNote.append(contentsOf: Array(" — kept\n".utf8))
+        scanner.consume(invalidNote)
+        scanner.finish()
+        #expect(scanner.notes.map(\.detail).count == 2)
+        #expect(scanner.notes.last?.detail.hasPrefix("jodo:/b") == true)
+    }
+
+    @Test("an endless line is dropped, not held; the notes around it stand")
+    func overlongLine() {
+        var scanner = RecoveryNoteScanner(host: "jodo")
+        scanner.consume(Data((Self.note(1) + "\n").utf8))
+        scanner.consume(Data(repeating: 0x41, count: RecoveryNoteScanner.lineLimit + 1))
+        scanner.consume(Data("palana-retained: jodo:/never — part of the long line\n".utf8))
+        scanner.consume(Data((Self.note(2) + "\n").utf8))
+        scanner.finish()
+        #expect(scanner.notes.count == 2)
+        #expect(!scanner.notes.contains { $0.detail.contains("/never") })
+    }
+
+    @Test("an unterminated last line still counts")
+    func unterminated() {
+        var scanner = RecoveryNoteScanner(host: "jodo")
+        scanner.consume(Data(Self.note(3).utf8))
+        scanner.finish()
+        #expect(scanner.notes.count == 1)
+    }
+}

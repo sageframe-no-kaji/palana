@@ -127,6 +127,65 @@ public struct RecoveryNote: Sendable, Equatable {
     }
 }
 
+/// Lifts recovery notes from a step's standard error, line by line, as
+/// its chunks arrive.
+///
+/// Notes were read from a 4 KiB tail of stderr: a long report lost its
+/// earliest lines, and a cut through a multi-byte character (every
+/// note carries an em dash) decoded to nothing at all, so the run got
+/// no notes (review 2026-11-15, finding 11). Here every complete line
+/// is decoded on its own, lossily, so one bad byte costs at most its
+/// own line. A line longer than ``lineLimit`` without a newline is
+/// dropped up to its end rather than held without bound.
+struct RecoveryNoteScanner {
+    /// The longest partial line held while waiting for its newline.
+    static let lineLimit = 64 * 1024
+
+    /// The host the step runs on, named in every note.
+    let host: String
+    /// The notes read so far, in order.
+    private(set) var notes: [RecoveryNote] = []
+    private var pending = Data()
+    private var discarding = false
+
+    /// A scanner for one step's stderr on `host`.
+    init(host: String) {
+        self.host = host
+    }
+
+    /// Takes one chunk; notes on every line it completes.
+    mutating func consume(_ chunk: Data) {
+        pending.append(chunk)
+        while let newline = pending.firstIndex(of: 0x0A) {
+            if discarding {
+                discarding = false
+            } else {
+                take(pending[pending.startIndex..<newline])
+            }
+            pending.removeSubrange(pending.startIndex...newline)
+        }
+        if pending.count > Self.lineLimit {
+            pending.removeAll(keepingCapacity: true)
+            discarding = true
+        }
+    }
+
+    /// Ends the stream: an unterminated last line still counts.
+    mutating func finish() {
+        if !discarding, !pending.isEmpty {
+            take(pending)
+        }
+        pending.removeAll()
+        discarding = false
+    }
+
+    private mutating func take(_ line: Data) {
+        // Lossy on purpose: an undecodable byte must not cost the note.
+        // swiftlint:disable:next optional_data_string_conversion
+        notes += RecoveryNote.notes(in: String(decoding: line, as: UTF8.self), host: host)
+    }
+}
+
 /// What enactment emits, in order, as it happens.
 public enum EnactmentEvent: Sendable, Equatable {
     /// A plan step is starting — the exact command rides along.
