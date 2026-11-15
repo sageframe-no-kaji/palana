@@ -33,7 +33,11 @@ final class OperationModel {
     }
 
     /// Where the panel stands.
-    var phase = Phase.idle
+    var phase = Phase.idle {
+        // The rename offer belongs to the failure that raised it: any
+        // new work, dismissal or retry withdraws it.
+        didSet { if phase != .failed { renameCommitOffer = nil } }
+    }
     /// The composed plan, whole, once ready.
     var plan: Plan?
     /// The panel's transcript — gathering notes, then the run.
@@ -58,6 +62,12 @@ final class OperationModel {
     ///
     /// Set by round-trip upload gather when auto-send is off. Cleared by ``reset()``.
     var readyCallout: String?
+    /// The same send-back committed by rename, offered after its link
+    /// commit refused because the destination has no hard links.
+    ///
+    /// Present only while that failure is on screen; see
+    /// ``acceptRenameCommit()``.
+    var renameCommitOffer: Plan?
 
     /// True whenever an operation exists, on screen or not.
     var active: Bool { phase != .idle }
@@ -361,6 +371,7 @@ final class OperationModel {
         sealRecord()
         progress = nil
         phase = .failed
+        renameCommitOffer = Self.renameCommitOffer(for: plan, after: error)
         // A failure never stays off-screen.
         panelShowing = true
         // ho-11: nor behind an open shell — the transcript comes

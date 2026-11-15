@@ -34,6 +34,23 @@ public struct RemoteVersionGuard: Codable, Sendable, Equatable {
     /// The operation token — makes every staging and recovery entry unique.
     public var token: String
 
+    /// How the commit takes the pathname. nil is ``CommitMode/link`` —
+    /// every guard written before the field existed.
+    public var commitMode: CommitMode?
+
+    /// How a send-back's commit puts the edit at the destination path.
+    public enum CommitMode: String, Codable, Sendable, Equatable {
+        /// `ln`: takes the name only if it is free, in one step. The default.
+        case link
+        /// `mv -n`, then a content check: for a filesystem with no hard
+        /// links, and only when the operator chose it after the link
+        /// commit refused. `mv -n` checks the name is free and then
+        /// renames, so another writer arriving in between can be
+        /// overwritten; the content check catches only a writer that
+        /// arrives after the rename.
+        case rename
+    }
+
     /// Binds a send-back to one remote version.
     ///
     /// - Parameters:
@@ -41,12 +58,19 @@ public struct RemoteVersionGuard: Codable, Sendable, Equatable {
     ///   - pathData: The full destination path, byte-exact.
     ///   - expectedDigest: SHA-256 hex of the version being replaced; nil for absence.
     ///   - token: The operation token.
-    public init(host: String, pathData: Data, expectedDigest: String?, token: String) {
+    ///   - commitMode: How the commit takes the pathname; nil is link.
+    public init(
+        host: String, pathData: Data, expectedDigest: String?, token: String, commitMode: CommitMode? = nil
+    ) {
         self.host = host
         self.pathData = pathData
         self.expectedDigest = expectedDigest
         self.token = token
+        self.commitMode = commitMode
     }
+
+    /// True when the commit renames rather than links.
+    public var renames: Bool { commitMode == .rename }
 
     /// The destination path for display — lossy when the bytes are not UTF-8.
     public var path: String {
@@ -87,21 +111,21 @@ extension RemoteVersionGuard {
     /// nil), sets the standing version aside under a named recovery
     /// entry, takes the pathname with `ln` — which fails rather than
     /// clobber — and removes the set-aside copy only after proving it
-    /// was the version that was checked. Every exit path clears the
-    /// operation's staging directory or names what it retained.
+    /// was the version that was checked. A filesystem that cannot make
+    /// the hard link is refused before anything is set aside (exit
+    /// ``noHardLinkExitStatus``). Every exit path clears the operation's
+    /// staging directory or names what it retained.
     ///
     /// - Parameters:
     ///   - directory: The destination directory the send-back commits into.
     ///   - name: The destination entry's bare name.
     /// - Returns: One POSIX-sh program.
     func commitProgram(directory: String, name: String) -> String {
-        let stage = ShellQuote.quote(Self.stagingName(token: token))
-        let staged = ShellQuote.quote("\(Self.stagingName(token: token))/\(name)")
-        let entry = ShellQuote.quote(name)
-        let keptName = Self.displacedName(token: token)
-        let kept = ShellQuote.quote(keptName)
-        let keptPath = Self.join(directory, keptName)
-        let stagePath = Self.join(directory, Self.stagingName(token: token))
+        let names = CommitNames(directory: directory, name: name, token: token)
+        let stage = names.stage
+        let staged = names.staged
+        let entry = names.entry
+        let stagePath = names.stagePath
         return [
             "PALANA_EXPECT=\(ShellQuote.quote(expectedDigest ?? ""))",
             "cd \(ShellQuote.quote(directory)) || \(bareRefusal("the destination directory could not be entered", code: 3))",
@@ -112,7 +136,8 @@ extension RemoteVersionGuard {
             currentVersionRead(entry: entry, stage: stage),
             "[ \"$PALANA_CURRENT\" = \"$PALANA_EXPECT\" ] || "
                 + refusal("it is not the version that was checked", stage: stage, code: 5),
-            promotion(entry: entry, staged: staged, kept: kept, keptPath: keptPath, stage: stage),
+            renames ? sentDigest(names) : linkProbe(names),
+            promotion(names),
             "rm -rf -- \(stage) || \(retention("the staged copy could not be removed", path: stagePath))",
         ].joined(separator: "; ")
     }
@@ -134,16 +159,60 @@ extension RemoteVersionGuard {
         ].joined(separator: "; ")
     }
 
+    /// Refuses, before anything is set aside, where a hard link cannot
+    /// be made.
+    ///
+    /// Promotion takes the pathname with `ln`, which refuses atomically
+    /// if the name is taken. A filesystem with no hard links (exFAT, FAT,
+    /// many FUSE and rclone mounts, some SMB shares) fails every `ln`;
+    /// without this probe the standing version was set aside, the edit
+    /// could not take its place, and the path was left empty (review
+    /// 2026-11-15, finding 8). The probe links the staged file inside
+    /// the staging directory — the destination's own filesystem — under
+    /// a name that cannot be the staged entry's. Exit 8 is this refusal
+    /// alone, so the surface can offer the rename commit instead.
+    private func linkProbe(_ names: CommitNames) -> String {
+        "if ln -- \(names.staged) \(names.probe) 2>/dev/null; then rm -f -- \(names.probe); else "
+            + refusalBody(
+                "a hard link could not be made here, so the file cannot be replaced safely",
+                stage: names.stage,
+                code: Int(Self.noHardLinkExitStatus))
+            + "; fi"
+    }
+
+    /// The commit's exit status when the destination cannot make a hard link.
+    ///
+    /// Promotion needs one; nothing was replaced.
+    public static let noHardLinkExitStatus: Int32 = 8
+
     /// Moves the standing version aside without clobbering, takes its
     /// pathname, then rules on what was preserved.
-    private func promotion(
-        entry: String, staged: String, kept: String, keptPath: String, stage: String
-    ) -> String {
+    ///
+    /// Once the standing version is set aside, a failed promotion never
+    /// deletes the staged edit: it stays in the staging directory and a
+    /// retained note names it. A pathname another writer took is left
+    /// to them, and both versions are named. A pathname still free gets
+    /// the set-aside version back by `mv -n`, which counts only when
+    /// the set-aside name is gone afterwards — some `mv` exit 0 when
+    /// `-n` skips.
+    private func promotion(_ names: CommitNames) -> String {
+        let entry = names.entry
+        let staged = names.staged
+        let kept = names.kept
+        let keptPath = names.keptPath
+        let stage = names.stage
+        let stagedPath = names.stagedPath
         let restored =
             "echo "
             + ShellQuote.quote(
                 "palana-restored: \(target) — the send could not be committed"
                     + "; the version that was there is back where it was") + " >&2"
+        let taken = "[ -e \(entry) ] || [ -L \(entry) ]"
+        let takenNow = "the destination was taken while the send was committing"
+        let place = placement(names)
+        let editKept = { (reason: String) in
+            "{ [ ! -e \(staged) ] || " + retention("\(reason), so your edit is kept here", path: stagedPath) + "; }"
+        }
         return [
             "if [ -n \"$PALANA_EXPECT\" ]",
             "then [ ! -d \(kept) ] || "
@@ -155,7 +224,7 @@ extension RemoteVersionGuard {
                 + refusal("the version standing there could not be set aside", stage: stage, code: 6),
             "[ ! -e \(entry) ] && [ ! -L \(entry) ] || "
                 + refusal("the recovery name is already occupied", stage: stage, code: 6),
-            "if ln -- \(staged) \(entry) 2>/dev/null",
+            "if \(place)",
             "then rm -f -- \(staged)",
             "PALANA_KEPT=$($PALANA_DG < \(kept) 2>/dev/null); PALANA_KEPT=${PALANA_KEPT#*= }"
                 + "; PALANA_KEPT=${PALANA_KEPT%% *}",
@@ -165,16 +234,67 @@ extension RemoteVersionGuard {
                 + retention(
                     "the version replaced was not the one checked, so it is kept here", path: keptPath)
                 + "; fi",
-            "else if ln -- \(kept) \(entry) 2>/dev/null; then rm -f -- \(kept); \(restored)",
+            "elif \(taken)",
+            "then "
+                + retention("\(takenNow), so the version you were replacing is kept here", path: keptPath),
+            renameStray(names) + editKept(takenNow),
+            "exit 7",
+            "else if mv -n -- \(kept) \(entry) 2>/dev/null && [ ! -e \(kept) ] && [ ! -L \(kept) ]"
+                + "; then \(restored)",
             "else "
                 + retention(
-                    "the destination was taken while the send was committing, so the version"
-                        + " you were replacing is kept here", path: keptPath) + "; fi",
-            "rm -rf -- \(stage); exit 7; fi",
-            "else ln -- \(staged) \(entry) 2>/dev/null || "
-                + refusal("something now stands there", stage: stage, code: 7),
-            "rm -f -- \(staged); fi",
+                    "the send could not be committed, so the version you were replacing is kept here",
+                    path: keptPath) + "; fi",
+            renameStray(names) + editKept("the send could not take the pathname"),
+            "exit 7; fi",
+            "elif \(place)",
+            "then rm -f -- \(staged)",
+            "elif \(taken)",
+            "then " + renameStray(names) + refusal("something now stands there", stage: stage, code: 7),
+            "else " + refusal("the send could not take the pathname", stage: stage, code: 7),
+            "fi",
         ].joined(separator: "; ")
+    }
+
+    /// How the edit takes the pathname — the command whose success is
+    /// the commit landing.
+    ///
+    /// Link mode: one `ln`, atomic. Rename mode: the name is checked
+    /// free, `mv -n` renames (a directory there would swallow the file,
+    /// so the check comes first), and the commit counts only when the
+    /// staged name is gone and the destination holds the sent bytes.
+    private func placement(_ names: CommitNames) -> String {
+        guard renames else { return "ln -- \(names.staged) \(names.entry) 2>/dev/null" }
+        return [
+            "[ ! -e \(names.entry) ]", "[ ! -L \(names.entry) ]",
+            "mv -n -- \(names.staged) \(names.entry) 2>/dev/null",
+            "[ ! -e \(names.staged) ]", "[ ! -L \(names.staged) ]",
+            "[ -f \(names.entry) ]", "[ ! -L \(names.entry) ]",
+            "PALANA_LANDED=$($PALANA_DG < \(names.entry))",
+            "PALANA_LANDED=${PALANA_LANDED#*= }", "PALANA_LANDED=${PALANA_LANDED%% *}",
+            "[ \"$PALANA_LANDED\" = \"$PALANA_SENT\" ]",
+        ].joined(separator: " && ")
+    }
+
+    /// Rename mode: the staged bytes' digest, read before anything is set aside.
+    private func sentDigest(_ names: CommitNames) -> String {
+        "PALANA_SENT=$($PALANA_DG < \(names.staged)) || "
+            + refusal("the upload could not be read", stage: names.stage, code: 3)
+            + "; PALANA_SENT=${PALANA_SENT#*= }; PALANA_SENT=${PALANA_SENT%% *}"
+    }
+
+    /// Rename mode: names the edit a racing directory swallowed.
+    ///
+    /// A directory that took the pathname in the instant before the
+    /// rename receives the file inside it. Empty in link mode, where
+    /// `ln` never moves anything. Always a prefix: it ends with its own
+    /// separator.
+    private func renameStray(_ names: CommitNames) -> String {
+        guard renames else { return "" }
+        return "{ [ -e \(names.staged) ] || [ ! -d \(names.entry) ] || [ ! -e \(names.nested) ] || "
+            + retention(
+                "a directory took the destination as the send renamed, and your edit landed inside it",
+                path: names.nestedPath) + "; }; "
     }
 
     /// A refusal that also clears the operation's staging directory.
@@ -196,5 +316,73 @@ extension RemoteVersionGuard {
     /// A line naming data this operation left behind, and exactly where.
     private func retention(_ reason: String, path: String) -> String {
         "echo \(ShellQuote.quote("palana-retained: \(host):\(path) — \(reason)")) >&2"
+    }
+}
+
+/// The quoted names and display paths one commit program uses.
+///
+/// Quoted forms are relative to the destination directory the program
+/// enters first; paths are absolute, for retained notes.
+struct CommitNames {
+    /// The destination entry, quoted.
+    let entry: String
+    /// The staging directory, quoted.
+    let stage: String
+    /// The staged upload, quoted.
+    let staged: String
+    /// The hard-link probe's name in staging, quoted — never the upload's.
+    let probe: String
+    /// The set-aside version's name, quoted.
+    let kept: String
+    /// The set-aside version's absolute path.
+    let keptPath: String
+    /// The staging directory's absolute path.
+    let stagePath: String
+    /// The staged upload's absolute path.
+    let stagedPath: String
+    /// The upload's name inside the destination name, quoted — where a
+    /// rename lands if a directory took the destination first.
+    let nested: String
+    /// That nested path, absolute.
+    let nestedPath: String
+
+    init(directory: String, name: String, token: String) {
+        let stageName = RemoteVersionGuard.stagingName(token: token)
+        let keptName = RemoteVersionGuard.displacedName(token: token)
+        entry = ShellQuote.quote(name)
+        stage = ShellQuote.quote(stageName)
+        staged = ShellQuote.quote("\(stageName)/\(name)")
+        probe = ShellQuote.quote("\(stageName)/\(name).palana-link")
+        kept = ShellQuote.quote(keptName)
+        keptPath = RemoteVersionGuard.join(directory, keptName)
+        stagePath = RemoteVersionGuard.join(directory, stageName)
+        stagedPath = RemoteVersionGuard.join(stagePath, name)
+        nested = ShellQuote.quote("\(name)/\(name)")
+        nestedPath = RemoteVersionGuard.join(RemoteVersionGuard.join(directory, name), name)
+    }
+}
+
+extension Plan {
+    /// The same send-back, committed by rename instead of by hard link.
+    ///
+    /// What the surface offers after the link commit refused with
+    /// ``RemoteVersionGuard/noHardLinkExitStatus``. Every step but the
+    /// commit is unchanged; the guard names the mode, so enactment's
+    /// exact check accepts the rename commit only for this plan. The
+    /// refusal cleared staging, so the same operation token stages
+    /// again. nil when the plan is not a link-mode send-back.
+    public func renameCommitted() -> Plan? {
+        guard var versionGuard, !versionGuard.renames, let destination, entries.count == 1 else {
+            return nil
+        }
+        versionGuard.commitMode = .rename
+        let program = versionGuard.commitProgram(directory: destination.directory, name: entries[0].name)
+        var plan = self
+        plan.versionGuard = versionGuard
+        plan.steps = steps.map { step in
+            guard step.role == .promote else { return step }
+            return PlanStep(runsOn: step.runsOn, command: program, role: .promote)
+        }
+        return plan
     }
 }

@@ -32,7 +32,7 @@ public enum PlanEngine {
             classification: classification,
             transport: transport)
         let sizeFacts = totalSize(request.entries, facts: facts)
-        return Plan(
+        var plan = Plan(
             operation: request.operation,
             classification: classification,
             entries: request.entries,
@@ -47,6 +47,10 @@ public enum PlanEngine {
             versionGuard: request.versionGuard,
             zfsReleaseGuard: zfsReleaseGuard(request: request, facts: facts, transport: transport)
         )
+        if plan.usesProgressiveRsyncMove {
+            plan.metadataNotice = moveMetadataNotice(moveMetadata(transport: transport, facts: facts))
+        }
+        return plan
     }
 
     /// Builds the collision report for destination-ful requests.
@@ -298,8 +302,13 @@ extension PlanEngine {
         // (second hands session: "on a local machine you might want
         // that for a big copy"). cp -a stays the floor.
         let copyCommand: (String, Bool) -> String = { dest, removingSource in
-            facts.sourceCapability?.rsync != nil
-                ? "\(rsyncInvocation(runningOn: facts.sourceCapability, operatorFlags: facts.rsyncOperatorFlags, removingSource: removingSource)) \(sources) \(dest)"
+            let invocation = rsyncInvocation(
+                runningOn: facts.sourceCapability,
+                operatorFlags: facts.rsyncOperatorFlags,
+                removingSource: removingSource,
+                keeping: removingSource ? moveMetadata(transport: .local, facts: facts) : .none)
+            return facts.sourceCapability?.rsync != nil
+                ? "\(invocation) \(sources) \(dest)"
                 : "cp -a \(sources) \(dest)"
         }
         switch classification {
@@ -341,7 +350,8 @@ extension PlanEngine {
         let invocation = rsyncInvocation(
             runningOn: facts.sourceCapability,
             operatorFlags: facts.rsyncOperatorFlags,
-            removingSource: moving)
+            removingSource: moving,
+            keeping: moving ? moveMetadata(transport: .rsyncAgentForwarded, facts: facts) : .none)
         return [
             PlanStep(
                 runsOn: sourceHost,
@@ -410,7 +420,8 @@ extension PlanEngine {
         let invocation = rsyncInvocation(
             runningOn: localCapability,
             operatorFlags: facts.rsyncOperatorFlags,
-            removingSource: moving)
+            removingSource: moving,
+            keeping: moving ? moveMetadata(transport: .rsyncDirect, facts: facts) : .none)
         return [
             PlanStep(
                 runsOn: here,

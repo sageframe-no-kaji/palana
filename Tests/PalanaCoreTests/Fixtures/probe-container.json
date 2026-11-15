@@ -1,11 +1,11 @@
 {
   "entries" : [
     {
-      "command" : "echo \"palana:kernel:$(uname -s)\"; if stat --version >\/dev\/null 2>&1; then echo \"palana:flavor:GNU\"; elif busybox true >\/dev\/null 2>&1; then echo \"palana:flavor:BusyBox\"; else echo \"palana:flavor:BSD\"; fi; echo \"palana:zfs:$(zfs version 2>\/dev\/null | head -n 1)\"; echo \"palana:rsync:$(rsync --version 2>\/dev\/null | head -n 1)\"",
+      "command" : "echo \"palana:kernel:$(uname -s)\"; if stat --version >\/dev\/null 2>&1; then echo \"palana:flavor:GNU\"; elif busybox true >\/dev\/null 2>&1; then echo \"palana:flavor:BusyBox\"; else echo \"palana:flavor:BSD\"; fi; echo \"palana:zfs:$(zfs version 2>\/dev\/null | head -n 1)\"; echo \"palana:rsync:$(rsync --version 2>\/dev\/null | head -n 1)\"; echo \"palana:rsynccaps:$(rsync --version 2>\/dev\/null | head -n 16 | tr '\\n' ' ')\"",
       "exit" : 0,
       "host" : "palana@localhost",
       "stderr" : "",
-      "stdout" : "palana:kernel:Linux\npalana:flavor:GNU\npalana:zfs:\npalana:rsync:rsync  version 3.4.3  protocol version 32\n"
+      "stdout" : "palana:kernel:Linux\npalana:flavor:GNU\npalana:zfs:\npalana:rsync:rsync  version 3.5.2  protocol version 33\npalana:rsynccaps:rsync  version 3.5.2  protocol version 33 Copyright (C) 1996-2026 by Andrew Tridgell, Wayne Davison, and others. Web site: https:\/\/rsync.samba.org\/ Capabilities:     64-bit files, 64-bit inums, 64-bit timestamps, 64-bit long ints,     socketpairs, symlinks, symtimes, hardlinks, hardlink-specials,     hardlink-symlinks, IPv6, atimes, batchfiles, inplace, append, ACLs,     ACL-at, xattrs, optional secluded-args, iconv, prealloc, stop-at,     no crtimes, IDN Optimizations:     no SIMD-roll, no asm-roll, no openssl-crypto, no asm-MD5 Checksum list:     xxh128 xxh3 xxh64 (xxhash) md5 md4 none Compress list:     zstd lz4 zlibx zlib none Daemon auth list: \n"
     }
   ]
 }

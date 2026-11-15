@@ -90,6 +90,9 @@ struct PlanPanel: View {
                                         planBlock(plan)
                                     }
                                     transcript
+                                    if operation.phase == .failed, operation.renameCommitOffer != nil {
+                                        RenameCommitOfferView(accept: operation.acceptRenameCommit)
+                                    }
                                 }
                                 Color.clear.frame(height: 1).id("panel-bottom")
                             }
@@ -307,6 +310,10 @@ struct PlanPanel: View {
             .foregroundStyle(Theme.inkFaint)
         if plan.usesProgressiveRsyncMove {
             Text(OperationModel.progressiveMoveNotice)
+                .foregroundStyle(Theme.alarm)
+        }
+        if let notice = plan.metadataNotice {
+            Text(notice)
                 .foregroundStyle(Theme.alarm)
         }
         Spacer().frame(height: 8)

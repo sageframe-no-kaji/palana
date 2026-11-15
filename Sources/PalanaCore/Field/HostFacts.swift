@@ -68,6 +68,21 @@ public struct HostCapability: Codable, Sendable, Equatable {
     /// truth there. Optional with a default so cache files written
     /// before the field existed still decode.
     public var rsyncPath: String?
+    // swiftlint:disable discouraged_optional_boolean
+    // Three states are real here: nil is unprobed (a cache written
+    // before the field existed — synthesized Codable tolerates the
+    // missing key only on an Optional), false is probed and absent.
+    /// Whether the probed rsync lists `xattrs` among its capabilities.
+    ///
+    /// nil when rsync is absent or the probe predates the field — a
+    /// cache file written before it existed still decodes, and nil
+    /// counts as unproven, so a move does not ask for `-X`. openrsync
+    /// lists no capabilities and reads false.
+    public var rsyncXattrs: Bool?
+    /// Whether the probed rsync lists `ACLs` among its capabilities.
+    ///
+    /// Same absence rules as ``rsyncXattrs``.
+    public var rsyncACLs: Bool?
 
     /// Assembles a capability fact.
     public init(
@@ -75,13 +90,18 @@ public struct HostCapability: Codable, Sendable, Equatable {
         flavor: UserlandFlavor,
         zfs: String?,
         rsync: String?,
-        rsyncPath: String? = nil
+        rsyncPath: String? = nil,
+        rsyncXattrs: Bool? = nil,
+        rsyncACLs: Bool? = nil
     ) {
+        // swiftlint:enable discouraged_optional_boolean
         self.kernel = kernel
         self.flavor = flavor
         self.zfs = zfs
         self.rsync = rsync
         self.rsyncPath = rsyncPath
+        self.rsyncXattrs = rsyncXattrs
+        self.rsyncACLs = rsyncACLs
     }
 
     /// Dotted rsync version — `3.2.7` — parsed from the raw line.

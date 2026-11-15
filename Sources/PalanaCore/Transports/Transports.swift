@@ -71,10 +71,21 @@ public struct Transports: Sendable {
             try Task.checkCancellation()
             try await openGate(for: step, plan: plan, state: &state, emit: emit)
             emit(.stepBegan(index: index, step: step))
-            let result = try await runStep(step, index: index, plan: plan, emit: emit)
+            let result: StepResult
+            do {
+                result = try await runStep(step, index: index, plan: plan, emit: emit)
+            } catch {
+                await Self.reportRetainedSources(plan, failedStep: step, conduit: conduit, emit: emit)
+                Self.reportStagingLeft(plan, failedIndex: index, emit: emit)
+                throw error
+            }
             emit(.stepEnded(index: index, exitStatus: result.exitStatus))
-            for note in RecoveryNote.notes(in: result.stderrTail, host: Self.hostLabel(step)) {
+            for note in result.notes {
                 emit(.recovery(note))
+            }
+            if result.exitStatus != 0 {
+                await Self.reportRetainedSources(plan, failedStep: step, conduit: conduit, emit: emit)
+                Self.reportStagingLeft(plan, failedIndex: index, emit: emit)
             }
             try Self.raise(result, index: index)
         }
@@ -238,14 +249,6 @@ public struct Transports: Sendable {
         }
     }
 
-    /// The host a step's output is attributed to.
-    private static func hostLabel(_ step: PlanStep) -> String {
-        switch step.runsOn {
-        case .operatorMachine: PalanaCore.localHostName
-        case .host(let host): host
-        }
-    }
-
     /// Raises a nonzero step, door failures first.
     private static func raise(_ result: StepResult, index: Int) throws {
         guard result.exitStatus != 0 else { return }
@@ -261,6 +264,8 @@ public struct Transports: Sendable {
     private struct StepResult {
         var exitStatus: Int32
         var stderrTail: String
+        /// The recovery notes from the whole stderr stream, not the tail.
+        var notes: [RecoveryNote] = []
     }
 
     private func runStep(
@@ -321,10 +326,12 @@ public struct Transports: Sendable {
         // the drains end, the exit is awaited, and only then does the
         // cancellation surface — the process is gone before it does.
         let result = await withTaskCancellationHandler {
-            async let stderrTail: Data = {
+            async let stderrRead: (tail: Data, notes: [RecoveryNote]) = {
                 var tail = Data()
+                var scanner = RecoveryNoteScanner(host: host)
                 var sendProgress = ZfsSendProgress()
                 for await chunk in running.stderr {
+                    scanner.consume(chunk)
                     emit(.outputChunk(stepIndex: index, channel: .stderr, data: chunk))
                     if parseSendProgress {
                         for report in sendProgress.consume(chunk) {
@@ -336,7 +343,8 @@ public struct Transports: Sendable {
                         tail = tail.suffix(4096)
                     }
                 }
-                return tail
+                scanner.finish()
+                return (tail, scanner.notes)
             }()
 
             var progress = RsyncProgress()
@@ -349,11 +357,14 @@ public struct Transports: Sendable {
                 }
             }
 
-            let tail = await stderrTail
+            let stderr = await stderrRead
             let status = await running.exitStatus()
             return StepResult(
                 exitStatus: status,
-                stderrTail: String(bytes: tail, encoding: .utf8) ?? "")
+                // Lossy: a tail cut inside a character still reads.
+                // swiftlint:disable:next optional_data_string_conversion
+                stderrTail: String(decoding: stderr.tail, as: UTF8.self),
+                notes: stderr.notes)
         } onCancel: {
             running.terminate()
         }

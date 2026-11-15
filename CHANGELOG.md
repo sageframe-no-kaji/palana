@@ -47,6 +47,15 @@ without ever routing through your Mac.
   A file move compares contents, removes each source file after transfer, warns
   that interruption may split the selection, and refuses when a required
   endpoint lacks supported rsync. Tar fallback remains copy-only.
+- **Moves keep metadata where they can.** A move asks rsync for extended
+  attributes and Finder tags (`-X`) and ACLs (`-A`, between hosts of the same OS)
+  when both ends carry them; otherwise the plan names what will not be kept.
+- **A failed move still accounts.** When a move's transfer fails or is
+  cancelled, the run still names every selected source that remains.
+- **Send-back without hard links.** On a destination that cannot make hard links
+  (exFAT, many FUSE mounts, some SMB shares) the safe replace refuses with
+  nothing changed, and the panel offers to replace by rename instead, saying
+  what that risks.
 - **ZFS, natively.** Dataset boundaries are first-class; a cross-dataset move is
   named as what it is. Whole-dataset moves offer `zfs send | ssh | zfs receive`.
   The **ZFS workbench** manages datasets and snapshots (create, destroy, rename,
