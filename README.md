@@ -2,7 +2,7 @@
 
 *Tend your field.*
 
-pālana is a native Mac file manager for the machines you run yourself. It has two panes, and each pane can show this Mac or any host in your `~/.ssh/config`. Before a file operation runs, pālana composes a plan and shows it to you: what will change, which machine will carry the data, and the exact commands. Press Enter to run the plan, or Esc to dismiss it. When the hosts support it, a transfer between two servers runs directly from one to the other, and your Mac sends only the command. On hosts that have ZFS, pālana also shows datasets and snapshots and plans ZFS operations the same way. pālana runs while you have it open. It installs no background process.
+pālana is a native Mac file manager for the machines you run yourself. It has two panes, and each pane can show this Mac or any host in your `~/.ssh/config`. Anything mounted on this Mac is a local path, so network shares (SMB, NFS), external disks, and cloud drives that macOS mounts appear in a local pane and are planned the same way. Before a file operation runs, pālana composes a plan and shows it to you: what will change, which machine will carry the data, and the exact commands. Press Enter to run the plan, or Esc to dismiss it. When the hosts support it, a transfer between two servers runs directly from one to the other, and your Mac sends only the command. On hosts that have ZFS, pālana also shows datasets and snapshots and plans ZFS operations the same way.
 
 **Status:** v1.0, the first full release. A signed and notarized universal app for macOS 14 or later. The source is open under GPL-3.0.
 
@@ -25,36 +25,20 @@ pālana is a native Mac file manager for the machines you run yourself. It has t
 
 ---
 
-## The problem
-
-Mac file managers that connect to servers over SFTP, such as Transmit, copy between two servers by relaying the data through the Mac. It travels from server A to the laptop and then to server B. The interface shows one copy, but the laptop's network link, sleep, and uptime are now part of the transfer. For a large archive moving between two machines in the same rack, that route is slow, and a failure is hard to diagnose if you did not know the laptop was in the middle.
-
-ZFS adds a second problem. When each service has its own dataset, two directories that look like neighbors can be separate filesystems. A move between them is not a rename: the data is copied and the source is removed, with the duration and the failure modes of a copy. You need to know which kind of move you are starting before it starts.
-
-A homelab with a dozen machines and several pools often has no single view that shows them together. A monitoring dashboard reports that a disk is filling, and then the work happens in a stack of terminal tabs. pālana keeps a record of each host's capabilities, pools, and datasets and shows it beside the panes where you do the work.
-
 ## What pālana does
 
-- **Plans before actions.** Copy, move, delete, rename, create, and touch each compose a plan before anything runs. The plan shows the number of entries and their total size, what kind of operation it is (for example, a move on the same disk, a move across storage boundaries, or a move to another machine), the source and destination, any destination entries it would replace or merge, how the data travels and authenticates, and every command in the order it will run. Enter runs the plan. Esc dismisses it. Dry-run is not a mode you remember to turn on: every operation starts as one.
+- **Plans before actions.** Copy, move, delete, rename, create, and touch each compose a plan before anything runs. The plan shows the number of entries and their total size, what kind of operation it is (for example, a move on the same disk, a move across storage boundaries, or a move to another machine), the source and destination, any destination entries it would replace or merge, how the data travels and authenticates, and every command in the order it will run. Enter runs the plan. Esc dismisses it.
+- **Mounted storage.** The local pane shows any path on this Mac, including network shares in `/Volumes` and cloud storage mounted under `~/Library/CloudStorage`. Copies and moves to, from, and between them run on the Mac with rsync, or `mv` within one filesystem, and the plan shows which.
 - **Server-to-server transfers.** A copy or move between two SSH hosts runs on the source host and sends the data directly to the destination when three conditions hold: the source has rsync 3.1 or later, the destination has rsync, and the source can authenticate to the destination through your forwarded SSH agent. Agent forwarding lets the source host ask your Mac's SSH agent to sign the login, so your private key stays on the Mac. When those conditions do not hold, a copy streams through your Mac with tar, and a move that needs a copy is refused. You do not choose the route. The plan names it.
 - **Moves that remove the source.** A move within one filesystem uses `mv`. A move across filesystems, datasets, or hosts uses rsync with `--checksum --remove-source-files`: rsync compares file contents and removes each source file after it transfers that file. pālana then removes the empty source directories and names any source entry that remains. Before you press Enter, the plan warns you not to modify either location during the move, because an interruption can leave files split between them.
 - **ZFS where ZFS exists.** On hosts with ZFS, pālana reads datasets and mountpoints and uses them to decide what kind of move an operation is. When the selection is a whole dataset and the destination directory is a dataset mountpoint on another ZFS host, a copy or move uses `zfs send -R` piped into `zfs receive -u` instead of copying files. `Z` switches a pane to the host's dataset tree, where you can create, destroy, rename, snapshot, and roll back, set or inherit mountpoints, and mount or unmount. Each of these is a plan. Hosts without ZFS show none of it.
 - **The field.** `f` opens a card that lists this Mac and each host from your SSH config, with its reachability, the age of its facts, its userland (GNU, BSD, or BusyBox), whether it has rsync, ZFS, and passwordless sudo, and its pools and datasets. Enter on a row points the focused pane there and closes the card. `F` opens a floating host map that adds each host's mounts. pālana reads these facts when you ask (`r` on a host row). Nothing probes on a schedule.
+- **Panes that stay current.** A local pane watches its directory and refreshes when it changes. A remote pane re-lists every ten seconds while the window is frontmost.
 - **The plan panel.** Before Enter, the panel at the bottom of the window shows the plan. After Enter, it shows each command as it starts and streams its output, with a progress bar when rsync or `zfs send` reports progress. You can compare the commands you approved with the commands that ran. Each enacted run is also appended to `~/Library/Application Support/palana/operations.log`.
 - **A shell per host.** `` ⌘` `` opens an interactive terminal for the focused host in the panel, through your own `ssh`, so full-screen programs such as vim and htop work. Each host keeps its own shell. `` ⌘` `` moves the keyboard between the shell and the panes.
 - **Preview.** `v` turns the right pane into a preview of the file under the left pane's cursor: text (up to the first 256 KB) in a scrollable monospace view, images and PDFs through Quick Look, and an information card for every file. Remote text, images, PDFs, and SVG files are previewed too; remote binary files are fetched only when they are 25 MB or smaller.
 - **Remote editing.** Opening a remote file copies it to a local folder and opens it in its Mac application. When you save, pālana uploads the change if the remote file has not changed since it was fetched. A changed or missing remote file always asks first. Settings can require confirmation for every upload.
 - **Favorites, drag and drop, and settings.** Star folders and open them with `⌘1`–`⌘9`. Drag entries between panes, or from Finder, to compose a copy plan; hold Option to compose a move. Settings add or hide hosts in your SSH config, set rsync exclusions and extra flags, and choose the appearance. `⌘+`, `⌘−`, and `⌘0` zoom the whole window.
-
-## A first session
-
-You open pālana. The panes are where you left them: the left one on jodo, the right one pointed somewhere you no longer need. You press `f`, and the field card shows your machines with their pools and datasets, each fact marked with how long ago it was read. You choose a dataset on koan and press Enter. The card closes, and the right pane shows that dataset.
-
-In the left pane you select 214 files of camera archives, 41.3 GB in total, and press `y` to copy them. Nothing moves yet. The plan panel opens: *copy to another machine*, 214 entries, 41.3 GB, `jodo:/tank/camera → koan:/tank/archive`, and the route, *rsync, run host-to-host, using the forwarded ssh key*. Under that is the exact rsync command that will run on jodo, one you could paste into a terminal yourself. You read it and press Enter.
-
-The command appears in the panel and its output streams under it. A progress bar moves. The data travels from jodo to koan, and none of it passes through your laptop. When the copy finishes, the files are still on jodo, they are now on koan, and both panes refresh.
-
-You quit pālana. It closes its SSH connections, and nothing keeps running.
 
 ## Keys
 
@@ -127,27 +111,17 @@ In the favorites panel, drag a favorite or press `⌥↑` / `⌥↓` to reorder 
 ## Requirements
 
 - **macOS 14 or later.**
-- **SSH on the Mac, without login prompts.** pālana runs the system binary at `/usr/bin/ssh` with your `~/.ssh/config`, keys, agent, and jump-host rules. Each host must connect without a password, passphrase, or host-key prompt. `ssh -o BatchMode=yes <alias> true` succeeds when a host is ready. No separate SSH setup is required.
+- **SSH on the Mac, without login prompts, for remote hosts.** Local folders and mounted volumes need no SSH. For remote hosts, pālana runs the system binary at `/usr/bin/ssh` with your `~/.ssh/config`, keys, agent, and jump-host rules. Each host must connect without a password, passphrase, or host-key prompt. `ssh -o BatchMode=yes <alias> true` succeeds when a host is ready. No separate SSH setup is required.
 - **rsync on the Mac.** macOS includes openrsync at `/usr/bin/rsync`, and pālana composes the flags it accepts. GNU rsync 3.1 or later is preferred; `brew install rsync` installs it. It adds the transfer progress bar and `-s` (`--protect-args`), which sends spaces and shell characters in remote paths without shell interpretation. pālana finds the installed rsync and chooses its flags without a setting.
 - **rsync on remote hosts.** The faster routes need rsync. A copy between two hosts uses a tar stream through the Mac when a required endpoint lacks rsync, and a copy within one host uses `cp -a` when that host lacks it. These fallback copies show no transfer progress. A move uses `mv` when both paths are proven to be on one filesystem and rsync otherwise; it is refused when a required endpoint lacks a supported rsync. A whole-dataset move between ZFS hosts uses `zfs send` and `zfs receive`.
 - **ZFS only where you use ZFS.** Dataset trees, snapshots, mount state, and send/receive run on the remote hosts. The Mac does not need ZFS. `zfs send` and `zfs receive` need delegated permissions (`zfs allow`) on the datasets involved. On Linux, mount and unmount also need a narrow passwordless sudo rule; the [mount grant](https://palana.sageframe.net/sudo/) page gives it.
 - **Remote userlands.** GNU, BSD, and BusyBox hosts are supported.
 
-## What pālana does not do
-
-- **Monitoring.** There are no alerts and no graphs. pālana reads host facts when you ask. While its window is frontmost, it re-lists remote panes every ten seconds so they stay current.
-- **Background work.** pālana installs no daemon or launch agent. Quitting closes its SSH connections and stops the commands it started. If the app crashes, its idle SSH control connections exit on their own within ten minutes.
-- **Synchronization.** There is no background replication. Every file operation is a plan you ran. Saved remote edits are the one exception: they upload when you save, unless you turn on confirmation in Settings.
-- **Containers.** pālana does not show or manage Docker containers or services.
-- **Other platforms.** pālana is a native Mac app. There is no Linux client and no web version.
-- **Other protocols.** SSH is the only transport. pālana does not connect over SMB, NFS, SFTP, FTP, or cloud storage.
-- **A separate trust setup.** If `ssh <alias>` works in Terminal without prompts, pālana can use that host. It keeps no keys or credentials of its own.
-
 ## How it works
 
 **PalanaCore** is a headless Swift library that holds the logic: host discovery, directory listing, address parsing, plan composition, transfer execution, and verification. CI holds it to a 90 percent line-coverage floor; it measured 97.5 percent at the last code change before v1.0. **Palana**, the SwiftUI app, holds window state, panels, keyboard routing, local file watching, remote pane refresh, shells, and settings, and calls PalanaCore for everything else.
 
-All host contact passes through one component, the Conduit, which runs the system `ssh` binary. Your config, keys, agent, and ProxyJump rules work exactly as they do in your terminal. The Conduit reuses one ControlMaster connection per host, so commands after the first skip the SSH handshake. The plan engine is a pure function from a request and gathered facts to a Plan value. Host reads and execution happen outside it, so tests check every composed command without contacting a host.
+All host contact passes through one component, the Conduit, which runs the system `ssh` binary. Your config, keys, agent, and ProxyJump rules work exactly as they do in your terminal. The Conduit reuses one ControlMaster connection per host, so commands after the first skip the SSH handshake. Quitting pālana closes these connections and stops the commands it started; after a crash, idle connections exit on their own within ten minutes. pālana keeps no keys or credentials of its own. The plan engine is a pure function from a request and gathered facts to a Plan value. Host reads and execution happen outside it, so tests check every composed command without contacting a host.
 
 The components:
 
@@ -205,7 +179,7 @@ pālana is also an experiment in method. An AI coding agent wrote the Kamae docu
 
 ## License
 
-pālana is open source under [GPL-3.0](LICENSE). You can clone it, build it, run it, and change it. Building from source is free at every version. The $29 buys the build: the universal, signed, notarized, and stapled app that opens without a Gatekeeper warning, and its 1.x updates. The right to run the software comes from GPL-3.0, not from the purchase.
+pālana is open source under [GPL-3.0](LICENSE). You can clone it, build it, run it, and change it. Building from source is free at every version. The $29 is for the built app (universal, signed, notarized, and stapled) and its 1.x updates. The right to run the software comes from GPL-3.0.
 
 ## Where pālana sits
 
