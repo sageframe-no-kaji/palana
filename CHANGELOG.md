@@ -5,12 +5,16 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
 ## Unreleased
 
+- Dragging from remote panes is temporarily disabled while the macOS 27
+  freeze remains unresolved. This includes pane-to-pane drags. Keyboard and
+  menu copy/move commands remain available; download to a local pane before
+  dragging a file into a browser. Remote panes show the alternative commands.
 - Mouse selection follows Finder: Shift-click selects a continuous range,
   Command-click adds or removes individual rows, and a plain click selects
   only that row. Dragging a selected row keeps the marked cohort.
 - Pane and folder drops use an AppKit receiver that leaves the native drag
-  animation untouched, avoiding the macOS 27 drag-start failure reproduced
-  with SwiftUI drop targets.
+  animation untouched. Local checks passed, but remote drags still reproduced
+  the macOS 27 freeze; the issue remains open.
 - ⌘1–⌘9 open the first nine favorites in the focused pane, numbered in the
   favorites panel's order (Global first, then each host). The panel shows each
   row's number; with the panel holding the keyboard, the number jumps where the
@@ -76,12 +80,9 @@ without ever routing through your Mac.
 - **Drag-and-drop** between panes, from Finder, and into folders; **dark mode**
   (System / Light / Dark); **one master zoom** (`⌘+` / `⌘−` / `⌘0`); favorites,
   host onboarding, and a launch update check.
-- **Drag out.** A file, or the marked files, dragged from a pane lands in Finder,
-  a browser, or Mail as separate files. Local files and folders go as they are.
-  Remote files download at the drop, up to 1 GiB each, named in the transcript.
-  Drag-out is a convenience for files: remote folders, links and anything over
-  1 GiB are refused with the reason, and the way to move them is a copy to a
-  local pane, with a plan.
+- **Drag out.** Local files and folders, including marked groups, can be dragged
+  into Finder, a browser, or Mail. Remote dragging is suspended; copy to a local
+  pane using the keyboard or menu, then drag the local copy.
 
 **Under it**
 

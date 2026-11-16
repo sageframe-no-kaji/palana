@@ -8,10 +8,18 @@ import PalanaCore
 import SwiftUI
 import os
 
+extension PaneModel {
+    /// Remote drag sources are suspended while the macOS drag freeze is open.
+    ///
+    /// Transfers through keyboard commands and menus remain available.
+    var permitsRowDrag: Bool { state.host == Engine.localHost }
+}
+
 extension PaneView {
     /// One row's drag provider: the pane-to-pane payload, and what the row
     /// delivers outside pālana (``DragOutPlan``).
     func rowProvider(for entry: FileEntry, selectedNames: [Data]) -> NSItemProvider? {
+        guard model.permitsRowDrag else { return nil }
         let payload = dragPayload(for: entry, selectedNames: selectedNames)
         let (outbound, remote) = dragOut(for: entry)
         // Qualify the global to resolve the name collision with the
@@ -22,7 +30,7 @@ extension PaneView {
     /// The pasteboard writer for the table's row `row`, written up front
     /// (``rowPasteboardWriter``), or nil to keep SwiftUI's.
     func rowWriter(_ row: Int) -> (any NSPasteboardWriting)? {
-        guard model.rows.indices.contains(row) else { return nil }
+        guard model.permitsRowDrag, model.rows.indices.contains(row) else { return nil }
         let entry = model.rows[row]
         let selectedNames = model.rows.filter { model.state.selection.contains($0.id) }.map(\.nameData)
         let payload = dragPayload(for: entry, selectedNames: selectedNames)

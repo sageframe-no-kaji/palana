@@ -170,6 +170,10 @@ struct PaneView: View {
                 Text("previewing the left pane · v or esc exits")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
+            } else if model.state.host != nil && !model.permitsRowDrag {
+                Text("remote drag paused · y copy · m move")
+                    .font(Theme.font(11))
+                    .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
             ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
@@ -435,7 +439,7 @@ extension PaneView {
             coreColumns()
             extendedColumns(favorites: favorites, model: model)
         } rows: {
-            // Each row is draggable. The payload expands to the full selection
+            // Local rows are draggable. The payload expands to the full selection
             // when the dragged row is within it (Finder's manners); otherwise
             // only the dragged row's name is carried. The selection's names
             // are gathered ONCE per render — a per-row filter would be O(n²)
@@ -450,8 +454,12 @@ extension PaneView {
                 // the drop side accepts the type (RC3; see DragDrop.swift).
                 // The table asks every selected row it drags, so a drag of the
                 // marked rows carries each one's file out (drag-out).
-                TableRow(entry)
-                    .itemProvider { rowProvider(for: entry, selectedNames: selectedNames) }
+                if model.permitsRowDrag {
+                    TableRow(entry)
+                        .itemProvider { rowProvider(for: entry, selectedNames: selectedNames) }
+                } else {
+                    TableRow(entry)
+                }
             }
         }
         .onChange(of: sortOrder) { _, order in
@@ -469,7 +477,7 @@ extension PaneView {
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
         .background(TableSelectionStyler())
-        .background(TableRowWriters(writer: rowWriter, tableRef: tableRef))
+        .background(TableRowWriters(writer: rowWriter, isEnabled: { model.permitsRowDrag }, tableRef: tableRef))
         .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
             contextMenuItems(for: ids)
         } primaryAction: { ids in

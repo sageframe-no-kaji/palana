@@ -18,12 +18,15 @@ import os
 struct TableRowWriters: NSViewRepresentable {
     /// pālana's writer for a table row, or nil to keep SwiftUI's.
     let writer: @MainActor (Int) -> (any NSPasteboardWriting)?
+    /// Checked when a drag is requested, including after the pane changes host.
+    let isEnabled: @MainActor () -> Bool
     /// Where the pane keeps its table, for the row a click hit.
     let tableRef: TableRef
 
     func makeNSView(context: Context) -> NSView {
         let probe = NSView()
         context.coordinator.writer = writer
+        context.coordinator.isEnabled = isEnabled
         context.coordinator.tableRef = tableRef
         context.coordinator.begin(near: probe)
         return probe
@@ -31,6 +34,7 @@ struct TableRowWriters: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.writer = writer
+        context.coordinator.isEnabled = isEnabled
         context.coordinator.tableRef = tableRef
         context.coordinator.recheck(near: nsView)
     }
@@ -43,6 +47,7 @@ struct TableRowWriters: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         var writer: (@MainActor (Int) -> (any NSPasteboardWriting)?)?
+        var isEnabled: @MainActor () -> Bool = { false }
         var tableRef: TableRef?
         private weak var table: NSTableView?
 
@@ -73,9 +78,10 @@ struct TableRowWriters: NSViewRepresentable {
             guard table?.window == nil, let found = Self.findTable(near: probe) else { return }
             table = found
             tableRef?.table = found
-            RowWriterHook.install(on: found) { [weak self] row in
-                self?.writer?(row)
-            }
+            RowWriterHook.install(
+                on: found,
+                isEnabled: { [weak self] in self?.isEnabled() == true },
+                hook: { [weak self] row in self?.writer?(row) })
         }
 
         /// The table whose frame matches the probe's.
@@ -122,7 +128,11 @@ enum RowWriterHook {
 
     private final class HookBox {
         let hook: Hook
-        init(_ hook: @escaping Hook) { self.hook = hook }
+        let isEnabled: @MainActor () -> Bool
+        init(_ hook: @escaping Hook, isEnabled: @escaping @MainActor () -> Bool) {
+            self.hook = hook
+            self.isEnabled = isEnabled
+        }
     }
 
     /// A writer crossing `assumeIsolated` within one main-thread call.
@@ -130,6 +140,7 @@ enum RowWriterHook {
         // @unchecked: built and returned inside one main-thread call; it
         // only crosses assumeIsolated's boundary, never a thread.
         let writer: (any NSPasteboardWriting)?
+        var disabled = false
     }
 
     private typealias WriterFor = @convention(c) (AnyObject, Selector, NSOutlineView, AnyObject?) -> AnyObject?
@@ -140,8 +151,9 @@ enum RowWriterHook {
     nonisolated private static let logger = Logger(subsystem: "net.sageframe.palana", category: "dragout")
 
     /// Attaches `hook` to `table` and patches its data source's class once.
-    static func install(on table: NSTableView, hook: @escaping Hook) {
-        objc_setAssociatedObject(table, &hookKey, HookBox(hook), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    static func install(on table: NSTableView, isEnabled: @escaping @MainActor () -> Bool, hook: @escaping Hook) {
+        objc_setAssociatedObject(
+            table, &hookKey, HookBox(hook, isEnabled: isEnabled), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         let selector = NSSelectorFromString("outlineView:pasteboardWriterForItem:")
         guard let source = table.dataSource, let sourceClass = object_getClass(source),
             !patched.contains(ObjectIdentifier(sourceClass)),
@@ -154,6 +166,10 @@ enum RowWriterHook {
                 guard let box = objc_getAssociatedObject(outline, &hookKey) as? HookBox else {
                     return Answer(writer: nil)
                 }
+                guard box.isEnabled() else {
+                    logger.notice("row drag refused: source disabled")
+                    return Answer(writer: nil, disabled: true)
+                }
                 let row = outline.row(forItem: item)
                 let writer = box.hook(row)
                 logger.info(
@@ -161,6 +177,7 @@ enum RowWriterHook {
                 )
                 return Answer(writer: writer)
             }
+            if answer.disabled { return nil }
             return answer.writer ?? original(source, selector, outline, item)
         }
         class_replaceMethod(sourceClass, selector, imp_implementationWithBlock(block), method_getTypeEncoding(method))
