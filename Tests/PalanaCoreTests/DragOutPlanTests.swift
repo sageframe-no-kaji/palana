@@ -93,7 +93,7 @@ struct DragOutPlanTests {
             .remoteFile(host: "koan", path: "/v/edge.iso", size: limit),
         ]
         #expect(plan("koan", "/v", ["big.iso", "edge.iso"], entries) == expected)
-        #expect(reason.line(name: "big.iso").hasPrefix("koan:/v/big.iso is larger than"))
+        #expect(reason.line(name: "big.iso").hasPrefix("koan:/v/big.iso is larger than 1 GB"))
     }
 
     @Test("a name that is not UTF-8 refuses, locally and remotely")

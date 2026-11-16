@@ -44,7 +44,7 @@ public enum DragOutRefusal: Sendable, Equatable {
         case .remoteSpecial(let location):
             "\(location) is not a regular file — nothing to download"
         case .tooLarge(let location, let limit):
-            "\(location) is larger than \(limit.formatted(.byteCount(style: .file))) — copy it to a local pane instead"
+            "\(location) is larger than \(limit.formatted(.byteCount(style: .memory))) — copy it to a local pane instead"
         case .unrepresentableName:
             "\(name) — this name is not valid UTF-8, so no path can carry it out of the pane"
         case .notListed:
@@ -57,8 +57,11 @@ public enum DragOutRefusal: Sendable, Equatable {
 ///
 /// Pure: no I/O, no AppKit.
 public enum DragOutPlan {
-    /// The most a drag downloads from a remote host — 4 GiB.
-    public static let remoteCeiling: Int64 = 4 << 30
+    /// The most a drag downloads from a remote host, per file — 1 GiB.
+    ///
+    /// Drag-out is a convenience: the receiver waits on the drop until the
+    /// bytes land. Anything bigger is a copy to a local pane, with a plan.
+    public static let remoteCeiling: Int64 = 1 << 30
 
     /// The names a drag carries — Finder's manners.
     ///
