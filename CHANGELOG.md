@@ -5,6 +5,9 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
 ## Unreleased
 
+- Pane and folder drops use an AppKit receiver that leaves the native drag
+  animation untouched, avoiding the macOS 27 drag-start failure reproduced
+  with SwiftUI drop targets.
 - ⌘1–⌘9 open the first nine favorites in the focused pane, numbered in the
   favorites panel's order (Global first, then each host). The panel shows each
   row's number; with the panel holding the keyboard, the number jumps where the

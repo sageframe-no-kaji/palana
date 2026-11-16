@@ -9,7 +9,6 @@
 
 import PalanaCore
 import SwiftUI
-import UniformTypeIdentifiers
 
 extension PaneView {
     /// The cursor row's own paint — moss wash, not the system accent.
@@ -47,36 +46,17 @@ extension PaneView {
         folderDropHoverID.flatMap { id in model.rows.first { $0.id == id } }
     }
 
-    /// Makes a directory row a drop target (ho-14): a pane-to-pane selection
-    /// dropped here lands inside the folder, not in the pane's cwd.
-    ///
-    /// While a valid drag hovers, the row wears the accent wash; the wash clears
-    /// on leave or drop. Non-directory rows return the content untouched, so
-    /// they fall through to the pane-level drop. The row consumes the drop, so
-    /// the pane handler does not also fire (Decision 4 — no double-plan).
-    @ViewBuilder
-    func folderDropTarget(_ entry: FileEntry, _ content: some View) -> some View {
-        if entry.kind == .directory {
-            content.onDrop(
-                of: [.json, .fileURL],
-                isTargeted: Binding(
-                    get: { folderDropHoverID == entry.id },
-                    set: { targeted in
-                        folderDropHoverID = targeted ? entry.id : nil
-                    }
-                )
-            ) { providers in
-                folderDropHoverID = nil
-                return handleFolderDrop(
-                    providers: providers,
-                    model: model,
-                    folder: entry,
-                    onSelectionOntoFolder: onDropSelectionOntoFolder,
-                    onFinderOntoFolder: onFinderDropOntoFolder
-                )
-            }
-        } else {
-            content
+    /// Routes one native drop through the same pane or folder plan entry point.
+    func receivePaneDrop(_ content: PaneDropContent, folder: FileEntry?, moveHeld: Bool) {
+        switch (content, folder) {
+        case (.selection(let selection), .some(let folder)):
+            onDropSelectionOntoFolder(selection, folder, moveHeld)
+        case (.selection(let selection), nil):
+            onDropSelection(selection, moveHeld)
+        case (.files(let urls), .some(let folder)):
+            onFinderDropOntoFolder(urls, folder, moveHeld)
+        case (.files(let urls), nil):
+            onFinderDrop(urls, moveHeld)
         }
     }
 }

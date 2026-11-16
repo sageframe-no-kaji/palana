@@ -138,26 +138,15 @@ struct PaneView: View {
                 DropWash(folderName: folder.name)
             }
         }
-        // Pane-level drop surface — unified .onDrop handles both DraggedSelection
-        // (pane-to-pane, encoded as public.json) and file URLs (Finder). A single
-        // modifier avoids the SwiftUI single-drop-destination limit (RC2).
-        // RC3: accepts .json (system-declared, conforms to public.data) instead of
-        // the undeclared custom identifier that UTType(_:) was silently nil-ing.
-        // isTargeted drives the drop-wash overlay.
-        .onDrop(
-            of: [.json, .fileURL],
-            isTargeted: Binding(
-                get: { dropTargeted },
-                set: { targeted in
-                    dropTargeted = targeted && model.status == .ready
-                }
-            )
-        ) { providers in
-            handleUnifiedDrop(
-                providers: providers,
+        // A single AppKit receiver handles pane and folder drops without
+        // changing the native table drag's images during its opening animation.
+        .overlay {
+            PaneDropTarget(
                 model: model,
-                onDropSelection: onDropSelection,
-                onFinderDrop: onFinderDrop
+                tableRef: tableRef,
+                onTargeted: { dropTargeted = $0 },
+                onFolderHover: { folderDropHoverID = $0 },
+                onDrop: receivePaneDrop
             )
         }
         .simultaneousGesture(TapGesture().onEnded { onFocus() })
