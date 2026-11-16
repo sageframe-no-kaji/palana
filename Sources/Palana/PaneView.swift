@@ -11,6 +11,7 @@ import AppKit
 import PalanaCore
 import SwiftUI
 import UniformTypeIdentifiers
+import os
 
 /// One pane of the two.
 struct PaneView: View {
@@ -477,6 +478,7 @@ extension PaneView {
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
         .background(TableSelectionStyler())
+        .background(TableRowWriters(writer: rowWriter))
         .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
             contextMenuItems(for: ids)
         } primaryAction: { ids in
@@ -614,26 +616,6 @@ extension PaneView {
             model.state.cursor = ids.first
         }
         onOperation(operation)
-    }
-
-    /// One row's drag provider: the pane-to-pane payload, and what the row
-    /// delivers outside pālana (``DragOutPlan``).
-    func rowProvider(for entry: FileEntry, selectedNames: [Data]) -> NSItemProvider? {
-        let payload = dragPayload(for: entry, selectedNames: selectedNames)
-        let host = model.state.host ?? PalanaCore.localHostName
-        let outbound = DragOutPlan.items(
-            host: host, directory: model.state.path, names: [entry.nameData], entries: [entry]
-        ).first
-        let note = onDragOutNote
-        let remote =
-            host == PalanaCore.localHostName
-            ? nil
-            : RemoteDragSupport(listing: model.listing(for: host)) { line in
-                Task { @MainActor in note(line) }
-            }
-        // Qualify the global to resolve the name collision with the
-        // .itemProvider(_:) modifier method on TableRow.
-        return Palana.itemProvider(for: payload, outbound: outbound, remote: remote)
     }
 
     func nameCell(_ entry: FileEntry) -> some View {

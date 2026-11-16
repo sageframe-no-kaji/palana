@@ -7,8 +7,9 @@
 // landed. The receiver copies it before the completion returns; the temp
 // directory goes then, or at the next launch.
 
-import Foundation
+import AppKit
 import PalanaCore
+import UniformTypeIdentifiers
 
 // MARK: - One remote file, fetched for a drop
 
@@ -126,5 +127,180 @@ private final class ProgressCounter: @unchecked Sendable {
 
     func set(_ count: Int64) {
         progress.completedUnitCount = count
+    }
+}
+
+// MARK: - The file promise
+
+/// A remote file promised to a drop.
+///
+/// The receiver names a place; ``RemoteDropDelegate`` fetches the bytes and
+/// moves them there. It also carries the pane-to-pane payload, so a drop on
+/// the other pane still plans the whole selection.
+final class RemoteFilePromise: NSFilePromiseProvider {
+    /// The pane-to-pane payload, on the drag's first writer only.
+    var selectionPayload: Data?
+    /// Held strongly: the provider's own `delegate` reference is weak.
+    var keeper: RemoteDropDelegate?
+
+    override func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {
+        let types = super.writableTypes(for: pasteboard)
+        return selectionPayload == nil ? types : types + [.palanaPayload]
+    }
+
+    override func pasteboardPropertyList(forType type: NSPasteboard.PasteboardType) -> Any? {
+        type == .palanaPayload ? selectionPayload : super.pasteboardPropertyList(forType: type)
+    }
+}
+
+/// Answers a remote file promise: download, move into place, report.
+final class RemoteDropDelegate: NSObject, NSFilePromiseProviderDelegate, Sendable {
+    /// The download behind the promise.
+    let fetch: RemoteDragFetch
+    /// Writes one transcript line — the operator's sign bytes are moving.
+    let report: @Sendable (String) -> Void
+    private let queue: OperationQueue
+
+    /// A delegate for one remote file.
+    init(fetch: RemoteDragFetch, report: @escaping @Sendable (String) -> Void) {
+        self.fetch = fetch
+        self.report = report
+        let queue = OperationQueue()
+        queue.name = "palana.dragout"
+        self.queue = queue
+    }
+
+    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
+        fetch.fileName
+    }
+
+    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue {
+        queue
+    }
+
+    func filePromiseProvider(
+        _ filePromiseProvider: NSFilePromiseProvider,
+        writePromiseTo url: URL,
+        completionHandler: @escaping (Error?) -> Void
+    ) {
+        let done = Completion(completionHandler)
+        _ = deliver(to: url) { done.call($0) }
+    }
+
+    /// Downloads the file and moves it to `url`.
+    ///
+    /// - Parameters:
+    ///   - url: Where the receiver wants the file.
+    ///   - completion: nil when the file is in place, else the error.
+    /// - Returns: The download's progress, also published for `url`.
+    func deliver(to url: URL, completion: @escaping @Sendable ((any Error)?) -> Void) -> Progress {
+        let fetch = fetch
+        let report = report
+        report("downloading \(fetch.location) for a drop…")
+        let progress = fetch.start { result in
+            switch result {
+            case .success(let file):
+                do {
+                    try FileManager.default.moveItem(at: file, to: url)
+                    fetch.cleanUp()
+                    report("\(fetch.location) delivered to the drop")
+                    completion(nil)
+                } catch {
+                    fetch.cleanUp()
+                    report("\(fetch.location) — could not place the download: \(error.localizedDescription)")
+                    completion(error)
+                }
+            case .failure(let error):
+                report("\(fetch.location) — download failed: \(error)")
+                completion(error)
+            }
+        }
+        progress.kind = .file
+        progress.fileOperationKind = .downloading
+        progress.fileURL = url
+        progress.publish()
+        let published = PublishedProgress(progress)
+        progress.cancellationHandler = { [cancel = progress.cancellationHandler] in
+            cancel?()
+            published.unpublish()
+        }
+        return progress
+    }
+}
+
+/// Carries AppKit's non-Sendable completion handler to the download's thread.
+private final class Completion: @unchecked Sendable {
+    // @unchecked: AppKit documents the promise completion handler as
+    // callable from any thread; it is called exactly once.
+    private let handler: (Error?) -> Void
+
+    init(_ handler: @escaping (Error?) -> Void) {
+        self.handler = handler
+    }
+
+    func call(_ error: (any Error)?) {
+        handler(error)
+    }
+}
+
+/// Unpublishes a progress from a cancellation handler.
+private final class PublishedProgress: @unchecked Sendable {
+    // @unchecked: Progress is thread-safe by contract; unpublish is
+    // documented as callable from any thread.
+    private let progress: Progress
+
+    init(_ progress: Progress) {
+        self.progress = progress
+    }
+
+    func unpublish() {
+        progress.unpublish()
+    }
+}
+
+// MARK: - The row writer
+
+extension NSPasteboard.PasteboardType {
+    /// The pane-to-pane payload's type: public.json, as the drop side reads it.
+    static let palanaPayload = NSPasteboard.PasteboardType(UTType.json.identifier)
+}
+
+/// The pasteboard writer a dragged row hands the table, when pālana has one.
+///
+/// SwiftUI writes a row's file URL lazily, and macOS then cannot make the
+/// sandbox extension a receiver needs ("Sandbox extension data required
+/// immediately for flavor public.file-url"): Finder and browsers get an
+/// empty URL. This writes it up front. A local entry is a pasteboard item
+/// with its file URL; a remote file is a file promise downloaded at the
+/// drop. Both carry the pane-to-pane payload. Anything else (a refused
+/// remote entry) returns nil and keeps SwiftUI's own writer, whose payload
+/// stays process-only.
+///
+/// - Parameters:
+///   - outbound: The row's drag-out item (``DragOutPlan``).
+///   - payload: The encoded ``DraggedSelection``.
+///   - remote: The reader and transcript for a remote row.
+/// - Returns: The writer, or nil to keep SwiftUI's.
+func rowPasteboardWriter(
+    for outbound: DragOutItem, payload: Data, remote: RemoteDragSupport?
+) -> (any NSPasteboardWriting)? {
+    switch outbound {
+    case .localFile(let path):
+        let item = NSPasteboardItem()
+        let url = URL(fileURLWithPath: path).absoluteString
+        item.setString(url, forType: .fileURL)
+        item.setString(url, forType: .URL)
+        item.setData(payload, forType: .palanaPayload)
+        return item
+    case .remoteFile(let host, let path, let size):
+        guard let remote else { return nil }
+        let fetch = RemoteDragFetch(listing: remote.listing, host: host, path: path, size: size)
+        let delegate = RemoteDropDelegate(fetch: fetch, report: remote.report)
+        let promise = RemoteFilePromise(fileType: dragOutFileType(for: path), delegate: delegate)
+        promise.keeper = delegate
+        promise.selectionPayload = payload
+        return promise
+    case .refused:
+        return nil
     }
 }

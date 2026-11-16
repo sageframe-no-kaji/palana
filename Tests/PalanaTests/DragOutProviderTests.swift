@@ -185,6 +185,43 @@ struct DragOutProviderTests {
         #expect(await conduit.log.terminated, "the remote command must be stopped")
     }
 
+    @Test("the promise delegate moves the bytes into place and reports both lines")
+    func deliverPlacesFile() async throws {
+        let root = try scratch()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let download = fetch(FileConduit(script: .bytes(chunks)), size: 11, root: root)
+        let lines = Lines()
+        let delegate = RemoteDropDelegate(fetch: download) { lines.append($0) }
+        let target = root.appendingPathComponent("dropped.flac")
+        let error = await withCheckedContinuation { (done: CheckedContinuation<(any Error)?, Never>) in
+            _ = delegate.deliver(to: target) { done.resume(returning: $0) }
+        }
+        #expect(error == nil)
+        #expect(try Data(contentsOf: target) == Data("hello, drop".utf8))
+        #expect(!exists(download.directory), "the temp directory goes once the file is placed")
+        #expect(
+            lines.all == ["downloading koan:/srv/song.flac for a drop…", "koan:/srv/song.flac delivered to the drop"])
+    }
+
+    @Test("a failed delivery places nothing and names the failure")
+    @MainActor
+    func deliverFailure() async throws {
+        let root = try scratch()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let conduit = FileConduit(script: .failure(stderr: "cat: nope: No such file or directory", status: 1))
+        let download = fetch(conduit, size: 11, root: root)
+        let lines = Lines()
+        let delegate = RemoteDropDelegate(fetch: download) { lines.append($0) }
+        let target = root.appendingPathComponent("dropped.flac")
+        let error = await withCheckedContinuation { (done: CheckedContinuation<(any Error)?, Never>) in
+            _ = delegate.deliver(to: target) { done.resume(returning: $0) }
+        }
+        #expect(error != nil)
+        #expect(!exists(target))
+        #expect(lines.all.last?.hasPrefix("koan:/srv/song.flac — download failed") == true)
+        #expect(delegate.filePromiseProvider(NSFilePromiseProvider(), fileNameForType: "public.data") == "song.flac")
+    }
+
     @Test("leftover drag directories are swept, others are kept")
     func sweep() throws {
         let root = try scratch()
@@ -314,5 +351,46 @@ struct DragOutRowProviderTests {
         #expect(dragOutFileType(for: "/a/b.txt") == UTType.plainText.identifier)
         #expect(dragOutFileType(for: "/a/b.zzqx") == UTType.data.identifier)
         #expect(dragOutFileType(for: "/a/Makefile") == UTType.data.identifier)
+    }
+}
+
+// MARK: - The row writers
+
+@MainActor
+@Suite("Drag-out row writers")
+struct DragOutRowWriterTests {
+    private let payload = Data("{\"selection\":1}".utf8)
+    private let listing = Listing(conduit: FileConduit(script: .bytes([])))
+
+    @Test("a local entry's writer carries its file URL and the payload, up front")
+    func local() throws {
+        let writer = rowPasteboardWriter(for: .localFile(path: "/tmp/a b.txt"), payload: payload, remote: nil)
+        let item = try #require(writer as? NSPasteboardItem)
+        #expect(item.string(forType: .fileURL) == "file:///tmp/a%20b.txt")
+        #expect(item.string(forType: .URL) == "file:///tmp/a%20b.txt")
+        #expect(item.data(forType: .palanaPayload) == payload)
+    }
+
+    @Test("a remote file's writer is a promise typed by its extension, carrying the payload")
+    func remote() throws {
+        let support = RemoteDragSupport(listing: listing) { _ in }
+        let item = DragOutItem.remoteFile(host: "koan", path: "/srv/shot.png", size: 9)
+        let promise = try #require(
+            rowPasteboardWriter(for: item, payload: payload, remote: support) as? RemoteFilePromise)
+        #expect(promise.fileType == UTType.png.identifier)
+        #expect(promise.selectionPayload == payload)
+        #expect(promise.keeper != nil)
+        let board = NSPasteboard(name: NSPasteboard.Name("palana-writer-test-\(UUID().uuidString)"))
+        #expect(promise.writableTypes(for: board).contains(.palanaPayload))
+        #expect(promise.pasteboardPropertyList(forType: .palanaPayload) as? Data == payload)
+        board.releaseGlobally()
+    }
+
+    @Test("a refused entry, or a remote one without a reader, keeps SwiftUI's writer")
+    func none() {
+        let refused = DragOutItem.refused(name: "media", reason: .remoteFolder(location: "koan:/srv/media"))
+        #expect(rowPasteboardWriter(for: refused, payload: payload, remote: nil) == nil)
+        let remote = DragOutItem.remoteFile(host: "koan", path: "/srv/a.txt", size: 1)
+        #expect(rowPasteboardWriter(for: remote, payload: payload, remote: nil) == nil)
     }
 }
