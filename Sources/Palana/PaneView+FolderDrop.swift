@@ -14,21 +14,37 @@ import UniformTypeIdentifiers
 extension PaneView {
     /// The cursor row's own paint — moss wash, not the system accent.
     ///
-    /// Doubles as the folder-drop target wash (ho-14): a folder row a valid
-    /// drag hovers wears the same accent language, at the selection wash's
-    /// weight (design system §7), so "this is where it lands" is unmistakable.
+    /// Doubles as the folder-drop target (ho-14): a folder row a valid drag
+    /// hovers is lit like the pane wash — a stronger fill and accent rules
+    /// along its top and bottom edges. Every column's cell draws this, so
+    /// the light runs the whole row.
     func cursorWash(_ entry: FileEntry) -> some View {
+        let dropTarget = folderDropHoverID == entry.id
         let opacity: Double
-        if folderDropHoverID == entry.id {
-            opacity = 0.10
+        if dropTarget {
+            opacity = 0.16
         } else if model.state.cursor == entry.id {
             opacity = 0.18
         } else {
             opacity = 0
         }
-        return RoundedRectangle(cornerRadius: 3)
+        return Rectangle()
             .fill(Theme.accent.opacity(opacity))
+            .overlay(alignment: .top) { dropEdge(dropTarget) }
+            .overlay(alignment: .bottom) { dropEdge(dropTarget) }
             .padding(.horizontal, -6)
+    }
+
+    /// One accent rule along a drop-target row's edge.
+    private func dropEdge(_ visible: Bool) -> some View {
+        Rectangle()
+            .fill(Theme.accent)
+            .frame(height: visible ? 2 : 0)
+    }
+
+    /// The folder row a drag would drop into, if any.
+    var hoveredFolder: FileEntry? {
+        folderDropHoverID.flatMap { id in model.rows.first { $0.id == id } }
     }
 
     /// Makes a directory row a drop target (ho-14): a pane-to-pane selection

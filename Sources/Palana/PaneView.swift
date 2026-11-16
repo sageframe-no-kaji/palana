@@ -128,6 +128,8 @@ struct PaneView: View {
         .overlay {
             if dropTargeted {
                 DropWash()
+            } else if let folder = hoveredFolder {
+                DropWash(folderName: folder.name)
             }
         }
         // Pane-level drop surface — unified .onDrop handles both DraggedSelection
