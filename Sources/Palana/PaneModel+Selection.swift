@@ -52,43 +52,67 @@ extension PaneModel {
     }
 
     /// Applies a click the table reports as its new selection, in pālana's
-    /// manners: a plain click moves the cursor and leaves the marks; ⇧
-    /// extends the marks from the cursor; ⌘ or ⌥ toggles the clicked row.
-    ///
-    /// The table works out its own new selection; this reads which row was
-    /// clicked from it and hands the click to pālana's selection.
+    /// manners: a plain click moves the cursor and leaves the marks; ⇧ on an
+    /// unmarked row marks the run from the cursor to it, ⇧ on a marked row
+    /// unmarks that run (Finder's list view); ⌘ or ⌥ toggles the clicked row.
     ///
     /// - Parameters:
     ///   - newSelection: The table's selection after the click.
+    ///   - clicked: The row the table says was clicked, when it says.
     ///   - shift: Whether ⇧ was held.
     ///   - toggle: Whether ⌘ or ⌥ was held.
-    func applyTableClick(_ newSelection: Set<FileEntry.ID>, shift: Bool, toggle: Bool) {
+    func applyTableClick(
+        _ newSelection: Set<FileEntry.ID>, clicked: FileEntry.ID? = nil, shift: Bool, toggle: Bool
+    ) {
         if shift {
-            // The table extends from its own anchor, which may be a marked
-            // row rather than the cursor. The clicked row is the end of
-            // the table's run that was not selected before the click; when
-            // that does not tell, the end farthest from the cursor.
-            let indices = rows.indices.filter { newSelection.contains(rows[$0].id) }
-            guard let low = indices.first, let high = indices.last else { return }
-            let before = tableSelection
-            let clicked: FileEntry.ID
-            switch (before.contains(rows[low].id), before.contains(rows[high].id)) {
-            case (true, false): clicked = rows[high].id
-            case (false, true): clicked = rows[low].id
-            default:
-                let cursorIndex = state.cursor.flatMap { cursor in rows.firstIndex { $0.id == cursor } } ?? low
-                clicked = abs(high - cursorIndex) >= abs(low - cursorIndex) ? rows[high].id : rows[low].id
+            guard let target = clicked ?? shiftTarget(in: newSelection) else { return }
+            if state.selection.contains(target) {
+                unmarkRun(to: target)
+            } else {
+                extendSelection(to: target)
             }
-            extendSelection(to: clicked)
-            state.cursor = clicked
+            state.cursor = target
         } else if toggle {
             let changed = tableSelection.symmetricDifference(newSelection)
-            guard changed.count == 1, let clicked = changed.first else { return }
-            toggleSelection(clicked)
+            guard let target = clicked ?? (changed.count == 1 ? changed.first : nil) else { return }
+            toggleSelection(target)
+            state.cursor = target
+        } else if let clicked {
             state.cursor = clicked
         } else if newSelection.count <= 1 {
             // A plain click on a row, or on empty space (no cursor).
             state.cursor = newSelection.first
+        }
+    }
+
+    /// The row a ⇧-click hit, read from the table's run when the table
+    /// cannot say: the end not selected before the click, else the end
+    /// farthest from the cursor (the table extends from its own anchor).
+    private func shiftTarget(in newSelection: Set<FileEntry.ID>) -> FileEntry.ID? {
+        let indices = rows.indices.filter { newSelection.contains(rows[$0].id) }
+        guard let low = indices.first, let high = indices.last else { return nil }
+        let before = tableSelection
+        switch (before.contains(rows[low].id), before.contains(rows[high].id)) {
+        case (true, false): return rows[high].id
+        case (false, true): return rows[low].id
+        default:
+            let cursorIndex = state.cursor.flatMap { cursor in rows.firstIndex { $0.id == cursor } } ?? low
+            return abs(high - cursorIndex) >= abs(low - cursorIndex) ? rows[high].id : rows[low].id
+        }
+    }
+
+    /// ⇧-click on a marked row: unmark the run from the cursor to it.
+    func unmarkRun(to id: FileEntry.ID) {
+        guard
+            let anchor = state.cursor,
+            let from = rows.firstIndex(where: { $0.id == anchor }),
+            let to = rows.firstIndex(where: { $0.id == id })
+        else {
+            state.selection.remove(id)
+            return
+        }
+        for row in rows[min(from, to)...max(from, to)] {
+            state.selection.remove(row.id)
         }
     }
 

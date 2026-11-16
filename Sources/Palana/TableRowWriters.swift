@@ -18,16 +18,20 @@ import os
 struct TableRowWriters: NSViewRepresentable {
     /// pālana's writer for a table row, or nil to keep SwiftUI's.
     let writer: @MainActor (Int) -> (any NSPasteboardWriting)?
+    /// Where the pane keeps its table, for the row a click hit.
+    let tableRef: TableRef
 
     func makeNSView(context: Context) -> NSView {
         let probe = NSView()
         context.coordinator.writer = writer
+        context.coordinator.tableRef = tableRef
         context.coordinator.begin(near: probe)
         return probe
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.writer = writer
+        context.coordinator.tableRef = tableRef
         context.coordinator.recheck(near: nsView)
     }
 
@@ -39,6 +43,7 @@ struct TableRowWriters: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         var writer: (@MainActor (Int) -> (any NSPasteboardWriting)?)?
+        var tableRef: TableRef?
         private weak var table: NSTableView?
 
         /// Finds the table — retrying while SwiftUI builds around the probe.
@@ -67,6 +72,7 @@ struct TableRowWriters: NSViewRepresentable {
         private func attachIfNeeded(near probe: NSView) {
             guard table?.window == nil, let found = Self.findTable(near: probe) else { return }
             table = found
+            tableRef?.table = found
             RowWriterHook.install(on: found) { [weak self] row in
                 self?.writer?(row)
             }
@@ -95,6 +101,16 @@ struct TableRowWriters: NSViewRepresentable {
             return view.subviews.flatMap(tableViews(in:))
         }
     }
+}
+
+/// The pane's table, held weakly — for the row a click hit.
+@MainActor
+final class TableRef {
+    /// The table, once found.
+    weak var table: NSTableView?
+
+    /// The row the table is handling a click on, or -1.
+    var clickedRow: Int { table?.clickedRow ?? -1 }
 }
 
 /// The one runtime reach-in: the table data source's

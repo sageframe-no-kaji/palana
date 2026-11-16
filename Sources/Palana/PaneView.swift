@@ -94,6 +94,8 @@ struct PaneView: View {
     /// or drops. Internal (not `private`) so the drop wiring in
     /// `PaneView+FolderDrop.swift` can read and clear it.
     @State var folderDropHoverID: FileEntry.ID?
+    /// The pane's table, for the row a click hit (⇧-click).
+    @State var tableRef = TableRef()
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
@@ -478,7 +480,7 @@ extension PaneView {
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
         .background(TableSelectionStyler())
-        .background(TableRowWriters(writer: rowWriter))
+        .background(TableRowWriters(writer: rowWriter, tableRef: tableRef))
         .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
             contextMenuItems(for: ids)
         } primaryAction: { ids in
@@ -681,8 +683,10 @@ extension PaneView {
             get: { model.tableSelection },
             set: { newSelection in
                 let flags = NSEvent.modifierFlags
+                let row = tableRef.clickedRow
                 model.applyTableClick(
                     newSelection,
+                    clicked: model.rows.indices.contains(row) ? model.rows[row].id : nil,
                     shift: flags.contains(.shift),
                     toggle: !flags.isDisjoint(with: [.command, .option]))
                 onFocus()

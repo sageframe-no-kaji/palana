@@ -111,4 +111,38 @@ struct TableSelectionClickTests {
         model.applyTableClick([id("a"), id("b"), id("e")], shift: false, toggle: true)
         #expect(model.state.selection == [id("a")], "more than one change is not a toggle click")
     }
+
+    @Test("⇧-click on a marked row unmarks the run from the cursor to it")
+    func shiftUnmarks() async throws {
+        let (rig, directory) = try await pane()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = rig.pane
+        model.state.selection = [id("a"), id("b"), id("c"), id("d")]
+        model.state.cursor = id("d")
+        model.applyTableClick([id("b")], clicked: id("b"), shift: true, toggle: false)
+        #expect(model.state.selection == [id("a")])
+        #expect(model.state.cursor == id("b"))
+        // With no cursor, only the clicked row comes off.
+        model.state.selection = [id("a"), id("c")]
+        model.state.cursor = nil
+        model.applyTableClick([], clicked: id("c"), shift: true, toggle: false)
+        #expect(model.state.selection == [id("a")])
+    }
+
+    @Test("the clicked row, when the table says, decides every kind of click")
+    func clickedRowDecides() async throws {
+        let (rig, directory) = try await pane()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = rig.pane
+        model.state.selection = [id("a"), id("c")]
+        model.state.cursor = id("a")
+        model.applyTableClick([id("a"), id("c")], clicked: id("e"), shift: false, toggle: false)
+        #expect(model.state.cursor == id("e"))
+        #expect(model.state.selection == [id("a"), id("c")])
+        model.applyTableClick([id("a")], clicked: id("c"), shift: false, toggle: true)
+        #expect(model.state.selection == [id("a")])
+        #expect(model.state.cursor == id("c"))
+        model.applyTableClick([id("a"), id("b"), id("c")], clicked: id("c"), shift: true, toggle: false)
+        #expect(model.state.selection == [id("a"), id("c")], "c is unmarked, so ⇧ marks the run c…c")
+    }
 }
