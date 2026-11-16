@@ -163,7 +163,8 @@ private final class DropInfo: NSObject, NSDraggingInfo {
     let draggingPasteboard: NSPasteboard
     var imageAccesses = 0
     var draggingDestinationWindow: NSWindow? { nil }
-    var draggingSourceOperationMask: NSDragOperation { [.copy, .move] }
+    // Keep this test independent of Command held on the user's keyboard.
+    var draggingSourceOperationMask: NSDragOperation { .copy }
     var draggingLocation: NSPoint { .zero }
     var draggedImageLocation: NSPoint { .zero }
     nonisolated var draggedImage: NSImage? { nil }

@@ -657,27 +657,19 @@ extension PaneView {
         entry.kind == .directory ? "\(entry.name)/" : entry.name
     }
 
-    /// The table's selection: pālana's marks, or the cursor alone.
+    /// Mirrors the table's native mouse selection into the pane's marks and
+    /// cursor.
     ///
-    /// The setter only fires from the Table's own interaction — a click — so
-    /// focus follows it, and the modifiers carry Finder's selection manners:
-    /// shift extends from the cursor, ⌘ or ⌥ toggles one row. Keyed moves
-    /// write the state directly and never pass through here.
-    /// NSEvent.modifierFlags (the class property, live hardware state) — NOT
-    /// NSApp.currentEvent: the Table delivers this set AFTER the click event
-    /// has passed, so currentEvent's flags read empty and shift-click
-    /// degraded to a plain click (round 9: 'I cant shift selecet').
+    /// AppKit handles Shift ranges, Command toggles, and plain clicks;
+    /// keyboard commands continue to write pane state directly.
     var selectionBinding: Binding<Set<FileEntry.ID>> {
         Binding(
             get: { model.tableSelection },
             set: { newSelection in
-                let flags = NSEvent.modifierFlags
                 let row = tableRef.clickedRow
                 model.applyTableClick(
                     newSelection,
-                    clicked: model.rows.indices.contains(row) ? model.rows[row].id : nil,
-                    shift: flags.contains(.shift),
-                    toggle: !flags.isDisjoint(with: [.command, .option]))
+                    clicked: model.rows.indices.contains(row) ? model.rows[row].id : nil)
                 onFocus()
             })
     }

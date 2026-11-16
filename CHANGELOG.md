@@ -5,6 +5,9 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
 ## Unreleased
 
+- Mouse selection follows Finder: Shift-click selects a continuous range,
+  Command-click adds or removes individual rows, and a plain click selects
+  only that row. Dragging a selected row keeps the marked cohort.
 - Pane and folder drops use an AppKit receiver that leaves the native drag
   animation untouched, avoiding the macOS 27 drag-start failure reproduced
   with SwiftUI drop targets.
