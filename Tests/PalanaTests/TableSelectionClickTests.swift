@@ -82,6 +82,14 @@ struct TableSelectionClickTests {
 
         model.applyTableClick([], shift: true, toggle: false)
         #expect(model.state.cursor == id("a"), "an empty report changes nothing")
+
+        // Marks present: the table extends from its anchor (a marked row),
+        // and the clicked row is the end that was not selected before.
+        model.state.selection = [id("c"), id("e")]
+        model.state.cursor = id("a")
+        model.applyTableClick([id("b"), id("c"), id("d"), id("e")], shift: true, toggle: false)
+        #expect(model.state.cursor == id("b"))
+        #expect(model.state.selection == [id("a"), id("b"), id("c"), id("e")])
     }
 
     @Test("⌘/⌥-click toggles the clicked row in and out")

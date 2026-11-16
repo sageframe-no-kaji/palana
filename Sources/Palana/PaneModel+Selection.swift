@@ -64,12 +64,21 @@ extension PaneModel {
     ///   - toggle: Whether ⌘ or ⌥ was held.
     func applyTableClick(_ newSelection: Set<FileEntry.ID>, shift: Bool, toggle: Bool) {
         if shift {
-            // The table extends from its own anchor; the clicked row is the
-            // end of that run farthest from the cursor.
+            // The table extends from its own anchor, which may be a marked
+            // row rather than the cursor. The clicked row is the end of
+            // the table's run that was not selected before the click; when
+            // that does not tell, the end farthest from the cursor.
             let indices = rows.indices.filter { newSelection.contains(rows[$0].id) }
             guard let low = indices.first, let high = indices.last else { return }
-            let cursorIndex = state.cursor.flatMap { cursor in rows.firstIndex { $0.id == cursor } } ?? low
-            let clicked = abs(high - cursorIndex) >= abs(low - cursorIndex) ? rows[high].id : rows[low].id
+            let before = tableSelection
+            let clicked: FileEntry.ID
+            switch (before.contains(rows[low].id), before.contains(rows[high].id)) {
+            case (true, false): clicked = rows[high].id
+            case (false, true): clicked = rows[low].id
+            default:
+                let cursorIndex = state.cursor.flatMap { cursor in rows.firstIndex { $0.id == cursor } } ?? low
+                clicked = abs(high - cursorIndex) >= abs(low - cursorIndex) ? rows[high].id : rows[low].id
+            }
             extendSelection(to: clicked)
             state.cursor = clicked
         } else if toggle {
