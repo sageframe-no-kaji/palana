@@ -31,6 +31,7 @@ And the field has no map. Eleven machines, dozens of services, multiple pools �
 - **The Workbench.** A plugin architecture from day one. A plugin gets the SSH layer, the topology, and a surface slot. The ZFS tool — dataset management, snapshots, pool visualization — ships at v1 and proves the API.
 - **The live shell.** `⌘\`` drops a real interactive terminal into the panel, per host — vim, htop, whatever — over your own `ssh`, without leaving pālana.
 - **The preview pane.** Press `v` and the right pane follows the left's cursor: text scrollable and monospace, images and PDFs via Quick Look, an info card always. Local files, and remote text and images too.
+- **Drag out to the Mac.** Drag a file, or the marked files, from a pane into Finder, a browser upload box, or Mail, and each arrives as its own file. Local files and folders go as they are. A remote file downloads when you drop it, up to 1 GiB, and the plan panel's transcript names it while the bytes move. Drag-out is a convenience for files: a remote folder, a link, or a file over 1 GiB is refused with the reason — copy it to a local pane, where it gets a plan, a size and progress.
 
 ## Your First Session
 

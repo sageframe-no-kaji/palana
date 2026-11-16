@@ -70,6 +70,12 @@ without ever routing through your Mac.
 - **Drag-and-drop** between panes, from Finder, and into folders; **dark mode**
   (System / Light / Dark); **one master zoom** (`⌘+` / `⌘−` / `⌘0`); favorites,
   host onboarding, and a launch update check.
+- **Drag out.** A file, or the marked files, dragged from a pane lands in Finder,
+  a browser, or Mail as separate files. Local files and folders go as they are.
+  Remote files download at the drop, up to 1 GiB each, named in the transcript.
+  Drag-out is a convenience for files: remote folders, links and anything over
+  1 GiB are refused with the reason, and the way to move them is a copy to a
+  local pane, with a plan.
 
 **Under it**
 
