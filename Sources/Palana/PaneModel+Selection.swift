@@ -40,6 +40,49 @@ extension PaneModel {
         }
     }
 
+    /// The rows the table is told are selected: the marks, or the cursor
+    /// alone when nothing is marked.
+    ///
+    /// The table drags its selected rows natively, so a drag that starts on
+    /// a marked row carries every marked row out of the pane; a drag on any
+    /// other row carries that row.
+    var tableSelection: Set<FileEntry.ID> {
+        if !state.selection.isEmpty { return state.selection }
+        return state.cursor.map { [$0] } ?? []
+    }
+
+    /// Applies a click the table reports as its new selection, in pālana's
+    /// manners: a plain click moves the cursor and leaves the marks; ⇧
+    /// extends the marks from the cursor; ⌘ or ⌥ toggles the clicked row.
+    ///
+    /// The table works out its own new selection; this reads which row was
+    /// clicked from it and hands the click to pālana's selection.
+    ///
+    /// - Parameters:
+    ///   - newSelection: The table's selection after the click.
+    ///   - shift: Whether ⇧ was held.
+    ///   - toggle: Whether ⌘ or ⌥ was held.
+    func applyTableClick(_ newSelection: Set<FileEntry.ID>, shift: Bool, toggle: Bool) {
+        if shift {
+            // The table extends from its own anchor; the clicked row is the
+            // end of that run farthest from the cursor.
+            let indices = rows.indices.filter { newSelection.contains(rows[$0].id) }
+            guard let low = indices.first, let high = indices.last else { return }
+            let cursorIndex = state.cursor.flatMap { cursor in rows.firstIndex { $0.id == cursor } } ?? low
+            let clicked = abs(high - cursorIndex) >= abs(low - cursorIndex) ? rows[high].id : rows[low].id
+            extendSelection(to: clicked)
+            state.cursor = clicked
+        } else if toggle {
+            let changed = tableSelection.symmetricDifference(newSelection)
+            guard changed.count == 1, let clicked = changed.first else { return }
+            toggleSelection(clicked)
+            state.cursor = clicked
+        } else if newSelection.count <= 1 {
+            // A plain click on a row, or on empty space (no cursor).
+            state.cursor = newSelection.first
+        }
+    }
+
     /// ⌘- or ⌥-click: toggle one row in or out of the selection.
     func toggleSelection(_ id: FileEntry.ID) {
         if state.selection.contains(id) {

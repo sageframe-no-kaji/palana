@@ -61,6 +61,9 @@ struct PaneView: View {
     /// The session resolves them through the local listing and the gather path.
     /// The Bool is whether Option was held at drop time.
     let onFinderDrop: ([URL], Bool) -> Void
+    /// Writes one line to the plan panel's transcript — drag-out downloads
+    /// and refusals report here.
+    let onDragOutNote: @MainActor @Sendable (String) -> Void
     /// Pops the terminal — wired to `OperationModel.showPanel()`.
     let onShowPanel: () -> Void
     /// Called when the back chevron is tapped.
@@ -433,7 +436,7 @@ extension PaneView {
         @Bindable var store = columnStore
         return Table(
             of: FileEntry.self,
-            selection: cursorBinding,
+            selection: selectionBinding,
             sortOrder: $sortOrder,
             columnCustomization: $store.customization
         ) {
@@ -453,14 +456,10 @@ extension PaneView {
                 // as JSON under public.json (UTType.json) via NSItemProvider so
                 // the drag pasteboard write succeeds without a bundle (RC1) and
                 // the drop side accepts the type (RC3; see DragDrop.swift).
+                // The table asks every selected row it drags, so a drag of the
+                // marked rows carries each one's file out (drag-out).
                 TableRow(entry)
-                    .itemProvider {
-                        let payload = dragPayload(for: entry, selectedNames: selectedNames)
-                        // Qualify the global to resolve the name collision with the
-                        // .itemProvider(_:) modifier method on TableRow.
-                        return Palana.itemProvider(
-                            for: payload, localFileURL: localDragURL(for: entry))
-                    }
+                    .itemProvider { rowProvider(for: entry, selectedNames: selectedNames) }
             }
         }
         .onChange(of: sortOrder) { _, order in
@@ -485,7 +484,10 @@ extension PaneView {
             // single click stays the cursor, so a row can be chosen
             // without being entered.
             onFocus()
-            if let id = ids.first {
+            // The click set the cursor to the row under it; with several
+            // rows selected the ids carry them all, so the cursor decides.
+            let clicked = model.state.cursor.flatMap { ids.contains($0) ? $0 : nil } ?? ids.first
+            if let id = clicked {
                 model.activate(id)
             }
         }
@@ -614,17 +616,24 @@ extension PaneView {
         onOperation(operation)
     }
 
-    /// The real file URL for a drag leaving the app — local pane only.
-    ///
-    /// A remote entry returns nil: no URL on this Mac can honor it (the
-    /// file-promise download drag is a banked follow-up). The URL rides
-    /// the drag beside the pane-to-pane payload so files land on any
-    /// outside target — a browser upload, Finder, Mail.
-    func localDragURL(for entry: FileEntry) -> URL? {
-        guard model.state.host == PalanaCore.localHostName else { return nil }
-        let base = model.state.path
-        let path = base == "/" ? "/\(entry.name)" : "\(base)/\(entry.name)"
-        return URL(fileURLWithPath: path)
+    /// One row's drag provider: the pane-to-pane payload, and what the row
+    /// delivers outside pālana (``DragOutPlan``).
+    func rowProvider(for entry: FileEntry, selectedNames: [Data]) -> NSItemProvider? {
+        let payload = dragPayload(for: entry, selectedNames: selectedNames)
+        let host = model.state.host ?? PalanaCore.localHostName
+        let outbound = DragOutPlan.items(
+            host: host, directory: model.state.path, names: [entry.nameData], entries: [entry]
+        ).first
+        let note = onDragOutNote
+        let remote =
+            host == PalanaCore.localHostName
+            ? nil
+            : RemoteDragSupport(listing: model.listing(for: host)) { line in
+                Task { @MainActor in note(line) }
+            }
+        // Qualify the global to resolve the name collision with the
+        // .itemProvider(_:) modifier method on TableRow.
+        return Palana.itemProvider(for: payload, outbound: outbound, remote: remote)
     }
 
     func nameCell(_ entry: FileEntry) -> some View {
@@ -675,27 +684,25 @@ extension PaneView {
         entry.kind == .directory ? "\(entry.name)/" : entry.name
     }
 
-    var cursorBinding: Binding<FileEntry.ID?> {
+    /// The table's selection: pālana's marks, or the cursor alone.
+    ///
+    /// The setter only fires from the Table's own interaction — a click — so
+    /// focus follows it, and the modifiers carry Finder's selection manners:
+    /// shift extends from the cursor, ⌘ or ⌥ toggles one row. Keyed moves
+    /// write the state directly and never pass through here.
+    /// NSEvent.modifierFlags (the class property, live hardware state) — NOT
+    /// NSApp.currentEvent: the Table delivers this set AFTER the click event
+    /// has passed, so currentEvent's flags read empty and shift-click
+    /// degraded to a plain click (round 9: 'I cant shift selecet').
+    var selectionBinding: Binding<Set<FileEntry.ID>> {
         Binding(
-            get: { model.state.cursor },
-            set: { clicked in
-                // The setter only fires from the Table's own interaction
-                // — a click — so focus follows it, and the modifiers
-                // carry Finder's selection manners: shift extends from
-                // the cursor, ⌘ or ⌥ toggles one row. Keyed moves write
-                // the state directly and never pass through here.
-                // NSEvent.modifierFlags (the class property, live hardware
-                // state) — NOT NSApp.currentEvent: the Table delivers this
-                // set AFTER the click event has passed, so currentEvent's
-                // flags read empty and shift-click degraded to a plain
-                // click (round 9: 'I cant shift selecet').
+            get: { model.tableSelection },
+            set: { newSelection in
                 let flags = NSEvent.modifierFlags
-                if let clicked, flags.contains(.shift) {
-                    model.extendSelection(to: clicked)
-                } else if let clicked, !flags.isDisjoint(with: [.command, .option]) {
-                    model.toggleSelection(clicked)
-                }
-                model.state.cursor = clicked
+                model.applyTableClick(
+                    newSelection,
+                    shift: flags.contains(.shift),
+                    toggle: !flags.isDisjoint(with: [.command, .option]))
                 onFocus()
             })
     }
