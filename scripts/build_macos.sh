@@ -209,6 +209,13 @@ if $BUILD_DMG; then
     rm -rf "$STAGING"
     echo "==> DMG: dist/$DMG_NAME"
 
+    # The container needs its own signature for Gatekeeper's open assessment;
+    # notarizing the signed app inside an unsigned DMG is not sufficient.
+    if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+        codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "dist/$DMG_NAME"
+        codesign --verify --strict --verbose=2 "dist/$DMG_NAME"
+    fi
+
     if [[ -n "${NOTARIZE_KEYCHAIN_PROFILE:-}" ]]; then
         echo "==> Notarizing the dmg…"
         xcrun notarytool submit "dist/$DMG_NAME" \
