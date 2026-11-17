@@ -1,5 +1,5 @@
 {
-  "keisaku": 1,
+  "keisaku": 2,
   "works": [
     {
       "id": "palana",
@@ -34,7 +34,7 @@
       ],
       "tech_stack": "Swift",
       "created": "2026-05-08",
-      "last_updated": "2026-11-15",
+      "last_updated": "2026-11-17",
       "conceived": "2025-08-01",
       "named": "2026-03-21",
       "short_description": "An operational workbench for the homelab — a dual-pane file manager with true server-side operations, ZFS-aware cross-dataset handling, and a field view of machine topology.",
@@ -48,7 +48,7 @@
       "availability": "shipped",
       "usage": "me",
       "_keisaku": {
-        "generated_at": "2026-11-16T10:49:44",
+        "generated_at": "2026-11-17T15:26:28",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",
@@ -62,6 +62,7 @@
           "media": [
             "software"
           ],
+          "status": "in-development",
           "created": "2026-03-22",
           "tags": [
             "swift"
@@ -72,9 +73,7 @@
             "Built with Tauri for the desktop shell, a Rust backend, and a Svelte frontend. In development."
           ]
         },
-        "contract_issues": [
-          "token-missing"
-        ]
+        "contract_issues": []
       }
     }
   ]
