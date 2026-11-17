@@ -1,39 +1,99 @@
 # Changelog
 
-All notable changes to pālana. Versions are git tags; the binary is a signed,
-notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
+All notable changes to pālana. Each version is a git tag. The signed,
+notarized macOS app is sold at [palana.sageframe.net](https://palana.sageframe.net);
+the source builds free at every version.
 
-## Unreleased
+## v1.0 — 2026-11-15
 
-- Known issue: an intermittent row drag can leave the window ignoring clicks,
-  including with remote external delivery disabled. Tracked in
-  [#4](https://github.com/sageframe-no-kaji/palana/issues/4); the
-  [investigation record](docs/known-issues/drag-freeze.md) preserves failures,
-  attempted fixes, verification limits and the next diagnostic steps.
+The first full release. pālana is a native Mac file manager for the machines
+you run yourself: two keyboard-driven panes, each on this Mac or an SSH host,
+using your own `ssh`. Every file and ZFS operation is composed as a plan first.
+You read the real commands, then press Enter.
 
-- Finder drag-out remains copy-only. Command-drag moves are deferred to
-  [#6](https://github.com/sageframe-no-kaji/palana/issues/6).
+**Changes since v0.8-beta**
 
-- Remote drag-out to other apps is on hold while the macOS 27 freeze remains
-  unresolved. Remote files and folders still drag between pālana’s panes;
-  their drag carries only an internal transfer descriptor, with no file URL
-  or download promise. Copy to a local pane before dragging into a browser.
-- Mouse selection follows Finder: Shift-click selects a continuous range,
-  Command-click adds or removes individual rows, and a plain click selects
-  only that row. Dragging a selected row keeps the marked cohort.
-- Pane and folder drops use an AppKit receiver that leaves the native drag
-  animation untouched. Local checks passed, but remote drags still reproduced
-  the macOS 27 freeze; the issue remains open.
 - ⌘1–⌘9 open the first nine favorites in the focused pane, numbered in the
   favorites panel's order (Global first, then each host). The panel shows each
-  row's number; with the panel holding the keyboard, the number jumps where the
-  panel's arrows aim.
-- Favorites reorder by drag inside the panel, and by ⌥↑ / ⌥↓ on the row under
-  the cursor. A favorite moves within its own group — Global or one host — so a
-  drag never changes scope or host, and the sections never shuffle. The ⌘
-  numbers follow the new order, and ⌘Z undoes a move.
-- Starring the current folder moves from ⌘8 to ⇧⌘8 — the shifted 8 is `*`, the
+  row's number. When the panel holds the keyboard, a number opens the favorite
+  in the pane the panel's destination selector points to.
+- Favorites can be reordered by dragging them in the panel, or with ⌥↑ / ⌥↓ on
+  the row under the cursor. A favorite moves only within its own group (Global
+  or one host), so reordering never changes its scope or host, and the sections
+  keep their order. The ⌘ numbers follow the new order, and ⌘Z undoes a move.
+- Starring the current folder moves from ⌘8 to ⇧⌘8. The shifted 8 is `*`, the
   favorites key. `8` still stars the highlighted entry.
+- **Moves keep metadata where they can.** A move asks rsync for extended
+  attributes and Finder tags (`-X`) and ACLs (`-A`, between hosts of the same OS)
+  when both ends carry them; otherwise the plan names what will not be kept.
+- **A failed move still accounts.** When a move's transfer fails or is
+  cancelled, the run still names every selected source that remains.
+- **Send-back without hard links.** On a destination that cannot make hard links
+  (exFAT, many FUSE mounts, some SMB shares) the safe replace refuses with
+  nothing changed, and the panel offers to replace by rename instead, saying
+  what that risks.
+- **Drag out.** Local files and folders, including marked groups, can be dragged
+  into Finder, a browser, or Mail. Finder drag-out copies; ⌘-drag to move is
+  deferred to [#6](https://github.com/sageframe-no-kaji/palana/issues/6).
+  Remote files and folders still drag between pālana's panes; remote drag-out
+  to other apps is on hold, so copy to a local pane first.
+- Mouse selection follows Finder: Shift-click selects a continuous range,
+  ⌘-click adds or removes individual rows, and a plain click selects only that
+  row. Dragging a selected row keeps the marked group.
+- Pane and folder drops use an AppKit receiver that leaves the native drag
+  animation untouched.
+- Known issue: an intermittent row drag can leave the window ignoring clicks.
+  Tracked in [#4](https://github.com/sageframe-no-kaji/palana/issues/4); the
+  [investigation record](docs/known-issues/drag-freeze.md) keeps the failures,
+  attempted fixes, verification limits, and next diagnostic steps.
+- The signed app is sold at palana.sageframe.net for US $29, including 1.x
+  updates. GitHub releases now carry release notes only; the launch update
+  check reads their tags and links to the site.
+
+**What 1.0 contains**
+
+- **Plans before actions.** Copy, move, delete, rename, create, and touch each
+  compose a plan: the entries and their size, the kind of operation, the source
+  and destination, destination collisions, the transport and how it
+  authenticates, and the exact commands in order. Enter runs it; Esc dismisses
+  it.
+- **Server-to-server transfers.** With rsync 3.1 or later on the source, rsync
+  on the destination, and a forwarded SSH agent, copies and moves between two
+  hosts run host to host. Otherwise copies
+  stream through the Mac with tar. A move across filesystems or hosts uses rsync
+  with `--checksum --remove-source-files`, warns that an interruption may split
+  the selection, and is refused when a required endpoint lacks a supported
+  rsync. The tar fallback is copy-only.
+- **ZFS where ZFS exists.** Dataset boundaries decide whether a move is a rename
+  or a copy with source removal. Whole-dataset copies and moves between ZFS
+  hosts use `zfs send -R | zfs receive -u`. ZFS mode (`Z`) creates, destroys,
+  and renames datasets; creates, destroys, and rolls back snapshots; sets or
+  inherits mountpoints; and mounts and unmounts. Every mutation is a plan.
+- **The field.** `f` shows each host's reachability, capabilities, pools, and
+  datasets from cached, dated facts; `F` opens the host map with mounts. Facts
+  are read only on request.
+- **The shell.** `` ⌘` `` opens an interactive terminal for the focused host in
+  the plan panel.
+- **Preview.** `v` makes the right pane preview the left pane's file: text,
+  images, and PDFs locally, and text, images, PDFs, and SVG files from remote
+  hosts.
+- **Remote editing.** Saved edits to a fetched remote file upload when the
+  remote copy is unchanged, and ask first when it has changed.
+- **And:** drag and drop between panes, from Finder, and into folders;
+  appearance (System, Light, or Dark); one zoom for the whole window
+  (`⌘+` / `⌘−` / `⌘0`); favorites; adding and hiding hosts in Settings; the
+  operations log; and a launch update check that can be turned off.
+
+**Under it**
+
+- PalanaCore, a headless library, holds the logic, at 97.5% line coverage
+  against a 90% floor. The app is a thin surface over it.
+- pālana uses your own `ssh` (your `~/.ssh/config`, keys, agent, and ProxyJump)
+  and has no embedded SSH stack. It runs while the app is open and installs no
+  background process.
+
+Signed with Developer ID, notarized, and stapled. Universal (Apple silicon and
+Intel), macOS 14 or later. Source under GPL-3.0.
 
 ## v0.8-beta — progressive moves
 
@@ -48,60 +108,6 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
   update comparator retains the numeric bundle version.
 
 Signed, notarized, and stapled for macOS 14 or later.
-
-## v1.0 — the first full release
-
-pālana is a native Mac app for tending a homelab: calm, keyboard-first,
-dual-pane, over your own `ssh`. Every operation is planned before it enacts —
-you read the real commands, then press Enter — and the bytes travel host to host
-without ever routing through your Mac.
-
-**The surface**
-
-- **Plan → enact.** Copy, move, delete, rename, create, touch — each compiles to
-  a plan first: the entries and sizes, the classification (within-dataset rename,
-  cross-dataset copy-plus-delete, cross-host transfer), the transport and its auth
-  path, and the exact commands. Enter enacts; Esc dismisses.
-- **Server-side transfers.** Host-to-host copies and rsync moves run host to host.
-  A file move compares contents, removes each source file after transfer, warns
-  that interruption may split the selection, and refuses when a required
-  endpoint lacks supported rsync. Tar fallback remains copy-only.
-- **Moves keep metadata where they can.** A move asks rsync for extended
-  attributes and Finder tags (`-X`) and ACLs (`-A`, between hosts of the same OS)
-  when both ends carry them; otherwise the plan names what will not be kept.
-- **A failed move still accounts.** When a move's transfer fails or is
-  cancelled, the run still names every selected source that remains.
-- **Send-back without hard links.** On a destination that cannot make hard links
-  (exFAT, many FUSE mounts, some SMB shares) the safe replace refuses with
-  nothing changed, and the panel offers to replace by rename instead, saying
-  what that risks.
-- **ZFS, natively.** Dataset boundaries are first-class; a cross-dataset move is
-  named as what it is. Whole-dataset moves offer `zfs send | ssh | zfs receive`.
-  The **ZFS workbench** manages datasets and snapshots (create, destroy, rename,
-  snapshot, rollback, mount/unmount, mountpoint) — every mutation a plan you read
-  first. Enter zfs mode with `Z`.
-- **The field view.** One key summons the topology — machines, pools, datasets,
-  reachability — as an overlay; point a pane, it vanishes. Discovery on demand.
-- **The interactive shell.** `⌘\`` drops a real terminal into the panel, per host.
-- **The preview pane.** `v` — the pane follows the other's cursor: text scrollable
-  and monospace, images and PDFs via Quick Look, an info card always. Local files,
-  plus remote text and images.
-- **Drag-and-drop** between panes, from Finder, and into folders; **dark mode**
-  (System / Light / Dark); **one master zoom** (`⌘+` / `⌘−` / `⌘0`); favorites,
-  host onboarding, and a launch update check.
-- **Drag out.** Local files and folders, including marked groups, can be dragged
-  into Finder, a browser, or Mail. Remote drag-out is suspended; copy between
-  panes first, then drag the local copy.
-
-**Under it**
-
-- **PalanaCore** — a headless library carrying all truth and logic, at ~97% line
-  coverage. The app is a thin surface over it.
-- Wraps your own `ssh` (your `~/.ssh/config`, keys, agent, ProxyJump) — no embedded
-  SSH stack, no trust ceremony of its own. Runs when you open it, stops when you
-  close it. Nothing watches while you're away.
-
-Signed and notarized (Developer ID), macOS 14+. Source open under GPL-3.0.
 
 ## Earlier
 
