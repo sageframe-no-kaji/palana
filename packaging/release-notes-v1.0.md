@@ -33,9 +33,9 @@ signed & notarized · source here under GPL-3.0.
   Finder or browsers is paused while the intermittent macOS drag freeze remains
   open ([#4](https://github.com/sageframe-no-kaji/palana/issues/4)). Copy to a local
   pane first, then drag that local copy into the other app.
-- The retained local and pane-to-pane paths passed manual acceptance. This is
-  containment of the known remote drag-out failure, not a claim that the
-  underlying macOS drag-animation fault is resolved.
+- A remote-origin drag still froze the signed candidate after external delivery
+  was disabled. Later checks passed, but the freeze remains intermittent and
+  unresolved. See the [full investigation](../docs/known-issues/drag-freeze.md).
 
 Runs when you open it, stops when you close it. Nothing watches while you're away.
 

@@ -5,6 +5,12 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
 ## Unreleased
 
+- Known issue: an intermittent row drag can leave the window ignoring clicks,
+  including with remote external delivery disabled. Tracked in
+  [#4](https://github.com/sageframe-no-kaji/palana/issues/4); the
+  [investigation record](docs/known-issues/drag-freeze.md) preserves failures,
+  attempted fixes, verification limits and the next diagnostic steps.
+
 - Finder drag-out remains copy-only. Command-drag moves are deferred to
   [#6](https://github.com/sageframe-no-kaji/palana/issues/6).
 
