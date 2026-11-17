@@ -29,7 +29,9 @@ enum PaneDropContent: Equatable {
 
     /// Reads the drop off a drag pasteboard.
     static func read(from pasteboard: NSPasteboard) -> Self? {
-        let selectionData = pasteboard.pasteboardItems?.lazy.compactMap { $0.data(forType: .palanaPayload) }.first
+        let selectionData = pasteboard.pasteboardItems?.lazy.compactMap {
+            $0.data(forType: .palanaInternalSelection) ?? $0.data(forType: .palanaPayload)
+        }.first
         // An internal drop must never ask an outbound file promise for bytes.
         if let selectionData, let payload = try? JSONDecoder().decode(DraggedSelection.self, from: selectionData) {
             return .selection(payload)
@@ -41,7 +43,7 @@ enum PaneDropContent: Equatable {
 
     /// Whether a pasteboard could carry a pane drop at all.
     static func accepts(_ types: [NSPasteboard.PasteboardType]) -> Bool {
-        types.contains(.palanaPayload) || types.contains(.fileURL)
+        types.contains(.palanaInternalSelection) || types.contains(.palanaPayload) || types.contains(.fileURL)
     }
 }
 
@@ -101,7 +103,7 @@ struct PaneDropTarget: NSViewRepresentable {
 
         override init(frame: NSRect) {
             super.init(frame: frame)
-            registerForDraggedTypes([.palanaPayload, .fileURL])
+            registerForDraggedTypes([.palanaInternalSelection, .palanaPayload, .fileURL])
         }
 
         @available(*, unavailable, message: "built in code only")

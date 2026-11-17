@@ -9,10 +9,8 @@ import SwiftUI
 import os
 
 extension PaneModel {
-    /// Remote drag sources are suspended while the macOS drag freeze is open.
-    ///
-    /// Transfers through keyboard commands and menus remain available.
-    var permitsRowDrag: Bool { state.host == Engine.localHost }
+    /// Any pointed pane can transfer a selection to another pane.
+    var permitsRowDrag: Bool { state.host != nil }
 }
 
 extension PaneView {
@@ -21,6 +19,8 @@ extension PaneView {
     func rowProvider(for entry: FileEntry, selectedNames: [Data]) -> NSItemProvider? {
         guard model.permitsRowDrag else { return nil }
         let payload = dragPayload(for: entry, selectedNames: selectedNames)
+        // Remote rows advertise only the process-local selection, never a file.
+        guard model.isLocalPane else { return Palana.itemProvider(for: payload) }
         let (outbound, remote) = dragOut(for: entry)
         // Qualify the global to resolve the name collision with the
         // .itemProvider(_:) modifier method on TableRow.
@@ -34,8 +34,10 @@ extension PaneView {
         let entry = model.rows[row]
         let selectedNames = model.rows.filter { model.state.selection.contains($0.id) }.map(\.nameData)
         let payload = dragPayload(for: entry, selectedNames: selectedNames)
+        guard let data = try? JSONEncoder().encode(payload) else { return nil }
+        guard model.isLocalPane else { return internalRowPasteboardWriter(payload: data) }
         let (outbound, remote) = dragOut(for: entry)
-        guard let outbound, let data = try? JSONEncoder().encode(payload) else { return nil }
+        guard let outbound else { return nil }
         Self.dragLog.info(
             "row writer for \(entry.name, privacy: .public): \(String(describing: outbound), privacy: .public)")
         return rowPasteboardWriter(for: outbound, payload: data, remote: remote)

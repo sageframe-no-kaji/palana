@@ -170,8 +170,8 @@ struct PaneView: View {
                 Text("previewing the left pane · v or esc exits")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
-            } else if model.state.host != nil && !model.permitsRowDrag {
-                Text("remote drag paused · y copy · m move")
+            } else if model.state.host != nil && !model.isLocalPane {
+                Text("remote drag: between panes only")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.inkFaint)
             }
@@ -439,7 +439,7 @@ extension PaneView {
             coreColumns()
             extendedColumns(favorites: favorites, model: model)
         } rows: {
-            // Local rows are draggable. The payload expands to the full selection
+            // Rows are draggable between panes. The payload expands to the full selection
             // when the dragged row is within it (Finder's manners); otherwise
             // only the dragged row's name is carried. The selection's names
             // are gathered ONCE per render — a per-row filter would be O(n²)
@@ -454,12 +454,8 @@ extension PaneView {
                 // the drop side accepts the type (RC3; see DragDrop.swift).
                 // The table asks every selected row it drags, so a drag of the
                 // marked rows carries each one's file out (drag-out).
-                if model.permitsRowDrag {
-                    TableRow(entry)
-                        .itemProvider { rowProvider(for: entry, selectedNames: selectedNames) }
-                } else {
-                    TableRow(entry)
-                }
+                TableRow(entry)
+                    .itemProvider { rowProvider(for: entry, selectedNames: selectedNames) }
             }
         }
         .onChange(of: sortOrder) { _, order in

@@ -31,7 +31,7 @@ And the field has no map. Eleven machines, dozens of services, multiple pools �
 - **The Workbench.** A plugin architecture from day one. A plugin gets the SSH layer, the topology, and a surface slot. The ZFS tool — dataset management, snapshots, pool visualization — ships at v1 and proves the API.
 - **The live shell.** `⌘\`` drops a real interactive terminal into the panel, per host — vim, htop, whatever — over your own `ssh`, without leaving pālana.
 - **The preview pane.** Press `v` and the right pane follows the left's cursor: text scrollable and monospace, images and PDFs via Quick Look, an info card always. Local files, and remote text and images too.
-- **Drag out to the Mac.** Drag local files or folders, including marked groups, into Finder, a browser upload box, or Mail. Dragging from remote panes is temporarily disabled because it can freeze the app on macOS 27, including when headed to another pane. Use `y` to copy or `m` to move, or the row's context menu; after copying a remote file to a local pane, drag that local copy into the uploader.
+- **Drag out to the Mac.** Drag local files or folders, including marked groups, into Finder, a browser upload box, or Mail. Finder drag-out copies; [⌘-drag to move is deferred](https://github.com/sageframe-no-kaji/palana/issues/6). Remote files and folders can be dragged between pālana’s panes. Remote drag-out to other apps is on hold while the macOS 27 freeze remains unresolved; copy a remote file to a local pane first, then drag that local copy into the uploader.
 
 ## Your First Session
 

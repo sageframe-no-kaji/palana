@@ -25,6 +25,18 @@ signed & notarized · source here under GPL-3.0.
   images), **drag-and-drop**, **dark mode**, and **one-key zoom**.
 - **Launch update check** — pālana tells you when a new version is out.
 
+### Drag-and-drop limits
+
+- Local files and folders copy into Finder; Command-drag moves are deferred
+  ([#6](https://github.com/sageframe-no-kaji/palana/issues/6)).
+- Remote files and folders drag between Palana's panes. Remote drag-out into
+  Finder or browsers is paused while the intermittent macOS drag freeze remains
+  open ([#4](https://github.com/sageframe-no-kaji/palana/issues/4)). Copy to a local
+  pane first, then drag that local copy into the other app.
+- The retained local and pane-to-pane paths passed manual acceptance. This is
+  containment of the known remote drag-out failure, not a claim that the
+  underlying macOS drag-animation fault is resolved.
+
 Runs when you open it, stops when you close it. Nothing watches while you're away.
 
 ---

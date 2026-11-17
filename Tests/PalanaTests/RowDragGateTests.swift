@@ -1,5 +1,5 @@
-// RowDragGateTests — a remote pane must yield no drag writer, including
-// SwiftUI's fallback writer, before the native drag session can begin.
+// RowDragGateTests — only unpointed panes reject native drag writers.
+// Remote panes retain their internal transfer writer.
 
 import AppKit
 import Testing
@@ -9,8 +9,8 @@ import Testing
 @MainActor
 @Suite("Row drag source gate", .serialized)
 struct RowDragGateTests {
-    @Test("remote and unpointed panes cannot invoke either writer")
-    func blocksRemote() throws {
+    @Test("unpointed panes cannot invoke either writer")
+    func blocksUnpointed() throws {
         let model = try AddressRig().pane
         let table = NSOutlineView()
         let source = GateSource()
@@ -23,15 +23,13 @@ struct RowDragGateTests {
                 customCalls += 1
                 return NSPasteboardItem()
             })
-        for host: String? in [nil, "koan", "localhost", "fixture"] {
-            model.state.host = host
-            #expect(writer(source, table) == nil)
-        }
+        model.state.host = nil
+        #expect(writer(source, table) == nil)
         #expect(customCalls == 0)
-        #expect(source.calls == 0, "nil must not fall back to SwiftUI's remote writer")
+        #expect(source.calls == 0, "an unpointed pane must not invoke the fallback writer")
     }
 
-    @Test("a reused table follows host changes without retaining local drag permission")
+    @Test("a reused table permits local and remote sources, but rejects unpointed state")
     func switchesHosts() throws {
         let model = try AddressRig().pane
         let table = NSOutlineView()
@@ -42,6 +40,8 @@ struct RowDragGateTests {
         model.state.host = Engine.localHost
         #expect((writer(source, table) as? NSPasteboardItem) === item)
         model.state.host = "koan"
+        #expect((writer(source, table) as? NSPasteboardItem) === item)
+        model.state.host = nil
         #expect(writer(source, table) == nil)
         model.state.host = Engine.localHost
         #expect((writer(source, table) as? NSPasteboardItem) === item)
@@ -59,7 +59,7 @@ struct RowDragGateTests {
         RowWriterHook.install(on: hooked, isEnabled: { model.permitsRowDrag }, hook: { _ in nil })
         model.state.host = Engine.localHost
         #expect((writer(source, hooked) as? NSPasteboardItem) === source.item)
-        model.state.host = "koan"
+        model.state.host = nil
         #expect(writer(source, hooked) == nil)
         #expect((writer(source, other) as? NSPasteboardItem) === source.item)
         #expect(source.calls == 2)

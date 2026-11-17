@@ -263,6 +263,19 @@ private final class PublishedProgress: @unchecked Sendable {
 extension NSPasteboard.PasteboardType {
     /// The pane-to-pane payload's type: public.json, as the drop side reads it.
     static let palanaPayload = NSPasteboard.PasteboardType(UTType.json.identifier)
+    /// Native remote rows expose no public JSON, file URL, or file promise.
+    static let palanaInternalSelection = NSPasteboard.PasteboardType("net.sageframe.palana.internal-selection")
+}
+
+/// An internal transfer descriptor, with no representation an uploader can use
+/// as a file.
+///
+/// Both panes read this exact native pasteboard type; it does not
+/// depend on Uniform Type Identifier registration or SwiftUI conversion.
+func internalRowPasteboardWriter(payload: Data) -> NSPasteboardItem {
+    let item = NSPasteboardItem()
+    item.setData(payload, forType: .palanaInternalSelection)
+    return item
 }
 
 /// The pasteboard writer a dragged row hands the table, when pālana has one.
