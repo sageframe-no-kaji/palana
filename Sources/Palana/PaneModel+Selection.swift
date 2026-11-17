@@ -24,28 +24,32 @@ extension PaneModel {
         return rows.filter { state.selection.contains($0.id) }
     }
 
-    /// Shift-click: select the run from the cursor to the clicked row,
-    /// inclusive — Finder's manners over yazi's marks.
-    func extendSelection(to id: FileEntry.ID) {
-        guard
-            let anchor = state.cursor,
-            let from = rows.firstIndex(where: { $0.id == anchor }),
-            let to = rows.firstIndex(where: { $0.id == id })
-        else {
-            state.selection.insert(id)
-            return
-        }
-        for row in rows[min(from, to)...max(from, to)] {
-            state.selection.insert(row.id)
-        }
+    /// The rows the table is told are selected: the marks, or the cursor
+    /// alone when nothing is marked.
+    ///
+    /// The table drags its selected rows natively, so a drag that starts on
+    /// a marked row carries every marked row out of the pane; a drag on any
+    /// other row carries that row.
+    var tableSelection: Set<FileEntry.ID> {
+        if !state.selection.isEmpty { return state.selection }
+        return state.cursor.map { [$0] } ?? []
     }
 
-    /// ⌘- or ⌥-click: toggle one row in or out of the selection.
-    func toggleSelection(_ id: FileEntry.ID) {
-        if state.selection.contains(id) {
-            state.selection.remove(id)
+    /// Adopts the native table's selection without reinterpreting its modifiers.
+    ///
+    /// AppKit owns the range anchor, Command toggles, and the distinction
+    /// between clicking a selected row and starting a drag of the cohort.
+    /// A single selected row uses the cursor; several rows become marks.
+    /// An empty selection clears the cursor too, so deselecting the last
+    /// row cannot select it again through `tableSelection`'s fallback.
+    func applyTableClick(_ newSelection: Set<FileEntry.ID>, clicked: FileEntry.ID? = nil) {
+        state.selection = newSelection.count > 1 ? newSelection : []
+        if let clicked, newSelection.contains(clicked) {
+            state.cursor = clicked
+        } else if let cursor = state.cursor, newSelection.contains(cursor) {
+            return
         } else {
-            state.selection.insert(id)
+            state.cursor = rows.first { newSelection.contains($0.id) }?.id
         }
     }
 }

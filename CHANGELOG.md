@@ -5,6 +5,19 @@ notarized macOS app at [palana.sageframe.net](https://palana.sageframe.net).
 
 ## Unreleased
 
+- Finder drag-out remains copy-only. Command-drag moves are deferred to
+  [#6](https://github.com/sageframe-no-kaji/palana/issues/6).
+
+- Remote drag-out to other apps is on hold while the macOS 27 freeze remains
+  unresolved. Remote files and folders still drag between pālana’s panes;
+  their drag carries only an internal transfer descriptor, with no file URL
+  or download promise. Copy to a local pane before dragging into a browser.
+- Mouse selection follows Finder: Shift-click selects a continuous range,
+  Command-click adds or removes individual rows, and a plain click selects
+  only that row. Dragging a selected row keeps the marked cohort.
+- Pane and folder drops use an AppKit receiver that leaves the native drag
+  animation untouched. Local checks passed, but remote drags still reproduced
+  the macOS 27 freeze; the issue remains open.
 - ⌘1–⌘9 open the first nine favorites in the focused pane, numbered in the
   favorites panel's order (Global first, then each host). The panel shows each
   row's number; with the panel holding the keyboard, the number jumps where the
@@ -70,6 +83,9 @@ without ever routing through your Mac.
 - **Drag-and-drop** between panes, from Finder, and into folders; **dark mode**
   (System / Light / Dark); **one master zoom** (`⌘+` / `⌘−` / `⌘0`); favorites,
   host onboarding, and a launch update check.
+- **Drag out.** Local files and folders, including marked groups, can be dragged
+  into Finder, a browser, or Mail. Remote drag-out is suspended; copy between
+  panes first, then drag the local copy.
 
 **Under it**
 

@@ -1,5 +1,5 @@
 // Drag-and-drop wiring for the Surface: NSItemProvider drag helpers,
-// unified onDrop handler, Finder-URL-drop resolution helpers, and the
+// Finder-URL-drop resolution helpers, and the
 // glue that routes a DropDecision through the standing begin/gather path.
 //
 // ho-9.6 rework — root-cause fixes:
@@ -32,23 +32,40 @@ import UniformTypeIdentifiers
 
 // MARK: - Drag payload builder
 
-/// Builds an ``NSItemProvider`` carrying a ``DraggedSelection`` encoded as JSON.
+/// What a remote row needs to deliver its file at the drop.
+struct RemoteDragSupport: Sendable {
+    /// The reader that reaches the row's host.
+    let listing: Listing
+    /// Writes one transcript line — downloads and refusals report here.
+    let report: @Sendable (String) -> Void
+}
+
+/// Builds an ``NSItemProvider`` carrying a ``DraggedSelection`` encoded as JSON,
+/// plus what the row delivers to the rest of the Mac.
 ///
-/// Registered under `UTType.json.identifier` ("public.json") — a system-declared
-/// type that requires no app-bundle registration and conforms to public.data and
-/// public.text. The drop side identifies our payload by successful JSON decode
-/// into ``DraggedSelection`` rather than by a custom type identifier.
+/// The payload is registered under `UTType.json.identifier` ("public.json") —
+/// a system-declared type that requires no app-bundle registration and
+/// conforms to public.data and public.text — with process-only visibility.
+/// The drop side identifies it by a successful decode into
+/// ``DraggedSelection``; pālana's drop never asks for the other
+/// representations, so pane-to-pane drags are untouched by them.
 ///
-/// When `localFileURL` is non-nil the provider ALSO registers the real
-/// file URL, so the drag lands anywhere a file lands — Finder, a browser
-/// upload, Mail. Local panes only: a remote entry has no URL this Mac can
-/// honor (the file-promise download drag is banked as its own item).
-/// pālana's own drop side prefers the json payload, so pane-to-pane drags
-/// are untouched by the extra representation.
+/// What leaves the app follows `outbound` (from ``DragOutPlan``):
+/// - a local entry registers its file URL, and a file representation opened
+///   in place, so a sandboxed receiver (a browser, a chat app) gets a file it
+///   may read;
+/// - a remote file registers a file representation that downloads it when
+///   the receiver asks (``RemoteDragFetch``), with a transcript line;
+/// - a refused remote entry registers a representation that refuses with
+///   the reason, written to the transcript — only an outside receiver asks.
 ///
 /// Returns `nil` when encoding fails (a programming error).
 @MainActor
-func itemProvider(for selection: DraggedSelection, localFileURL: URL? = nil) -> NSItemProvider? {
+func itemProvider(
+    for selection: DraggedSelection,
+    outbound: DragOutItem? = nil,
+    remote: RemoteDragSupport? = nil
+) -> NSItemProvider? {
     let encoder = JSONEncoder()
     guard let data = try? encoder.encode(selection) else {
         return nil
@@ -65,11 +82,107 @@ func itemProvider(for selection: DraggedSelection, localFileURL: URL? = nil) -> 
         completion(data, nil)
         return nil
     }
-    if let url = localFileURL {
-        provider.suggestedName = url.lastPathComponent
-        provider.registerObject(url as NSURL, visibility: .all)
+    switch outbound {
+    case .localFile(let path):
+        registerLocalFile(on: provider, url: URL(fileURLWithPath: path))
+    case .remoteFile(let host, let path, let size):
+        if let remote { registerRemoteFile(on: provider, host: host, path: path, size: size, remote: remote) }
+    case .refused(let name, let reason):
+        if let remote { registerRefusal(on: provider, name: name, reason: reason, report: remote.report) }
+    case nil:
+        break
     }
     return provider
+}
+
+/// A local entry: its URL for Finder and pālana, and the file itself,
+/// opened in place, for receivers that cannot open a bare URL.
+@MainActor
+private func registerLocalFile(on provider: NSItemProvider, url: URL) {
+    provider.suggestedName = url.lastPathComponent
+    provider.registerObject(url as NSURL, visibility: .all)
+    let isFolder = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+    let type = isFolder ? UTType.folder.identifier : dragOutFileType(for: url.path)
+    let deliver: @Sendable (@escaping (URL?, Bool, (any Error)?) -> Void) -> Progress? = { completion in
+        completion(url, true, nil)
+        return nil
+    }
+    provider.registerFileRepresentation(
+        forTypeIdentifier: type, fileOptions: [.openInPlace], visibility: .all, loadHandler: deliver)
+}
+
+/// A remote file: downloaded when the receiver asks, never a partial file.
+@MainActor
+private func registerRemoteFile(
+    on provider: NSItemProvider, host: String, path: String, size: Int64, remote: RemoteDragSupport
+) {
+    provider.suggestedName = (path as NSString).lastPathComponent
+    provider.registerFileRepresentation(
+        forTypeIdentifier: dragOutFileType(for: path), fileOptions: [], visibility: .all
+    ) { completion in
+        let done = DragOutCompletion(completion)
+        let fetch = RemoteDragFetch(listing: remote.listing, host: host, path: path, size: size)
+        remote.report("downloading \(fetch.location) for a drop…")
+        return fetch.start { result in
+            switch result {
+            case .success(let url):
+                // The receiver copies the file before this returns.
+                done.call(url, nil)
+                fetch.cleanUp()
+                remote.report("\(fetch.location) delivered to the drop")
+            case .failure(let error):
+                done.call(nil, error)
+                remote.report("\(fetch.location) — download failed: \(error)")
+            }
+        }
+    }
+}
+
+/// A remote entry drag-out refuses: an outside receiver hears why.
+@MainActor
+private func registerRefusal(
+    on provider: NSItemProvider, name: String, reason: DragOutRefusal, report: @escaping @Sendable (String) -> Void
+) {
+    let line = reason.line(name: name)
+    provider.suggestedName = name
+    let refuse: @Sendable (@escaping (URL?, Bool, (any Error)?) -> Void) -> Progress? = { completion in
+        report(line)
+        completion(nil, false, DragOutRefused(message: line))
+        return nil
+    }
+    provider.registerFileRepresentation(
+        forTypeIdentifier: UTType.data.identifier, fileOptions: [], visibility: .all, loadHandler: refuse)
+}
+
+/// The error an outside receiver gets for a refused entry.
+struct DragOutRefused: LocalizedError, Equatable {
+    /// The transcript line, word for word.
+    let message: String
+    var errorDescription: String? { message }
+}
+
+/// Carries a file-representation completion to the download's thread.
+private final class DragOutCompletion: @unchecked Sendable {
+    // @unchecked: NSItemProvider documents the load-handler completion as
+    // callable from any thread; it is called exactly once.
+    private let handler: (URL?, Bool, (any Error)?) -> Void
+
+    init(_ handler: @escaping (URL?, Bool, (any Error)?) -> Void) {
+        self.handler = handler
+    }
+
+    func call(_ url: URL?, _ error: (any Error)?) {
+        handler(url, false, error)
+    }
+}
+
+/// A file's type from its extension; `public.data` when unknown (an unknown
+/// extension yields a dynamic "dyn.…" type no receiver knows).
+func dragOutFileType(for path: String) -> String {
+    guard let type = UTType(filenameExtension: (path as NSString).pathExtension), !type.isDynamic else {
+        return UTType.data.identifier
+    }
+    return type.identifier
 }
 
 // MARK: - Drop routing
@@ -186,213 +299,6 @@ func routeFolderDrop(
             entries: cohort
         )
     }
-}
-
-// MARK: - Unified drop handler support
-
-/// The resolved outcome of a unified drop, delivered asynchronously to the pane's `.onDrop` handler.
-///
-/// Value-typed and `Sendable`; safe to hop across actor boundaries.
-enum DropResult: Sendable {
-    /// A ``DraggedSelection`` was decoded from the JSON pasteboard type.
-    case selection(DraggedSelection, moveHeld: Bool)
-    /// File URLs were collected from a Finder drop.
-    case urls([URL], moveHeld: Bool)
-}
-
-/// Resolves providers from `.onDrop` to a ``DropResult`` asynchronously.
-///
-/// Tries `public.json` first and decodes as ``DraggedSelection`` (pane-to-pane
-/// drag); a decode failure means it is unrelated JSON — falls through to URL
-/// collection. Falls back to collecting file URLs (Finder drop). Returns `nil`
-/// when no recognisable content is found.
-///
-/// The result is `Sendable` so the caller can freely dispatch it on `MainActor`.
-///
-/// - Parameters:
-///   - providers: The `NSItemProvider` array from the `.onDrop` closure.
-///   - moveHeld: Whether Option was held at drop time (captured before the
-///     async hops to avoid checking modifier state off-thread).
-/// - Returns: A ``DropResult`` or `nil` when the providers carry nothing usable.
-///
-/// Main-actor isolated: both callers are main-actor drop handlers, and the
-/// providers never leave that actor (Swift 6.4's region checker rejects
-/// sending the non-Sendable `NSItemProvider` array to a nonisolated function).
-@MainActor
-func resolveDropProviders(
-    providers: [NSItemProvider],
-    moveHeld: Bool
-) async -> DropResult? {
-    // Try public.json first — pane-to-pane drag.
-    if let provider = providers.first(where: {
-        $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
-    }) {
-        let result = await withCheckedContinuation { (cont: CheckedContinuation<DraggedSelection?, Never>) in
-            provider.loadDataRepresentation(forTypeIdentifier: UTType.json.identifier) { data, error in
-                guard let data, error == nil,
-                    let payload = try? JSONDecoder().decode(DraggedSelection.self, from: data)
-                else {
-                    // Decode failure means unrelated JSON (e.g. Finder copy) — not ours.
-                    cont.resume(returning: nil)
-                    return
-                }
-                cont.resume(returning: payload)
-            }
-        }
-        if let payload = result {
-            return .selection(payload, moveHeld: moveHeld)
-        }
-        // Decoded nothing — fall through to URL resolution below.
-    }
-
-    // Fall back to file URLs — Finder drop.
-    let fileURLProviders = providers.filter {
-        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
-    }
-    guard !fileURLProviders.isEmpty else { return nil }
-
-    var urls: [URL] = []
-    for provider in fileURLProviders {
-        let url = await withCheckedContinuation { (cont: CheckedContinuation<URL?, Never>) in
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    cont.resume(returning: url)
-                } else if let url = item as? URL {
-                    cont.resume(returning: url)
-                } else {
-                    cont.resume(returning: nil)
-                }
-            }
-        }
-        if let url { urls.append(url) }
-    }
-    return urls.isEmpty ? nil : .urls(urls, moveHeld: moveHeld)
-}
-
-// MARK: - Unified drop handler
-
-/// Unified `.onDrop` handler — dispatches provider resolution and routes the
-/// result to the appropriate callback on `MainActor`.
-///
-/// Returns `true` immediately when the pane is ready and providers look
-/// promising — the actual dispatch happens asynchronously. Returns `false`
-/// when the pane is not ready or no usable content is found.
-///
-/// Callbacks are dispatched via `DispatchQueue.main.async` after provider
-/// resolution so they require no `@Sendable` annotation — the callers are
-/// always `@MainActor`-isolated SwiftUI closure literals.
-///
-/// Instrumentation:
-/// - (c) logged at entry — proves the drop closure fires, lists all type identifiers.
-/// - (d) logged at resolve outcome — selection / urls / nothing.
-///
-/// - Parameters:
-///   - providers: The `NSItemProvider` array from the `.onDrop` closure.
-///   - model: The pane that is the drop target.
-///   - onDropSelection: Called on the main queue with the decoded payload +
-///     move-held flag (⌘).
-///   - onFinderDrop: Called on the main queue with the resolved URLs +
-///     move-held flag (⌘).
-/// - Returns: `true` when a drop is attempted; `false` on refusal or empty providers.
-@MainActor
-func handleUnifiedDrop(
-    providers: [NSItemProvider],
-    model: PaneModel,
-    onDropSelection: @escaping (DraggedSelection, Bool) -> Void,
-    onFinderDrop: @escaping ([URL], Bool) -> Void
-) -> Bool {
-    guard model.status == .ready, model.state.host != nil else {
-        return false
-    }
-    // Copy is the default; ⌘ escalates to a move — the one universal modifier,
-    // read the same for pane-to-pane and Finder drags (a ⌘-drag from Finder
-    // sets the drag's operation mask to .move). The plan is still the gate.
-    let moveHeld = NSEvent.modifierFlags.contains(.command)
-
-    // Quick check — bail before async work when nothing looks right.
-    let hasJSON = providers.contains {
-        $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
-    }
-    let hasURLs = providers.contains {
-        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
-    }
-    guard hasJSON || hasURLs else {
-        return false
-    }
-
-    // Provider loads are async. resolveDropProviders returns a Sendable
-    // DropResult; once we have it we hop to the main queue via DispatchQueue
-    // (no @Sendable requirement on the dispatch block) to call the callbacks.
-    Task {
-        let result = await resolveDropProviders(
-            providers: providers,
-            moveHeld: moveHeld
-        )
-        guard let result else { return }
-        DispatchQueue.main.async {
-            switch result {
-            case .selection(let payload, let held):
-                onDropSelection(payload, held)
-            case .urls(let urls, let held):
-                onFinderDrop(urls, held)
-            }
-        }
-    }
-    return true
-}
-
-// MARK: - Folder-row drop handler
-
-/// Row-level `.onDrop` handler for a folder row (ho-14, extended in review).
-///
-/// Consumes both drag currencies onto the folder: the pane-to-pane
-/// `public.json` selection AND Finder file URLs — a file dragged in from Finder
-/// onto a folder row lands *inside* that folder, not in the pane's cwd. The
-/// pane-level drop is left for drops off any folder row.
-///
-/// Returns `true` when a promising drag is present so the row consumes the drop
-/// and the pane-level handler does not also fire (no double-plan). The resolved
-/// payload or URLs are delivered on the main queue with the folder entry and
-/// the move-held flag (⌘).
-///
-/// - Parameters:
-///   - providers: The `NSItemProvider` array from the row's `.onDrop` closure.
-///   - model: The pane hosting the folder row.
-///   - folder: The directory entry the drop landed on.
-///   - onSelectionOntoFolder: Called for a pane-to-pane drop onto the folder.
-///   - onFinderOntoFolder: Called for a Finder URL drop onto the folder.
-/// - Returns: `true` when the row consumes the drag; `false` otherwise.
-@MainActor
-func handleFolderDrop(
-    providers: [NSItemProvider],
-    model: PaneModel,
-    folder: FileEntry,
-    onSelectionOntoFolder: @escaping (DraggedSelection, FileEntry, Bool) -> Void,
-    onFinderOntoFolder: @escaping ([URL], FileEntry, Bool) -> Void
-) -> Bool {
-    guard model.status == .ready, model.state.host != nil else { return false }
-    let hasJSON = providers.contains {
-        $0.hasItemConformingToTypeIdentifier(UTType.json.identifier)
-    }
-    let hasURLs = providers.contains {
-        $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
-    }
-    guard hasJSON || hasURLs else { return false }
-    // Same rule as the pane-level drop: copy by default, ⌘ moves.
-    let moveHeld = NSEvent.modifierFlags.contains(.command)
-    Task {
-        let result = await resolveDropProviders(providers: providers, moveHeld: moveHeld)
-        guard let result else { return }
-        DispatchQueue.main.async {
-            switch result {
-            case .selection(let payload, let held):
-                onSelectionOntoFolder(payload, folder, held)
-            case .urls(let urls, let held):
-                onFinderOntoFolder(urls, folder, held)
-            }
-        }
-    }
-    return true
 }
 
 // MARK: - Finder URL resolution

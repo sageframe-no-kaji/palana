@@ -11,6 +11,7 @@ import AppKit
 import PalanaCore
 import SwiftUI
 import UniformTypeIdentifiers
+import os
 
 /// One pane of the two.
 struct PaneView: View {
@@ -61,6 +62,9 @@ struct PaneView: View {
     /// The session resolves them through the local listing and the gather path.
     /// The Bool is whether Option was held at drop time.
     let onFinderDrop: ([URL], Bool) -> Void
+    /// Writes one line to the plan panel's transcript — drag-out downloads
+    /// and refusals report here.
+    let onDragOutNote: @MainActor @Sendable (String) -> Void
     /// Pops the terminal — wired to `OperationModel.showPanel()`.
     let onShowPanel: () -> Void
     /// Called when the back chevron is tapped.
@@ -90,6 +94,8 @@ struct PaneView: View {
     /// or drops. Internal (not `private`) so the drop wiring in
     /// `PaneView+FolderDrop.swift` can read and clear it.
     @State var folderDropHoverID: FileEntry.ID?
+    /// The pane's table, for the row a click hit (⇧-click).
+    @State var tableRef = TableRef()
     @State private var sortOrder: [KeyPathComparator<FileEntry>] = [
         KeyPathComparator(\.name, order: .forward)
     ]
@@ -128,28 +134,19 @@ struct PaneView: View {
         .overlay {
             if dropTargeted {
                 DropWash()
+            } else if let folder = hoveredFolder {
+                DropWash(folderName: folder.name)
             }
         }
-        // Pane-level drop surface — unified .onDrop handles both DraggedSelection
-        // (pane-to-pane, encoded as public.json) and file URLs (Finder). A single
-        // modifier avoids the SwiftUI single-drop-destination limit (RC2).
-        // RC3: accepts .json (system-declared, conforms to public.data) instead of
-        // the undeclared custom identifier that UTType(_:) was silently nil-ing.
-        // isTargeted drives the drop-wash overlay.
-        .onDrop(
-            of: [.json, .fileURL],
-            isTargeted: Binding(
-                get: { dropTargeted },
-                set: { targeted in
-                    dropTargeted = targeted && model.status == .ready
-                }
-            )
-        ) { providers in
-            handleUnifiedDrop(
-                providers: providers,
+        // A single AppKit receiver handles pane and folder drops without
+        // changing the native table drag's images during its opening animation.
+        .overlay {
+            PaneDropTarget(
                 model: model,
-                onDropSelection: onDropSelection,
-                onFinderDrop: onFinderDrop
+                tableRef: tableRef,
+                onTargeted: { dropTargeted = $0 },
+                onFolderHover: { folderDropHoverID = $0 },
+                onDrop: receivePaneDrop
             )
         }
         .simultaneousGesture(TapGesture().onEnded { onFocus() })
@@ -173,6 +170,10 @@ struct PaneView: View {
                 Text("previewing the left pane · v or esc exits")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
+            } else if model.state.host != nil && !model.isLocalPane {
+                Text("remote drag: between panes only")
+                    .font(Theme.font(11))
+                    .foregroundStyle(Theme.inkFaint)
             }
             Spacer()
             ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
@@ -431,14 +432,14 @@ extension PaneView {
         @Bindable var store = columnStore
         return Table(
             of: FileEntry.self,
-            selection: cursorBinding,
+            selection: selectionBinding,
             sortOrder: $sortOrder,
             columnCustomization: $store.customization
         ) {
             coreColumns()
             extendedColumns(favorites: favorites, model: model)
         } rows: {
-            // Each row is draggable. The payload expands to the full selection
+            // Rows are draggable between panes. The payload expands to the full selection
             // when the dragged row is within it (Finder's manners); otherwise
             // only the dragged row's name is carried. The selection's names
             // are gathered ONCE per render — a per-row filter would be O(n²)
@@ -451,14 +452,10 @@ extension PaneView {
                 // as JSON under public.json (UTType.json) via NSItemProvider so
                 // the drag pasteboard write succeeds without a bundle (RC1) and
                 // the drop side accepts the type (RC3; see DragDrop.swift).
+                // The table asks every selected row it drags, so a drag of the
+                // marked rows carries each one's file out (drag-out).
                 TableRow(entry)
-                    .itemProvider {
-                        let payload = dragPayload(for: entry, selectedNames: selectedNames)
-                        // Qualify the global to resolve the name collision with the
-                        // .itemProvider(_:) modifier method on TableRow.
-                        return Palana.itemProvider(
-                            for: payload, localFileURL: localDragURL(for: entry))
-                    }
+                    .itemProvider { rowProvider(for: entry, selectedNames: selectedNames) }
             }
         }
         .onChange(of: sortOrder) { _, order in
@@ -476,6 +473,7 @@ extension PaneView {
         .scrollContentBackground(.hidden)
         .background(Theme.ground)
         .background(TableSelectionStyler())
+        .background(TableRowWriters(writer: rowWriter, isEnabled: { model.permitsRowDrag }, tableRef: tableRef))
         .contextMenu(forSelectionType: FileEntry.ID.self) { ids in
             contextMenuItems(for: ids)
         } primaryAction: { ids in
@@ -483,7 +481,10 @@ extension PaneView {
             // single click stays the cursor, so a row can be chosen
             // without being entered.
             onFocus()
-            if let id = ids.first {
+            // The click set the cursor to the row under it; with several
+            // rows selected the ids carry them all, so the cursor decides.
+            let clicked = model.state.cursor.flatMap { ids.contains($0) ? $0 : nil } ?? ids.first
+            if let id = clicked {
                 model.activate(id)
             }
         }
@@ -612,19 +613,6 @@ extension PaneView {
         onOperation(operation)
     }
 
-    /// The real file URL for a drag leaving the app — local pane only.
-    ///
-    /// A remote entry returns nil: no URL on this Mac can honor it (the
-    /// file-promise download drag is a banked follow-up). The URL rides
-    /// the drag beside the pane-to-pane payload so files land on any
-    /// outside target — a browser upload, Finder, Mail.
-    func localDragURL(for entry: FileEntry) -> URL? {
-        guard model.state.host == PalanaCore.localHostName else { return nil }
-        let base = model.state.path
-        let path = base == "/" ? "/\(entry.name)" : "\(base)/\(entry.name)"
-        return URL(fileURLWithPath: path)
-    }
-
     func nameCell(_ entry: FileEntry) -> some View {
         // No .onDrag here, deliberately: a cell-level drag source wraps the
         // cell content in its own drag-hosting view, which desyncs SwiftUI's
@@ -673,27 +661,19 @@ extension PaneView {
         entry.kind == .directory ? "\(entry.name)/" : entry.name
     }
 
-    var cursorBinding: Binding<FileEntry.ID?> {
+    /// Mirrors the table's native mouse selection into the pane's marks and
+    /// cursor.
+    ///
+    /// AppKit handles Shift ranges, Command toggles, and plain clicks;
+    /// keyboard commands continue to write pane state directly.
+    var selectionBinding: Binding<Set<FileEntry.ID>> {
         Binding(
-            get: { model.state.cursor },
-            set: { clicked in
-                // The setter only fires from the Table's own interaction
-                // — a click — so focus follows it, and the modifiers
-                // carry Finder's selection manners: shift extends from
-                // the cursor, ⌘ or ⌥ toggles one row. Keyed moves write
-                // the state directly and never pass through here.
-                // NSEvent.modifierFlags (the class property, live hardware
-                // state) — NOT NSApp.currentEvent: the Table delivers this
-                // set AFTER the click event has passed, so currentEvent's
-                // flags read empty and shift-click degraded to a plain
-                // click (round 9: 'I cant shift selecet').
-                let flags = NSEvent.modifierFlags
-                if let clicked, flags.contains(.shift) {
-                    model.extendSelection(to: clicked)
-                } else if let clicked, !flags.isDisjoint(with: [.command, .option]) {
-                    model.toggleSelection(clicked)
-                }
-                model.state.cursor = clicked
+            get: { model.tableSelection },
+            set: { newSelection in
+                let row = tableRef.clickedRow
+                model.applyTableClick(
+                    newSelection,
+                    clicked: model.rows.indices.contains(row) ? model.rows[row].id : nil)
                 onFocus()
             })
     }

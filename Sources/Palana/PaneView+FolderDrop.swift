@@ -9,58 +9,54 @@
 
 import PalanaCore
 import SwiftUI
-import UniformTypeIdentifiers
 
 extension PaneView {
     /// The cursor row's own paint — moss wash, not the system accent.
     ///
-    /// Doubles as the folder-drop target wash (ho-14): a folder row a valid
-    /// drag hovers wears the same accent language, at the selection wash's
-    /// weight (design system §7), so "this is where it lands" is unmistakable.
+    /// Doubles as the folder-drop target (ho-14): a folder row a valid drag
+    /// hovers is lit like the pane wash — a stronger fill and accent rules
+    /// along its top and bottom edges. Every column's cell draws this, so
+    /// the light runs the whole row.
     func cursorWash(_ entry: FileEntry) -> some View {
+        let dropTarget = folderDropHoverID == entry.id
         let opacity: Double
-        if folderDropHoverID == entry.id {
-            opacity = 0.10
+        if dropTarget {
+            opacity = 0.16
         } else if model.state.cursor == entry.id {
             opacity = 0.18
         } else {
             opacity = 0
         }
-        return RoundedRectangle(cornerRadius: 3)
+        return Rectangle()
             .fill(Theme.accent.opacity(opacity))
+            .overlay(alignment: .top) { dropEdge(dropTarget) }
+            .overlay(alignment: .bottom) { dropEdge(dropTarget) }
             .padding(.horizontal, -6)
     }
 
-    /// Makes a directory row a drop target (ho-14): a pane-to-pane selection
-    /// dropped here lands inside the folder, not in the pane's cwd.
-    ///
-    /// While a valid drag hovers, the row wears the accent wash; the wash clears
-    /// on leave or drop. Non-directory rows return the content untouched, so
-    /// they fall through to the pane-level drop. The row consumes the drop, so
-    /// the pane handler does not also fire (Decision 4 — no double-plan).
-    @ViewBuilder
-    func folderDropTarget(_ entry: FileEntry, _ content: some View) -> some View {
-        if entry.kind == .directory {
-            content.onDrop(
-                of: [.json, .fileURL],
-                isTargeted: Binding(
-                    get: { folderDropHoverID == entry.id },
-                    set: { targeted in
-                        folderDropHoverID = targeted ? entry.id : nil
-                    }
-                )
-            ) { providers in
-                folderDropHoverID = nil
-                return handleFolderDrop(
-                    providers: providers,
-                    model: model,
-                    folder: entry,
-                    onSelectionOntoFolder: onDropSelectionOntoFolder,
-                    onFinderOntoFolder: onFinderDropOntoFolder
-                )
-            }
-        } else {
-            content
+    /// One accent rule along a drop-target row's edge.
+    private func dropEdge(_ visible: Bool) -> some View {
+        Rectangle()
+            .fill(Theme.accent)
+            .frame(height: visible ? 2 : 0)
+    }
+
+    /// The folder row a drag would drop into, if any.
+    var hoveredFolder: FileEntry? {
+        folderDropHoverID.flatMap { id in model.rows.first { $0.id == id } }
+    }
+
+    /// Routes one native drop through the same pane or folder plan entry point.
+    func receivePaneDrop(_ content: PaneDropContent, folder: FileEntry?, moveHeld: Bool) {
+        switch (content, folder) {
+        case (.selection(let selection), .some(let folder)):
+            onDropSelectionOntoFolder(selection, folder, moveHeld)
+        case (.selection(let selection), nil):
+            onDropSelection(selection, moveHeld)
+        case (.files(let urls), .some(let folder)):
+            onFinderDropOntoFolder(urls, folder, moveHeld)
+        case (.files(let urls), nil):
+            onFinderDrop(urls, moveHeld)
         }
     }
 }

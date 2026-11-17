@@ -246,6 +246,7 @@ struct SurfaceView: View {
             onFinderDrop: { urls, moveHeld in
                 session.handleFinderDrop(urls: urls, targetPane: model, moveHeld: moveHeld)
             },
+            onDragOutNote: { line in session.operation.note(line) },
             onShowPanel: {
                 session.operation.showPanel()
                 session.terminalFocused = true

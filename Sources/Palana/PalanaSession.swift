@@ -173,6 +173,9 @@ final class PalanaSession {
         }
         // The bounded fetch for remote binary preview (ho-18) — the router
         // size-gates the start; the stream enforces the cap on the bytes.
+        // Drag-out downloads that outlived their drop (a crash, a force
+        // quit) are swept once per launch.
+        Task.detached { RemoteDragFetch.sweep() }
         previewController.remoteFileReader = { host, path, destination, limit in
             (try? await engine.listing(for: host)
                 .fetchFile(on: host, path: path, to: destination, limit: limit)) != nil
