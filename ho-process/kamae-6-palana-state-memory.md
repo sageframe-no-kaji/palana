@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-11-17
+updated: 2026-11-18
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,120 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-11-18 — MAIN CARRIES THE 1.0 SOURCE AND DOCS; RELEASE NOT CUT
+
+Supersedes the 2026-11-17 entries below where they differ: `main` has advanced
+and is pushed, the v1.0 draft release was deleted, and the signed DMG they
+describe is obsolete.
+
+**COMPLETED**
+- **Pre-1.0 review closed.** `reviews/2026-11-15-pre-1.0-review.md` found 3
+  release-blockers and 6 should-fix items. Fixed with failing-first tests:
+  findings 1, 2, 3, 5, 6, 9, 10 and 12 (`604c9cd` and following), then 4, 7, 8,
+  11 and 13 on `review-remainder` (`b0ed789`). Also fixed: the Swift 6.4 build
+  (main-actor drop resolver, per-arch binaries copied aside before `lipo`,
+  coverage over per-target test bundles) and rsync 3.5 progress lines.
+- **`v1-docs` merged** (`d75008a`). The README is informational only:
+  - mounted SMB, NFS and cloud storage are local paths;
+  - the selling copy and the "does not do" list are gone;
+  - it has a Known issues list.
+
+  Also in the merge: the CHANGELOG's single v1.0 entry, CONTRIBUTING without the
+  beta offer, and RELEASING, which now covers DMG signing. Dragging with ⌘
+  moves (it was Option in error). Three screenshots; this closed #2.
+- **#3, #10, #12 fixed** (`243b461`, `f20186a`). Each closed when `main` was
+  pushed.
+  - **#3:** a copy button in the plan panel. Its text comes from
+    `PlanText.clipboardText` in core.
+  - **#12:** program output keeps its columns, scrolling sideways.
+  - **#10:** a retained note stays one line, with newlines written as `\n` and
+    printed by `printf`, not dash's `echo`.
+
+  Verification: 1,457 tests passed with the sshd fixture. PalanaCore line
+  coverage 98.11%; application logic 63.53%.
+- **Pushed.** palana `main` is at `3d7c1bc`; the notes repo is at `74d746c`, pushed after the public copy.
+  - The public `ho-process` is regenerated, adding the review and the drag-freeze
+    records.
+  - `config/public-redactions.tsv` gained 5 rules: the test folder, an example
+    home path, macOS's anonymized app path, and a version string that reads as
+    an IPv4 address.
+  - A sweep of the published copy found no home paths, accounts, addresses or
+    host names.
+- **GitHub.**
+  - The v1.0 draft release was deleted on the practitioner's request. No `v1.0`
+    tag ever existed.
+  - Issues #7–#12 were filed: remote drag-out, send-back staging cleanup,
+    non-root ownership, the newline note, the rename race, and `zpool status`
+    wrapping.
+  - Branches are `main` and `v1-release` (kept by ruling). The only worktree is
+    the main checkout.
+- **Site (`palana-web`, 27 commits, local only).**
+  - Copy: an editorial pass (show, compare, explain; never pitch), the
+    Ho-process colophon, a Buy button reading `site.buyUrl`, and "Drive your
+    Mac and SSH hosts in two panes."
+  - Screenshots: a coverflow slider; a light/dark compare slider (m4Bookmaker's
+    handle); click-to-enlarge on every screenshot; a ZFS slider of the tree,
+    `zpool status` and the host map; the key card.
+  - The Build from source chip sits only in the Get pālana section.
+  - Mounted storage is stated as local. The FAQ has a Known issues entry.
+  - The Payhip gallery, images 1–7 at 1536×1024, plus the listing, are in
+    `design/payhip/`. `compose.py` and `web-assets.py` rebuild them from the
+    unframed shots in the gitignored `raw/`.
+- **Practitioner's machine.** `~/.ssh/config` gained Host entries for source-host,
+  keisu and samu. The previous file is `~/.ssh/config.bak-2026-11-15`.
+
+**NEXT**
+- **The practitioner is running a full codebase review.** Fold its findings into
+  `main` before any release build.
+- **Then, in order:**
+  1. Retake Settings and the `?` card on the 1.0 build. Both current shots are
+     from 0.8: one shows the 0.8.0 version line, the other `⌘8` and "? again
+     floats it".
+  2. Record a 15–20 s window video: select, `y`, plan, Enter, progress.
+  3. Rebuild, sign and notarize `palana-1.0.0.dmg` from `main`.
+  4. Create the Payhip product. Put its ID in `public/_data/site.json`
+     (`buyUrl`) and in `design/payhip/payhip-listing.md`.
+  5. Push `palana-web`; the push deploys the site. Check the live URL, including
+     that `/.git/HEAD` returns 404.
+  6. Remove the beta DMG assets from the v0.8-beta and v0.4-beta releases.
+  7. Tag v1.0 with notes only, last.
+
+**ACTION ITEMS / BLOCKS**
+- No tag and no release publication without a new explicit instruction.
+- `palana-web` is unpushed on purpose. A push goes live with the placeholder
+  `PALANA_PAYHIP_ID` until step 4 is done. Its untracked `.keisaku.json` awaits a
+  ruling: commit it, or ignore it.
+- **The signed DMG is obsolete.** It was built from `ff203c7` and predates the
+  README and the #3/#10/#12 fixes. The copy in `dist/` was overwritten by a
+  11-17 19:56 ad-hoc dev build. The archived copy survives, SHA-256
+  `c9b39f067ed5bb826936f27acb6c772fbb40967ae8bcb23121e3b928f7763412`, at
+  `.fixtures/archives/worktree-cleanup-20261117/release/dist/palana-1.0.0.dmg`.
+- **Open issues:**
+  - #1 sync
+  - #4 drag freeze (accepted known issue)
+  - #5 exFAT hands test
+  - #6 ⌘-drag into Finder (a real Finder drop still copies)
+  - #7 remote drag-out
+  - #8 staging cleanup
+  - #9 ownership
+  - #11 rename race
+
+  The pane drop caption "hold ⌘ to move" stays, by ruling; it is true for drops
+  into pālana.
+- **Owed to the beta tester `robled`:** a single-use Payhip coupon (decided yes)
+  and a note on closed #2. Do both once the product exists.
+- **The sshd fixture was recreated.** On host-key failures, run
+  `scripts/sshd-fixture.sh stop && scripts/sshd-fixture.sh start`.
+- **Screenshot fixtures still on disk, all stopped:** the Tart guest
+  `palana-shots` and the Lima clones `palana-source-host` and `palana-storage-host`
+  (`scripts/shots-fixture.sh destroy`). Delete them when the shots are final.
+
+**PROJECT LIFECYCLE**
+- `beta`. The v1.0 source and docs are on `main` and pushed; the release is not
+  cut.
 
 ---
 
