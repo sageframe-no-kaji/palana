@@ -135,6 +135,9 @@ struct PlanPanel: View {
                 .foregroundStyle(Theme.ink)
                 .fontWeight(.semibold)
             Spacer()
+            PlanCopyButton(
+                operation: operation,
+                available: verbRailEnabled && (operation.plan != nil || !operation.echo.lines.isEmpty))
             hintView
         }
         .font(monoSmall)
@@ -291,20 +294,20 @@ struct PlanPanel: View {
 
     @ViewBuilder
     private func planBlock(_ plan: Plan) -> some View {
-        Text("\(plan.operation.rawValue) · \(plan.classification.plainName)")
+        Text(PlanText.heading(plan))
             .foregroundStyle(Theme.ink)
             .fontWeight(.semibold)
         // The size line is noise beside a ZFS dataset mutation — a dataset
         // command acts on the dataset, not on a counted file selection.
         if plan.operation != .zfs {
-            Text(sizeLine(plan))
+            Text(PlanText.sizeLine(plan))
                 .foregroundStyle(plan.totalSizeComplete ? Theme.inkFaint : Theme.alarm)
         }
         if let sentence = plan.collisions?.sentence() {
             Text(sentence)
                 .foregroundStyle(Theme.alarm)
         }
-        Text(routeLine(plan))
+        Text(PlanText.routeLine(plan))
             .foregroundStyle(Theme.inkFaint)
         Text(plan.transport.plainDescription)
             .foregroundStyle(Theme.inkFaint)
@@ -318,30 +321,11 @@ struct PlanPanel: View {
         }
         Spacer().frame(height: 8)
         ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, step in
-            Text(stepLine(step))
+            Text(PlanText.stepLine(step))
                 .foregroundStyle(Theme.ink)
                 .textSelection(.enabled)
         }
         Spacer().frame(height: 8)
-    }
-
-    private func sizeLine(_ plan: Plan) -> String {
-        let count = plan.entries.count
-        let bytes = plan.totalSize.formatted(.byteCount(style: .file))
-        let floor = plan.totalSizeComplete ? "" : " · this is a floor — a folder couldn't be measured"
-        return "\(count) \(count == 1 ? "entry" : "entries") · \(bytes)\(floor)"
-    }
-
-    private func routeLine(_ plan: Plan) -> String {
-        let from = "\(plan.source.host):\(plan.source.directory)"
-        guard let destination = plan.destination else { return from }
-        return "\(from) → \(destination.host):\(destination.directory)"
-    }
-
-    private func stepLine(_ step: PlanStep) -> String {
-        step.gatedOnVerification
-            ? "  runs only after the copy above is verified: $ \(step.command)"
-            : "$ \(step.command)"
     }
 
     // MARK: - The run, live
@@ -351,12 +335,29 @@ struct PlanPanel: View {
             Text("… \(operation.echo.droppedLines) earlier lines")
                 .foregroundStyle(Theme.inkFaint)
         }
-        ForEach(operation.echo.lines) { line in
-            Text(line.text.isEmpty ? " " : line.text)
-                .foregroundStyle(color(for: line.kind))
-                .fontWeight(line.kind == .command ? .semibold : .regular)
-                .textSelection(.enabled)
+        // Program output keeps its columns (zpool status, df, ls -l): each
+        // run of output lines scrolls sideways instead of wrapping. The
+        // panel's own lines — commands, notes, failures — still wrap (#12).
+        ForEach(PlanText.runs(operation.echo.lines)) { run in
+            if run.isOutput {
+                ScrollView(.horizontal) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(run.lines) { line in
+                            echoText(line).fixedSize(horizontal: true, vertical: false)
+                        }
+                    }
+                }
+            } else {
+                ForEach(run.lines) { line in echoText(line) }
+            }
         }
+    }
+
+    private func echoText(_ line: EchoBuffer.Line) -> some View {
+        Text(line.text.isEmpty ? " " : line.text)
+            .foregroundStyle(color(for: line.kind))
+            .fontWeight(line.kind == .command ? .semibold : .regular)
+            .textSelection(.enabled)
     }
 
     private func color(for kind: EchoBuffer.Line.Kind) -> SwiftUI.Color {
