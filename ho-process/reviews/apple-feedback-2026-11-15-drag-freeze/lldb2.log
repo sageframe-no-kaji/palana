@@ -1,0 +1,301 @@
+(lldb) target create ".build/debug/Palana"
+Current executable set to '/path/to/palana-drag-out/.build/debug/Palana' (arm64).
+(lldb) command source -s 0 '/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/lldb-cmds2.txt'
+Executing commands in '/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/lldb-cmds2.txt'.
+(lldb) settings set target.env-vars CFFIXED_USER_HOME=/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/fakehome HOME=/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/fakehome PALANA_SSH_CONFIG=/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/fakehome/.ssh/config
+(lldb) breakpoint set -n objc_exception_throw
+Breakpoint 1: where = libobjc.A.dylib`objc_exception_throw, address = 0x000000018041c5b4
+(lldb) breakpoint command add 1
+(lldb) breakpoint set -r "updateDraggingItemsForDrag"
+Breakpoint 2: 17 locations.
+(lldb) breakpoint command add 2
+(lldb) breakpoint set -S setDraggingFrame:
+Breakpoint 3: where = AppKit`-[NSDraggingItem setDraggingFrame:], address = 0x0000000185c02ad4
+(lldb) breakpoint command add 3
+(lldb) breakpoint set -S setDraggingFormation:
+Breakpoint 4: 3 locations.
+(lldb) breakpoint command add 4
+(lldb) breakpoint set -S setNumberOfValidItemsForDrop:
+Breakpoint 5: where = AppKit`-[NSDragDestination setNumberOfValidItemsForDrop:], address = 0x0000000185413cc0
+(lldb) breakpoint command add 5
+(lldb) process launch
+2026-11-15 15:27:47.001973-0500 Palana[97916:35620098] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.002631-0500 Palana[97916:35620102] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.002663-0500 Palana[97916:35620102] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.002600-0500 Palana[97916:35620098] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.003091-0500 Palana[97916:35620106] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.003118-0500 Palana[97916:35620106] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.003515-0500 Palana[97916:35620106] [Connection] Will NOT re-try to establish the connection
+2026-11-15 15:27:47.003553-0500 Palana[97916:35620102] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:47.003570-0500 Palana[97916:35620102] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:27:48.698252-0500 Palana[97916:35619540] [WindowTab] Cannot index window tabs due to missing main bundle identifier
+2026-11-15 15:27:48.966499-0500 Palana[97916:35619540] [pane] read local:/path/to/palana-drag-out/.fixtures/dragfreeze/Arduino — 7 entries in 0.075848958 seconds
+2026-11-15 15:27:48.966539-0500 Palana[97916:35619540] [pane] read local:/path/to/palana-drag-out/.fixtures/dragfreeze/Arduino — 7 entries in 0.075990708 seconds
+(lldb)  register read d0 d1 d2 d3
+      d0 = 16
+      d1 = 5
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019af152c4 AppKit`-[NSTableView _initializeDragItem:atRow:location:] + 176
+     frame #2: 0x000000019af159bc AppKit`__75-[NSTableView _performFlockedDragOfIndexes:hitRow:event:gestureRecognizer:]_block_invoke + 156
+     frame #3: 0x000000019775069c Foundation`__NSINDEXSET_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #4: 0x0000000197879560 Foundation`__NSIndexSetEnumerateBitfield + 312
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 576.5
+      d1 = 549
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.root.default-qos', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #2: 0x0000000196194878 CoreFoundation`____NSCollectionHandleConcurrentEnumerationIfSpecified_block_invoke + 116
+     frame #3: 0x0000000195dee5b8 libdispatch.dylib`_dispatch_client_callout2 + 16
+     frame #4: 0x0000000195de9470 libdispatch.dylib`_dispatch_apply_serial + 164
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = -60.5
+      d1 = -10
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1e08c AppKit`-[NSCoreDragManager beginDraggingSessionWithItems:fromWindow:withClipRect:event:gesture:source:] + 812
+     frame #2: 0x000000019b09ce4c AppKit`-[NSView(NSDrag) beginDraggingSessionWithItems:gesture:source:] + 240
+     frame #3: 0x000000019af157cc AppKit`-[NSTableView _performFlockedDragOfIndexes:hitRow:event:gestureRecognizer:] + 336
+     frame #4: 0x000000019af01e80 AppKit`-[NSTableView _handleDragAndDropGestureRecognizer:] + 376
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+2026-11-15 15:28:15.134703-0500 Palana[97916:35619540] [sandbox] CreateSandboxExtensionData failed: urlData: 0x7810d3e490 length: 0 (-1 means null)
+2026-11-15 15:28:15.135028-0500 Palana[97916:35619540] [sandbox] CreateSandboxExtensionData failed: url null
+2026-11-15 15:28:15.135034-0500 Palana[97916:35619540] [general] Sandbox extension data required immediately for flavor public.file-url, but failed to obtain. (-3)
+(lldb)  register read x2
+      x2 = 0x0000000000000000
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 4.2
+   * frame #0: 0x000000019b309e7c AppKit`-[NSDraggingSession setDraggingFormation:]
+     frame #1: 0x00000001ce7bcc30 SwiftUI`specialized AppKitOutlineTableCoordinator.outlineView(_:draggingSession:willBeginAt:forItems:) + 128
+     frame #2: 0x00000001ce7ab68c SwiftUI`@objc AppKitOutlineTableCoordinator.outlineView(_:draggingSession:willBeginAt:forItems:) + 92
+     frame #3: 0x000000019acc24cc AppKit`-[NSOutlineView _sendWillBeginDraggingSession:willBeginAtPoint:forDraggedRowIndexes:] + 200
+     frame #4: 0x000000019af15cf4 AppKit`-[NSTableView draggingSession:willBeginAtPoint:] + 120
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 772.5
+      d1 = 673
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 772.5
+      d1 = 673
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read x2
+      x2 = 0x0000000000000000
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 4.1
+   * frame #0: 0x000000019ab1bcb4 AppKit`-[NSDragDestination setDraggingFormation:]
+     frame #1: 0x00000001ced9de08 SwiftUI`Drop.PhaseHandler.handleDropPhase(to:_:validator:info:) + 3104
+     frame #2: 0x00000001ced9d17c SwiftUI`closure #1 in _PlatformDraggingDestinationView.draggingEntered(_:) + 164
+     frame #3: 0x0000000239fc7a88 SwiftUICore`UpdateGroup.dispatchImmediately(reason:_:) + 236
+     frame #4: 0x00000001ced9f30c SwiftUI`@objc _PlatformDraggingDestinationView.draggingEntered(_:) + 300
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 772.5
+      d1 = 673
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 467.23828125
+      d1 = 663.765625
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 467.23828125
+      d1 = 663.765625
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 467.23828125
+      d1 = 663.765625
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read x2
+      x2 = 0x0000000000000000
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 4.1
+   * frame #0: 0x000000019ab1bcb4 AppKit`-[NSDragDestination setDraggingFormation:]
+     frame #1: 0x00000001ced9de08 SwiftUI`Drop.PhaseHandler.handleDropPhase(to:_:validator:info:) + 3104
+     frame #2: 0x00000001ced9d17c SwiftUI`closure #1 in _PlatformDraggingDestinationView.draggingEntered(_:) + 164
+     frame #3: 0x0000000239fc7a88 SwiftUICore`UpdateGroup.dispatchImmediately(reason:_:) + 236
+     frame #4: 0x00000001ced9f30c SwiftUI`@objc _PlatformDraggingDestinationView.draggingEntered(_:) + 300
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 449.70703125
+      d1 = 659.0234375
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  po $x0
+CALayer position contains NaN: [nan nan]. Layer: <CoreDragDraggingLayer:0x7810697840; position = CGPoint (563.5 676.5); bounds = CGRect (0 0; 193.5 26); sublayers = (name:icon goingAway:NO frame:(x:0.000000,y:0.000000,w:193.500000,h:26.000000); borderColor = <CGColor 0x78122eedf0> [<CGColorSpace 0x78113e1a40> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; Generic RGB Profile)] headroom = 1.000000 ( 0 1 0 1 ); zPosition = 1; animations = [bounds=<CABasicAnimation: 0x78105f2900> borderColor=<CABasicAnimation: 0x78105f2720>]>
+(null)
+(lldb)  bt 25
+* thread #1, queue = 'com.apple.main-thread', stop reason = hit Objective-C exception
+   * frame #0: 0x0000000195b245b4 libobjc.A.dylib`objc_exception_throw
+     frame #1: 0x00000001960c67b0 CoreFoundation`+[NSException raise:format:] + 128
+     frame #2: 0x00000001a06e5a24 QuartzCore`CA::Layer::set_position(CA::Vec2<double> const&, bool) + 172
+     frame #3: 0x00000001a06e5950 QuartzCore`-[CALayer setPosition:] + 52
+     frame #4: 0x00000001a35bbb68 HIToolbox`UpdateLayerPositions(OpaqueCoreDrag*) + 384
+     frame #5: 0x00000001a35bbe58 HIToolbox`UnflockAnimationTimerCallback(__CFRunLoopTimer*, void*) + 484
+     frame #6: 0x00000001960708cc CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 32
+     frame #7: 0x00000001960705c8 CoreFoundation`__CFRunLoopDoTimer + 1084
+     frame #8: 0x00000001960700d8 CoreFoundation`__CFRunLoopDoTimers + 280
+     frame #9: 0x00000001960555dc CoreFoundation`__CFRunLoopRun + 1852
+     frame #10: 0x000000019612f82c CoreFoundation`_CFRunLoopRunSpecificWithOptions + 536
+     frame #11: 0x0000000197758d5c Foundation`-[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212
+     frame #12: 0x00000001977cd75c Foundation`-[NSRunLoop(NSRunLoop) runUntilDate:] + 100
+     frame #13: 0x000000019a88e9bc AppKit`NSCoreDragTrackingProc + 1660
+     frame #14: 0x000000019d597f14 HIServices`DoTrackingMessage + 360
+     frame #15: 0x000000019d5a2618 HIServices`TrackInApplication + 440
+     frame #16: 0x000000019d5a151c HIServices`IterateDragLoop + 204
+     frame #17: 0x000000019d5a09a0 HIServices`CoreDragStartDraggingAsync + 1764
+     frame #18: 0x000000019ab1d8f0 AppKit`-[NSCoreDragManager _dragUntilMouseUp:location:modifiers:] + 1164
+     frame #19: 0x000000019ab1d3f4 AppKit`-[NSCoreDragManager _tryCatchDragUntilMouseUp:location:modifiers:] + 32
+     frame #20: 0x0000000196055cc4 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+     frame #21: 0x0000000196055bbc CoreFoundation`__CFRunLoopDoObservers + 648
+     frame #22: 0x000000019612f7fc CoreFoundation`_CFRunLoopRunSpecificWithOptions + 488
+     frame #23: 0x00000001a3488590 HIToolbox`RunCurrentEventLoopInMode + 320
+     frame #24: 0x00000001a348b91c HIToolbox`ReceiveNextEventCommon + 492
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+2026-11-15 15:28:16.922918-0500 Palana[97916:35619540] [DragAndDrop] *** Canceling drag because exception was raised during a dragging session. Exception: "CALayerInvalidGeometry" reason: "CALayer position contains NaN: [nan nan]. Layer: <CoreDragDraggingLayer:0x7810697840; position = CGPoint (563.5 676.5); bounds = CGRect (0 0; 193.5 26); sublayers = (name:icon goingAway:NO frame:(x:0.000000,y:0.000000,w:193.500000,h:26.000000); borderColor = <CGColor 0x78122eedf0> [<CGColorSpace 0x78113e1a40> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; Generic RGB Profile)] headroom = 1.000000 ( 0 1 0 1 ); zPosition = 1; animations = [bounds=<CABasicAnimation: 0x78105f2900> borderColor=<CABasicAnimation: 0x78105f2720>]>"
+2026-11-15 15:28:16.964587-0500 Palana[97916:35619540] [HIExceptions] FAULT: CALayerInvalidGeometry: CALayer position contains NaN: [nan nan]. Layer: <CoreDragDraggingLayer:0x7810697840; position = CGPoint (563.5 676.5); bounds = CGRect (0 0; 193.5 26); sublayers = (name:icon goingAway:NO frame:(x:0.000000,y:0.000000,w:193.500000,h:26.000000); borderColor = <CGColor 0x78122eedf0> [<CGColorSpace 0x78113e1a40> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; Generic RGB Profile)] headroom = 1.000000 ( 0 1 0 1 ); zPosition = 1; animations = [bounds=<CABasicAnimation: 0x78105f2900> borderColor=<CABasicAnimation: 0x78105f2720>]>; (user info absent)
+(lldb)  register read d0 d1 d2 d3
+      d0 = 449.70703125
+      d1 = 659.0234375
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read x2
+      x2 = 0x0000000000000000
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 4.1
+   * frame #0: 0x000000019ab1bcb4 AppKit`-[NSDragDestination setDraggingFormation:]
+     frame #1: 0x00000001ced9de08 SwiftUI`Drop.PhaseHandler.handleDropPhase(to:_:validator:info:) + 3104
+     frame #2: 0x00000001ced9fdd4 SwiftUI`closure #1 in _PlatformDraggingDestinationView.draggingEnded(_:) + 128
+     frame #3: 0x0000000239fc7a88 SwiftUICore`UpdateGroup.dispatchImmediately(reason:_:) + 236
+     frame #4: 0x00000001ced9ff2c SwiftUI`@objc _PlatformDraggingDestinationView.draggingEnded(_:) + 308
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+(lldb)  register read d0 d1 d2 d3
+      d0 = 449.70703125
+      d1 = 659.0234375
+      d2 = 193.5
+      d3 = 26
+(lldb)  bt 5
+* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 3.1
+   * frame #0: 0x000000019b30aad4 AppKit`-[NSDraggingItem setDraggingFrame:]
+     frame #1: 0x000000019ab1f63c AppKit`__132-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:]_block_invoke + 664
+     frame #2: 0x0000000196049dec CoreFoundation`__NSARRAY_IS_CALLING_OUT_TO_A_BLOCK__ + 24
+     frame #3: 0x0000000196049c24 CoreFoundation`-[__NSArrayM enumerateObjectsWithOptions:usingBlock:] + 272
+     frame #4: 0x000000019ab1f37c AppKit`-[_NSDragManager _enumerateDraggingItemsForDrag:localObjects:pasteboard:withOptions:view:classes:searchOptions:isSource:usingBlock:] + 408
+(lldb)  continue
+Process 97916 resuming
+Command #3 'continue' continued the target.
+2026-11-15 15:28:23.223828-0500 Palana[97916:35619540] [pane] read local:/path/to/palana-drag-out/.fixtures/dragfreeze/Arduino/fade — 1 entries in 0.062464792 seconds
+2026-11-15 15:28:23.854869-0500 Palana[97916:35619540] [Invalid Configuration] onChange(of: Optional<Data>) action tried to update multiple times per frame.

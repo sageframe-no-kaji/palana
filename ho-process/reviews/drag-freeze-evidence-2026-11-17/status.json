@@ -1,0 +1,14 @@
+{
+  "purpose": "standalone AppKit drag source/destination comparison",
+  "production_source_modified": false,
+  "network": false,
+  "pane_drop_executes_transfer": false,
+  "remote_pane": "simulated internal-only payload, no SSH",
+  "self_check": "passed: cohort payload, local URL restriction, programmatic selection",
+  "native_gesture_test": "not run",
+  "release_candidate": false,
+  "references": [
+    "https://developer.apple.com/documentation/appkit/nstableviewdatasource/tableview(_:pasteboardwriterforrow:)",
+    "https://developer.apple.com/documentation/appkit/nstableviewdatasource/tableview(_:draggingsession:willbeginat:forrowindexes:)"
+  ]
+}

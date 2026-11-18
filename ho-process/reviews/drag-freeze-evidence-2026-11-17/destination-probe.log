@@ -1,0 +1,71 @@
+Building for debugging...
+[Computing dependencies]
+[Pre-planning 1 / 241]
+[Planning deferred tasks]
+warning: missing creator for mutated node: ('/path/to/palana-drag-native/.build/out/Products/Debug/SwiftTerm_SwiftTerm.bundle/Contents/MacOS')
+[5 / 35]
+[5 / 30] PalanaCore-product
+[8 / 31] PalanaCoreTests-product
+[18 / 53] Palana
+[20 / 53] Palana
+[22 / 53] PalanaCoreTests-product
+[23 / 53] PalanaCoreTests-product
+[24 / 53] PalanaCoreTests-product
+[25 / 53] PalanaCoreTests-product
+[27 / 53] PalanaCoreTests-product
+[28 / 53] PalanaCoreTests-product
+[31 / 53] Palana
+[32 / 53] Palana
+[32 / 51] PalanaCoreTests-product
+/path/to/palana-drag-native/Tests/PalanaCoreTests/SSHConduitTests.swift:39:43: warning: '#require(_:_:)' is redundant because 'args.firstIndex(of: "-i")' never equals 'nil' (from macro 'require')
+37 |         let args = try SSHConduit.arguments(
+38 |             host: "source-host", command: "true", configuration: configuration)
+39 |         let identityIndex = try? #require(args.firstIndex(of: "-i"))
+   |                                           `- warning: '#require(_:_:)' is redundant because 'args.firstIndex(of: "-i")' never equals 'nil' (from macro 'require')
+40 |         let hostIndex = try? #require(args.firstIndex(of: "source-host"))
+41 |         if let identityIndex, let hostIndex {
+
+/path/to/palana-drag-native/Tests/PalanaCoreTests/SSHConduitTests.swift:40:39: warning: '#require(_:_:)' is redundant because 'args.firstIndex(of: "source-host")' never equals 'nil' (from macro 'require')
+38 |             host: "source-host", command: "true", configuration: configuration)
+39 |         let identityIndex = try? #require(args.firstIndex(of: "-i"))
+40 |         let hostIndex = try? #require(args.firstIndex(of: "source-host"))
+   |                                       `- warning: '#require(_:_:)' is redundant because 'args.firstIndex(of: "source-host")' never equals 'nil' (from macro 'require')
+41 |         if let identityIndex, let hostIndex {
+42 |             #expect(identityIndex < hostIndex)
+[32 / 51] Palana
+[34 / 51] PalanaCoreTests-product
+[34 / 51] Palana
+[36 / 50] PalanaTests-product
+[46 / 61] PalanaTests-product
+[47 / 61] PalanaTests-product
+[49 / 60] PalanaTests-product
+[53 / 62] PalanaTests-product
+[53 / 62] PalanaCoreTests-product
+[55 / 62] PalanaTests-product
+[55 / 62] PalanaCoreTests-product
+[58 / 64] PalanaCoreTests-product
+[58 / 64] PalanaTests-product
+/path/to/palana-drag-native/Tests/PalanaTests/PreReleaseAppSafetyTests.swift:17:16: warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+15 |         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+16 |         guard fcntl(descriptor, F_GETPATH, &buffer) != -1 else { return nil }
+17 |         return String(cString: buffer)
+   |                `- warning: 'init(cString:)' is deprecated: Use String(decoding: array, as: UTF8.self) instead, after truncating the null termination. [#DeprecatedDeclaration]
+18 |     }
+19 |
+
+[#DeprecatedDeclaration]: <https://docs.swift.org/compiler/documentation/diagnostics/deprecated-declaration>
+[60 / 64] PalanaTests-product
+Build complete! (32.54 sec)
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Drag destination probe" started.
+◇ Test productionPanes(markedGroup:) started.
+◇ Test case passing 1 argument markedGroup → false to productionPanes(markedGroup:) started.
+DRAG-PROBE depth=4 class=SwiftUIOutlineTableView frame=(0.0, 0.0, 596.0, 409.5) types=[]
+DRAG-PROBE depth=2 class=Catcher frame=(0.0, 0.0, 596.0, 500.0) types=["net.sageframe.palana.internal-selection", "public.json", "public.file-url"]
+DRAG-PROBE depth=4 class=SwiftUIOutlineTableView frame=(0.0, 0.0, 596.0, 409.5) types=[]
+DRAG-PROBE depth=2 class=Catcher frame=(0.0, 0.0, 596.0, 500.0) types=["net.sageframe.palana.internal-selection", "public.json", "public.file-url"]
+✔ Test productionPanes(markedGroup:) with 1 test case passed after 1.047 seconds.
+✔ Suite "Drag destination probe" passed after 1.047 seconds.
+✔ Test run with 1 test in 1 suite passed after 1.047 seconds.

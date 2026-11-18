@@ -1,0 +1,11 @@
+Timestamp               Ty Process[PID:TID]
+2026-11-17 13:51:34.911 Df Palana[17048:278c5b1] [com.apple.AppKit:AutomaticTermination] void _NSDisableAutomaticTerminationAndLog(NSString *) No windows open yet
+2026-11-17 13:51:35.386 Df Palana[17048:278c5b1] [com.apple.AppKit:AutomaticTermination] void _NSDisableAutomaticTerminationAndLog(NSString *) Restoring windows
+2026-11-17 13:51:35.388 Df Palana[17048:278c5b1] [com.apple.AppKit:AutomaticTermination] void _NSEnableAutomaticTerminationAndLog(NSString *) Restoring windows
+2026-11-17 13:51:35.618 Df Palana[17048:278c5b1] [com.apple.AppKit:AutomaticTermination] void _NSEnableAutomaticTerminationAndLog(NSString *) No windows open yet
+2026-11-17 13:51:35.694 Df Palana[17048:278c5b1] [com.apple.AppKit:AutomaticTermination] void _NSDisableAutomaticTerminationAndLog(NSString *) NSAccessibility Request Received
+2026-11-17 13:51:46.281 Df Palana[17048:278c5fb] [com.apple.launchservices:default] LSExceptions idle-timer fired, invalidating shared instance.
+2026-11-17 13:51:48.731 Df Palana[17048:278c5b1] [com.apple.xpc:connection] [0x7a2e3e66c0] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 13:51:48.731 Df Palana[17048:278c5b1] [com.apple.xpc:connection] [0x7a2e3e57c0] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 13:51:48.773 E  Palana[17048:278c5b1] [com.apple.AppKit:DragAndDrop] *** Canceling drag because exception was raised during a dragging session. Exception: CALayerInvalidGeometry <redacted reason>
+2026-11-17 13:51:48.809 F  Palana[17048:278c5b1] [com.apple.hiservices:HIExceptions] FAULT: CALayerInvalidGeometry: <private>; (user info absent)

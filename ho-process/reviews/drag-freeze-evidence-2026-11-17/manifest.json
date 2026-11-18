@@ -1,0 +1,57 @@
+[
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signed-release-first-drag/palana-latest-freeze.log",
+    "archived": "palana-latest-freeze.log",
+    "sha256": "3349ace2db02e8a417ff76693295152f878ef7e17eac81368f9752c4e55c58c0"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signed-release-first-drag/palana-signed-freeze-sample.txt",
+    "archived": "palana-signed-freeze-sample.txt",
+    "sha256": "8d7f64d524d863e6a1fce3877e40027bff82fc1c95e0f772df4a99c89853e110"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/saved-batch1.log",
+    "archived": "saved-batch1.log",
+    "sha256": "ac30c2d108a3acced0007453cc27abe27be1fe96dfa699a5702f55e49b047cd2"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/saved-batch2.log",
+    "archived": "saved-batch2.log",
+    "sha256": "9b77f49ada0871533f3d40a0dfe826ccc22da48260ca870e061a9393e53fbfe8"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/release-batch1.log",
+    "archived": "release-batch1.log",
+    "sha256": "9e737744a7a8e2ccb2be1c3981ff0185381aff66b0f7df5be1c773e6008effcb"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/release-batch2.log",
+    "archived": "release-batch2.log",
+    "sha256": "02c55fdcd1ae1f3ecc9416273abd262bc78accab5650d14a55fcf87c2c3b4938"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/destination-probe.log",
+    "archived": "destination-probe.log",
+    "sha256": "ae7967203fcc4a293f339af7b1f821a04ad5bd64f3f0e7f1bdd3934554d85eaf"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/DragDestinationProbeTests.swift",
+    "archived": "DragDestinationProbeTests.swift",
+    "sha256": "49296d054497cbc2198c5e9b0699223091872a82acdafed888b399047417c63f"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/signing-comparison/run-batch.py",
+    "archived": "run-batch.py",
+    "sha256": "ad85cf16264323adbed35a156cb6ce5056c0f5b7a492ee3efd5a30dffb907f36"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/native-table-probe/NativeTableProbe.swift",
+    "archived": "NativeTableProbe.swift",
+    "sha256": "9d3e53fd3cab47ff27bbdf865b042a53ea80c96812beb476bde8acc52cb0eed1"
+  },
+  {
+    "original": "/path/to/palana-drag-native/.fixtures/drag-freeze-20261116/native-table-probe/status.json",
+    "archived": "status.json",
+    "sha256": "7e90e142e03e9727ec03e54be800e5279ba696c9d81a67e3e97e7b7cb866e7d5"
+  }
+]

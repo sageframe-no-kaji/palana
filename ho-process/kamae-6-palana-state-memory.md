@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-09-11
+updated: 2026-11-17
 status: living
 type: state-memory
 project: palana
@@ -15,6 +15,680 @@ state-summary block below — verbatim field labels, parseable shape — so the 
 session (and any hook) knows exactly where the build stands. Newest block on top.
 
 ---
+
+**STATE-SUMMARY**
+
+
+- **WORKTREE CONSOLIDATION — 2026-11-17** — Removed the three explicitly
+  requested redundant checkouts: palana-dist, palana-drag-native and
+  palana-release-20261117. Confirmed all source commits are in main and no
+  uncommitted source was present. Signed app and DMG now live in the parent
+  checkout `dist/`; signature and original DMG hash verified. Preserved native
+  fixtures/candidate apps and signed artifacts under parent
+  `.fixtures/archives/worktree-cleanup-20261117/`, verified 333 copied entries
+  by hash, and documented the path mapping in the private handoff. Archive
+  contains fixture SSH material; keep ignored/private. No rebuild/sign/tag.
+  Only main and palana-v1-docs remain as registered worktrees. The unrelated
+  local main commit caf4661 was left untouched and unpushed.
+
+
+- **CLEANUP — 2026-11-17** — At practitioner request, removed the abandoned
+  `../palana-drag-out` worktree after verifying it had no tracked changes or
+  nonignored untracked files. Preserved `.fixtures/` and `dist/` under the
+  parent checkout `.fixtures/archives/drag-out-2be783e/`, checked all 23 files
+  by SHA-256, and recorded the manifest. Archive is private/ignored and includes
+  fixture SSH material; do not commit it. Branch `drag-out` remains at 2be783e.
+  Handoff document records archive location and recreation history. Other
+  worktrees, current app and release artifacts unchanged.
+
+
+- **COMPLETED** — 2026-11-17 — Practitioner authorized merge-down with the
+  intermittent drag freeze retained as known issue #4, then explicitly asked
+  for a thorough Markdown record. Local main fast-forwarded from e9861f1 to
+  ff203c7 without conflicts; application source unchanged. Public record:
+  `docs/known-issues/drag-freeze.md`. Private operational handoff:
+  `reviews/2026-11-17-drag-freeze-handoff.md`, with eleven archived evidence and
+  diagnostic-source files plus SHA-256 manifest. Public documentation corrects
+  the claim that remote external-delivery restriction contains the freeze.
+- **NEXT** — Main is committed and pushed as `78c0fd7`; issue #4 remains OPEN
+  and links to the detailed Markdown record. Continue normal project work on
+  main. No new build, signing run, tag or release publication was performed.
+  Application source matches ff203c7 exactly, and the current app is unchanged.
+  No screen access needed. Private evidence/handoff committed locally only;
+  no process export or private push in this task.
+- **ACTION ITEMS / BLOCKS** — Known defect remains open and root cause unproven;
+  the maintainer has accepted merging with that known issue. Earlier agent
+  language calling the merge blocked is superseded by this explicit decision.
+  Stop diagnosis/replay/native-table work here unless requested again. Preserve
+  remote pane transfers, local dragging and multiselection; external remote
+  delivery stays disabled. No release tag without a new explicit instruction.
+- **PROJECT LIFECYCLE** — beta; v1.0 source merge accepted, release unpublished.
+
+---
+
+## Earlier investigation state — superseded by accepted merge decision
+
+- **NEXT EXPERIMENT — 2026-11-17 — OWNED NATIVE TABLE** — Practitioner asks
+  for a release path and explicitly rejects stopping at another failed-to-
+  reproduce batch. Prepared a standalone plain AppKit NSTableView experiment:
+  `../palana-drag-native/.fixtures/drag-freeze-20261116/native-table-probe/`
+  `Palana-Native-Drag-Probe.app`. Unique bundle ID, ad-hoc signed and verified.
+  No SwiftUI, method swizzling, networking, file promises or drag-image changes.
+  Two fixture panes: local URLs and a simulated remote-format internal payload.
+  Drops only report receipt; no pane copy/move operation executes. Native
+  multiselection is enabled. Compiled Swift 6; offscreen payload/cohort and
+  programmatic selection checks passed. Actual gestures NOT TESTED; app not
+  launched onscreen. This is a diagnostic experiment, NOT a release candidate
+  or an already-chosen production rewrite. Screen remains with practitioner.
+  If it establishes a reliable difference, replace the production table's
+  drag machinery while preserving selection and both pane routes. Do not
+  reintroduce the abandoned runtime-patched SwiftUI source implementation.
+
+- **FOLLOW-UP — 2026-11-17 — SCREEN COMPARISON COMPLETE; STILL BLOCKED** —
+  Practitioner authorized a short comparison and screen has been handed back.
+  Exact saved candidate: 20 recorded replay attempts, 20 accepted fixture drops.
+  Exact signed release: 20 attempts, 19 accepted drops; one attempt did not
+  initiate a recorded drag. Neither emitted either known freeze signature;
+  both still selected a different row afterward. This failed to reproduce the
+  reported freeze and does not establish release safety or a signing cause.
+  Tests used localhost SSH fixture, not storage-host; plans were not executed. No
+  source changes. Logs and prepared signing variants are under implementation
+  worktree `.fixtures/drag-freeze-20261116/signing-comparison/`. Signing variants
+  were not run because the original builds did not separate. Offscreen view
+  inspection found only intended Catcher drop receivers; native tables had no
+  registered drag types. Compiled ARM64 drag code matches; three immediate
+  differences elsewhere are diagnostic source-file-length arguments.
+  No pointer replay remains running. No tag, publication or release approval.
+
+- **RELEASE BLOCKED — 2026-11-17 13:54 EST** — Practitioner reports the first
+  drag from storage-host locked up the delivered signed build. PID 17048 runs
+  `../palana-release-20261117/dist/Palana.app/Contents/MacOS/Palana`.
+  Unified logs show drag-server activation at 13:51:48.731, cancellation with
+  `CALayerInvalidGeometry` at .773, and HIServices fault at .809. A live sample
+  contains `SOME_OTHER_THREAD_SWALLOWED_AT_LEAST_ONE_EXCEPTION`; the main
+  thread is in its event loop. Remote external-delivery restriction did NOT
+  contain this failure. Earlier physical passes and packaging verification
+  do not establish release safety. Destination clarification is pending.
+  Evidence saved under `../palana-drag-native/.fixtures/drag-freeze-20261116/`
+  `signed-release-first-drag/`. No app changes, screen control, process
+  termination, tags or publication performed in this follow-up. DO NOT RELEASE
+  this candidate. Preserve local dragging, multiselection and the practitioner's
+  required remote pane transfers; do not silently disable them as a workaround.
+
+- **COMPLETED** — 2026-11-17 — DEFER FINDER MOVE; RELEASE ACCEPTED DRAG PATHS.
+  Practitioner authorized leaving Command-move out, filing an issue, and
+  finishing the release, with concern about crashes. Removed the failed move
+  permission changes and the unverified local footer hint. Application source
+  was compared to the archived pane-drag-restored snapshot and matches exactly.
+  That is the source the practitioner passed for pane transfers, local external
+  copies, selection and repeated drags. Remote external delivery stays disabled;
+  the underlying freeze is not claimed fixed.
+  Created https://github.com/sageframe-no-kaji/palana/issues/6 for local Finder
+  Command-move. Corrected issue #4's status, reproduction history, containment,
+  and premature Apple-filing claim. No known drag-freeze signature was found in
+  the preceding hour's available logs; that is a limited observation.
+  Commit `ee3c137` records the accepted scope. Merged into `v1-release` as
+  `daf537f`; merged Sources/Tests/Package inputs match the verified branch.
+  Pushed `v1-release` and created a notes-only DRAFT GitHub release for `v1.0`:
+  https://github.com/sageframe-no-kaji/palana/releases/tag/untagged-42ec879c237c89946d1c
+  Full coverage run: 251 app + 1194 core Swift Testing and 81 XCTest passed;
+  PalanaCore 97.74%, application logic 63.51%. Opt-in ZFS/corpus checks skipped.
+  Strict format/lint, commit hooks, public-boundary and diff checks passed.
+- **NEXT** — Deliver the verified installer to the practitioner first:
+  `../palana-release-20261117/dist/palana-1.0.0.dmg`.
+  SHA-256 `c9b39f067ed5bb826936f27acb6c772fbb40967ae8bcb23121e3b928f7763412`.
+  Universal arm64+x86_64, Developer ID signed; app and disk image notarized and
+  stapled. App, container and mounted app pass signature/ticket/Gatekeeper
+  checks; disk-image integrity verified. Installer mounted read-only and
+  detached, app not launched. Signing the DMG container was missing from the
+  existing script: fixed in `ff203c7`, pushed to `v1-release`; re-signed and
+  re-notarized the container. Application source is unchanged from `daf537f`.
+  Practitioner said Payhip setup needs the build first. Do not ask for the
+  product link before handing over this artifact.
+- **ACTION ITEMS / BLOCKS** — Practitioner explicitly ordered DO NOT TAG ANYTHING
+  YET. Do not create a tag or publish a release, even after another test pass,
+  without a new instruction. Verified `refs/tags/v1.0` does not exist remotely.
+  The existing v1.0 release is an UNPUBLISHED DRAFT only. Main has not advanced;
+  only `v1-release` was pushed. Site unchanged; no private-process export/push.
+  All Finder-style selection and group dragging remain in the artifact.
+  Command-move-to-Finder is deferred in #6; remote external delivery remains
+  paused under #4. The earlier screen-check request is superseded; do not run
+  the abandoned move trace if that answer arrives late. No screen control or
+  live-host mutation performed. Preserve the existing untracked private reports.
+- **PROJECT LIFECYCLE** — beta; v1.0 release artifact being prepared, publication pending.
+
+---
+
+## State summary — 2026-11-17 — LOCAL FINDER COMMAND-MOVE ONLY
+
+**COMPLETED**
+- Practitioner passed the pane-drag-restored build: both pane directions,
+  groups, folders, folder targets, local Finder copy, local Chrome files,
+  remote external refusal, selection, and repeated drags. Browser folder
+  uploads were not established; the inspector does not enumerate folders.
+- Practitioner clarified remote-to-Finder is a separate desired route from
+  remote-to-browser, then explicitly ordered one change at a time: implement
+  missing local-to-Finder Command-move and rebuild, then they test. Do not
+  enable remote Finder delivery, change browser folder behavior, or release
+  as part of this turn.
+- Measured the actual native SwiftUI table callback offscreen: external source
+  operations were copy-only (1). AppKit's public
+  `setDraggingSourceOperationMask([.copy, .move], forLocal: false)` changes its
+  modern source callback result to copy+move (17). No source-method swizzle or
+  native dragging-animation change is needed.
+- TableRowWriters now applies that external operation mask to local-file panes
+  at attachment and subsequent updates. Remote panes keep copy-only. In-app
+  operation masks are untouched. Finder receives the existing eager file URLs
+  and owns the filesystem operation; no new Palana deletion callback exists.
+- Focused native-table tests pass for single files, directories and groups,
+  plus local/remote host switching. They assert modern source callback masks,
+  unchanged in-app masks, pasteboard content and destination decode. These are
+  offscreen callback tests, not an actual Finder drop. No screen automation.
+
+**NEXT**
+- Built and signature-verified, not launched:
+  `../palana-drag-native/dist/Palana-Finder-Command-Move.app`.
+  Executable SHA-256:
+  `12782335e9ef93506a883ed9077136798d4d10fbe42fc5023351c35f8632921c`.
+  Full suite: 251 app + 1194 core Swift Testing and 81 XCTest passed; opt-in
+  ZFS/corpus checks skipped. Strict lint/format, diff check and release build
+  passed. Evidence/source snapshot in worktree
+  `.fixtures/drag-freeze-20261116/finder-command-move/`.
+- Practitioner will test ordinary Finder copy, Command-drop move, and cancelled
+  move with disposable fixtures. No claim of physical Finder acceptance yet.
+
+**ACTION ITEMS / BLOCKS**
+- Working changes remain uncommitted in `../palana-drag-native`. Earlier
+  pane-transfer restoration remains in the candidate; remote external
+  delivery remains disabled. No merge, push, release or live-host mutation.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-17 — RESTORE REMOTE PANE TRANSFERS; PAUSE EXTERNAL DELIVERY ONLY
+
+**COMPLETED**
+- Practitioner passed selection in the restored-row build, then reported that
+  dragging selected rows instead of starting a drag. On clarification the
+  source was the storage-host pane, not the local Arduino pane. This report does NOT
+  establish a local-drag regression: the build intentionally blocked every
+  remote-origin drag. The agent incorrectly treated the initial report as a
+  confirmed local failure before identifying the source.
+- Practitioner explicitly rejected blocking remote pane-to-pane dragging.
+  Required scope: local dragging remains; remote files/folders still drag
+  between panes; remote file delivery to Chrome/Finder/other apps is on hold.
+  The earlier remote-source-wide restriction was too broad. Do not reintroduce
+  it or ask to disable all dragging as release containment.
+- Implementation now allows pointed remote sources but gives their native row
+  writer only `net.sageframe.palana.internal-selection`, with no public JSON,
+  URL, or file promise. The SwiftUI item provider retains only its own-process
+  selection representation. The pane receiver accepts the new native type.
+  Local export representations remain on the existing path. Footer and public
+  product README/CHANGELOG now describe the narrower scope.
+- Native offscreen integration checks exercise the real two-pane SwiftUI view,
+  drag eligibility, native data-source writer, pasteboard serialization and
+  destination decoding. Single files, directories and marked groups pass.
+  These checks do NOT start a native mouse drag or establish freeze freedom.
+- Full suite passed (251 app + 1194 core Swift Testing, 81 XCTest); opt-in ZFS
+  and corpus checks skipped. Expanded targeted suite passed (12 tests, with
+  two integration cases). Strict lint/format and diff checks passed. No screen
+  control, live-host mutation, merge, push, or release.
+
+**NEXT**
+- Prepared and signature-verified (not launched):
+  `../palana-drag-native/dist/Palana-Pane-Drag-Restored.app`.
+  Executable SHA-256:
+  `d5b5a398353e2f0dee1dca653ff3aff6aa0e1bea83aae71bb60e088f4c0e6d09`.
+  Source diff, added integration test and verification logs preserved under
+  worktree `.fixtures/drag-freeze-20261116/remote-internal-only/`.
+  Practitioner must test storage-host-to-local-pane dragging, then local external
+  dragging and selection.
+  Their earlier instruction authorizes release with issue #4 left open ONLY
+  after acceptance; no release is authorized by a failed or incomplete check.
+
+**ACTION ITEMS / BLOCKS**
+- Native physical drag and freeze acceptance remain unverified. Source changes
+  are uncommitted atop ab6a156 in `../palana-drag-native`; the earlier restored
+  TableRow structure remains part of the change. Do not hand back the remote-
+  source-disabled builds as candidates for this scope.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-17 — LOCAL DRAGGING MUST REMAIN; CORRECT CONFIDENCE CLAIMS
+
+**COMPLETED**
+- Practitioner rejected disabling all row dragging: local dragging was working
+  and must remain available. Remote dragging alone stays on hold. Do not ask
+  again to remove local dragging as the release containment choice.
+- Compared current source to hands-tested `b5bda1f`: native local row writer,
+  item-provider construction, selection model and AppKit destination code are
+  unchanged after the row-structure rollback. The added gate checks the current
+  host; local sources take the prior writer/fallback path. Remote footer and
+  remote-source rejection are the remaining behavioral changes.
+- Corrected the agent's overstatement: earlier local/replay passes established
+  one working path, not a comprehensive freeze fix. Later remote failures and
+  the conditional-row selection regression do not invalidate the practitioner's
+  earlier physical local-drag passes. The failed automated local check is not
+  by itself proof that physical local dragging regressed.
+
+**NEXT**
+- Preserve local dragging and the restored row structure. Keep remote-origin
+  drags blocked. Resolve the automated check's limitation or obtain a controlled
+  physical comparison before claiming either a local regression or release
+  acceptance. No new source change is justified solely by that failed check.
+
+**ACTION ITEMS / BLOCKS**
+- No screen use, merge/push/release this turn. One uncommitted PaneView rollback
+  remains; prepared restored-row app is still available, not release-certified.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-17 — REMOTE SELECTION PASSES; LOCAL DRAG CHECK FAILS
+
+**COMPLETED**
+- Practitioner authorized the one-minute screen check. Launched only the
+  isolated SelectionCheck.app (PID 76146) with its fixture profile and localhost
+  SSH config. No live-host operation. Test app closed afterwards; PID absent.
+- Restored-row build: remote click selects a.txt; Command-click adds b.txt;
+  after an attempted remote-to-left drag, click selects b.txt; Shift-click
+  3ping.msi selects all three. Local click selects readme.md. These are observed
+  UI selection passes on the fixture, not a physical-trackpad acceptance run.
+- The remote drag attempt produced no plan and selection remained usable.
+  No remote writer or accepted drop was logged. No claim about every gesture.
+- Local readme.md drag toward sketch left the generic drop wash visible with
+  no plan. Escape followed by a click on photo.png did not change selection.
+  Failed local GUI check. Log contains its local row writer at 06:41:16.997;
+  no CALayerInvalidGeometry or stale-drag-reference signature was captured.
+  Do NOT conflate this with a confirmed recurrence of the earlier signature.
+- Log also contains NSTableViewException at 06:40:36.113, before that local drag;
+  its redacted reason is not diagnosed. Similar startup exception appeared in
+  the preceding diagnostic fixtures and may deserve a separate captured stack.
+- Evidence: worktree `.fixtures/drag-freeze-20261116/storage-host-recurrence/local-only-failure/hands-20261117.log`.
+
+**NEXT**
+- Build remains unfit for release acceptance. Remote-only restriction has not
+  yielded a verified usable drag workflow. Consider suspending all outgoing
+  row dragging for release, but that broader feature restriction needs the
+  practitioner's ruling; keyboard/menu transfer routes remain available.
+- Preserve the one-file row-structure rollback; no new build change this turn.
+
+**ACTION ITEMS / BLOCKS**
+- Screen returned; no automation or test app running. No merge/push/release.
+- Row rollback is still uncommitted atop ab6a156. Do not ship prior candidates.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-eighth block — REMOTE CLICK REGRESSION; ROW ROLLBACK AWAITS HANDS CHECK
+
+**COMPLETED**
+- Practitioner rejected `ab6a156`: remote pane rows will not select. The running
+  PID 15891 was the expected local-drag-only build. Logs/sample show no drag
+  geometry exception or swallowed-exception marker for this incident. Read-only
+  CUA accessibility queries timed out; no pointer or keyboard action was made.
+- Restored the prior unconditional `TableRow(entry).itemProvider` structure in
+  `PaneView.swift`. Remote `rowProvider` still returns nil and native writer
+  gate still blocks custom/fallback writers; remote dragging remains disabled.
+  This is a bounded rollback, not a demonstrated explanation of the regression.
+- Eighteen gate/selection/drop checks pass. Strict format/lint and release build
+  pass; signature verified. No full suite repeated for the row-only rollback.
+- Minimal offscreen conditional-row experiment passed programmatic selection.
+  Its mouseDown attempt exited without a test verdict; not click evidence.
+  Experiment removed from test source and archived in
+  `.fixtures/drag-freeze-20261116/storage-host-recurrence/local-only-failure/`.
+- Build prepared, NOT launched:
+  `../palana-drag-native/dist/Palana-Remote-Drag-Paused-Rows.app`.
+  SHA-256 `b95c9515426968a28fc32c12483e5ac42d4df99b8ef886f3e33924ce46a5d74d`.
+  Separate fixture-only `local-only-failure/SelectionCheck.app` has bundle ID
+  `com.sageframe.palana.rowcheck`; its profile uses local fixture paths and the
+  localhost SSH fixture only. Source worktree has one uncommitted PaneView diff.
+
+**NEXT**
+- Awaiting practitioner's async reply: may we use the screen for one minute to
+  check actual remote clicks and blocked drags in the isolated fixture app,
+  or should the prepared build be handed back for their check? No permission
+  inferred from silence. No UI automation currently running.
+- If permitted, launch SelectionCheck.app with CFFIXED_USER_HOME pointing to
+  `local-only-failure/profile` and PALANA_SSH_CONFIG to worktree `.fixtures/ssh_config`.
+  Remote fixture has `3ping.msi`, `a.txt`, `b.txt` at `/tmp/palana-remote-drag`.
+  Verify actual clicking changes selection, attempted remote drag does nothing,
+  and clicks still work afterwards. Then local selection/drag sanity check.
+- Do not declare release-ready or freeze-fixed. Issue #4 remains open.
+
+**ACTION ITEMS / BLOCKS**
+- No merge, push, release publication or live-host mutation. Screen remains free.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-seventh block — REMOTE DRAGS DISABLED FOR RELEASE TESTING
+
+**COMPLETED**
+- Source-formation candidate FAILED the practitioner's hands test. Its guard
+  ran before three CALayerInvalidGeometry cancellations at 16:13:19.937,
+  16:13:21.746 and 16:14:24.624. Remote-to-pane drops succeeded in between;
+  Chrome delivery did not. Candidate source/tests archived under
+  `.fixtures/drag-freeze-20261116/storage-host-recurrence/candidate-failure/` and removed.
+- Practitioner asked to suspend remote dragging for release. Commit `ab6a156`
+  on `drag-freeze-fix` removes remote rows' item-provider modifier and blocks
+  both custom/native fallback writers at request time. Remote-to-pane dragging
+  is also disabled. Local row drags, incoming drops, selection and keyboard/menu
+  transfers retain their existing routes. Remote pane footer names `y`/`m`.
+- README/CHANGELOG corrected: remote drag support is on hold, freeze still open.
+- Full suite: 250 app + 1194 core Swift Testing + 81 XCTest pass. ZFS fixture
+  and opt-in capture checks skipped. Strict format/lint, commit hooks, release
+  build, signature verification and diff checks pass. No new coverage run.
+- App: `../palana-drag-native/dist/Palana-Local-Drag-Only-ab6a156.app`.
+  Executable SHA-256:
+  `163d9ecdd8f19ea27ba1e80c279a5bfbd800e97fec7fb4f45b454327c97f1498`.
+  Built and packaged only; not launched. Source worktree clean.
+
+**NEXT**
+- Practitioner hands check: remote files/folders/marked rows must not start a
+  drag toward Chrome or the other pane, including after switching local→remote.
+- Recheck local files between panes and into Chrome; check keyboard/menu remote
+  copy to a local pane, then drag the downloaded local copy.
+- This removes the observed remote source route; it is not proof that all
+  possible local native-drag freezes are gone. Do not mark issue #4 resolved.
+
+**ACTION ITEMS / BLOCKS**
+- No merge, push, release publication, live-host mutation or screen control.
+- Prior candidate app is preserved for evidence, not for release.
+- Private operational changes remain uncommitted; generated export untouched.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-sixth block — SOURCE-START CANDIDATE BUILT; HANDS TEST OPEN
+
+**COMPLETED**
+- Practitioner asked whether work continued after the screen handback. Resumed
+  without screen control; added uncommitted `TableDragStartup.swift` and three
+  runtime-dispatch tests on `b5bda1f` in `../palana-drag-native`.
+- Candidate suppresses SwiftUI's formation setter only for the session inside
+  a pane's source willBegin callback. Original bookkeeping still runs once;
+  unrelated tables/sessions and later formation changes remain forwarded.
+  This tests the source-side animation mutation seen in the earlier exception
+  trace. It is NOT yet established as the cause of the storage-host recurrence.
+- Full suite passes: 250 app + 1194 core Swift Testing + 81 XCTest. ZFS fixture
+  and opt-in capture checks skipped. Strict format/lint, release build,
+  signature verification, and diff checks pass.
+- Candidate: `../palana-drag-native/dist/Palana-Remote-Drag-Candidate.app`.
+  Executable SHA-256:
+  `ac8602e342c1a5931552108c1663ed3d8cf02e825aad7a0dcec57de8ec21ba65`.
+  Candidate was not launched; original app and older builds preserved.
+- Evidence and limitations added to `reviews/2026-11-16-drag-freeze-fix.md`.
+
+**NEXT**
+- Practitioner hands test: the same remote-file drag toward Chrome, successful
+  harmless-file upload, then local pane-to-pane drag. Repeated physical drags
+  and a valid replay comparison are required before closing the freeze.
+- `net.sageframe.palana:dragstartup` logs each suppressed startup setter, so
+  verify the real SwiftUI callback traverses this guard during the hands test.
+
+**ACTION ITEMS / BLOCKS**
+- Worktree has three intentional uncommitted candidate files. No merge/push.
+- Screen is free; no replay or diagnostic app running. No live host mutations.
+- Freeze and remote Chrome delivery remain unresolved until hands evidence.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-fifth block — REMOTE DRAG FREEZE RECURRED
+
+**COMPLETED**
+- Practitioner confirmed Finder-style selection works on `b5bda1f`, then
+  reported a freeze dragging an individual file from storage-host in the right pane
+  toward Chrome. The prior local/replay passes do not close the freeze.
+- Captured PID 87259 from `dist/Palana-b5bda1f-155507.app` without stopping it.
+  Info logs identify `/pool-a/software/linkage2.msi`, 3,760,128 bytes,
+  remote file-promise writer at 15:57:10.841; drag-server connection at
+  15:57:10.894; `CALayerInvalidGeometry` cancellation at 15:57:10.937;
+  HIServices exception fault at 15:57:10.975 (local EST).
+- Five-second process sample at 15:57:57 shows the main event loop idle and
+  `SOME_OTHER_THREAD_SWALLOWED_AT_LEAST_ONE_EXCEPTION` suspended. No active
+  download appears in that sample. This is the known exception signature;
+  the exact geometry-changing caller for this recurrence is not yet captured.
+- Evidence: `../palana-drag-native/.fixtures/drag-freeze-20261116/storage-host-recurrence/`
+  (`sample.txt`, `system.log`, `drag-detail.log`). No live-host command or UI
+  automation was used to gather it.
+
+**NEXT**
+- Isolate the remote file-promise/source-start path with local fixtures.
+  Practitioner authorized a short fixture replay batch. The batch did NOT
+  establish a valid reproduction: six single-replay setup probes produced zero
+  row-writer/source-start callbacks; several reordered the header columns.
+  Neither the control nor the source-formation suppression variant was tested
+  successfully. Do not count these as passing drags.
+- Keep the selection change; do not describe `b5bda1f` as freeze-fixed or remote
+  Chrome upload as verified.
+
+**ACTION ITEMS / BLOCKS**
+- No merge, push, or live-host mutation. Existing app left running.
+- Screen returned after the practitioner asked. Diagnostic processes stopped;
+  no replay process remains. Experimental source removed from tracked source
+  tree and retained under `storage-host-recurrence/DragSessionTrace.swift`; the build
+  `storage-host-recurrence/DragStartup.app` is instrumentation only, not a fix.
+- Diagnostic mode logs source formation call stacks. Environment variable
+  `PALANA_SKIP_SOURCE_FORMATION=1` suppresses the formation setter only inside
+  SwiftUI's source willBegin callback, preserving its other bookkeeping. This
+  experiment remains UNTESTED, not a production change.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-fourth block — FREEZE HANDS PASSED; FINDER SELECTION BUILT
+
+**COMPLETED**
+- Practitioner passed the supplied checklist items 1–7 on `c3e6f38`: physical
+  trackpad drags, small accidental drags, hover feedback, selection, multi-file
+  pane plans, local files to Finder/Chrome plus folders to Finder, and Finder
+  drops into panes/folders. The freeze now has both replay and hands evidence.
+- Practitioner then revised selection: Shift selects a continuous range,
+  Command toggles arbitrary rows, plain click clears the other selections.
+  Commit `b5bda1f` on `drag-freeze-fix` adopts the native table selection and
+  removes the custom modifier/range reinterpretation. Keyboard marking remains.
+- Separate build: `../palana-drag-native/dist/Palana-Finder-Selection.app`.
+  Native arm64, ad-hoc signature verified, executable SHA-256
+  `54e2e4a445e40faf77ac9f199e9aa9fc016f229f24c6a636486a56d8f813e4e3`.
+  The hands-approved `dist/Palana.app` remains byte-identical to `c3e6f38`.
+- Selection/drop/provider targeted run: 32 application + 12 core tests passed.
+  Strict formatting, lint, release build, and commit hooks passed. No full-suite
+  rerun for this selection-only follow-up; the preceding full run is recorded
+  in the twenty-third block.
+- Fixed the drop test's dependence on the practitioner's physical Command key:
+  its fake source now permits copy only. Production drop behavior unchanged.
+
+**NEXT**
+- Hands check the separate selection build: grow/shrink a Shift range, toggle
+  nonadjacent rows with Command, plain-click to clear the other selections,
+  then drag a selected cohort.
+- Practitioner clarified the remote request means individual remote files into
+  a Chrome uploader, NOT recursive remote folders. That implementation already
+  exists; the specific remote-to-Chrome receiver check remains open. Do not
+  record the original item-8 response as a verified remote upload.
+
+**ACTION ITEMS / BLOCKS**
+- No merge or push. Both app builds remain available; no UI automation was
+  resumed during the selection follow-up, and the running app was not stopped.
+- Private process edits remain uncommitted alongside inherited handoff files;
+  generated public process export was not edited.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-third block — DRAG FIX PASSES 30 REPLAYS; HANDS CHECK PENDING
+
+**COMPLETED**
+- Commit `c3e6f38` on `drag-freeze-fix`, forked from `drag-out-native` at `ece6d46`, now occupies
+  `../palana-drag-native`. The original branch still points at `ece6d46`.
+  Keep the table's native source and row writers; replace only SwiftUI pane
+  and folder drop targets with `PaneDropTarget`, which never changes drag
+  images or formation. Removed the obsolete SwiftUI drop handlers.
+- Controlled comparison in the same instrumented build: AppKit destination
+  10/10 delivered; SwiftUI destination 3 starts, 2 NaN exceptions, 525 stale
+  drag-reference errors. Clean final app: 30/30 accepted folder drops, no
+  instance of either failure signature. Native release executable SHA-256
+  `12996eae6efa88279c5c2e896e98d00c2b1953653e3608c832292388b3bb3e1e`.
+- Full test suite passed with localhost SSH fixture: 247 + 1194 Swift Testing
+  and 81 XCTest; core coverage 97.74%, app logic 60.25%; strict lint clean.
+  ZFS fixture integration and opt-in corpus recording checks skipped.
+- Final GUI: remote folder to local pane and remote file to local folder
+  compose the correct plans against the disposable SSH fixture. No enactment.
+- Evidence and implementation: `reviews/2026-11-16-drag-freeze-fix.md`.
+  Raw logs, preserved baseline/experiment apps, and replay runner are in
+  `../palana-drag-native/.fixtures/drag-freeze-20261116/` (outside Git).
+- Apple report draft corrected for silent cancellation, the actual trackpad
+  gesture, the failed custom-source workaround, and unverified sample
+  reproduction. Not filed.
+
+**NEXT**
+- Practitioner physical-trackpad check: ten folder drags between panes on
+  `/path/to/example-folder`. Then reconfirm marked files to Finder/Chrome, a folder
+  to Finder, shift mark/unmark, and a marked cohort producing one plan.
+- Do not call the freeze closed on replay evidence alone. No merge or push.
+
+**ACTION ITEMS / BLOCKS**
+- Practitioner asked to use the computer; pointer/keyboard automation stopped.
+  No recorder or replay remains running. Final app left open with an isolated
+  regression profile, local fixture files and the localhost SSH fixture only.
+- A short synthetic three-file drag invoked all three row writers but did not
+  deliver a drop; injected shift-click did not establish mark/unmark behavior.
+  These are not new passes; prior physical drag-out confirmations stand.
+- Remote drag-out to an outside app remains unverified. The previously noted
+  SSH timing flake was not repaired; this run's SSH integration tests passed.
+- Private record had existing uncommitted handoff/diagnosis work at entry;
+  preserved. Public process export remains unchanged.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-16, twenty-second block — DRAG FREEZE HANDED OFF; DRAG-OUT WORKS ON `drag-out-native`
+
+**COMPLETED**
+- **Branch `drag-out-native`** (worktree `../palana-drag-native`, cut from `v1-release` at `b0ed789`, unmerged, unpushed) keeps 0.8's drag mechanics:
+  - the table's selection is pālana's marks, so marked rows drag out together;
+  - each row's pasteboard item is written up front (file URL or remote file promise);
+  - ⇧-click marks or unmarks a run;
+  - the folder-row light and caption;
+  - the 1 GiB remote cap and the docs.
+- Hands-verified 2026-11-16: marked files to Finder and Chrome, a folder to Finder.
+- **The old `drag-out` branch is abandoned.** Its own drag source and AppKit drop target made trackpad drags end early and lock the window.
+
+**NEXT**
+- **The drag freeze is handed off:** `agent-tasks/agent-task-2026-11-16-drag-freeze-frontier.md`. It is still intermittent on `drag-out-native` (and in 0.8) for drags between panes over folder rows.
+- Still to decide: merge `drag-out-native` into `v1-release` with issue #4 as a known issue, or wait for the handoff.
+- Remote drag-out is not yet hands-checked.
+
+**ACTION ITEMS / BLOCKS**
+- **Apple report:** `reviews/apple-feedback-2026-11-15-drag-freeze/FEEDBACK.md` needs the three-finger mention removed and the silent-early-end signature added before filing.
+- **Flaky test:** the SSH integration suite's "sessions are reused … faster" failed 2 of 3 back-to-back runs. Not yet checked on `v1-release`.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-15, twenty-first block — DRAG-OUT AND THE DRAG FREEZE FIXED ON `drag-out`
+
+**COMPLETED**
+- **Branch `drag-out`** (worktree `../palana-drag-out`, cut from `v1-release` at `26401dd`) runs `agent-task-2026-11-15-drag-out-and-freeze.md`. Not merged, not pushed. It merges cleanly into `v1-release` at `b0ed789` (merge-tree checked):
+  - `5576390`: DragOutPlan.
+  - `93c0cda`: remote download at the drop (file promises).
+  - `8b85330`: pālana starts pane drags itself, which fixes the freeze and multi-select.
+  - `489dc8b`: README and CHANGELOG.
+  - `7de01b3`: trackpad (gesture) drags start pālana's session through the event road. The trackpad still froze afterwards.
+  - `eb5e439`: the pane's drop surface moves from SwiftUI `.onDrop` to an AppKit `PaneDropTarget` that never touches the drag's items. SwiftUI's drop targets rewriting the drag during its opening animation were the common trigger. Guest checks A–J pass: pane to pane, folder row, same folder, Finder in and out, remote out, remote refused, remote onto a local pane.
+- **The freeze** (GitHub issue #4) is a macOS 27 exception in the system's drag animation (`CALayerInvalidGeometry`, HIToolbox `UnflockAnimationTimerCallback`). It is triggered by the table's flocked row drag meeting SwiftUI's drop targets, and only with a real trackpad. Diagnosis and results: `reviews/2026-11-15-drag-freeze-diagnosis.md` (uncommitted).
+- **Route A, ruled by the practitioner:** pālana answers the table's drag call on both of its roads (`event:` and the private `gesture:`) and starts its own session. The spec's `registerFileRepresentation` became `NSFilePromiseProvider`. The pane-to-pane payload moved to the private `com.sageframe.palana.selection` type, declared in Info.plist.
+- **Verified:** strict lint clean; build clean; sshd fixture up; 1154 + 224 tests green; PalanaCore 97.62%; app logic 55.01%. GUI checks 1–6 passed in the `palana-shots` Tart guest (macOS 27.2) with posted events, remote files from the `storage-host` fixture.
+
+**NEXT**
+- **Hands check on `eb5e439`** (`../palana-drag-out/dist/Palana.app`): trackpad drags in and out of panes, including a remote file toward Chrome, with no freeze. Then merge `drag-out` into `v1-release` and remove the worktree.
+- **Apple report:** confirm with the trackpad that `reviews/apple-feedback-2026-11-15-drag-freeze/DragFreezeRepro` freezes, then file `FEEDBACK.md` in Feedback Assistant with a sysdiagnose taken while frozen. The write-up draft is `reviews/2026-11-15-drag-freeze-writeup.md`.
+
+**ACTION ITEMS / BLOCKS**
+- **UI decision open:** a drag-out download writes its lines to the transcript, but the plan panel stays hidden unless it is open, the same as the existing drop-refusal notes. Should a remote drag-out open the panel?
+- The push order and the "do not push until `drag-out` is merged" rule from the twentieth block still stand.
+
+**PROJECT LIFECYCLE**
+- beta (v1.0 release branch in progress)
+
+---
+
+## State summary — 2026-11-15, twentieth block — THE PRE-1.0 REVIEW'S REMAINDER CLOSED ON `review-remainder`
+
+**COMPLETED**
+- **Branch `review-remainder`** (cut from `v1-release` at `96d5d70`) is **merged into `v1-release` as `b0ed789`** (`--no-ff`; tree identical to the verified `feb7fc7`). Branch and worktree removed. Not pushed. It runs `agent-task-2026-11-15-review-remainder.md`, one commit per item:
+  - `622da7c`: finding 4. A move asks for `-X` and `-A` where both rsyncs carry them; `-A` only on the same kernel. The plan carries one notice line naming what will not be kept. The probe reads rsync's capability list, and both probe corpora were re-recorded.
+  - `cd7b276`: finding 7. A failed or cancelled transfer still runs the leftover-source report.
+  - `42d7f6f`: finding 8. A hard-link probe before the set-aside refuses with exit 8. The original is restored with `mv -n`, and the staged edit is kept and named after the set-aside.
+  - `a09f6e5`: finding 8 scope extension. The rename commit mode, plus the panel's "Replace without the safe check" offer.
+  - `f8fd8c5`: finding 11. Notes are read line by line from the whole stderr stream.
+  - `ded5a99`: finding 13. A retained note names the staging a failed send-back leaves.
+  - `be2d32e`: Settings helper says copies only.
+  - `feb7fc7`: README and CHANGELOG.
+- **Practitioner rulings, this session.** D1: refuse, then offer rename (scope extended). D2: same-kernel `-A`. D3: keep the staged copy only after the set-aside. D4: a note for finding 13, with visible cleanup deferred. All recorded in the task file.
+- **Fixture evidence.** `-X` from this Mac (rsync 3.4.1) to the Linux container (3.5.2) and back keeps a Finder tag and a custom attribute. `-A` Darwin→Linux aborts with exit 12.
+- **Verification on `feb7fc7`.** Strict swift-format and SwiftLint clean; build clean; sshd fixture up; 1182 + 213 swift-testing and 81 XCTest, all green; PalanaCore line coverage 97.74%.
+
+**NEXT**
+- Finish the parallel `drag-out` branch and merge it into `v1-release`; only then push. The in-app hands test (rename offer on an exFAT stick attached to a Linux host; the move plan's notice line) is deferred to issue #5: https://github.com/sageframe-no-kaji/palana/issues/5. Both commit scripts were also run in the Linux test container (Alpine, GNU coreutils 9.11): refusal with the original unchanged, rename lands, normal path lands.
+
+**ACTION ITEMS / BLOCKS**
+- **Real-volume check done** on the SMB share `/Volumes/pool-a` and the exFAT stick `/Volumes/LINUXUSB`; on each: no hard links there; the safe replace refused with the original unchanged, and the rename commit landed the edit cleanly.
+- **Do not push `v1-release` until `drag-out` is merged** (practitioner, 2026-11-15). The same holds for this private repo, which is ahead of `origin/main`. Push order when the time comes: `scripts/publish-public --apply`, review the public diff, push the public repo, then this one.
+- **This repo's remote is `https://github.com/sageframe-no-kaji/palana-ho-process.git`, not the `git@github-no-kaji:` alias** the infrastructure rules require. Pending the practitioner's yes, switch it at push time.
+- `reviews/2026-11-15-drag-freeze-diagnosis.md` (from the drag-out session) is untracked and was left for that session.
+- Deferred items are listed at the end of `reviews/2026-11-15-pre-1.0-review.md`: visible staging cleanup, the rename-commit gap, ownership on non-root moves, and newline-in-path notes.
+- A capability cache from before this branch reads xattrs/ACLs as unproven until the host is re-probed. Until then, moves show the "does not keep" notice.
+
+**PROJECT LIFECYCLE**
+beta
+
+## State summary — 2026-09-16, nineteenth block — NUMBERED FAVORITES ON ⌘1–⌘9, AND THE ORDER IS DRAGGABLE
+
+**COMPLETED**
+- **`3cfe635` on branch `favorite-numbers` (not merged):** ⌘1–⌘9 point the focused pane at the first nine favorites, numbered in the favorites panel's display order (Global first, then hosts by first appearance), collapsed groups counted so a number is stable across hosts and folds. The panel shows each row's ⌘ number; with the panel holding the keyboard a number jumps where the panel's arrows aim. The list is uncapped; favorites past nine are unnumbered.
+- **Practitioner rulings, this session:** nine, not ten — ⌘0 stays the zoom reset. Star-this-folder moves ⌘8 → ⇧⌘8 (shifted 8 is `*`, the favorites key), reversing ho-9.11's "⇧⌘8 dead" line; `8` still stars the highlighted entry. Grammar Rule 4 (⌘ = app plane) still holds.
+- **Numbering and chord parsing are pure core** (`FavoritesOutline.numbered/favorite(number:in:)/numbers/number(forChord:)`) with a new core suite and a session suite over `TestSession`. Help card, README key table, CHANGELOG (Unreleased) updated. `palana-web` `3bed335` (local, not pushed or deployed) updates `keys.njk` and `surfaces.njk`; Eleventy wrote 17 pages cleanly.
+- **Verification on `3cfe635`:** strict swift-format and SwiftLint clean; build clean; 1322 tests green except 16 sshd-fixture integration issues — the fixture env file exists so the suites enable, but the Docker daemon was not running; PalanaCore line coverage 97.46%.
+- **`97b630c` makes that order the operator's:** favorites reorder by drag in the panel and by ⌥↑/⌥↓ on the row under the cursor. `FavoritesList.move(id:before:)` and `move(id:by:)` rewrite only the group's own slots, so a cross-group target is refused (scope stays with the pin control and ⇧↑/⇧↓) and the panel's sections cannot shuffle. One undo step per move; the ⌘ numbers follow. The drag payload is the favorite's id as plain text — a custom UTType has no bundle to be declared in, the ho-9.10 lesson. A row's upper half drops before it, the lower half after; the row measures itself and outlines while targeted.
+- **Practitioner ruling, this session:** reorder within a group only, plus the ⌥ keyboard path.
+- **Verification on `97b630c`:** strict swift-format and SwiftLint clean; build clean; 1334 tests, same 16 sshd-fixture issues and nothing else; PalanaCore line coverage 97.52%, `FavoritesList` branches 100%. `palana-web` `9cf99bd` documents the reorder; Eleventy wrote 17 pages cleanly.
+
+**NEXT**
+- **Hands try-out, the whole round:** press ⌘1–⌘9 from panes, `/` jump, and the shell; open the panel and judge the ⌘N row labels; confirm ⇧⌘8 stars; drag a favorite and judge the outline and the upper/lower-half landing; walk one with ⌥↑/⌥↓ and undo it. Then merge `favorite-numbers` to main and push `palana-web`. The prior NEXT still stands behind it: the cross-filesystem move acceptance and the next beta tag.
+
+**ACTION ITEMS / BLOCKS**
+- `favorite-numbers` unmerged (`3cfe635`, `97b630c`); `palana-web` `3bed335` and `9cf99bd` unpushed and undeployed.
+- Drag reordering has never run under a human hand — no test drives a real drag, and the panel is a floating NSPanel. The upper/lower-half split and the drag preview are try-out items, not verified behavior.
+- The sshd fixture suites fail rather than skip when the env file exists without a running container — start Docker before trusting a full `swift test`.
+
+**PROJECT LIFECYCLE**
+beta
 
 ## State summary — 2026-09-11, eighteenth block — FILE MOVES RELEASE PROGRESSIVELY THROUGH CONTENT-CHECKED RSYNC
 

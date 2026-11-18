@@ -1,0 +1,71 @@
+(lldb) target create ".build/debug/Palana"
+Current executable set to '/path/to/palana-drag-out/.build/debug/Palana' (arm64).
+(lldb) command source -s 0 '/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/lldb-cmds.txt'
+Executing commands in '/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/lldb-cmds.txt'.
+(lldb) settings set target.env-vars CFFIXED_USER_HOME=/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/fakehome HOME=/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/fakehome PALANA_SSH_CONFIG=/private/tmp/claude-501/-Users-example-user-Vaults-sageframe-no-kaji-dev-palana/0581807e-9c32-49e2-a95d-53a10359e3ef/scratchpad/fakehome/.ssh/config
+(lldb) breakpoint set -n objc_exception_throw
+Breakpoint 1: where = libobjc.A.dylib`objc_exception_throw, address = 0x000000018041c5b4
+(lldb) breakpoint command add 1
+(lldb) process launch
+2026-11-15 15:25:37.766861-0500 Palana[95903:35606756] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.767693-0500 Palana[95903:35606760] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.767724-0500 Palana[95903:35606760] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.767628-0500 Palana[95903:35606756] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.768271-0500 Palana[95903:35606759] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.768286-0500 Palana[95903:35606759] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.768694-0500 Palana[95903:35606759] [Connection] Will NOT re-try to establish the connection
+2026-11-15 15:25:37.768728-0500 Palana[95903:35606760] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:37.768746-0500 Palana[95903:35606760] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-11-15 15:25:40.418194-0500 Palana[95903:35606550] [WindowTab] Cannot index window tabs due to missing main bundle identifier
+2026-11-15 15:25:40.768675-0500 Palana[95903:35606550] [pane] read local:/path/to/palana-drag-out/.fixtures/dragfreeze/Arduino — 7 entries in 0.082660834 seconds
+2026-11-15 15:25:40.768720-0500 Palana[95903:35606550] [pane] read local:/path/to/palana-drag-out/.fixtures/dragfreeze/Arduino — 7 entries in 0.082807167 seconds
+2026-11-15 15:26:37.719173-0500 Palana[95903:35606550] [sandbox] CreateSandboxExtensionData failed: urlData: 0x7ab08c6480 length: 0 (-1 means null)
+2026-11-15 15:26:37.719639-0500 Palana[95903:35606550] [sandbox] CreateSandboxExtensionData failed: url null
+2026-11-15 15:26:37.719655-0500 Palana[95903:35606550] [general] Sandbox extension data required immediately for flavor public.file-url, but failed to obtain. (-3)
+(lldb)  po $x0
+CALayer position contains NaN: [nan nan]. Layer: <CoreDragDraggingLayer:0x7ab007fa20; position = CGPoint (869.5 686); bounds = CGRect (0 0; 193.5 26); sublayers = (name:icon goingAway:NO frame:(x:0.000000,y:0.000000,w:193.500000,h:26.000000); borderColor = <CGColor 0x7ab2532370> [<CGColorSpace 0x7ab12b99e0> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; Generic RGB Profile)] headroom = 1.000000 ( 0 1 0 1 ); zPosition = 1; animations = [bounds=<CABasicAnimation: 0x7ab0da2ac0> borderColor=<CABasicAnimation: 0x7ab0da2240>]>
+(null)
+(lldb)  bt 80
+* thread #1, queue = 'com.apple.main-thread', stop reason = hit Objective-C exception
+   * frame #0: 0x0000000195b245b4 libobjc.A.dylib`objc_exception_throw
+     frame #1: 0x00000001960c67b0 CoreFoundation`+[NSException raise:format:] + 128
+     frame #2: 0x00000001a06e5a24 QuartzCore`CA::Layer::set_position(CA::Vec2<double> const&, bool) + 172
+     frame #3: 0x00000001a06e5950 QuartzCore`-[CALayer setPosition:] + 52
+     frame #4: 0x00000001a35bbb68 HIToolbox`UpdateLayerPositions(OpaqueCoreDrag*) + 384
+     frame #5: 0x00000001a35bbe58 HIToolbox`UnflockAnimationTimerCallback(__CFRunLoopTimer*, void*) + 484
+     frame #6: 0x00000001960708cc CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 32
+     frame #7: 0x00000001960705c8 CoreFoundation`__CFRunLoopDoTimer + 1084
+     frame #8: 0x00000001960700d8 CoreFoundation`__CFRunLoopDoTimers + 280
+     frame #9: 0x00000001960555dc CoreFoundation`__CFRunLoopRun + 1852
+     frame #10: 0x000000019612f82c CoreFoundation`_CFRunLoopRunSpecificWithOptions + 536
+     frame #11: 0x0000000197758d5c Foundation`-[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 212
+     frame #12: 0x00000001977cd75c Foundation`-[NSRunLoop(NSRunLoop) runUntilDate:] + 100
+     frame #13: 0x000000019a88e9bc AppKit`NSCoreDragTrackingProc + 1660
+     frame #14: 0x000000019d597f14 HIServices`DoTrackingMessage + 360
+     frame #15: 0x000000019d5a2618 HIServices`TrackInApplication + 440
+     frame #16: 0x000000019d5a151c HIServices`IterateDragLoop + 204
+     frame #17: 0x000000019d5a09a0 HIServices`CoreDragStartDraggingAsync + 1764
+     frame #18: 0x000000019ab1d8f0 AppKit`-[NSCoreDragManager _dragUntilMouseUp:location:modifiers:] + 1164
+     frame #19: 0x000000019ab1d3f4 AppKit`-[NSCoreDragManager _tryCatchDragUntilMouseUp:location:modifiers:] + 32
+     frame #20: 0x0000000196055cc4 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__ + 36
+     frame #21: 0x0000000196055bbc CoreFoundation`__CFRunLoopDoObservers + 648
+     frame #22: 0x000000019612f7fc CoreFoundation`_CFRunLoopRunSpecificWithOptions + 488
+     frame #23: 0x00000001a3488590 HIToolbox`RunCurrentEventLoopInMode + 320
+     frame #24: 0x00000001a348b91c HIToolbox`ReceiveNextEventCommon + 492
+     frame #25: 0x00000001a360e380 HIToolbox`_BlockUntilNextEventMatchingListInMode + 48
+     frame #26: 0x000000019a94f29c AppKit`_DPSBlockUntilNextEventMatchingListInMode + 292
+     frame #27: 0x000000019a60c4fc AppKit`_DPSNextEvent + 580
+     frame #28: 0x000000019ae84748 AppKit`-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:] + 780
+     frame #29: 0x000000019ae8426c AppKit`-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:] + 292
+     frame #30: 0x000000019a5ff90c AppKit`-[NSApplication run] + 396
+     frame #31: 0x000000019a5d7c4c AppKit`NSApplicationMain + 880
+     frame #32: 0x00000001ce610c84 SwiftUI`specialized runApp(_:) + 140
+     frame #33: 0x00000001cea23c68 SwiftUI`runApp(_:) + 108
+  ﹍ frame #34: 0x00000001cecfe8b8 SwiftUI`static App.main() + 224
+  ﹉ frame #36: 0x0000000100011f10 Palana`main at App.swift:0
+     frame #37: 0x0000000195bbfe80 dyld`start + 6688
+(lldb)  continue
+Process 95903 resuming
+Command #3 'continue' continued the target.
+2026-11-15 15:26:40.684688-0500 Palana[95903:35606550] [DragAndDrop] *** Canceling drag because exception was raised during a dragging session. Exception: "CALayerInvalidGeometry" reason: "CALayer position contains NaN: [nan nan]. Layer: <CoreDragDraggingLayer:0x7ab007fa20; position = CGPoint (869.5 686); bounds = CGRect (0 0; 193.5 26); sublayers = (name:icon goingAway:NO frame:(x:0.000000,y:0.000000,w:193.500000,h:26.000000); borderColor = <CGColor 0x7ab2532370> [<CGColorSpace 0x7ab12b99e0> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; Generic RGB Profile)] headroom = 1.000000 ( 0 1 0 1 ); zPosition = 1; animations = [bounds=<CABasicAnimation: 0x7ab0da2ac0> borderColor=<CABasicAnimation: 0x7ab0da2240>]>"
+2026-11-15 15:26:40.738681-0500 Palana[95903:35606550] [HIExceptions] FAULT: CALayerInvalidGeometry: CALayer position contains NaN: [nan nan]. Layer: <CoreDragDraggingLayer:0x7ab007fa20; position = CGPoint (869.5 686); bounds = CGRect (0 0; 193.5 26); sublayers = (name:icon goingAway:NO frame:(x:0.000000,y:0.000000,w:193.500000,h:26.000000); borderColor = <CGColor 0x7ab2532370> [<CGColorSpace 0x7ab12b99e0> (kCGColorSpaceICCBased; kCGColorSpaceModelRGB; Generic RGB Profile)] headroom = 1.000000 ( 0 1 0 1 ); zPosition = 1; animations = [bounds=<CABasicAnimation: 0x7ab0da2ac0> borderColor=<CABasicAnimation: 0x7ab0da2240>]>; (user info absent)

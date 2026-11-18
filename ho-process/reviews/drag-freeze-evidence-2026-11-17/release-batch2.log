@@ -1,0 +1,529 @@
+Timestamp               Ty Process[PID:TID]
+2026-11-17 15:02:11.079 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:11.079 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 384
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 384)
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 count: 0
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 384 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 384
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 384 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 384
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 384.
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 count: 1
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:11.080 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:11.123 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:11.123 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 count: 1
+2026-11-17 15:02:12.130 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 item: 789514
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 384 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 384 data (83 bytes) flags: 20000000
+2026-11-17 15:02:12.130 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 item: 789514
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 384 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 384 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 384 data (83 bytes) flags: 20000000
+2026-11-17 15:02:12.130 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 721, folder true
+2026-11-17 15:02:12.175 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:12.175 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:12.896 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:12.896 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 385
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 385)
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 count: 0
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 385 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 385
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 385 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 385
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 385.
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 count: 1
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:12.897 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:12.958 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:12.959 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93d40] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 count: 1
+2026-11-17 15:02:13.948 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 item: 789514
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 385 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 385 data (83 bytes) flags: 20000000
+2026-11-17 15:02:13.948 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 item: 789514
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 385 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 385 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 385 data (83 bytes) flags: 20000000
+2026-11-17 15:02:13.948 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 722, folder true
+2026-11-17 15:02:13.986 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:13.986 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93d40] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:14.704 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 386
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 386)
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 count: 0
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 386 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 386
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 386 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 386
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 386.
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 count: 1
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:14.705 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:14.744 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92e40] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:14.745 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93340] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:15.103 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dab6c000] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:15.103 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dab6c140] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:15.103 I  Palana[49061:27b20f0] [com.apple.AppKit:WindowSharing] remote view for 0x76daee6d00 NSThemeWidgetZoomMenuRemoteView invalidated
+2026-11-17 15:02:15.446 Df Palana[49061:27b20f0] [net.sageframe.palana:pane] read fixture:/tmp/palana-remote-drag — 3 entries in 0.049446084 seconds
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 count: 1
+2026-11-17 15:02:15.754 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 item: 789514
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 386 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 386 data (83 bytes) flags: 20000000
+2026-11-17 15:02:15.754 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 item: 789514
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 386 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 386 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 386 data (83 bytes) flags: 20000000
+2026-11-17 15:02:15.754 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 723, folder true
+2026-11-17 15:02:15.794 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92e40] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:15.794 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93340] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:16.467 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:16.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 387
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 387)
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 count: 0
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 387 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 387
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 387 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 387
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 387.
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 count: 1
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:16.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:16.498 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:16.498 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92800] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:17.494 Df Palana[49061:27b20f0] [com.apple.AppKit:StateRestoration] -[NSPersistentUIManager flushAllChanges]
+2026-11-17 15:02:17.494 Df Palana[49061:27b20f0] [com.apple.AppKit:StateRestoration] -[NSPersistentUIManager flushAllChanges] finishing enqueued operations
+2026-11-17 15:02:17.494 Df Palana[49061:27b2e58] [com.apple.AppKit:StateRestoration] -[NSPersistentUIManager flushAllChanges]_block_invoke asyncing to main queue
+2026-11-17 15:02:17.494 Df Palana[49061:27b2de6] [com.apple.AppKit:StateRestoration] -[NSPersistentUIManager flushAllChanges]_block_invoke writing records
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 count: 1
+2026-11-17 15:02:19.326 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 item: 789514
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 387 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 387 data (83 bytes) flags: 20000000
+2026-11-17 15:02:19.326 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 item: 789514
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 387 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 387 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:19.326 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 387 data (83 bytes) flags: 20000000
+2026-11-17 15:02:19.327 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 724, folder true
+2026-11-17 15:02:19.386 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:19.386 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92800] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:20.071 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:20.071 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 388
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 388)
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 count: 0
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 388 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 388
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 388 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 388
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 388.
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 count: 1
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:20.072 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:20.142 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:20.142 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93840] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 count: 1
+2026-11-17 15:02:21.121 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 item: 789514
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 388 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 388 data (83 bytes) flags: 20000000
+2026-11-17 15:02:21.121 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 item: 789514
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 388 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 388 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 388 data (83 bytes) flags: 20000000
+2026-11-17 15:02:21.121 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 725, folder true
+2026-11-17 15:02:21.174 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:21.174 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93840] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:21.863 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:21.863 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:21.863 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 389
+2026-11-17 15:02:21.863 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 389)
+2026-11-17 15:02:21.863 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 count: 0
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 389 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 389
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 389 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 389
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 389.
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 count: 1
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:21.864 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:21.917 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93340] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:21.917 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93d40] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 count: 1
+2026-11-17 15:02:22.905 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 item: 789514
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 389 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 389 data (83 bytes) flags: 20000000
+2026-11-17 15:02:22.905 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 item: 789514
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 389 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 389 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 389 data (83 bytes) flags: 20000000
+2026-11-17 15:02:22.905 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 726, folder true
+2026-11-17 15:02:22.956 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93340] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:22.956 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93d40] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:23.679 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:23.679 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 390
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 390)
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 count: 0
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 390 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 390
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 390 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 390
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 390.
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 count: 1
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:23.680 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:23.709 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92800] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:23.709 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92f80] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 count: 1
+2026-11-17 15:02:24.716 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 item: 789514
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 390 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 390 data (83 bytes) flags: 20000000
+2026-11-17 15:02:24.716 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 item: 789514
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 390 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 390 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 390 data (83 bytes) flags: 20000000
+2026-11-17 15:02:24.716 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 727, folder true
+2026-11-17 15:02:24.773 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92800] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:24.773 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92f80] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 391
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 391)
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 count: 0
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 391 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 391
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 391 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 391
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 391.
+2026-11-17 15:02:25.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:25.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:25.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 count: 1
+2026-11-17 15:02:25.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:25.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:25.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:25.468 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:25.499 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93840] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:25.499 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92e40] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:25.594 Df Palana[49061:27b20f0] [net.sageframe.palana:pane] read fixture:/tmp/palana-remote-drag — 3 entries in 0.027961125 seconds
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 count: 1
+2026-11-17 15:02:26.519 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 item: 789514
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 391 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 391 data (83 bytes) flags: 20000000
+2026-11-17 15:02:26.519 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 item: 789514
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 391 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 391 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 391 data (83 bytes) flags: 20000000
+2026-11-17 15:02:26.519 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 728, folder true
+2026-11-17 15:02:26.568 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93840] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:26.568 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92e40] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:27.258 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:27.258 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 392
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 392)
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 count: 0
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 392 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 392
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 392 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 392
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 392.
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 count: 1
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:27.259 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:27.321 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92f80] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:27.321 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 count: 1
+2026-11-17 15:02:28.301 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 item: 789514
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 392 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 392 data (83 bytes) flags: 20000000
+2026-11-17 15:02:28.301 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 item: 789514
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 392 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 392 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 392 data (83 bytes) flags: 20000000
+2026-11-17 15:02:28.301 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 729, folder true
+2026-11-17 15:02:28.361 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92f80] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:28.361 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 393
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 393)
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 count: 0
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 393 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 393
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 393 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 393
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 393.
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 count: 1
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:29.150 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:29.199 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93ac0] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:29.199 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92d00] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 count: 1
+2026-11-17 15:02:30.207 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 item: 789514
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 393 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 393 data (83 bytes) flags: 20000000
+2026-11-17 15:02:30.207 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 item: 789514
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 393 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 393 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:30.207 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 393 data (83 bytes) flags: 20000000
+2026-11-17 15:02:30.208 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 730, folder true
+2026-11-17 15:02:30.260 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93ac0] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:30.260 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92d00] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:31.062 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:31.062 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 394
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 394)
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 count: 0
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 394 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 394
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 394 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 394
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 394.
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 count: 1
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:31.063 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:31.113 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92e40] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:31.113 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93340] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 count: 1
+2026-11-17 15:02:32.109 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 item: 789514
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 394 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 394 data (83 bytes) flags: 20000000
+2026-11-17 15:02:32.109 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 item: 789514
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 394 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 394 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 394 data (83 bytes) flags: 20000000
+2026-11-17 15:02:32.109 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 731, folder true
+2026-11-17 15:02:32.152 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92e40] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:32.152 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93340] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:32.833 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 395
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 395)
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 count: 0
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 395 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 395
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 395 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 395
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 395.
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 count: 1
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:32.834 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:32.864 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:32.865 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92800] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 count: 1
+2026-11-17 15:02:33.880 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 item: 789514
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 395 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 395 data (83 bytes) flags: 20000000
+2026-11-17 15:02:33.880 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 item: 789514
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 395 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 395 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 395 data (83 bytes) flags: 20000000
+2026-11-17 15:02:33.880 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 732, folder true
+2026-11-17 15:02:33.919 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92bc0] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:33.919 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92800] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:34.633 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:34.633 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:34.634 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 396
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 396)
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 count: 0
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 396 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 396
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 396 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 396
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 396.
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 count: 1
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:34.635 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:34.665 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92d00] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:34.665 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93840] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 count: 1
+2026-11-17 15:02:35.672 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 item: 789514
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 396 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 396 data (83 bytes) flags: 20000000
+2026-11-17 15:02:35.672 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 item: 789514
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 396 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 396 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 396 data (83 bytes) flags: 20000000
+2026-11-17 15:02:35.672 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 733, folder true
+2026-11-17 15:02:35.730 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92d00] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:35.730 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93840] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:35.760 Df Palana[49061:27b20f0] [net.sageframe.palana:pane] read fixture:/tmp/palana-remote-drag — 3 entries in 0.046996167 seconds
+2026-11-17 15:02:36.433 I  Palana[49061:27b20f0] [net.sageframe.palana:dragout] row writer: row 0 of 3, pālana's: true
+2026-11-17 15:02:36.433 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] BeginGeneration('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662))
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 generation: 397
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 397)
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 count: 0
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 397 item: 789514 flavor: 'net.sageframe.palana.internal-selection') local-gen: 397
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] _SetData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 397 item: 789514 flavor: 'net.sageframe.palana.internal-selection' data: 83 bytes flags: 20000000) local-gen: 397
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] Successfully set data (new-entry)
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:general] Flushing 1 pending entries for pboard 'Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) generation: 397.
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 count: 1
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyItemsAndFlavors('Apple CFPasteboard drag (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662)' gen: -1)
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0, gen: -1 item-count: 1 flavor-count: 1 (-1 means nil)
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetDataFlags('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1  item: 789514, flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:36.434 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 flags: 20000000
+2026-11-17 15:02:36.475 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92d00] activating connection: mach=true listener=false peer=false name=com.apple.ensemble.dragserver
+2026-11-17 15:02:36.476 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] activating connection: mach=true listener=false peer=false name=com.apple.windowmanager.dragserver
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemCount('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 count: 1
+2026-11-17 15:02:37.467 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 item: 789514
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 397 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 397 data (83 bytes) flags: 20000000
+2026-11-17 15:02:37.467 Df Palana[49061:27b20f0] [com.apple.AppKit:Pasteboard] NSPasteboard (name: Apple CFPasteboard drag): data requested for type net.sageframe.palana.internal-selection at index 0
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] GetItemAtIndex('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 idx: 1)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 item: 789514
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyFlavorsForItem('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: -1 item: 789514)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] result: 0 gen: 397 flavor-count: 1  (-1 means nil)
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:entry] CopyData('Apple CFPasteboard drag' (<CFUUID 0x76dacaefa0> 1EF178B6-4BD9-41C3-98A2-4A81E6F4D662) gen: 397 item: 789514 flavor: 'net.sageframe.palana.internal-selection')
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [com.apple.CFPasteboard:exit] (cache) - result: 0 generation: 397 data (83 bytes) flags: 20000000
+2026-11-17 15:02:37.467 I  Palana[49061:27b20f0] [net.sageframe.palana:dragdrop] pane drop accepted: session 734, folder true
+2026-11-17 15:02:37.519 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac92d00] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
+2026-11-17 15:02:37.519 Df Palana[49061:27b20f0] [com.apple.xpc:connection] [0x76dac93200] invalidated because the current process cancelled the connection by calling xpc_connection_cancel()
