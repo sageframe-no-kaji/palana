@@ -124,15 +124,29 @@ extension PlanEngine {
     }
 
     /// Names each selected source still present and fails the run.
+    ///
+    /// One check per source, composed here rather than looped in the shell,
+    /// so each note carries a display path with any line break written as
+    /// `\n`: a retained note stays one line even for a path that contains
+    /// a newline (#10).
     static func leftoverSourceReport(sources: [String], host: String) -> String {
-        let quoted = sources.map(ShellQuote.quote).joined(separator: " ")
-        return [
-            "n=0",
-            "for p in \(quoted); do { [ -e \"$p\" ] || [ -L \"$p\" ]; } || continue"
-                + "; printf 'palana-retained: %s:%s — source entry remains after the progressive move\\n' "
-                + "\(ShellQuote.quote(host)) \"$p\" >&2; n=$((n + 1)); done",
-            "[ \"$n\" -eq 0 ]",
-        ].joined(separator: "; ")
+        let checks = sources.map { source in
+            let path = ShellQuote.quote(source)
+            let note = ShellQuote.quote(
+                "palana-retained: \(host):\(retainedDisplayPath(source))"
+                    + " — source entry remains after the progressive move")
+            // printf, not echo: dash's echo would turn the written `\n` back
+            // into a line break.
+            return "if [ -e \(path) ] || [ -L \(path) ]; then printf '%s\\n' \(note) >&2; n=$((n + 1)); fi"
+        }
+        return (["n=0"] + checks + ["[ \"$n\" -eq 0 ]"]).joined(separator: "; ")
+    }
+
+    /// A path as a retained note shows it: line breaks written as `\n` and
+    /// `\r`, so one note is always one line.
+    static func retainedDisplayPath(_ path: String) -> String {
+        path.replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
     }
 
     /// What a progressive move can keep beyond `-a`, given both ends.

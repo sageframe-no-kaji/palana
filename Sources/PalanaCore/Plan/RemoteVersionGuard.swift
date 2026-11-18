@@ -315,7 +315,8 @@ extension RemoteVersionGuard {
 
     /// A line naming data this operation left behind, and exactly where.
     private func retention(_ reason: String, path: String) -> String {
-        "echo \(ShellQuote.quote("palana-retained: \(host):\(path) — \(reason)")) >&2"
+        // printf, not echo: dash's echo would expand the written `\n`.
+        "printf '%s\\n' \(ShellQuote.quote("palana-retained: \(host):\(PlanEngine.retainedDisplayPath(path)) — \(reason)")) >&2"
     }
 }
 
