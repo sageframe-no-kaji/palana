@@ -41,6 +41,17 @@ pālana is a native Mac file manager for the machines you run yourself. It has t
 - **Drag out to other apps.** Drag local files and folders, including a multi-row selection, into Finder, a browser upload box, or Mail. Finder receives a copy; ⌘-drag to move is tracked in [#6](https://github.com/sageframe-no-kaji/palana/issues/6). Remote files and folders drag between pālana's panes. To send a remote file to another app, copy it to a local pane first. An intermittent freeze after a row drag on macOS 27 is tracked in [#4](https://github.com/sageframe-no-kaji/palana/issues/4), with the investigation in [`docs/known-issues/drag-freeze.md`](docs/known-issues/drag-freeze.md).
 - **Favorites, drag and drop, and settings.** Star folders and open them with `⌘1`–`⌘9`. Drag entries between panes, or from Finder, to compose a copy plan; hold ⌘ to compose a move. Mouse selection follows Finder: Shift-click selects a range, and ⌘-click adds or removes a row. Settings add or hide hosts in your SSH config, set rsync exclusions and extra flags, and choose the appearance. `⌘+`, `⌘−`, and `⌘0` zoom the whole window.
 
+## Known issues
+
+- After a row drag, the window can occasionally stop taking clicks; quitting and reopening pālana recovers it. [#4](https://github.com/sageframe-no-kaji/palana/issues/4)
+- Dragging files into Finder copies them; holding ⌘ does not move them. [#6](https://github.com/sageframe-no-kaji/palana/issues/6)
+- Remote files cannot be dragged straight into other apps; copy them to a local pane first. [#7](https://github.com/sageframe-no-kaji/palana/issues/7)
+- A move run as a non-root user does not keep file ownership. [#9](https://github.com/sageframe-no-kaji/palana/issues/9)
+- When a send-back transfer fails, its staging folder stays in the remote directory; the panel names it. [#8](https://github.com/sageframe-no-kaji/palana/issues/8)
+- On disks without hard links (exFAT, some SMB shares), the replace-by-rename offer can overwrite a file written between its check and its rename; the panel says so before you choose it. [#11](https://github.com/sageframe-no-kaji/palana/issues/11)
+
+All open issues are in the [issue tracker](https://github.com/sageframe-no-kaji/palana/issues).
+
 ## Keys
 
 The keys follow five rules: lowercase letters are verbs, `r` and `a` open a name field, a small set of keys open surfaces, `⌘` belongs to the app, and a few prefixes start two-key sequences. Press `?` in the app for the same reference in a floating panel. The full map is at [palana.sageframe.net/keys](https://palana.sageframe.net/keys/).
