@@ -90,8 +90,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Persist, close the doors, then go — nothing outlives the window.
+    ///
+    /// While a plan runs or saves are still going back, ⌘Q asks first:
+    /// Keep Running, Quit When Finished, or Stop and Quit.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let session else { return .terminateNow }
+        if session.quitNeedsConfirmation {
+            let choice = QuitPrompt.ask(detail: session.quitPromptDetail)
+            guard session.applyQuitChoice(choice) else { return .terminateCancel }
+        }
         session.persist()
         Task { @MainActor in
             await session.closeDoors()

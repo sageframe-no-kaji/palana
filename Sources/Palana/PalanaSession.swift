@@ -55,6 +55,9 @@ final class PalanaSession {
     /// The round-trip center — owns all live watches, offers uploads when
     /// the operator saves a fetched remote file.
     let roundTripCenter = RoundTripCenter()
+
+    /// What ⌘Q does while work is in progress (`PalanaSession+Quit`).
+    let quit = QuitState()
     /// The column customization — shared across both panes so the operator's
     /// show/hide choices apply to the left and the right identically.
     let columnStore: ColumnStore
