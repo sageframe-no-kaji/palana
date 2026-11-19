@@ -441,14 +441,13 @@ extension PlanEngine {
         let names = request.entries.map { ShellQuote.quote($0.name) }.joined(separator: " ")
         let pack = "tar -cf - -C \(ShellQuote.quote(request.source.directory)) -- \(names)"
         let unpack = "tar -xpf - -C \(ShellQuote.quote(request.destination?.directory ?? ""))"
-        let command =
-            pushing
-            ? "\(pack) | ssh \(sshDestination(request.destination?.host ?? "")) \(ShellQuote.quote(unpack))"
-            : "ssh \(sshDestination(request.source.host)) \(ShellQuote.quote(pack)) | \(unpack)"
+        let producer = pushing ? pack : "ssh \(sshDestination(request.source.host)) \(ShellQuote.quote(pack))"
+        let consumer =
+            pushing ? "ssh \(sshDestination(request.destination?.host ?? "")) \(ShellQuote.quote(unpack))" : unpack
         return [
             PlanStep(
                 runsOn: .host(PalanaCore.localHostName),
-                command: command,
+                command: bothStatuses(producer: producer, consumer: consumer),
                 role: .transfer)
         ]
     }
@@ -467,76 +466,6 @@ extension PlanEngine {
                 role: .transfer,
                 pipeline: pipeline)
         ]
-    }
-
-    private static func composeZfs(
-        _ request: PlanRequest,
-        facts: PlanFacts,
-        forwarded: Bool
-    ) -> [PlanStep] {
-        guard
-            let sourceDataset = facts.selectionWholeDataset,
-            let destinationDataset = facts.destinationDataset,
-            let destinationHost = request.destination?.host
-        else { return [] }
-        let child = "\(destinationDataset.name)/\(lastComponent(of: sourceDataset.name))"
-        let snapshot = "\(sourceDataset.name)@\(request.token)"
-        // -v: send's stderr cadence is the forwarded path's progress.
-        // -u: Linux mounting is root's alone regardless of delegation —
-        // a bare receive lands the dataset and then fails the mount,
-        // an exit code that lies about the transfer (ho-06.2).
-        let send = "zfs send -R -v \(ShellQuote.quote(snapshot))"
-        let receive = "zfs receive -u \(ShellQuote.quote(child))"
-        let sourceHost = Runner.host(request.source.host)
-
-        var steps = [
-            PlanStep(
-                runsOn: sourceHost,
-                command: "zfs snapshot -r \(ShellQuote.quote(snapshot))",
-                role: .snapshot)
-        ]
-        if forwarded {
-            steps.append(
-                PlanStep(
-                    runsOn: sourceHost,
-                    command:
-                        "\(send) | ssh \(sshDestination(destinationHost)) \(ShellQuote.quote(receive))",
-                    role: .transfer))
-        } else {
-            let pipeline = Pipeline(
-                fromHost: request.source.host,
-                fromCommand: send,
-                toHost: destinationHost,
-                toCommand: receive)
-            steps.append(
-                PlanStep(
-                    runsOn: .operatorMachine,
-                    command: pipelineCommand(pipeline),
-                    role: .transfer,
-                    pipeline: pipeline))
-        }
-        steps.append(
-            PlanStep(
-                runsOn: .host(destinationHost),
-                command: "zfs destroy -r \(ShellQuote.quote("\(child)@\(request.token)"))",
-                role: .cleanup,
-                gatedOnVerification: true))
-        if request.operation == .move {
-            steps.append(
-                PlanStep(
-                    runsOn: sourceHost,
-                    command: "zfs destroy -r \(ShellQuote.quote(sourceDataset.name))",
-                    role: .delete,
-                    gatedOnVerification: true))
-        } else {
-            steps.append(
-                PlanStep(
-                    runsOn: sourceHost,
-                    command: "zfs destroy -r \(ShellQuote.quote(snapshot))",
-                    role: .cleanup,
-                    gatedOnVerification: true))
-        }
-        return steps
     }
 
     private static func composeInPlaceRename(_ request: PlanRequest) -> [PlanStep] {
@@ -632,7 +561,7 @@ extension PlanEngine {
         return result
     }
 
-    private static func lastComponent(of datasetName: String) -> String {
+    static func lastComponent(of datasetName: String) -> String {
         datasetName.split(separator: "/").last.map(String.init) ?? datasetName
     }
 }

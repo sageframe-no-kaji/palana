@@ -84,12 +84,13 @@ struct TransportsTests {
     func zfsMoveEnacts() async throws {
         let plan = try Self.zfsMove()
         let transports = Self.transports([
+            Self.entry("j", ZFSReleaseGuard.fenceCommand(host: "j", dataset: "tank/media")),
             Self.entry("j", "zfs snapshot -r tank/media@t1"),
             Self.entry(
                 "j", "zfs send -R -v tank/media@t1 | ssh k 'zfs receive -u rpool/cold/media'"),
             Self.entry("k", "zfs list -H -o name rpool/cold/media", stdout: "rpool/cold/media\n"),
             Self.entry("k", "zfs destroy -r rpool/cold/media@t1"),
-            Self.entry("j", "zfs destroy -r tank/media"),
+            Self.entry("j", ZFSReleaseGuard.guardedSourceRelease(host: "j", dataset: "tank/media", token: "t1")),
         ])
 
         let events = try await Self.collect(transports.enact(plan))
@@ -97,7 +98,7 @@ struct TransportsTests {
             .datasetReceived(name: "rpool/cold/media", exists: true))
         let verifiedAt = try #require(events.firstIndex(of: verified))
         let firstGate = try #require(
-            events.firstIndex(of: .stepBegan(index: 2, step: plan.steps[2])))
+            events.firstIndex(of: .stepBegan(index: 3, step: plan.steps[3])))
         #expect(verifiedAt < firstGate)
         #expect(events.last == .finished)
     }
@@ -106,6 +107,7 @@ struct TransportsTests {
     func zfsMissingDatasetHoldsGate() async throws {
         let plan = try Self.zfsMove()
         let transports = Self.transports([
+            Self.entry("j", ZFSReleaseGuard.fenceCommand(host: "j", dataset: "tank/media")),
             Self.entry("j", "zfs snapshot -r tank/media@t1"),
             Self.entry(
                 "j", "zfs send -R -v tank/media@t1 | ssh k 'zfs receive -u rpool/cold/media'"),
