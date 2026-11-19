@@ -24,6 +24,7 @@ extension OperationModel {
     ///
     /// - Parameter record: The round-trip record whose local copy was just saved.
     func beginRoundTripUpload(record: RoundTripRecord) {
+        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
         if phase == .enacting {
             panelShowing = true
             return
@@ -232,6 +233,36 @@ extension OperationModel {
             note("couldn't check the destination — the edit stays local; save again to check again")
             return RoundTripDestinationReading(
                 check: .unavailable(Self.describe(error)), currentDigest: nil)
+        }
+    }
+
+    /// Names a retired record's kept copy — in the transcript and the run
+    /// record — when it holds an edit the remote never confirmed (owner
+    /// ruling 2026-11-18, final review F01).
+    func noteRetainedCopy(_ record: RoundTripRecord) {
+        let line =
+            "retained: \(PalanaCore.localHostName):\(record.localURL.path) — this copy holds an edit"
+            + " \(record.host):\(record.remotePath) never confirmed, so it is kept here"
+        note(line)
+        log.appendLine("# \(line)")
+    }
+
+    /// Reads what stands at a record's remote path now — the listing entry
+    /// and the content digest — for the post-upload baseline.
+    ///
+    /// Nil when the listing could not be read; a nil digest inside the
+    /// reading means the entry is absent or its bytes were unreadable.
+    func readRoundTripVersion(_ record: RoundTripRecord) async -> RoundTripCenter.RemoteReading? {
+        let destination = Locus(host: record.host, directory: record.remoteDirectory)
+        do {
+            let flavor = try await resolveFlavor(destination.host)
+            let listing = try await engine.listing(for: destination.host)
+                .list(on: destination.host, path: destination.directory, flavor: flavor)
+            let entry = listing.first { $0.nameData == record.fetched.nameData }
+            return RoundTripCenter.RemoteReading(
+                entry: entry, digest: await remoteDigest(of: entry, on: destination))
+        } catch {
+            return nil
         }
     }
 

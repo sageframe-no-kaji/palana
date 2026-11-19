@@ -131,14 +131,22 @@ final class OperationModel {
     let engine: Engine
     private let configuration: SSHConfiguration
     private let settings: SettingsModel
-    private let log: OperationLog
+    let log: OperationLog
     var gatherTask: Task<Void, Never>?
-    private var enactTask: Task<Void, Never>?
+    /// True once the quit path has begun; never cleared.
+    ///
+    /// Every way an operation starts — a verb, naming, a drop, a ZFS
+    /// verb, a touch, a round-trip upload, Enter — refuses while it is
+    /// set, so nothing queued or late can start work after shutdown has
+    /// stopped what was running (review 2026-11-18, F05, pass 2).
+    var isClosing = false
+    /// The running enactment — the quit path stops and awaits it.
+    var enactTask: Task<Void, Never>?
     /// True from ⌃C until the enactment's processes have exited.
     ///
     /// The phase stays `.enacting` through the wait — `.cancelled` is
     /// never shown while a process the plan started is still running.
-    private(set) var enactmentStopping = false
+    var enactmentStopping = false
     /// The snapshot-name read behind a rollback or destroy-snapshot gather.
     ///
     /// Stored so the next gather can cancel it; its result lands only
@@ -199,6 +207,7 @@ final class OperationModel {
     /// gathering is cancelled and replaced; ready, finished, failed, and
     /// cancelled clear for a fresh begin.
     func begin(_ operation: PlanOperation, source: PaneModel, destination: PaneModel) {
+        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
         // One enactment at a time — a verb while running re-shows the panel.
         if phase == .enacting {
             panelShowing = true
@@ -313,7 +322,7 @@ final class OperationModel {
 
     /// Enter — runs the plan exactly as read, echoing everything.
     func enact() {
-        guard phase == .ready, let plan else { return }
+        guard !isClosing, phase == .ready, let plan else { return }
         phase = .enacting
         // Open the log session: blank separator then the run header.
         log.appendLine("")
@@ -344,20 +353,35 @@ final class OperationModel {
             // task stops its processes and awaiting the task awaits
             // their exit. Events cross to the main actor through the
             // stream, in order.
+            //
+            // The receiver is a task of its own, never cancelled: ⌃C
+            // cancels this task, and a receiver inside it stopped reading
+            // at once, so the retained-source report a cancelled move
+            // emits after its transfer stops reached no one (review
+            // 2026-11-18, F07). It ends when the run finishes the stream,
+            // and the run is awaited before it — every event, the
+            // recovery notes included, is handled before this task ends.
             let (events, continuation) = AsyncStream.makeStream(of: EnactmentEvent.self)
+            let receiver = Task { @MainActor in
+                for await event in events {
+                    handle(event)
+                }
+            }
             async let run: Void = {
                 defer { continuation.finish() }
                 try await transports.run(plan) { continuation.yield($0) }
             }()
-            for await event in events {
-                handle(event)
-            }
+            var failure: (any Error)?
             do {
                 try await run
             } catch {
+                failure = error
+            }
+            await receiver.value
+            if let failure {
                 guard !Task.isCancelled else { return }
                 echo.flushAll()
-                failEnactment(with: error)
+                failEnactment(with: failure)
             }
         }
     }
@@ -385,7 +409,7 @@ final class OperationModel {
     /// as a note — never a failure line, so the record's health is never
     /// read as the transfer's outcome. The persistent form is
     /// `recordWarning`, which the panel shows.
-    private func sealRecord() {
+    func sealRecord() {
         log.flush()
         if let warning = log.warning {
             echo.appendLine("record: \(warning)", kind: .note)
@@ -645,6 +669,7 @@ extension OperationModel {
     /// give the touch-new entry point its own descriptive prompt.
     /// Phase law mirrors `begin`.
     func beginNaming(_ operation: PlanOperation, source: PaneModel, labelOverride: String? = nil) {
+        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
         if phase == .enacting {
             panelShowing = true
             return

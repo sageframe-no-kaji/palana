@@ -13,6 +13,11 @@
 // a record cancels its watcher, drops its registry state, removes its
 // queued offers, and deletes its per-open temporary directory. Cleanup
 // does not wait for app termination.
+//
+// Owner ruling, 2026-11-18 (final review F01): retirement never deletes
+// an edit the remote has not confirmed. A copy whose bytes differ from
+// the record's confirmed remote version keeps its directory, and the
+// transcript names where it is; only a copy that matches is deleted.
 
 import Foundation
 import PalanaCore
@@ -51,7 +56,22 @@ final class RoundTripCenter {
     private struct Offer {
         var record: RoundTripRecord
         var snapshot: RoundTripWatcher.Snapshot?
+        /// SHA-256 of the local bytes when the offer was delivered.
+        ///
+        /// The version this upload is expected to land; nil until delivery.
+        var deliveredDigest: Data?
     }
+
+    /// What a read of the remote file found after an upload finished.
+    struct RemoteReading: Sendable {
+        /// The remote listing's entry for the file; nil when absent.
+        var entry: FileEntry?
+        /// SHA-256 of the remote bytes; nil when absent or unreadable.
+        var digest: Data?
+    }
+
+    /// True once ``shutDown()`` has run; never cleared.
+    private(set) var isShutDown = false
 
     /// All currently watched records, in registration order (oldest first).
     private var lives: [Live] = []
@@ -112,6 +132,28 @@ final class RoundTripCenter {
     /// observe deliveries directly.
     var deliverUpload: @MainActor (RoundTripRecord) -> Void = { _ in }
 
+    /// Told when retirement keeps a per-open directory because its copy
+    /// holds an edit the remote never confirmed — the session names it in
+    /// the transcript and the run record.
+    var onRetainedCopy: @MainActor (RoundTripRecord) -> Void = { _ in }
+
+    /// Reads what stands at a record's remote path now.
+    ///
+    /// Its listing entry and content digest; nil when the read itself failed.
+    ///
+    /// The session wires this to the operation model's listing. After an
+    /// upload finishes the center reads the remote once, and advances the
+    /// record's conflict baseline only when the remote holds exactly the
+    /// bytes that were delivered (review 2026-11-18, F09).
+    var readRemoteVersion: @MainActor (RoundTripRecord) async -> RemoteReading? = { _ in nil }
+
+    /// The post-upload remote read, while it runs.
+    ///
+    /// New offers wait for it: a save delivered before the baseline
+    /// settles would be checked against the version before the upload,
+    /// and conflict with the operator's own send.
+    private var settlingTask: Task<Void, Never>?
+
     /// The production watcher factory — a real ``RoundTripWatcher``.
     nonisolated private static func defaultWatcher(
         _ record: RoundTripRecord,
@@ -147,6 +189,7 @@ final class RoundTripCenter {
     ///
     /// - Parameter record: The record to watch.
     func register(record: RoundTripRecord) {
+        guard !isShutDown else { return }
         // Deduplicate: a fresh open of the same remote file supersedes the old.
         if let existing = lives.first(where: { $0.record.identity == record.identity }) {
             retire(id: existing.record.id)
@@ -168,7 +211,14 @@ final class RoundTripCenter {
 
     /// Retires a record: cancels its watcher, drops its registry and queue
     /// state, clears it from the in-flight slot, and deletes its per-open
-    /// temporary directory.
+    /// temporary directory — unless the copy holds an unconfirmed edit.
+    ///
+    /// A copy whose bytes are not the record's confirmed remote version
+    /// (the fetched one, or the last a send-back was confirmed to land)
+    /// is an edit the remote may never have received: queued, declined,
+    /// failed, or still in flight. Its directory is kept and named; the
+    /// queued send is dropped with the record, so a superseded copy never
+    /// sends on its own (owner ruling 2026-11-18, final review F01).
     ///
     /// Idempotent — a record already gone is a no-op. Safe to call from
     /// dedup, eviction, or an explicit close.
@@ -181,7 +231,21 @@ final class RoundTripCenter {
         canceller.watchers.removeAll { $0 === live.watcher }
         pendingQueue.removeAll { $0.record.id == id }
         if inFlightUpload?.record.id == id { inFlightUpload = nil }
-        deleteOpenDirectory(live.record.localDirectory)
+        if Self.holdsUnconfirmedEdit(live.record) {
+            onRetainedCopy(live.record)
+        } else {
+            deleteOpenDirectory(live.record.localDirectory)
+        }
+    }
+
+    /// True when the local copy's bytes are not the record's confirmed remote version.
+    ///
+    /// An absent copy holds nothing; an unreadable one is kept, because
+    /// what it holds cannot be shown to be sent.
+    static func holdsUnconfirmedEdit(_ record: RoundTripRecord) -> Bool {
+        guard FileManager.default.fileExists(atPath: record.localURL.path) else { return false }
+        guard let bytes = try? Data(contentsOf: record.localURL) else { return true }
+        return RoundTrip.digest(of: bytes) != record.digest
     }
 
     /// Deletes a per-open temporary directory, guarded so only directories
@@ -211,12 +275,13 @@ final class RoundTripCenter {
     ///
     /// - Parameter record: The record whose local file just changed.
     func offerOrQueue(record: RoundTripRecord) {
+        guard !isShutDown else { return }
         // A retired record's watcher may have a callback already in flight;
         // ignore it.
         guard let live = lives.first(where: { $0.record.id == record.id }) else { return }
         let snapshot = RoundTripWatcher.snapshot(of: live.record.localURL)
         let offer = Offer(record: live.record, snapshot: snapshot)
-        if isPanelFree(), pendingQueue.isEmpty {
+        if isPanelFree(), pendingQueue.isEmpty, settlingTask == nil {
             deliver(offer)
         } else {
             enqueue(offer)
@@ -235,7 +300,17 @@ final class RoundTripCenter {
     }
 
     /// Delivers the upload offer.
+    ///
+    /// The record is re-read from the registry, so an offer that waited in
+    /// the queue carries the baseline as it stands now — including one a
+    /// finished upload advanced while it waited. The local bytes are hashed
+    /// here: the version this upload is expected to land.
     private func deliver(_ offer: Offer) {
+        var offer = offer
+        if let live = lives.first(where: { $0.record.id == offer.record.id }) {
+            offer.record = live.record
+        }
+        offer.deliveredDigest = (try? Data(contentsOf: offer.record.localURL)).map(RoundTrip.digest(of:))
         inFlightUpload = offer
         deliverUpload(offer.record)
     }
@@ -246,7 +321,7 @@ final class RoundTripCenter {
     /// queue as soon as it frees, in order. Cancels itself when the queue
     /// drains.
     private func startPollingIfNeeded() {
-        guard canceller.pollTask == nil else { return }
+        guard !isShutDown, canceller.pollTask == nil else { return }
         canceller.pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 300_000_000)
@@ -262,7 +337,8 @@ final class RoundTripCenter {
     /// tests: they pump this directly rather than waiting on the 0.3 s poll timer.
     @discardableResult
     func drainOneIfFree() -> Bool {
-        if isPanelFree(), !pendingQueue.isEmpty {
+        guard !isShutDown else { return true }
+        if isPanelFree(), settlingTask == nil, !pendingQueue.isEmpty {
             let offer = pendingQueue.removeFirst()
             deliver(offer)
         }
@@ -284,11 +360,67 @@ final class RoundTripCenter {
     /// snapshot, so the watcher leaves the baseline alone and the unsent
     /// edit survives (review: broad-baseline-refresh, lost-queued-saves).
     /// An ordinary copy (no in-flight upload) refreshes nothing.
+    ///
+    /// Then the remote baseline: the record's fetched entry and digest
+    /// still name the version before the upload, so the next save would
+    /// conflict with the operator's own send (review 2026-11-18, F09). The
+    /// center reads the remote once and advances the record to that entry
+    /// and digest only when the remote bytes are exactly the bytes hashed
+    /// at delivery. A local edit made during the transfer, or a remote
+    /// writer after the landing, leaves the baseline where it was, so the
+    /// next save is checked against it and asks rather than sends.
     func uploadDidFinish() {
         guard let offer = inFlightUpload else { return }
         inFlightUpload = nil
-        guard let snapshot = offer.snapshot else { return }
         guard let live = lives.first(where: { $0.record.id == offer.record.id }) else { return }
-        live.watcher.refreshBaseline(to: snapshot)
+        if let snapshot = offer.snapshot {
+            live.watcher.refreshBaseline(to: snapshot)
+        }
+        guard let delivered = offer.deliveredDigest else { return }
+        let record = live.record
+        settlingTask = Task { [weak self] in
+            guard let self else { return }
+            let reading = await self.readRemoteVersion(record)
+            self.settleBaseline(of: record.id, delivered: delivered, reading: reading)
+            self.settlingTask = nil
+            if !self.pendingQueue.isEmpty { self.startPollingIfNeeded() }
+        }
+    }
+
+    /// Advances a record's remote baseline to the version a finished
+    /// upload landed — only when the remote now holds exactly those bytes.
+    private func settleBaseline(of id: RoundTripRecord.ID, delivered: Data, reading: RemoteReading?) {
+        guard let reading, let entry = reading.entry, reading.digest == delivered,
+            entry.nameData == lives.first(where: { $0.record.id == id })?.record.fetched.nameData,
+            let index = lives.firstIndex(where: { $0.record.id == id })
+        else { return }
+        lives[index].record.fetched = entry
+        lives[index].record.digest = delivered
+    }
+
+    /// The quit path's stop for the upload producers.
+    ///
+    /// Cancels every watcher, the poll, and a baseline read in flight, and
+    /// drops queued offers, so no save can be delivered once shutdown has
+    /// begun (review 2026-11-18, F05, pass 2). Local copies are not touched:
+    /// an unsent edit stays on disk where its watch left it.
+    func shutDown() {
+        isShutDown = true
+        for live in lives { live.watcher.cancel() }
+        canceller.pollTask?.cancel()
+        canceller.pollTask = nil
+        settlingTask?.cancel()
+        pendingQueue.removeAll()
+        inFlightUpload = nil
+    }
+
+    /// Waits for a post-upload baseline read to finish — for tests.
+    func awaitBaselineSettled() async {
+        await settlingTask?.value
+    }
+
+    /// The live record for an id, with its current baseline — for tests and diagnostics.
+    func liveRecord(id: RoundTripRecord.ID) -> RoundTripRecord? {
+        lives.first { $0.record.id == id }?.record
     }
 }

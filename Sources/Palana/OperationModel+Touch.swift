@@ -11,6 +11,7 @@ extension OperationModel {
     /// Subjects follow the same law as the other verbs — the selection
     /// when non-empty, else the cursor entry. Phase law mirrors `begin`.
     func beginTouch(source: PaneModel) {
+        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
         if phase == .enacting {
             panelShowing = true
             return
