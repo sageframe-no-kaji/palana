@@ -16,7 +16,7 @@ session (and any hook) knows exactly where the build stands. Newest block on top
 
 ---
 
-## State summary — 2026-11-19 — FINAL REVIEW CLOSED AND MERGED; QUIT PROMPT ON MAIN
+## State summary — 2026-11-19 — FINAL REVIEW CLOSED AND MERGED; QUIT PROMPT AND ITS FIXES ON MAIN
 
 Supersedes the 2026-11-18 block below where they differ: the full codebase
 review it named as NEXT is done, and its repairs and the quit prompt are on
@@ -76,14 +76,26 @@ review it named as NEXT is done, and its repairs and the quit prompt are on
   - **Stop and Quit.**
 
   `QuitWhenFinishedTests` covers it. The README and CHANGELOG say so. CI passed.
-- **Issue #14 filed:** an in-app discard for kept round-trip copies. It is an
-  open question, not a commitment.
+- **Hands check of #15 found three faults, fixed in PR #16** (merged `7175659`):
+  - Quit When Finished deadlocked. It called `NSApp.terminate` inside a
+    main-actor task; terminate is now scheduled on the run loop.
+  - The run record glued Stop and Quit's line onto rsync's carriage-return
+    progress.
+  - A stopped rsync copy left a fragment dated 1970 under the file's own name.
+    rsync now runs with `--partial-dir=.rsync-partial`, and the next run
+    resumes from that folder.
+
+  Verified on the built app: a scripted Stop and Quit in an isolated instance,
+  and the owner's hands check of Quit When Finished and of a resumed copy.
+- **Issues filed:**
+  - #14: an in-app discard for kept round-trip copies. An open question, not a
+    commitment.
+  - #17: the plan should say when a copy resumes.
 
 **NEXT**
-- **Hands check of the quit prompt** on a build. Things to try: quit
-  mid-transfer, Quit When Finished with a save queued, and a run that fails
-  while the quit is pending. The NSAlert and the AppKit quit sequence have not
-  been driven.
+- **Independent check of #15 and #16** (`ecdfe5b..7175659`), the code that
+  landed after the final review closed. The handoff is in the external review
+  directory, under `2026-11-19/palana-quit-followup/`.
 - **Then the release steps from the 2026-11-18 block, unchanged:**
   1. Retake Settings and the `?` card on the 1.0 build.
   2. Record the 15–20 s window video.
