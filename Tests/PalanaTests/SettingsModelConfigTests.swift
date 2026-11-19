@@ -331,3 +331,68 @@ struct SettingsModelPersistenceTests {
         #expect(model.includedFileNotice?.contains("settings not saved") == true)
     }
 }
+
+// MARK: - Final review F08: the system parser reads what was written
+
+@MainActor
+@Suite("Final review F08 — ssh reads the written config")
+struct FinalReviewHostBlockParseTests {
+    /// `ssh -G -F config alias` — exit status and the identityfile lines.
+    private func sshRead(_ config: URL, alias: String) throws -> (status: Int32, identities: [String]) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
+        process.arguments = ["-G", "-F", config.path, alias]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        process.standardInput = FileHandle.nullDevice
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let lines = (String(data: data, encoding: .utf8) ?? "").split(separator: "\n")
+        return (
+            process.terminationStatus,
+            lines.filter { $0.hasPrefix("identityfile ") }.map { String($0.dropFirst("identityfile ".count)) }
+        )
+    }
+
+    @Test("successive hosts with spaced and quoted key paths: every alias still parses, paths read back exactly")
+    func spacedKeyPathsParse() throws {
+        let sandbox = try Sandbox(configBytes: original)
+        defer { sandbox.tearDown() }
+        let model = sandbox.model()
+        let first = "/tmp/keys with spaces/id_ed25519"
+        let second = #"/tmp/odd "quoted" \ dir/100%/id"#
+        #expect(model.addHost(HostBlock(alias: "review-host", hostName: "localhost", identityFile: first)) == nil)
+        #expect(
+            model.addHost(HostBlock(alias: "second", hostName: "localhost", user: "op user", identityFile: second))
+                == nil)
+        for alias in ["jodo", "chumon", "review-host", "second"] {
+            #expect(try sshRead(sandbox.configURL, alias: alias).status == 0, "ssh rejected the file for \(alias)")
+        }
+        #expect(try sshRead(sandbox.configURL, alias: "review-host").identities == [first])
+        #expect(
+            try sshRead(sandbox.configURL, alias: "second").identities
+                == [second.replacingOccurrences(of: "%", with: "%%")])
+    }
+
+    @Test("a block the system parser rejects is refused, and the config is untouched")
+    func parserRejectionRefuses() throws {
+        let sandbox = try Sandbox(configBytes: original)
+        defer { sandbox.tearDown() }
+        let model = sandbox.model()
+        model.hostBlockCheck = { _ in "line 4: keyword identityfile extra arguments at end of line" }
+        let reason = model.addHost(HostBlock(alias: "nas", hostName: "localhost", identityFile: "/k/id"))
+        #expect(reason?.contains("ssh would not read this block") == true)
+        #expect(try sandbox.configBytes() == original)
+        #expect(try sandbox.backups().isEmpty)
+    }
+
+    @Test("the production check passes a good block and names ssh's complaint for a bad one")
+    func productionCheck() {
+        #expect(SettingsModel.systemParserCheck(HostBlock(alias: "nas", hostName: "h", identityFile: "/a b/id")) == nil)
+        // An unvalidated control character reaches ssh only through a caller that skipped validate().
+        let broken = HostBlock(alias: "nas", hostName: "h", identityFile: "/k/id\nBogusKeyword x")
+        #expect(SettingsModel.systemParserCheck(broken) != nil)
+    }
+}

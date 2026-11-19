@@ -194,16 +194,27 @@ final class PreviewController {
         state = .loading(entry)
         let url = cacheDestination(name: entry.name)
         let fetched = await reader(host, path, url, PreviewRouter.remoteBinaryCap)
+        // A superseded load cleans up only its own file: by the time a
+        // cancelled read returns, a newer load may own the cache, and
+        // evicting "the cache" would delete the newer preview's file
+        // (review 2026-11-18, F10).
         guard !Task.isCancelled else {
-            evictCache()
+            discard(url)
             return
         }
         guard fetched else {
-            evictCache()
+            discard(url)
             state = .remote(entry)
             return
         }
         state = .quickLook(entry, url)
+    }
+
+    /// Removes one load's cache file, and forgets it only if it is still
+    /// the current cache.
+    private func discard(_ url: URL) {
+        try? FileManager.default.removeItem(at: url)
+        if cacheURL == url { cacheURL = nil }
     }
 
     /// Names the single temp cache file the next remote binary streams into.

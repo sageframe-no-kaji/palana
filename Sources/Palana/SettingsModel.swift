@@ -202,6 +202,14 @@ final class SettingsModel {
     /// reloads its host list.
     var onConfigChanged: @MainActor () -> Void = {}
 
+    /// Asks the system's ssh to read a composed block before it is written.
+    ///
+    /// Returns nil when ssh reads it back as the values that were meant,
+    /// or the reason it did not. The production check runs `ssh -G` over
+    /// a scratch file holding the block alone — a parse, no connection.
+    /// Injected so tests can stand in for the system parser.
+    var hostBlockCheck: (HostBlock) -> String? = SettingsModel.systemParserCheck
+
     /// The ssh config as last read, or why it could not be.
     ///
     /// Updated by every successful write and by `refreshConfigText`.
@@ -321,6 +329,11 @@ final class SettingsModel {
         let errors = block.validate()
         guard errors.isEmpty else {
             return "refused — the block is not valid: \(errors)"
+        }
+        // The whole file is ssh's to read: a block it rejects breaks every
+        // host in it, not just the new one (review 2026-11-18, F08).
+        if let failure = hostBlockCheck(block) {
+            return "refused — ssh would not read this block: \(failure)"
         }
         let result = transact { SSHConfigParser.adding(block, to: $0) }
         switch result {
@@ -550,6 +563,51 @@ final class SettingsModel {
             settingsPersistence = .confirmed
         } catch {
             settingsPersistence = .unsaved(reason: error.localizedDescription)
+        }
+    }
+}
+
+extension SettingsModel {
+    /// Runs `ssh -G -F <scratch> <alias>` over the composed block alone.
+    ///
+    /// Nil when ssh exits 0 and reads the identity file back exactly as
+    /// composed; otherwise ssh's own complaint, or the mismatch. No
+    /// connection is made: `-G` prints the resolved configuration and
+    /// exits. A Mac with no `/usr/bin/ssh` has nothing to check with, and
+    /// nothing to connect with either — the block is not refused for it.
+    nonisolated static func systemParserCheck(_ block: HostBlock) -> String? {
+        let ssh = URL(fileURLWithPath: "/usr/bin/ssh")
+        guard FileManager.default.isExecutableFile(atPath: ssh.path) else { return nil }
+        let scratch = FileManager.default.temporaryDirectory
+            .appendingPathComponent("palana-host-check-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: scratch) }
+        do {
+            try Data((block.compose() + "\n").utf8).write(to: scratch)
+            let process = Process()
+            process.executableURL = ssh
+            process.arguments = ["-G", "-F", scratch.path, block.alias]
+            let output = Pipe()
+            let errors = Pipe()
+            process.standardOutput = output
+            process.standardError = errors
+            process.standardInput = FileHandle.nullDevice
+            try process.run()
+            let printed = output.fileHandleForReading.readDataToEndOfFile()
+            let complaint = errors.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                // swiftlint:disable:next optional_data_string_conversion
+                let text = String(decoding: complaint, as: UTF8.self)  // ssh's complaint, display only
+                let reason = text.split(separator: "\n").first { $0.contains("line") }
+                return reason.map(String.init) ?? "exit \(process.terminationStatus)"
+            }
+            guard let identity = block.identityFile, !identity.isEmpty else { return nil }
+            let expected = "identityfile " + identity.replacingOccurrences(of: "%", with: "%%")
+            // swiftlint:disable:next optional_data_string_conversion
+            let lines = String(decoding: printed, as: UTF8.self).split(separator: "\n")  // ssh's report, read only
+            return lines.contains { $0 == expected } ? nil : "ssh read the identity file as a different path"
+        } catch {
+            return "the check could not run: \(error.localizedDescription)"
         }
     }
 }

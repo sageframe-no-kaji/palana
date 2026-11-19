@@ -223,6 +223,8 @@ struct HostAddForm: View {
         case .aliasReserved: "alias 'local' is reserved for this Mac — choose another name"
         case .hostNameEmpty: "hostname is required"
         case .portOutOfRange(let port): "port \(port) is out of range — must be 1–65535"
+        case .fieldContainsControlCharacter(let field): "\(field) cannot contain a line break or control character"
+        case .hostNameContainsWhitespace: "hostname cannot contain spaces"
         }
     }
 

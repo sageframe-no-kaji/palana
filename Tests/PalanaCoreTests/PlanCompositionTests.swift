@@ -168,16 +168,17 @@ struct PlanCompositionTests {
         #expect(plan.transport == .zfsSendReceiveForwarded)
         #expect(
             plan.steps.map(\.command) == [
+                ZFSReleaseGuard.fenceCommand(host: "jodo", dataset: "tank/media"),
                 "zfs snapshot -r tank/media@t1",
                 "zfs send -R -v tank/media@t1 | ssh koan 'zfs receive -u rpool/cold/media'",
                 "zfs destroy -r rpool/cold/media@t1",
-                "zfs destroy -r tank/media",
+                ZFSReleaseGuard.guardedSourceRelease(host: "jodo", dataset: "tank/media", token: "t1"),
             ])
-        #expect(plan.steps.map(\.role) == [.snapshot, .transfer, .cleanup, .delete])
-        #expect(plan.steps.map(\.gatedOnVerification) == [false, false, true, true])
+        #expect(plan.steps.map(\.role) == [.snapshot, .snapshot, .transfer, .cleanup, .delete])
+        #expect(plan.steps.map(\.gatedOnVerification) == [false, false, false, true, true])
         #expect(
             plan.steps.map(\.runsOn) == [
-                .host("jodo"), .host("jodo"), .host("koan"), .host("jodo"),
+                .host("jodo"), .host("jodo"), .host("jodo"), .host("koan"), .host("jodo"),
             ])
     }
 
@@ -257,11 +258,13 @@ struct PlanCorpusTests {
         #expect(plan.transport == .zfsSendReceiveForwarded)
         #expect(
             plan.steps.map(\.command) == [
+                ZFSReleaseGuard.fenceCommand(host: "lima-palana-zfs", dataset: "palana/tank/media/photos"),
                 "zfs snapshot -r palana/tank/media/photos@corpus",
                 "zfs send -R -v palana/tank/media/photos@corpus | "
                     + "ssh koan 'zfs receive -u palana/svc/photos'",
                 "zfs destroy -r palana/svc/photos@corpus",
-                "zfs destroy -r palana/tank/media/photos",
+                ZFSReleaseGuard.guardedSourceRelease(
+                    host: "lima-palana-zfs", dataset: "palana/tank/media/photos", token: "corpus"),
             ])
     }
 

@@ -123,6 +123,9 @@ final class PaneModel {
     /// The selected dataset's name while `paneMode == .zfs` — nil otherwise
     /// or before the tree has read anything.
     var zfsSelectedDataset: String?
+    /// Counts dataset-tree refreshes and exits; a refresh writes the tree
+    /// only while it is still the latest one (review 2026-11-18, F12).
+    var zfsTreeGeneration = 0
     /// True while the header's path field is being typed in — the key
     /// monitor stands down so the letters reach the field.
     var pathEditing = false

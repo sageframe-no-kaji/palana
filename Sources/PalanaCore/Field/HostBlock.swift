@@ -25,6 +25,13 @@ public enum HostBlockError: Error, Equatable, Sendable {
     case hostNameEmpty
     /// The port lies outside the valid TCP range of 1–65535.
     case portOutOfRange(Int)
+    /// A field holds a line break or another control character, which
+    /// would end the line it is written on and start another directive.
+    /// The associated value names the field (`HostName`, `User`,
+    /// `IdentityFile`).
+    case fieldContainsControlCharacter(String)
+    /// The hostname contains whitespace — no host or address does.
+    case hostNameContainsWhitespace
 }
 
 /// An ssh `Host` block as a value, ready to compose and write.
@@ -87,6 +94,19 @@ public struct HostBlock: Codable, Sendable, Equatable {
         // HostName is always required.
         if hostName.isEmpty {
             errors.append(.hostNameEmpty)
+        } else if Self.hasControlCharacter(hostName) {
+            errors.append(.fieldContainsControlCharacter("HostName"))
+        } else if hostName.contains(where: { $0.isWhitespace }) {
+            errors.append(.hostNameContainsWhitespace)
+        }
+
+        // A line break in any written value would end its line early and
+        // start a directive nobody wrote (review 2026-11-18, F08).
+        if let userValue = user, Self.hasControlCharacter(userValue) {
+            errors.append(.fieldContainsControlCharacter("User"))
+        }
+        if let id = identityFile, Self.hasControlCharacter(id) {
+            errors.append(.fieldContainsControlCharacter("IdentityFile"))
         }
 
         // Port, when present, must be a legal TCP port.
@@ -102,19 +122,49 @@ public struct HostBlock: Codable, Sendable, Equatable {
     /// Only lines that carry a value are emitted — `Host` and `HostName` are
     /// always present; `User`, `Port`, and `IdentityFile` appear only when
     /// non-nil. No trailing blank line inside the block.
+    ///
+    /// Values are written as ssh_config arguments: one that ssh would split
+    /// or reinterpret — whitespace, a quote, a backslash, a `#` — is
+    /// double-quoted with `\"` and `\\` escaped, which ssh reads back as
+    /// the one argument it was. An `IdentityFile` path's `%` is doubled,
+    /// because ssh expands `%` tokens in that keyword. A path with spaces
+    /// written bare made ssh reject the whole file, every host in it
+    /// (review 2026-11-18, F08). Compose only a block that validates.
     public func compose() -> String {
         var lines: [String] = []
         lines.append("Host \(alias)")
-        lines.append("    HostName \(hostName)")
+        lines.append("    HostName \(Self.argument(hostName))")
         if let userValue = user, !userValue.isEmpty {
-            lines.append("    User \(userValue)")
+            lines.append("    User \(Self.argument(userValue))")
         }
         if let portValue = port {
             lines.append("    Port \(portValue)")
         }
         if let id = identityFile, !id.isEmpty {
-            lines.append("    IdentityFile \(id)")
+            lines.append("    IdentityFile \(Self.argument(id.replacingOccurrences(of: "%", with: "%%")))")
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// One value as a single ssh_config argument.
+    ///
+    /// Bare when ssh would read it back unchanged; otherwise double-quoted,
+    /// with the two characters that end or escape a double-quoted argument
+    /// (`"` and `\`) escaped by a backslash.
+    static func argument(_ value: String) -> String {
+        let special: Set<Character> = [" ", "\t", "\"", "'", "\\", "#", "="]
+        guard value.contains(where: { special.contains($0) }) else { return value }
+        var escaped = ""
+        for character in value {
+            if character == "\"" || character == "\\" { escaped.append("\\") }
+            escaped.append(character)
+        }
+        return "\"\(escaped)\""
+    }
+
+    /// True when `value` holds a character that would break the line it is
+    /// written on — a line break, a NUL, or any other control character.
+    static func hasControlCharacter(_ value: String) -> Bool {
+        value.unicodeScalars.contains { $0.properties.generalCategory == .control }
     }
 }

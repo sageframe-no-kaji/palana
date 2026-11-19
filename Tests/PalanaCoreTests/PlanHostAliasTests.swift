@@ -84,12 +84,16 @@ struct PlanHostAliasTests {
         #expect(push.transport == .tarStreamDirect)
         #expect(
             push.steps.first?.command
-                == "tar -cf - -C /Users/op -- a.txt | ssh -- '-oProxyCommand=evil' 'tar -xpf - -C /rpool/cold'")
+                == PlanEngine.bothStatuses(
+                    producer: "tar -cf - -C /Users/op -- a.txt",
+                    consumer: "ssh -- '-oProxyCommand=evil' 'tar -xpf - -C /rpool/cold'"))
         let pull = try plan(.copy, from: hostileSource, to: here)
         #expect(pull.transport == .tarStreamDirect)
         #expect(
             pull.steps.first?.command
-                == "ssh -- 'jodo;touch /tmp/pwned' 'tar -cf - -C /tank/media -- a.txt' | tar -xpf - -C /Users/op")
+                == PlanEngine.bothStatuses(
+                    producer: "ssh -- 'jodo;touch /tmp/pwned' 'tar -cf - -C /tank/media -- a.txt'",
+                    consumer: "tar -xpf - -C /Users/op"))
     }
 
     private var zfsFacts: PlanFacts {

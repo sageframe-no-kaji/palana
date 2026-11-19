@@ -33,6 +33,23 @@ extension PlanEngine {
             + "ssh \(sshDestination(pipeline.toHost)) \(ShellQuote.quote(pipeline.toCommand))"
     }
 
+    /// `producer | consumer`, failing when either side fails.
+    ///
+    /// A plain shell pipeline reports only the consumer's status, so a
+    /// tar that could not read a selected file still let the copy finish
+    /// as a success with the file missing (review 2026-11-18, F06).
+    /// `pipefail` is not in every `/bin/sh` (dash exits on it), so the
+    /// producer's status travels out on descriptor 3: the consumer's
+    /// failure is the step's status, and a producer failure fails the
+    /// step with a sentence that names it.
+    static func bothStatuses(producer: String, consumer: String) -> String {
+        "exec 4>&1; palana_sent=$( { { \(producer) 3>&- 4>&-; echo $? >&3; } | \(consumer) 3>&- >&4 4>&-; } 3>&1 )"
+            + "; palana_taken=$?; exec 4>&-"
+            + "; [ \"$palana_taken\" -eq 0 ] || exit \"$palana_taken\""
+            + "; [ \"$palana_sent\" = 0 ] || { echo \"palana: the sending side exited ${palana_sent:-early}"
+            + " — the copy is incomplete\" >&2; exit 1; }"
+    }
+
     /// The door's own rule: non-empty and inside the grammar.
     private static func isPlainAlias(_ alias: String) -> Bool {
         !alias.isEmpty && SSHConfigParser.isAlias(alias)

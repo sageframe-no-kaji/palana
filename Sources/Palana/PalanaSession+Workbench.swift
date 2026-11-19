@@ -46,12 +46,19 @@ extension PalanaSession {
 
     /// Closes every ControlMaster — the quit path owns this.
     ///
-    /// Cancels the owned Workbench read first and awaits it, then tears
-    /// down every live shell session (ho-11) and closes the run record.
-    /// Nothing outlives the window — no session, no terminal, no
-    /// half-stopped read.
+    /// Cancels the owned Workbench read first and awaits it, stops and
+    /// awaits the operation's own work — a gather, a running plan — then
+    /// tears down every live shell session (ho-11) and closes the run
+    /// record. Nothing outlives the window — no session, no terminal, no
+    /// half-stopped read, no transfer still running.
     func closeDoors() async {
+        // Admission closes first and stays closed through AppKit's reply:
+        // the upload producers stop and the model refuses new work before
+        // anything is awaited (review 2026-11-18, F05, pass 2).
+        operation.isClosing = true
+        roundTripCenter.shutDown()
         await cancelWorkbenchRead()
+        await operation.stopOwnedWork()
         operation.closeRecord()
         terminalSessions.teardownAll()
         // The same remote door the engine holds — one object, one close.

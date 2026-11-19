@@ -73,9 +73,12 @@ extension Transports {
         }
     }
 
-    /// Whether a step carries an rsync source-removal option token.
+    /// Whether a step passes an rsync source-removal option to a program.
+    ///
+    /// Judged on the arguments the shell would pass, not whitespace
+    /// fragments: a quoted file name holding an option-shaped word is an
+    /// operand (review 2026-11-18, F11).
     static func removesSourceFiles(_ step: PlanStep) -> Bool {
-        step.command.split(whereSeparator: \.isWhitespace)
-            .contains { PlanEngine.namesSourceRemoval(String($0)) }
+        PlanEngine.commandNamesSourceRemoval(step.command)
     }
 }

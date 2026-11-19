@@ -49,7 +49,7 @@ public enum ListingError: Error, Equatable, Sendable {
 
 /// Remote directory reading over the Conduit.
 public struct Listing: Sendable {
-    private let conduit: any Conduit
+    let conduit: any Conduit
 
     /// A listing over the given door.
     public init(conduit: any Conduit) {

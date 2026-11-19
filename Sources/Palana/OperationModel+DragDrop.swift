@@ -21,6 +21,7 @@ extension OperationModel {
         destination: Locus,
         entries: [FileEntry]
     ) {
+        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
         if phase == .enacting {
             panelShowing = true
             return

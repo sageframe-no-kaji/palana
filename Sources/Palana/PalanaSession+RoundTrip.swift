@@ -15,7 +15,7 @@ extension PalanaSession {
         // hands it one action — send this upload. Closures rather than a
         // model reference keep the center depending on only what it needs.
         roundTripCenter.isPanelFree = { [weak operation] in
-            guard let operation else { return false }
+            guard let operation, !operation.isClosing else { return false }
             switch operation.phase {
             case .idle, .finished, .failed, .cancelled:
                 return true
@@ -25,6 +25,12 @@ extension PalanaSession {
         }
         roundTripCenter.deliverUpload = { [weak operation] record in
             operation?.beginRoundTripUpload(record: record)
+        }
+        roundTripCenter.readRemoteVersion = { [weak operation] record in
+            await operation?.readRoundTripVersion(record)
+        }
+        roundTripCenter.onRetainedCopy = { [weak operation] record in
+            operation?.noteRetainedCopy(record)
         }
 
         // Both panes call the same handler — a remote open on either side registers.

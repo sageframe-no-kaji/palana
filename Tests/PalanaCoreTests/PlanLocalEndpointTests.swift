@@ -105,8 +105,9 @@ struct PlanLocalEndpointTests {
         #expect(plan.transport == .tarStreamDirect)
         #expect(
             plan.steps.map(\.command) == [
-                "tar -cf - -C /Users/op/files -- a.txt 'with space' | "
-                    + "ssh koan 'tar -xpf - -C /rpool/cold'"
+                PlanEngine.bothStatuses(
+                    producer: "tar -cf - -C /Users/op/files -- a.txt 'with space'",
+                    consumer: "ssh koan 'tar -xpf - -C /rpool/cold'")
             ])
         #expect(plan.steps.first?.runsOn == .host("local"))
     }
@@ -118,8 +119,9 @@ struct PlanLocalEndpointTests {
         #expect(plan.transport == .tarStreamDirect)
         #expect(
             plan.steps[0].command
-                == "ssh koan 'tar -cf - -C /rpool/cold -- a.txt '\\''with space'\\''' | "
-                + "tar -xpf - -C /Users/op/files")
+                == PlanEngine.bothStatuses(
+                    producer: "ssh koan 'tar -cf - -C /rpool/cold -- a.txt '\\''with space'\\'''",
+                    consumer: "tar -xpf - -C /Users/op/files"))
         #expect(plan.steps.count == 1)
     }
 
