@@ -42,6 +42,7 @@ extension PaneModel {
     /// through `exitZFSModeIntoMountpoint` instead), so there is nothing
     /// to restore — flipping the mode flag is the whole operation.
     func exitZFSMode() {
+        zfsTreeGeneration += 1  // a refresh still in flight lands nowhere
         paneMode = .files
         zfsDatasets = []
         zfsSelectedDataset = nil
@@ -115,20 +116,29 @@ extension PaneModel {
     /// dataset the pane's path stands in when the current selection is
     /// stale or absent — cursor-aimed first, then containing, then the
     /// first root.
+    ///
+    /// Each refresh takes a generation; a read applies only while it is
+    /// still the latest refresh and the pane still stands on the host it
+    /// read. A navigation to another host starts a newer refresh, so the
+    /// old host's late discovery can no longer paint its tree and
+    /// selection under the new host's header (review 2026-11-18, F12).
     func refreshZFSTree(engine: Engine) async {
+        zfsTreeGeneration += 1
+        let generation = zfsTreeGeneration
         guard let host = state.host, !engine.isLocal(host) else {
             zfsDatasets = []
             zfsSelectedDataset = nil
             return
         }
-        await readZFSCache(host: host, engine: engine)
+        await readZFSCache(host: host, engine: engine, generation: generation)
         _ = try? await engine.field.discover(host)
-        await readZFSCache(host: host, engine: engine)
+        await readZFSCache(host: host, engine: engine, generation: generation)
     }
 
     /// One cache read plus the pre-select rules — no wire contact.
-    private func readZFSCache(host: String, engine: Engine) async {
+    private func readZFSCache(host: String, engine: Engine, generation: Int) async {
         let topology = await engine.field.facts(for: host)?.zfsTopology?.value ?? []
+        guard generation == zfsTreeGeneration, state.host == host, paneMode == .zfs else { return }
         let sorted = topology.sorted { $0.name < $1.name }
         zfsDatasets = sorted
         guard zfsSelectionIsStale(in: sorted) else { return }
