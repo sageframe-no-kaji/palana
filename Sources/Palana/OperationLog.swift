@@ -92,6 +92,14 @@ final class OperationLog {
         set { sinkHolder.sink = newValue }
     }
 
+    /// Whether the last bytes written ended a line.
+    ///
+    /// Raw program output can stop mid-line: rsync's progress ends in a
+    /// carriage return, and a stopped run leaves it there. A line the log
+    /// writes next starts on its own line, so it is never glued to — and,
+    /// in a terminal, overwritten by — the output before it.
+    private var atLineStart = true
+
     /// True while every write has landed.
     var isHealthy: Bool { failure == nil }
 
@@ -126,7 +134,7 @@ final class OperationLog {
 
     /// Appends one line to the log (trailing newline added).
     func appendLine(_ text: String) {
-        writeData((text + "\n").data(using: .utf8))
+        writeData(((atLineStart ? "" : "\n") + text + "\n").data(using: .utf8))
     }
 
     /// Appends text as-is — for raw output chunks that carry their own newlines.
@@ -192,6 +200,7 @@ final class OperationLog {
         }
         do {
             try sink.write(contentsOf: data)
+            atLineStart = data.last == UInt8(ascii: "\n")
         } catch {
             record(.write, error)
         }
