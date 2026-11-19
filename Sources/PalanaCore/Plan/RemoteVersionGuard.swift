@@ -171,8 +171,21 @@ extension RemoteVersionGuard {
     /// the staging directory — the destination's own filesystem — under
     /// a name that cannot be the staged entry's. Exit 8 is this refusal
     /// alone, so the surface can offer the rename commit instead.
+    ///
+    /// The probe also proves this shell's `test` can tell two names apart
+    /// as one file (`-ef`): promotion counts only when the destination
+    /// name and the staged name are the same file, because `ln` given a
+    /// directory at the destination succeeds by linking inside it
+    /// (review 2026-11-18, F04). A shell that cannot make that check is
+    /// refused here, before anything is set aside (exit 4, like a host
+    /// with no digest tool).
     private func linkProbe(_ names: CommitNames) -> String {
-        "if ln -- \(names.staged) \(names.probe) 2>/dev/null; then rm -f -- \(names.probe); else "
+        "if ln -- \(names.staged) \(names.probe) 2>/dev/null; then [ \(names.probe) -ef \(names.staged) ] 2>/dev/null || { "
+            + refusalBody(
+                "this host's shell cannot prove where a link landed, so the file cannot be replaced safely",
+                stage: names.stage,
+                code: 4)
+            + "; }; rm -f -- \(names.probe); else "
             + refusalBody(
                 "a hard link could not be made here, so the file cannot be replaced safely",
                 stage: names.stage,
@@ -259,12 +272,19 @@ extension RemoteVersionGuard {
     /// How the edit takes the pathname — the command whose success is
     /// the commit landing.
     ///
-    /// Link mode: one `ln`, atomic. Rename mode: the name is checked
-    /// free, `mv -n` renames (a directory there would swallow the file,
-    /// so the check comes first), and the commit counts only when the
-    /// staged name is gone and the destination holds the sent bytes.
+    /// Link mode: one `ln`, and the commit counts only when the
+    /// destination name is not a symlink and is the staged file itself.
+    /// `ln` exits 0 when a directory took the name first — it links
+    /// inside it — so its status alone is not the landing (review
+    /// 2026-11-18, F04). Rename mode: the name is checked free, `mv -n`
+    /// renames (a directory there would swallow the file, so the check
+    /// comes first), and the commit counts only when the staged name is
+    /// gone and the destination holds the sent bytes.
     private func placement(_ names: CommitNames) -> String {
-        guard renames else { return "ln -- \(names.staged) \(names.entry) 2>/dev/null" }
+        guard renames else {
+            return "ln -- \(names.staged) \(names.entry) 2>/dev/null && [ ! -L \(names.entry) ]"
+                + " && [ \(names.entry) -ef \(names.staged) ]"
+        }
         return [
             "[ ! -e \(names.entry) ]", "[ ! -L \(names.entry) ]",
             "mv -n -- \(names.staged) \(names.entry) 2>/dev/null",
@@ -283,14 +303,21 @@ extension RemoteVersionGuard {
             + "; PALANA_SENT=${PALANA_SENT#*= }; PALANA_SENT=${PALANA_SENT%% *}"
     }
 
-    /// Rename mode: names the edit a racing directory swallowed.
+    /// Names the edit a racing directory swallowed.
     ///
     /// A directory that took the pathname in the instant before the
-    /// rename receives the file inside it. Empty in link mode, where
-    /// `ln` never moves anything. Always a prefix: it ends with its own
-    /// separator.
+    /// commit receives the edit inside it: rename mode moves the file
+    /// there, link mode links it there. Link mode names the nested link
+    /// only when it is the staged file itself — a name that was already
+    /// in the directory is not this operation's. Always a prefix: it
+    /// ends with its own separator.
     private func renameStray(_ names: CommitNames) -> String {
-        guard renames else { return "" }
+        guard renames else {
+            return "{ [ ! -d \(names.entry) ] || [ ! \(names.nested) -ef \(names.staged) ] || "
+                + retention(
+                    "a directory took the destination as the send linked, and a link to your edit landed inside it",
+                    path: names.nestedPath) + "; }; "
+        }
         return "{ [ -e \(names.staged) ] || [ ! -d \(names.entry) ] || [ ! -e \(names.nested) ] || "
             + retention(
                 "a directory took the destination as the send renamed, and your edit landed inside it",
