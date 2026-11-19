@@ -178,7 +178,7 @@ struct TransportsTests {
 
     @Test("progress parsing recognizes rsync by binary name")
     func rsyncPredicate() {
-        #expect(Transports.isRsyncCommand("rsync -a --partial a b"))
+        #expect(Transports.isRsyncCommand("rsync -a --partial-dir=.rsync-partial a b"))
         #expect(Transports.isRsyncCommand("/opt/homebrew/bin/rsync -a a b"))
         #expect(Transports.isRsyncCommand("'/Volumes/My Tools/bin/rsync' -a a b"))
         #expect(!Transports.isRsyncCommand("rsyncd --daemon"))

@@ -381,7 +381,7 @@ extension SettingsForm {
             }
             Text(
                 "these flags apply to copies only · moves use pālana's own flags"
-                    + " · always on: -a, --partial resume · progress when the rsync speaks it"
+                    + " · always on: -a, resume from .rsync-partial · progress when the rsync speaks it"
             )
             .font(.system(size: 10))
             .foregroundStyle(Theme.inkFaint)

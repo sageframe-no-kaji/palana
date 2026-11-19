@@ -27,6 +27,9 @@ You read the real commands, then press Enter.
   server, asks first: Keep Running, Quit When Finished, or Stop and Quit. Quit
   When Finished waits for the transfer and the queued saves, then quits; if any
   of them fails or is stopped, pālana stays open with the failure on screen.
+- An rsync copy that is stopped part-way keeps what it received in a hidden
+  `.rsync-partial` folder beside the destination, never under the file's own
+  name. Running the same copy again resumes from it and removes the folder.
 - **Moves keep metadata where they can.** A move asks rsync for extended
   attributes and Finder tags (`-X`) and ACLs (`-A`, between hosts of the same OS)
   when both ends carry them; otherwise the plan names what will not be kept.

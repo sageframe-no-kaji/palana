@@ -151,7 +151,8 @@ struct PlanHostAliasTests {
         #expect(forwarded.transport == .rsyncAgentForwarded)
         #expect(
             forwarded.steps.first?.command
-                == "rsync -a -s --partial --info=progress2 -- /tank/media/a.txt '-oProxyCommand=evil:/rpool/cold/'")
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 -- /tank/media/a.txt '-oProxyCommand=evil:/rpool/cold/'"
+        )
         let direct = try plan(
             .copy,
             from: here,
@@ -160,7 +161,8 @@ struct PlanHostAliasTests {
         #expect(direct.transport == .rsyncDirect)
         #expect(
             direct.steps.first?.command
-                == "rsync -a -s --partial --info=progress2 -- /Users/op/a.txt '-oProxyCommand=evil:/rpool/cold/'")
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 -- /Users/op/a.txt '-oProxyCommand=evil:/rpool/cold/'"
+        )
         let clean = try plan(
             .copy,
             from: Locus(host: "jodo", directory: "/tank/media"),
@@ -168,7 +170,7 @@ struct PlanHostAliasTests {
             facts: forwardedFacts)
         #expect(
             clean.steps.first?.command
-                == "rsync -a -s --partial --info=progress2 /tank/media/a.txt koan:/rpool/cold/")
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 /tank/media/a.txt koan:/rpool/cold/")
     }
 
     @Test("pasted, the displayed pipeline hands ssh the raw alias as a destination and runs nothing else")
