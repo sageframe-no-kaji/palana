@@ -75,7 +75,7 @@ extension OperationModel {
         dataset: String,
         mounted: Bool = false
     ) {
-        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
+        guard admitsOperatorWork else { return }  // quitting — nothing new starts
         if phase == .enacting {
             panelShowing = true
             return
@@ -341,7 +341,7 @@ extension OperationModel {
         host: String,
         input: MutationInput
     ) {
-        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
+        guard admitsOperatorWork else { return }  // quitting — nothing new starts
         phase = .gathering
         panelShowing = true
         gatherTask = Task {

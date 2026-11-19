@@ -265,6 +265,13 @@ final class RoundTripCenter {
     /// The ids of the queued offers, in delivery order — for tests and diagnostics.
     var pendingRecordIDs: [RoundTripRecord.ID] { pendingQueue.map(\.record.id) }
 
+    /// True when no save is queued, being uploaded, or settling its
+    /// baseline — what "Quit When Finished" waits for.
+    var isIdle: Bool { pendingQueue.isEmpty && inFlightUpload == nil && settlingTask == nil }
+
+    /// How many saves are waiting to be sent — for the quit prompt.
+    var pendingCount: Int { pendingQueue.count }
+
     // MARK: - Offer machinery
 
     /// Offers the upload now when the panel is free; queues it otherwise.

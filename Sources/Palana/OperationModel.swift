@@ -140,6 +140,16 @@ final class OperationModel {
     /// set, so nothing queued or late can start work after shutdown has
     /// stopped what was running (review 2026-11-18, F05, pass 2).
     var isClosing = false
+
+    /// True while "Quit When Finished" waits for the running transfer and
+    /// the queued saves; cleared if any of them fails or is stopped.
+    ///
+    /// Operations the operator starts are refused meanwhile; round-trip
+    /// uploads still go out, because they are what the quit waits for.
+    var quitPending = false
+
+    /// Whether an operation the operator starts may begin now.
+    var admitsOperatorWork: Bool { !isClosing && !quitPending }
     /// The running enactment — the quit path stops and awaits it.
     var enactTask: Task<Void, Never>?
     /// True from ⌃C until the enactment's processes have exited.
@@ -207,7 +217,7 @@ final class OperationModel {
     /// gathering is cancelled and replaced; ready, finished, failed, and
     /// cancelled clear for a fresh begin.
     func begin(_ operation: PlanOperation, source: PaneModel, destination: PaneModel) {
-        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
+        guard admitsOperatorWork else { return }  // quitting — nothing new starts
         // One enactment at a time — a verb while running re-shows the panel.
         if phase == .enacting {
             panelShowing = true
@@ -669,7 +679,7 @@ extension OperationModel {
     /// give the touch-new entry point its own descriptive prompt.
     /// Phase law mirrors `begin`.
     func beginNaming(_ operation: PlanOperation, source: PaneModel, labelOverride: String? = nil) {
-        guard !isClosing else { return }  // shutdown has begun — no new work (final review F05)
+        guard admitsOperatorWork else { return }  // quitting — nothing new starts
         if phase == .enacting {
             panelShowing = true
             return

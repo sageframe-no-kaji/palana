@@ -23,6 +23,10 @@ You read the real commands, then press Enter.
   keep their order. The ⌘ numbers follow the new order, and ⌘Z undoes a move.
 - Starring the current folder moves from ⌘8 to ⇧⌘8. The shifted 8 is `*`, the
   favorites key. `8` still stars the highlighted entry.
+- ⌘Q while a transfer runs, or while saved edits are still going back to their
+  server, asks first: Keep Running, Quit When Finished, or Stop and Quit. Quit
+  When Finished waits for the transfer and the queued saves, then quits; if any
+  of them fails or is stopped, pālana stays open with the failure on screen.
 - **Moves keep metadata where they can.** A move asks rsync for extended
   attributes and Finder tags (`-X`) and ACLs (`-A`, between hosts of the same OS)
   when both ends carry them; otherwise the plan names what will not be kept.
