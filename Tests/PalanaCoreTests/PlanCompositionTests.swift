@@ -90,7 +90,7 @@ struct PlanCompositionTests {
         #expect(plan.steps.map(\.role) == [.transfer, .verify])
         #expect(
             plan.steps[0].command
-                == "rsync -a -s --partial --info=progress2 --checksum --remove-source-files "
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 --checksum --remove-source-files "
                 + "/tank/media/a.txt '/tank/media/with space' koan:/rpool/cold/")
         #expect(plan.steps[1].command.contains("palana-retained:"))
         #expect(plan.steps.allSatisfy { $0.runsOn == .host("jodo") })
@@ -111,7 +111,7 @@ struct PlanCompositionTests {
         #expect(plan.transport == .local)
         #expect(
             plan.steps.map(\.command) == [
-                "rsync -a -s --partial --info=progress2 /tank/media/a.txt "
+                "rsync -a -s --partial-dir=.rsync-partial --info=progress2 /tank/media/a.txt "
                     + "'/tank/media/with space' /tank/other/"
             ])
         #expect(plan.steps.first?.role == .copy)
@@ -331,7 +331,7 @@ struct PlanRsyncOperatorFlagsTests {
         #expect(plan.transport == .rsyncDirect)
         let cmd = try #require(plan.steps.first?.command)
         #expect(
-            cmd == "/opt/homebrew/bin/rsync -a -s --partial --info=progress2 "
+            cmd == "/opt/homebrew/bin/rsync -a -s --partial-dir=.rsync-partial --info=progress2 "
                 + "/Users/op/files/a.txt koan:/rpool/cold/")
     }
 
@@ -351,7 +351,7 @@ struct PlanRsyncOperatorFlagsTests {
         #expect(plan.transport == .rsyncDirect)
         let cmd = try #require(plan.steps.first?.command)
         #expect(
-            cmd == "/opt/homebrew/bin/rsync -a -s --partial --info=progress2 "
+            cmd == "/opt/homebrew/bin/rsync -a -s --partial-dir=.rsync-partial --info=progress2 "
                 + "jodo:/tank/media/a.txt /Users/op/files/")
     }
 
@@ -372,7 +372,7 @@ struct PlanRsyncOperatorFlagsTests {
                 token: "t1"),
             facts: PlanFacts(sourceCapability: odd, destinationCapability: Self.remoteRsync))
         let cmd = try #require(plan.steps.first?.command)
-        #expect(cmd.hasPrefix("'/Volumes/My Tools/bin/rsync' -a -s --partial --info=progress2 "))
+        #expect(cmd.hasPrefix("'/Volumes/My Tools/bin/rsync' -a -s --partial-dir=.rsync-partial --info=progress2 "))
     }
 
     @Test("a nil path composes bare rsync — remote plans are byte-identical")
@@ -391,7 +391,7 @@ struct PlanRsyncOperatorFlagsTests {
                 agentForwarding: .available))
         #expect(
             forwarded.steps.first?.command
-                == "rsync -a -s --partial --info=progress2 /tank/media/a.txt koan:/rpool/cold/")
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 /tank/media/a.txt koan:/rpool/cold/")
         // Same host: the host's own rsync, bare.
         let sameHost = try PlanEngine.plan(
             PlanRequest(
@@ -403,7 +403,7 @@ struct PlanRsyncOperatorFlagsTests {
             facts: PlanFacts(sourceCapability: Self.remoteRsync))
         #expect(
             sameHost.steps.first?.command
-                == "rsync -a -s --partial --info=progress2 /tank/media/a.txt /tank/other/")
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 /tank/media/a.txt /tank/other/")
         // Direct, local rsync known but unresolved: still bare.
         let direct = try PlanEngine.plan(
             PlanRequest(
@@ -417,7 +417,7 @@ struct PlanRsyncOperatorFlagsTests {
                 destinationCapability: Self.remoteRsync))
         #expect(
             direct.steps.first?.command
-                == "rsync -a -s --partial --info=progress2 /Users/op/files/a.txt koan:/rpool/cold/")
+                == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 /Users/op/files/a.txt koan:/rpool/cold/")
     }
 
     @Test("forwarded rsync: operator flags land after base flags and before paths")
@@ -439,7 +439,7 @@ struct PlanRsyncOperatorFlagsTests {
         let cmd = try #require(plan.steps.first?.command)
         // Base flags, then operator flag, then source path
         #expect(
-            cmd == "rsync -a -s --partial --info=progress2 --exclude .DS_Store "
+            cmd == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 --exclude .DS_Store "
                 + "/tank/media/a.txt koan:/rpool/cold/")
     }
 
@@ -460,7 +460,7 @@ struct PlanRsyncOperatorFlagsTests {
         #expect(plan.transport == .rsyncDirect)
         let cmd = try #require(plan.steps.first?.command)
         #expect(
-            cmd == "rsync -a -s --partial --info=progress2 --exclude .DS_Store "
+            cmd == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 --exclude .DS_Store "
                 + "/Users/op/files/a.txt koan:/rpool/cold/")
     }
 
@@ -480,7 +480,7 @@ struct PlanRsyncOperatorFlagsTests {
         #expect(plan.transport == .local)
         let cmd = try #require(plan.steps.first?.command)
         #expect(
-            cmd == "rsync -a -s --partial --info=progress2 --exclude .DS_Store "
+            cmd == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 --exclude .DS_Store "
                 + "/tank/media/a.txt /tank/other/")
     }
 
@@ -500,7 +500,7 @@ struct PlanRsyncOperatorFlagsTests {
             facts: facts)
         let cmd = try #require(plan.steps.first?.command)
         #expect(
-            cmd == "rsync -a -s --partial --info=progress2 "
+            cmd == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 "
                 + "/tank/media/a.txt koan:/rpool/cold/")
     }
 
@@ -521,7 +521,7 @@ struct PlanRsyncOperatorFlagsTests {
             facts: facts)
         let cmd = try #require(plan.steps.first?.command)
         #expect(
-            cmd == "rsync -a -s --partial --info=progress2 "
+            cmd == "rsync -a -s --partial-dir=.rsync-partial --info=progress2 "
                 + "/tank/media/a.txt koan:/rpool/cold/")
     }
 

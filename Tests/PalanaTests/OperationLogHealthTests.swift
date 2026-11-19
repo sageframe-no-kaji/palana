@@ -51,6 +51,23 @@ final class OperationLogHealthTests: XCTestCase {
         XCTAssertTrue(log.isHealthy)
     }
 
+    func testALineAfterUnterminatedOutputStartsOnItsOwnLine() throws {
+        // rsync's progress ends in a carriage return; a stopped run leaves
+        // it there, and the quit line used to be glued onto it.
+        let log = OperationLog(url: logURL)
+        log.appendRaw("  5,242,880  12%  497.65kB/s    0:01:13\r")
+        log.appendLine("! quit — the run was stopped before it finished")
+        log.appendLine("")
+        log.appendLine("── next run")
+        log.appendRaw("done\n")
+        log.appendLine("# step 1 finished (exit 0)")
+        log.close()
+        XCTAssertEqual(
+            try String(contentsOf: logURL, encoding: .utf8),
+            "  5,242,880  12%  497.65kB/s    0:01:13\r\n! quit — the run was stopped before it finished\n"
+                + "\n── next run\ndone\n# step 1 finished (exit 0)\n")
+    }
+
     func testRealHandleWriteFailureIsRetained() {
         // A handle opened read-only refuses the write the way a full disk does.
         let log = OperationLog(url: logURL) { try FileHandle(forReadingFrom: $0) }

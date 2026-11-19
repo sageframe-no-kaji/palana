@@ -14,11 +14,18 @@ extension PlanEngine {
         return parts[0] > 3 || (parts[0] == 3 && parts[1] >= 1)
     }
 
-    /// The rsync flag set: archive, keep partials so an interrupted
-    /// transfer resumes — `-s` and progress2 only when the running
+    /// The rsync flag set: archive, keep an interrupted transfer's bytes
+    /// so the next run resumes — `-s` and progress2 only when the running
     /// side's rsync is modern enough to speak them. openrsync refuses
     /// `-s` outright (CI found it live), so the floor protects remote
     /// paths by inner-quoting instead — see `composeRsyncDirect`.
+    ///
+    /// The kept bytes go in a hidden `.rsync-partial` folder beside the
+    /// destination (`--partial-dir`), never under the file's own name:
+    /// with `--partial`, a stopped copy left a fragment that looked like
+    /// the finished file (hands check, 2026-11-19). A later run of the
+    /// same copy resumes from the folder and removes it; Homebrew rsync
+    /// and macOS's openrsync both do.
     ///
     /// When ``operatorFlags`` is non-nil and non-empty after trimming,
     /// the trimmed value is appended after the base set — on copies only.
@@ -33,6 +40,10 @@ extension PlanEngine {
     /// both ends carry them: the source is deleted after the transfer,
     /// so what `-a` leaves behind is lost (review 2026-11-15, finding 4).
     /// Copies are unchanged — the original keeps its metadata.
+    /// Where an interrupted transfer's bytes wait for the next run — a
+    /// hidden folder beside the destination, never the file's own name.
+    static let partialDirFlag = "--partial-dir=.rsync-partial"
+
     static func rsyncFlags(
         runningOn capability: HostCapability?,
         operatorFlags: String? = nil,
@@ -41,8 +52,8 @@ extension PlanEngine {
     ) -> String {
         var base =
             Self.modernRsync(capability)
-            ? "-a -s --partial --info=progress2"
-            : "-a --partial"
+            ? "-a -s \(partialDirFlag) --info=progress2"
+            : "-a \(partialDirFlag)"
         let trimmed = operatorFlags?.trimmingCharacters(in: .whitespaces) ?? ""
         if !removingSource, !trimmed.isEmpty {
             base += " \(trimmed)"

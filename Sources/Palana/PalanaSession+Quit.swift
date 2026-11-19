@@ -26,8 +26,18 @@ final class QuitState {
     /// Watches a pending "Quit When Finished" until the work ends.
     var watchTask: Task<Void, Never>?
 
-    /// Asks the app to quit — `NSApp.terminate` in production; tests count calls.
-    var requestTermination: @MainActor () -> Void = { NSApp.terminate(nil) }
+    /// Asks the app to quit; tests count calls instead.
+    ///
+    /// Production schedules `terminate:` on the run loop rather than calling
+    /// it here. This runs inside a main-actor task, and `terminate:` waits —
+    /// in a nested event loop — for `applicationShouldTerminate`'s reply,
+    /// which itself comes from a main-actor task. Called directly, the
+    /// waiting task holds the main actor and the reply can never run: the
+    /// app froze instead of quitting (hands check, 2026-11-19). From the run
+    /// loop, terminate runs outside any task, as it does for ⌘Q.
+    var requestTermination: @MainActor () -> Void = {
+        NSApp.perform(#selector(NSApplication.terminate(_:)), with: nil, afterDelay: 0)
+    }
 }
 
 extension PalanaSession {
