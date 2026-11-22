@@ -43,6 +43,7 @@ extension OperationModel {
         plan = nil
         resultName = nil
         phase = .gathering
+        roundTripUploadActive = true
         gatherTask = Task {
             await gatherRoundTripUpload(record: record)
         }

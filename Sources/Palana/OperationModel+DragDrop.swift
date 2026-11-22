@@ -26,12 +26,13 @@ extension OperationModel {
             panelShowing = true
             return
         }
+        // Nothing dropped changes nothing (review Q03, pass 3).
+        guard !entries.isEmpty else { return }
         if phase == .gathering {
             gatherTask?.cancel()
             gatherTask = nil
         }
         if phase == .naming { reset() }
-        guard !entries.isEmpty else { return }
         requested = planOperation
         echo = EchoBuffer()
         progress = nil

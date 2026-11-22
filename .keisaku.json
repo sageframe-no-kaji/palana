@@ -7,7 +7,7 @@
       "hero": "The state view, built into the same model.",
       "importance": 3,
       "featured": false,
-      "group": "infrastructure",
+      "group": "mac-utilities",
       "themes": [
         "infrastructure",
         "sovereignty"
@@ -34,7 +34,7 @@
       ],
       "tech_stack": "Swift",
       "created": "2026-05-08",
-      "last_updated": "2026-11-18",
+      "last_updated": "2026-11-19",
       "conceived": "2025-08-01",
       "named": "2026-03-21",
       "short_description": "An operational workbench for the homelab — a dual-pane file manager with true server-side operations, ZFS-aware cross-dataset handling, and a field view of machine topology.",
@@ -48,7 +48,7 @@
       "availability": "shipped",
       "usage": "me",
       "_keisaku": {
-        "generated_at": "2026-11-19T07:33:07",
+        "generated_at": "2026-11-19T17:23:07",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",

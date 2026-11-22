@@ -84,7 +84,13 @@ extension PlanEngine {
     /// copy, including the unambiguous abbreviations openrsync accepts
     /// (`--rem`), and any quoting or escaping, which the shell would
     /// resolve into an option this check never saw.
-    static func validateRsyncOperatorFlags(_ flags: String?) throws {
+    ///
+    /// On a copy — the only operation that takes operator flags — flags
+    /// that decide how an interrupted transfer is kept are refused too:
+    /// `.palana-partial` is what lets a stopped copy resume without a
+    /// fragment under the file's own name (review Q06). A move drops
+    /// operator flags, so they cannot reach it.
+    static func validateRsyncOperatorFlags(_ flags: String?, copying: Bool = true) throws {
         guard let flags else { return }
         if flags.contains(where: { "'\"\\`$".contains($0) }) {
             throw PlanError.rsyncFlagsQuoted
@@ -93,6 +99,44 @@ extension PlanEngine {
         if tokens.contains(where: { Self.namesSourceRemoval(String($0)) }) {
             throw PlanError.rsyncFlagsControlSourceRemoval
         }
+        let written = flags.split(whereSeparator: \.isWhitespace).map(String.init)
+        if copying, written.contains(where: Self.controlsInterruptedCopies) {
+            throw PlanError.rsyncFlagsControlInterruptedCopies
+        }
+    }
+
+    /// The long options that decide where an interrupted transfer's bytes
+    /// go, or whether they are reused (review Q06).
+    private static let interruptedCopyOptions = [
+        "--partial", "--partial-dir", "--no-partial", "--inplace", "--append", "--append-verify",
+        "--delay-updates", "--whole-file", "--no-whole-file",
+        // Forwards options to the other rsync process, where this check
+        // cannot see them (review Q06, pass 2).
+        "--remote-option",
+    ]
+
+    /// Short options whose value follows in the same token: the rest of the
+    /// token is that value, not more options (`-T/tmp/Work` is a temp dir).
+    private static let shortOptionsTakingValues: Set<Character> = ["B", "e", "f", "T", "@"]
+
+    /// True when a flag token would change how an interrupted copy is kept.
+    ///
+    /// One of those long options, or an abbreviation rsync could read as
+    /// one, or a short-option cluster holding `P` (`--partial --progress`),
+    /// `W` (`--whole-file`) or `M` (`--remote-option`), read up to an option
+    /// that takes the rest of the token as its value. The token is read as
+    /// written: `-p` keeps permissions and is allowed.
+    static func controlsInterruptedCopies(_ token: String) -> Bool {
+        if token.hasPrefix("--") {
+            let option = token.lowercased().split(separator: "=", maxSplits: 1).first.map(String.init) ?? token
+            return option.count > 2 && Self.interruptedCopyOptions.contains { $0.hasPrefix(option) }
+        }
+        guard token.hasPrefix("-"), token.count > 1 else { return false }
+        for option in token.dropFirst() {
+            if option == "P" || option == "W" || option == "M" { return true }
+            if Self.shortOptionsTakingValues.contains(option) { return false }
+        }
+        return false
     }
 
     /// True when a whitespace-delimited command token is a source-removal

@@ -26,6 +26,10 @@ final class QuitState {
     /// Watches a pending "Quit When Finished" until the work ends.
     var watchTask: Task<Void, Never>?
 
+    /// Numbers each "Quit When Finished" request; a watch acts only for its
+    /// own (review Q01, pass 2).
+    var request = 0
+
     /// Asks the app to quit; tests count calls instead.
     ///
     /// Production schedules `terminate:` on the run loop rather than calling
@@ -42,9 +46,9 @@ final class QuitState {
 
 extension PalanaSession {
     /// Whether ⌘Q must ask first: a plan is running, or saves are still on
-    /// their way back to their servers.
+    /// their way back to their servers — queued, being sent, or settling.
     var quitNeedsConfirmation: Bool {
-        operation.phase == .enacting || !roundTripCenter.isIdle
+        operation.phase == .enacting || operation.roundTripUploadActive || !roundTripCenter.isIdle
     }
 
     /// The prompt's explanation, naming what is still in progress.
@@ -83,15 +87,43 @@ extension PalanaSession {
     }
 
     /// Holds new operator work and watches until everything in flight ends.
+    ///
+    /// An operator plan that has not started — composing, or waiting for
+    /// Enter — is discarded, as quitting would discard it: left in place,
+    /// it held the panel so the queued saves could never go, and Enter
+    /// could still start it (review Q03).
+    ///
+    /// Choosing to wait again while a failure that cancelled an earlier
+    /// quit is on screen is the operator having seen it: the hold on the
+    /// queued saves lifts, they go, and the quit follows. Left in place,
+    /// the hold kept them queued and the quit waiting forever (review Q01,
+    /// pass 2). A failure after this choice still cancels the quit. Any
+    /// earlier watch ends here, before it could act on this request.
     private func beginQuitWhenFinished() {
         guard !operation.quitPending else { return }
+        quit.watchTask?.cancel()
+        quit.request += 1
+        let request = quit.request
+        if operation.holdsUploadsForFailure {
+            operation.holdsUploadsForFailure = false
+            operation.note("quitting after what failed — the saves still waiting go first")
+        }
+        if !operation.roundTripUploadActive {
+            switch operation.phase {
+            case .naming, .gathering, .ready:
+                operation.dismissOrCancel()
+                operation.note("the plan that had not started is set aside — quitting when the rest finishes")
+            case .idle, .enacting, .finished, .failed, .cancelled:
+                break
+            }
+        }
         operation.quitPending = true
         operation.note("quitting when this finishes — ⌘Q again to stop now or stay open")
         quit.watchTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard let self, !Task.isCancelled else { return }
-                if self.settleQuitWhenFinished() { return }
+                if self.settleQuitWhenFinished(request: request) { return }
             }
         }
     }
@@ -102,19 +134,22 @@ extension PalanaSession {
     /// app was asked to quit, or something failed or was stopped and the
     /// quit was cancelled. Exposed for tests, which pump it directly.
     @discardableResult
-    func settleQuitWhenFinished() -> Bool {
-        guard operation.quitPending else { return true }
+    func settleQuitWhenFinished(request: Int? = nil) -> Bool {
+        // A watch for an earlier request ends without acting.
+        if let request, request != quit.request { return true }
+        // A failure or stop cancels the quit the moment it happens (the
+        // operation model's phase observer); the watch just ends.
+        guard operation.quitPending else {
+            quit.watchTask = nil
+            return true
+        }
         switch operation.phase {
-        case .failed:
-            cancelPendingQuit(reason: "something failed")
-            return true
-        case .cancelled:
-            cancelPendingQuit(reason: "the run was stopped")
-            return true
         case .enacting, .gathering, .ready, .naming:
             return false
-        case .idle, .finished:
-            guard roundTripCenter.isIdle else { return false }
+        case .idle, .finished, .failed, .cancelled:
+            // A failed or stopped phase seen here came before this request
+            // — a later one would have cancelled it — so it is settled work.
+            guard !operation.roundTripUploadActive, roundTripCenter.isIdle else { return false }
             quit.watchTask = nil
             quit.requestTermination()
             return true

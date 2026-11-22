@@ -27,12 +27,20 @@ extension OperationModel {
         + " in that instant, its write can be lost"
 
     /// The operator chose the rename commit: the same send-back runs again with it.
+    ///
+    /// Only a round-trip upload carries the commit step an offer is made
+    /// from, so the retry is that upload — a save going back — and a
+    /// pending quit lets it run and waits for it. Whether it may run is
+    /// settled before the panel changes: during shutdown nothing starts,
+    /// and nothing is left at `.ready` that no one may enact (review Q03,
+    /// pass 5).
     func acceptRenameCommit() {
-        guard phase == .failed, let offer = renameCommitOffer else { return }
+        guard !isClosing, phase == .failed, let offer = renameCommitOffer else { return }
         plan = offer
         readyCallout = nil
         echo.appendLine("replacing without the safe check — the commit renames", kind: .note)
         phase = .ready
+        roundTripUploadActive = true
         enact()
     }
 }

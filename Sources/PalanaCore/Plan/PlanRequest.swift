@@ -199,6 +199,9 @@ public enum PlanError: Error, Equatable, Sendable {
     case moveReleaseUnavailable
     /// Custom rsync flags attempted to control source-file removal.
     case rsyncFlagsControlSourceRemoval
+    /// Custom rsync flags would change how an interrupted copy is kept —
+    /// a fragment under the file's own name, or no resume (review Q06).
+    case rsyncFlagsControlInterruptedCopies
     /// Custom rsync flags carry quotes, escapes, or substitutions the
     /// shell would resolve into options no check has seen.
     case rsyncFlagsQuoted

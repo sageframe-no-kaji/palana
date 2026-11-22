@@ -34,9 +34,12 @@ final class OperationModel {
 
     /// Where the panel stands.
     var phase = Phase.idle {
-        // The rename offer belongs to the failure that raised it: any
-        // new work, dismissal or retry withdraws it.
-        didSet { if phase != .failed { renameCommitOffer = nil } }
+        didSet {
+            // The rename offer belongs to the failure that raised it: any
+            // new work, dismissal or retry withdraws it.
+            if phase != .failed { renameCommitOffer = nil }
+            trackUploadAndQuit()
+        }
     }
     /// The composed plan, whole, once ready.
     var plan: Plan?
@@ -150,6 +153,20 @@ final class OperationModel {
 
     /// Whether an operation the operator starts may begin now.
     var admitsOperatorWork: Bool { !isClosing && !quitPending }
+
+    /// True while a round-trip upload is being sent.
+    ///
+    /// Set at delivery, cleared when its operation ends — sent, failed,
+    /// stopped, or dismissed (review Q02).
+    var roundTripUploadActive = false
+
+    /// True after a failure or stop cancelled a pending quit.
+    ///
+    /// Until the operator dismisses it or starts something new, queued
+    /// uploads wait, so the next one cannot replace the failure on
+    /// screen (review Q01).
+    var holdsUploadsForFailure = false
+
     /// The running enactment — the quit path stops and awaits it.
     var enactTask: Task<Void, Never>?
     /// True from ⌃C until the enactment's processes have exited.
@@ -223,6 +240,13 @@ final class OperationModel {
             panelShowing = true
             return
         }
+        // A verb with nothing to act on changes nothing — the panel's
+        // current work, an upload's included, stays as it was (review Q03,
+        // pass 3). Only then is anything cancelled or replaced.
+        guard let sourceHost = source.state.host, source.status == .ready else { return }
+        panelShowing = true
+        let subjects = source.operationSubjects
+        guard !subjects.isEmpty else { return }
         // A verb while composing cancels the gather; the new verb takes over.
         if phase == .gathering {
             gatherTask?.cancel()
@@ -232,10 +256,6 @@ final class OperationModel {
         // reset cleanly if somehow reached so the begin proceeds fresh.
         if phase == .naming { reset() }
         // .idle, .ready, .finished, .failed, .cancelled fall through to a fresh begin.
-        guard let sourceHost = source.state.host, source.status == .ready else { return }
-        panelShowing = true
-        let subjects = source.operationSubjects
-        guard !subjects.isEmpty else { return }
         requested = operation
         echo = EchoBuffer()
         progress = nil
@@ -332,7 +352,9 @@ final class OperationModel {
 
     /// Enter — runs the plan exactly as read, echoing everything.
     func enact() {
-        guard !isClosing, phase == .ready, let plan else { return }
+        // While a quit waits, Enter runs only a round-trip upload's plan —
+        // the work the quit waits for — never an operator plan (review Q03).
+        guard !isClosing, !quitPending || roundTripUploadActive, phase == .ready, let plan else { return }
         phase = .enacting
         // Open the log session: blank separator then the run header.
         log.appendLine("")
@@ -585,6 +607,7 @@ extension OperationModel {
 
     func reset() {
         phase = .idle
+        holdsUploadsForFailure = false
         plan = nil
         echo = EchoBuffer()
         progress = nil
@@ -684,17 +707,19 @@ extension OperationModel {
             panelShowing = true
             return
         }
+        // Nothing to name changes nothing (review Q03, pass 3).
+        guard let sourceHost = source.state.host, source.status == .ready else { return }
+        let renaming = operation == .rename ? source.cursorEntry : nil
+        if operation == .rename, renaming == nil { return }
         if phase == .gathering {
             gatherTask?.cancel()
             gatherTask = nil
         }
         if phase == .naming { reset() }
-        guard let sourceHost = source.state.host, source.status == .ready else { return }
         // A stale ZFS gather must not misroute this naming's commit —
         // commitNaming routes to the ZFS path while a pending verb stands.
         clearZFSGatherState()
-        if operation == .rename {
-            guard let entry = source.cursorEntry else { return }
+        if operation == .rename, let entry = renaming {
             pendingNamingEntry = entry
             namingPrefill = entry.name
             namingLabel = "type the new name — ⏎ renames"

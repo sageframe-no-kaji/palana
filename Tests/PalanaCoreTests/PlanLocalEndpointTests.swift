@@ -60,7 +60,7 @@ struct PlanLocalEndpointTests {
         #expect(plan.transport == .rsyncDirect)
         #expect(
             plan.steps.map(\.command) == [
-                "rsync -a --partial-dir=.rsync-partial /Users/op/files/a.txt "
+                "rsync -a --partial-dir=.palana-partial /Users/op/files/a.txt "
                     + "'/Users/op/files/with space' koan:/rpool/cold/"
             ])
         #expect(plan.steps.first?.runsOn == .host("local"))
@@ -79,7 +79,7 @@ struct PlanLocalEndpointTests {
         let facts = PlanFacts(
             sourceCapability: Self.localModern, destinationCapability: Self.remoteRsync)
         let plan = try plan(.copy, from: here, to: koan, facts: facts)
-        #expect(plan.steps[0].command.hasPrefix("rsync -a -s --partial-dir=.rsync-partial --info=progress2 "))
+        #expect(plan.steps[0].command.hasPrefix("rsync -a -s --partial-dir=.palana-partial --info=progress2 "))
     }
 
     @Test("pulling runs rsync here with remote sources")
@@ -92,7 +92,7 @@ struct PlanLocalEndpointTests {
         // quote the remote shell unwraps.
         #expect(
             plan.steps.map(\.command) == [
-                "rsync -a --partial-dir=.rsync-partial koan:/rpool/cold/a.txt "
+                "rsync -a --partial-dir=.palana-partial koan:/rpool/cold/a.txt "
                     + #"'koan:'\''/rpool/cold/with space'\''' /Users/op/files/"#
             ])
         #expect(plan.steps.first?.runsOn == .host("local"))

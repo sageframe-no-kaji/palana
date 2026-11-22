@@ -20,12 +20,17 @@ extension PlanEngine {
     /// `-s` outright (CI found it live), so the floor protects remote
     /// paths by inner-quoting instead — see `composeRsyncDirect`.
     ///
-    /// The kept bytes go in a hidden `.rsync-partial` folder beside the
+    /// The kept bytes go in a hidden `.palana-partial` folder beside the
     /// destination (`--partial-dir`), never under the file's own name:
     /// with `--partial`, a stopped copy left a fragment that looked like
     /// the finished file (hands check, 2026-11-19). A later run of the
     /// same copy resumes from the folder and removes it; Homebrew rsync
-    /// and macOS's openrsync both do.
+    /// and macOS's openrsync both do. The folder is relative on purpose:
+    /// an absolute partial folder fails rsync's verification whenever the
+    /// saved bytes are reused (exit 23 on both, review Q05), so resume
+    /// would break. A relative name makes rsync skip folders of that name
+    /// in the selection; the owner reserved `.palana-partial` as pālana's
+    /// own (ruling 2026-11-19), and the plan says so when one is selected.
     ///
     /// When ``operatorFlags`` is non-nil and non-empty after trimming,
     /// the trimmed value is appended after the base set — on copies only.
@@ -40,20 +45,30 @@ extension PlanEngine {
     /// both ends carry them: the source is deleted after the transfer,
     /// so what `-a` leaves behind is lost (review 2026-11-15, finding 4).
     /// Copies are unchanged — the original keeps its metadata.
-    /// Where an interrupted transfer's bytes wait for the next run — a
-    /// hidden folder beside the destination, never the file's own name.
-    static let partialDirFlag = "--partial-dir=.rsync-partial"
+    ///
+    /// A same-host copy also passes `--no-whole-file`: rsync copies whole
+    /// files between local paths by default and ignores the saved bytes,
+    /// so a stopped local copy — a mounted share included — started over
+    /// (review Q04).
+    /// The hidden folder an interrupted transfer's bytes wait in — reserved
+    /// as pālana's own.
+    public static let partialDirName = ".palana-partial"
+
+    /// Where an interrupted transfer's bytes wait for the next run.
+    static let partialDirFlag = "--partial-dir=\(partialDirName)"
 
     static func rsyncFlags(
         runningOn capability: HostCapability?,
         operatorFlags: String? = nil,
         removingSource: Bool = false,
-        keeping metadata: MoveMetadata = .none
+        keeping metadata: MoveMetadata = .none,
+        sameHost: Bool = false
     ) -> String {
         var base =
             Self.modernRsync(capability)
             ? "-a -s \(partialDirFlag) --info=progress2"
             : "-a \(partialDirFlag)"
+        if sameHost { base += " --no-whole-file" }
         let trimmed = operatorFlags?.trimmingCharacters(in: .whitespaces) ?? ""
         if !removingSource, !trimmed.isEmpty {
             base += " \(trimmed)"
@@ -79,14 +94,16 @@ extension PlanEngine {
         runningOn capability: HostCapability?,
         operatorFlags: String? = nil,
         removingSource: Bool = false,
-        keeping metadata: MoveMetadata = .none
+        keeping metadata: MoveMetadata = .none,
+        sameHost: Bool = false
     ) -> String {
         let binary = capability?.rsyncPath.map(ShellQuote.quote) ?? "rsync"
         let flags = rsyncFlags(
             runningOn: capability,
             operatorFlags: operatorFlags,
             removingSource: removingSource,
-            keeping: metadata)
+            keeping: metadata,
+            sameHost: sameHost)
         return "\(binary) \(flags)"
     }
 

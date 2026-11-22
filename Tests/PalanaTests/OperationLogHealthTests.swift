@@ -68,6 +68,25 @@ final class OperationLogHealthTests: XCTestCase {
                 + "\n── next run\ndone\n# step 1 finished (exit 0)\n")
     }
 
+    func testANewLogStartsItsOwnLineAfterAnEarlierRunsUnterminatedOutput() throws {
+        // Review Q07: an earlier run (or instance) can leave the record
+        // ending mid-line in raw output; a new log must not glue onto it.
+        let earlier = OperationLog(url: logURL)
+        earlier.appendRaw("  1,048,576   5%   1.00MB/s    0:00:20\r")
+        earlier.close()
+        let later = OperationLog(url: logURL)
+        later.appendLine("# retained: local:/tmp/x — kept")
+        later.close()
+        XCTAssertEqual(
+            try String(contentsOf: logURL, encoding: .utf8),
+            "  1,048,576   5%   1.00MB/s    0:00:20\r\n# retained: local:/tmp/x — kept\n")
+        // A record that already ends a line gets no blank line.
+        let third = OperationLog(url: logURL)
+        third.appendLine("next")
+        third.close()
+        XCTAssertTrue(try String(contentsOf: logURL, encoding: .utf8).hasSuffix("kept\nnext\n"))
+    }
+
     func testRealHandleWriteFailureIsRetained() {
         // A handle opened read-only refuses the write the way a full disk does.
         let log = OperationLog(url: logURL) { try FileHandle(forReadingFrom: $0) }

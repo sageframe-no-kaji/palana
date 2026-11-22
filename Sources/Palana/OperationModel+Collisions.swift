@@ -15,6 +15,11 @@ extension OperationModel {
         into facts: inout PlanFacts
     ) async {
         guard let destination else { return }
+        // pālana's own folder for interrupted copies is not copied by
+        // rsync — say so when one is selected (owner ruling 2026-11-19, Q05).
+        if subjects.contains(where: { $0.name == PlanEngine.partialDirName }) {
+            note("\(PlanEngine.partialDirName) is pālana's folder for interrupted copies — rsync skips it")
+        }
         await gatherCollisions(destination: destination, subjects: subjects, into: &facts)
     }
 
