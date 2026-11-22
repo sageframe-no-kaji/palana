@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 — 2026-11-22
+
+- Remote panes no longer show "remote drag: between panes only" in their footer. The footer hints for ZFS mode and the preview pane have a left margin.
+- The live shell uses the SSH configuration named by `PALANA_SSH_CONFIG` when that variable is set, like every other part of pālana.
+
 ## 1.0.0 — 2026-11-22
 
 - Press ⌘1 through ⌘9 to open your first nine favorites. Reorder them within their groups by dragging or with ⌥↑ and ⌥↓. Use ⇧⌘8 to star the current folder.
