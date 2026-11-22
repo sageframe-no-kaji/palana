@@ -59,6 +59,29 @@ struct TerminalLaunchTests {
         #expect(launch.args.count == 4, "-t, alias, --, command — nothing else")
     }
 
+    @Test("PALANA_SSH_CONFIG reaches the shell too: -F <config> before the alias")
+    func configOverrideReachesShell() {
+        let launch = TerminalLaunch.plan(
+            host: "koan",
+            directory: "/rpool/cold",
+            environment: ["PALANA_SSH_CONFIG": "/tmp/fixture/ssh_config"])
+        #expect(launch.executable == "/usr/bin/ssh")
+        #expect(
+            launch.args == [
+                "-F", "/tmp/fixture/ssh_config", "-t", "koan", "--", "cd /rpool/cold \(Self.remoteCommandTail)",
+            ],
+            "a fixture alias must never fall through to the live host of the same name")
+    }
+
+    @Test("the local shell ignores PALANA_SSH_CONFIG")
+    func localIgnoresConfigOverride() {
+        let launch = TerminalLaunch.plan(
+            host: PalanaCore.localHostName,
+            directory: "/tmp",
+            environment: ["PALANA_SSH_CONFIG": "/tmp/fixture/ssh_config", "SHELL": "/bin/zsh"])
+        #expect(launch.args == ["-l"])
+    }
+
     @Test("the remote command names cd, the quoted directory, and exec, in that order")
     func remoteCommandShape() {
         let command = TerminalLaunch.remoteCommand(directory: "/var/log")

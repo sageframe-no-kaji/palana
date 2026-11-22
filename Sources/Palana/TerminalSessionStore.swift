@@ -121,9 +121,11 @@ final class ShellTerminalView: LocalProcessTerminalView {
 /// `/bin/zsh`) launched with `-l` and the pane's directory as the
 /// process's working directory. Remote: `ssh -t <alias> -- <command>`
 /// where the command changes into the pane's directory and replaces
-/// itself with the login shell — no `-F`, no extra options, so the
-/// operator's own `~/.ssh/config` governs exactly as it does in
-/// Terminal.app.
+/// itself with the login shell — no extra options, so the operator's own
+/// `~/.ssh/config` governs exactly as it does in Terminal.app. The one
+/// exception is `PALANA_SSH_CONFIG`: when a development or test instance
+/// points the stack at another config, the shell takes it too (`-F`), so
+/// an alias there can never reach the live host of the same name.
 struct TerminalLaunch: Equatable, Sendable {
     /// The binary to spawn inside the pseudo-terminal.
     let executable: String
@@ -153,9 +155,10 @@ struct TerminalLaunch: Equatable, Sendable {
             let shell = environment["SHELL"] ?? "/bin/zsh"
             return Self(executable: shell, args: ["-l"], currentDirectory: directory)
         }
+        let configOverride = environment["PALANA_SSH_CONFIG"].map { ["-F", $0] } ?? []
         return Self(
             executable: "/usr/bin/ssh",
-            args: ["-t", host, "--", remoteCommand(directory: directory)],
+            args: configOverride + ["-t", host, "--", remoteCommand(directory: directory)],
             currentDirectory: nil
         )
     }

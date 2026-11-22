@@ -159,21 +159,21 @@ struct PaneView: View {
     /// Wired to the same show path backtick uses so the operator can
     /// summon the terminal from wherever the mouse happens to be. In zfs
     /// mode this line names the exits instead (ho-10.3 Decision 2) — no
-    /// mistaking which activity the pane is in from any distance.
+    /// mistaking which activity the pane is in from any distance. Files
+    /// mode shows no line: the remote drag-out limit is documented, not
+    /// repeated under every remote pane.
     private var paneFooter: some View {
         HStack {
             if model.paneMode == .zfs {
                 Text("↑↓ walk · letter fires verb · ⏎ opens mounted · esc/Z exits zfs mode")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
+                    .padding(.leading, 8)
             } else if model.paneMode == .preview {
                 Text("previewing the left pane · v or esc exits")
                     .font(Theme.font(11))
                     .foregroundStyle(Theme.plugin)
-            } else if model.state.host != nil && !model.isLocalPane {
-                Text("remote drag: between panes only")
-                    .font(Theme.font(11))
-                    .foregroundStyle(Theme.inkFaint)
+                    .padding(.leading, 8)
             }
             Spacer()
             ToolbarGlyphButton("rectangle.bottomthird.inset.filled", help: "terminal") {
