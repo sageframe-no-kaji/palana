@@ -47,6 +47,7 @@ extension OperationModel {
         case PlanError.moveReleaseUnavailable:
             return "that move has no supported rsync path — copy it, then delete the source separately"
         case PlanError.rsyncFlagsControlSourceRemoval, PlanError.rsyncFlagsQuoted,
+            PlanError.rsyncFlagsControlInterruptedCopies,
             PlanError.sourceIsDestination, PlanError.destinationInsideSelection:
             return describeSafetyRefusal(error)
         case PlanError.zfsPoolRootRefused:
@@ -65,6 +66,9 @@ extension OperationModel {
             return "source removal belongs to the move command — remove that option from rsync flags"
         case PlanError.rsyncFlagsQuoted:
             return "rsync flags can't contain quotes, backslashes, or $ — write the options plainly"
+        case PlanError.rsyncFlagsControlInterruptedCopies:
+            return "pālana keeps interrupted copies itself (in \(PlanEngine.partialDirName), to resume)"
+                + " — remove --partial, --inplace, --append, -P or --whole-file from rsync flags"
         case PlanError.sourceIsDestination:
             return "the destination is the source folder — nothing would move"
         case PlanError.destinationInsideSelection:

@@ -15,7 +15,7 @@ public enum PlanEngine {
         try validate(request)
         try validatePlace(request)
         if request.operation == .move || request.operation == .copy {
-            try validateRsyncOperatorFlags(facts.rsyncOperatorFlags)
+            try validateRsyncOperatorFlags(facts.rsyncOperatorFlags, copying: request.operation == .copy)
         }
         let collisions = collisionReport(for: request, facts: facts)
         // A kind clash is refused before composition: the tool would
@@ -306,7 +306,8 @@ extension PlanEngine {
                 runningOn: facts.sourceCapability,
                 operatorFlags: facts.rsyncOperatorFlags,
                 removingSource: removingSource,
-                keeping: removingSource ? moveMetadata(transport: .local, facts: facts) : .none)
+                keeping: removingSource ? moveMetadata(transport: .local, facts: facts) : .none,
+                sameHost: true)
             return facts.sourceCapability?.rsync != nil
                 ? "\(invocation) \(sources) \(dest)"
                 : "cp -a \(sources) \(dest)"
