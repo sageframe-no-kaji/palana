@@ -1,45 +1,22 @@
-# pālana 1.0
+# pālana 1.0.0
 
 *Tend your field.*
 
-The first full release. pālana is a native Mac app for tending a homelab — calm,
-keyboard-first, dual-pane, over your own `ssh`. Every operation is planned before
-it enacts: you read the real commands, then press Enter. Supported cross-host
-moves travel host to host; your Mac never carries the bytes.
+pālana is a two-pane file manager for the machines you run yourself. Each pane can open a local folder, a mounted drive, or an SSH host. Select files in one pane and press `y` to plan a copy to the other. The plan shows the commands, the destination, and the route before you press Enter.
 
-**Get it:** **[palana.sageframe.net](https://palana.sageframe.net)** · macOS 14+ ·
-signed & notarized · source here under GPL-3.0.
+## Changes since v0.8-beta
 
-### What's in 1.0
+- Press ⌘1 through ⌘9 to open your first nine favorites. Reorder them within their groups by dragging or with ⌥↑ and ⌥↓. Use ⇧⌘8 to star the current folder.
+- If you interrupt an rsync copy, run the same copy again to reuse the data already received. Until it finishes, the incomplete file stays in a hidden `.palana-partial` directory at the destination. Rsync skips directories with that reserved name inside your selection. pālana refuses copy flags that change how interrupted data is kept or reused, including `--partial`, `--inplace`, `--append`, `-P`, `--whole-file`, and `--remote-option`.
+- When you quit during a transfer or upload, choose **Keep Running**, **Quit When Finished**, or **Stop and Quit**. While a quit waits, pālana sets aside unstarted file plans. Enter can still send a saved edit back, including a retry using “replace by rename.” If a transfer fails or stops, the app stays open and holds queued saves until you dismiss the failed plan or choose Quit When Finished again.
+- Before an rsync move, the plan tells you which extended attributes and access permissions the hosts can preserve. Rsync removes each source file after its destination copy matches. If the move stops, check both locations. The panel reports selected source paths that remain.
+- Moving a whole ZFS dataset unmounts its source tree before taking a snapshot. After the receive, pālana checks for writes since the snapshot before it destroys the source.
+- If a remote filesystem cannot create the hard link needed to replace an edited file, you can choose to replace it by rename. A concurrent write between the final check and the rename can be overwritten.
 
-- **Plan → enact** — copy, move, delete, rename, create; the exact commands shown
-  before anything runs.
-- **Server-side transfers** — copies use direct rsync or a tar fallback. File
-  moves require supported rsync, compare contents, and remove each source file
-  after transfer. The plan warns that interruption may split files across both
-  locations.
-- **ZFS, natively** — dataset boundaries as facts, `zfs send/receive` for whole
-  datasets, and a workbench for datasets and snapshots — every mutation a plan.
-- **The field view** — your machines, pools, and datasets, one keystroke away.
-- **The live shell** (`⌘\``), the **preview pane** (`v`, local + remote text and
-  images), **drag-and-drop**, **dark mode**, and **one-key zoom**.
-- **Launch update check** — pālana tells you when a new version is out.
+## Dragging files
 
-### Drag-and-drop limits
+Drag local files or folders into Finder to copy them. Command-drag to move into Finder remains [open](https://github.com/sageframe-no-kaji/palana/issues/6). Remote files can move between panes through a plan. To drag one into another app, first copy it to a local pane.
 
-- Local files and folders copy into Finder; Command-drag moves are deferred
-  ([#6](https://github.com/sageframe-no-kaji/palana/issues/6)).
-- Remote files and folders drag between Palana's panes. Remote drag-out into
-  Finder or browsers is paused while the intermittent macOS drag freeze remains
-  open ([#4](https://github.com/sageframe-no-kaji/palana/issues/4)). Copy to a local
-  pane first, then drag that local copy into the other app.
-- A remote-origin drag still froze the signed candidate after external delivery
-  was disabled. Later checks passed, but the freeze remains intermittent and
-  unresolved. See the [full investigation](../docs/known-issues/drag-freeze.md).
+On macOS 27, a row drag can occasionally leave the window ignoring clicks. Quit and reopen pālana to recover. The [investigation](https://github.com/sageframe-no-kaji/palana/blob/main/docs/known-issues/drag-freeze.md) records the observed failure and the limits of the replay tests.
 
-Runs when you open it, stops when you close it. Nothing watches while you're away.
-
----
-
-*The `.dmg` is at [palana.sageframe.net](https://palana.sageframe.net). This
-release page tracks the version and the changelog; the source lives in this repo.*
+[Get the signed 1.0.0 app](https://payhip.com/b/YZKXE) for macOS 14 or later on Apple silicon or Intel. The US $29 purchase includes all 1.x updates. The [source](https://github.com/sageframe-no-kaji/palana) is available under GPL-3.0.
