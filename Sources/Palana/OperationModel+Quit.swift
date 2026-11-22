@@ -43,4 +43,52 @@ extension OperationModel {
         progress = nil
         phase = .cancelled
     }
+
+    /// Cancels a pending quit the instant something fails or is stopped.
+    ///
+    /// Called from the phase observer, so no queued upload can start —
+    /// and replace the failure — before the quit hears of it; the quit
+    /// watch's periodic look could miss a failure that came and went
+    /// between looks (review Q01).
+    func interruptPendingQuit() {
+        guard quitPending else { return }
+        quitPending = false
+        holdsUploadsForFailure = true
+        let reason = phase == .failed ? "something failed" : "the run was stopped"
+        echo.appendLine("quit cancelled — \(reason), so pālana stays open", kind: .note)
+        panelShowing = true
+    }
+
+    /// The panel's work is being replaced by a new operation.
+    ///
+    /// The failure it showed is moved on from, and an upload that was
+    /// waiting is no longer this panel's work (review Q03). Every real
+    /// replacement passes through here: naming and gathering through the
+    /// phase observer, Touch directly, because it composes straight to
+    /// `.ready` (Q03, pass 4). An upload sets its own flag again right
+    /// after entering `.gathering`. A command with nothing to act on
+    /// returns before reaching this, so it leaves the panel's work, and
+    /// its identity, as they were.
+    func displacePanelWork() {
+        holdsUploadsForFailure = false
+        roundTripUploadActive = false
+    }
+
+    /// The phase observer's quit and upload bookkeeping.
+    ///
+    /// An upload's work ends with its operation — sent, failed, stopped or
+    /// dismissed (review Q02). A failure or stop cancels a pending quit
+    /// at once (Q01). Naming or gathering means a new plan is replacing
+    /// whatever the panel held.
+    func trackUploadAndQuit() {
+        switch phase {
+        case .idle, .finished, .failed, .cancelled:
+            roundTripUploadActive = false
+        case .naming, .gathering:
+            displacePanelWork()
+        case .ready, .enacting:
+            break
+        }
+        if phase == .failed || phase == .cancelled { interruptPendingQuit() }
+    }
 }

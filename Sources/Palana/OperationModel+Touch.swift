@@ -16,14 +16,18 @@ extension OperationModel {
             panelShowing = true
             return
         }
+        // Nothing to touch changes nothing (review Q03, pass 3).
+        guard let sourceHost = source.state.host, source.status == .ready else { return }
+        let subjects = source.operationSubjects
+        guard !subjects.isEmpty else { return }
+        // Touch composes straight to `.ready`, past the phases where the
+        // observer notices a replacement, so it says so itself (Q03, pass 4).
+        displacePanelWork()
         if phase == .gathering {
             gatherTask?.cancel()
             gatherTask = nil
         }
         if phase == .naming { reset() }
-        guard let sourceHost = source.state.host, source.status == .ready else { return }
-        let subjects = source.operationSubjects
-        guard !subjects.isEmpty else { return }
         panelShowing = true
         // A stale ZFS gather must not misroute a later naming.
         clearZFSGatherState()
