@@ -26,7 +26,12 @@ You read the real commands, then press Enter.
 - ⌘Q while a transfer runs, or while saved edits are still going back to their
   server, asks first: Keep Running, Quit When Finished, or Stop and Quit. Quit
   When Finished waits for the transfer and the queued saves, then quits; if any
-  of them fails or is stopped, pālana stays open with the failure on screen.
+  of them fails or is stopped, pālana stays open with the failure on screen,
+  and saves still waiting stay queued until you dismiss it. Choosing Quit When
+  Finished again over that failure sends the waiting saves, then quits. While a
+  quit waits, nothing new starts: a plan that has not started is set aside, and
+  Enter runs only a save going back, including a send-back retried with
+  "replace by rename".
 - An rsync copy that is stopped part-way keeps what it received in a hidden
   `.palana-partial` folder beside the destination, never under the file's own
   name. Running the same copy again resumes from it, sending only what is

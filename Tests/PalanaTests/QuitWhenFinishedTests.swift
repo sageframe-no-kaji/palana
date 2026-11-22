@@ -72,8 +72,14 @@ struct QuitWhenFinishedTests {
     }
 
     /// Pumps the watch until it ends (or a bounded number of looks).
+    ///
+    /// The session's own watch runs beside this pump. Once it has ended,
+    /// having requested the quit or seen it cancelled, there is nothing
+    /// left to look at: another look would request a second termination
+    /// the app never makes, because the counter stands in for quitting.
     private func settle(_ rig: TestSession) async throws {
         for _ in 0..<100 {
+            if rig.session.quit.watchTask == nil { return }
             if rig.session.settleQuitWhenFinished() { return }
             try await Task.sleep(for: .milliseconds(50))
         }
