@@ -1,29 +1,15 @@
 # Releasing pālana
 
-This document describes how a signed, notarized `.dmg` is built and published.
-pālana is pure Swift on SwiftPM. `Package.swift` stays canonical, and
-`scripts/build_macos.sh` wraps the build product in a `.app` bundle by hand.
-There is no Xcode project.
+Build the release from the commit the maintainer has tested and approved. The Swift package manifest, `Package.swift`, defines the executable. The packaging script assembles the app bundle and disk image.
 
-## The sequence
+For the first 1.0 release, publish in this order once the maintainer authorizes release.
 
-1. **Build, sign, and notarize** the DMG locally, then test it.
-2. **Sell the DMG on Payhip:** replace the file on the pālana product.
-3. **Tag the release and publish a GitHub release with notes only.** The in-app
-   update check reads its tag.
-4. **Update the site** so its version and Buy button match the release.
-
-> The update check (`Sources/Palana/UpdateChecker.swift`) asks GitHub's
-> latest-release endpoint for the newest tag at launch. When that tag is newer
-> than the running app's `CFBundleShortVersionString`, the app shows the update
-> and links to [palana.sageframe.net](https://palana.sageframe.net), never to a
-> GitHub download. For the check to see a release, publish it as GitHub's normal
-> Latest release, not as a prerelease or a draft. Tag it `v` followed by one to
-> three whole numbers separated by dots (`v1.0`, `v1.0.1`, `v1.1`). Missing
-> trailing numbers count as zero, so `v1.0` equals the bundle version `1.0.0`. A
-> tag with a suffix such as `v1.1-beta` sorts below `v1.1`.
-
----
+1. Prepare the Settings and keyboard-reference screenshots and the recorded tour.
+2. Build, sign, notarize, and test the final disk image from `main`.
+3. Create the Payhip product and upload the verified disk image.
+4. Publish the website with the real product URL and check the live site.
+5. Retire the beta disk-image assets from the v0.8-beta and v0.4-beta releases.
+6. Tag the tested commit and publish the 1.0 release notes last.
 
 ## Prerequisites
 
@@ -43,7 +29,9 @@ There is no Xcode project.
 
 ---
 
-## Step 1: Build, sign, notarize
+## Build, sign, and notarize
+
+The packaging script clears `dist/` before every build. Save any candidate you still need to compare before running it.
 
 ```bash
 export CODESIGN_IDENTITY="Developer ID Application: ANDREW TODD MARCUS (3N8F759K8D)"
@@ -59,7 +47,7 @@ The script builds arm64 and x86_64 separately and merges them with `lipo` into
 one universal executable. It assembles `dist/Palana.app`, writes the
 Info.plist, and signs inside-out (the executable, then the bundle, never
 `--deep`). It then notarizes and staples the app, packages
-`dist/palana-<version>.dmg` from the stapled app with `ditto`, signs the DMG
+`dist/palana-<version>.dmg` by staging the app with `ditto` and creating the image with `hdiutil`, signs the DMG
 with the same identity, and notarizes and staples the DMG. Notarizing a signed
 app inside an unsigned DMG is not enough: Gatekeeper rejects the container.
 
@@ -96,10 +84,8 @@ before you publish.
 
 ### Signing rules that must not change
 
-- **Never use `codesign --deep`.** It signs nested code in the wrong order and
-  invalidates it. The script signs the executable, then the bundle.
-- **Use `ditto` for DMG staging, not `cp -r`.** `cp -r` follows symlinks and
-  corrupts the bundle, which breaks the signature and notarization.
+- Sign the executable first and the bundle second. Use `--deep` only for verification.
+- Stage the signed bundle with `ditto` to preserve its structure.
 - **Notarize both layers.** Notarize and staple the app before it goes into the
   DMG, then notarize and staple the DMG.
 - **Hardened runtime, empty entitlements.** `scripts/entitlements.plist` is
@@ -109,35 +95,21 @@ before you publish.
 
 ---
 
-## Step 2: Payhip
+## Publish the build and site
 
-Upload `dist/palana-<version>.dmg` to the pālana product on Payhip, replacing
-the previous file. The product page copy is in the website repository at
-`design/payhip/payhip-listing.md`. The price is US $29 and covers all 1.x
-updates. There is no license key or activation to configure.
+The [pālana product on Payhip](https://payhip.com/b/YZKXE) holds the approved listing. For an update, upload the verified release file to that product. The website repository’s `design/payhip/` directory contains the gallery assets. The price is US $29 and includes all 1.x updates.
 
-## Step 3: Tag and publish the release notes
+In `sageframe-dharma/palana-web`, set `version` and the real Payhip `buyUrl` in `public/_data/site.json`. Check that the application README, release notes, and website identify the same build and link to the same product. Run `npm run build` and check the purchase link. A push to the site’s `main` branch publishes it. Verify that the live purchase link opens the intended product and that `/.git/HEAD` returns 404.
+
+## Tag the tested commit and publish the notes
+
+The 1.0.0 disk image was built from `74be760`. PR #20 subsequently changed the application on `main`. For this image, tag the build commit or a documentation-only successor with the same application source and packaging inputs. The commands below assume you have checked out that intended revision and committed the final notes. Publish a regular GitHub release with notes only. At launch, the app reads GitHub’s latest release tag and links to the product site if the tag is newer than the running bundle version. Drafts and prereleases do not appear at that endpoint.
 
 ```bash
-git push origin main
-git tag -a v<version> -m "pālana <version>"     # for example, v1.0
-git push origin v<version>
-gh release create v<version> \
-    --verify-tag \
-    --latest \
-    --title "pālana <version>" \
-    --notes-file packaging/release-notes-v<version>.md
+git tag -a v1.0 -m "pālana 1.0.0" HEAD
+git push origin v1.0
+gh release create v1.0 --verify-tag --latest \
+    --title "pālana 1.0" --notes-file packaging/release-notes-v1.0.md
 ```
 
-Attach no DMG. The signed app is sold through the site, and the source is free
-to build. Do not pass `--prerelease`, because GitHub excludes prereleases from
-the latest-release endpoint that pālana checks.
-
-## Step 4: The site
-
-Update [palana.sageframe.net](https://palana.sageframe.net) (the
-`sageframe-dharma/palana-web` repository): set `version` in
-`public/_data/site.json`, confirm that `buyUrl` points to the Payhip product,
-build, and publish. Point the site's release notes at the exact GitHub release
-page. The Help menu, the About panel, and the update notice all link to the
-site.
+Use a tag with one to three numeric components after the initial `v`. The update checker treats omitted trailing components as zero, so `v1.0` matches bundle version `1.0.0`.

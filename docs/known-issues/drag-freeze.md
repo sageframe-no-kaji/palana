@@ -5,17 +5,11 @@ Updated: 2026-11-17. Status: open, root cause unproven.
 Tracking issue: [#4](https://github.com/sageframe-no-kaji/palana/issues/4).
 Separate limitation: [Command-drag moves into Finder, #6](https://github.com/sageframe-no-kaji/palana/issues/6).
 
-## Decision and current behavior
+## Symptoms and recovery
 
-The maintainer authorized merging `v1-release` into `main` with this issue
-open, so other work can continue. This is acceptance of a known intermittent
-defect, not a finding that the freeze is fixed. No new release build, signing,
-tag or publication is part of that merge. Stop the ongoing diagnostic work at
-this handoff; resume it as a separate task when requested.
+A row drag can stop almost immediately and leave the window ignoring clicks, even while the process is alive and its main thread is in the normal event loop. Quit and reopen pālana to recover. To transfer files without dragging, select the entries and press `y` for a copy plan or `m` for a move plan.
 
-The application source being merged is the source in `ff203c7`, following
-the drag-scope commit `ee3c137` and merge `daf537f`. `ff203c7` changes installer
-signing, not application logic. This document and its links add no app changes.
+The maintainer accepted this defect when merging the release candidate into `main`. The application examined here is from `ff203c7`, which changed installer signing after the drag changes in `ee3c137` and merge `daf537f`. The merge did not produce a new signed build or release tag.
 
 | Operation | Current behavior |
 | --- | --- |
@@ -29,26 +23,11 @@ signing, not application logic. This document and its links add no app changes.
 | Remote files/folders into Finder, Chrome or another app | Disabled; no external file URL or file promise advertised |
 | Finder files dropped into Palana | Retained |
 
-Remote drag-out being disabled does **not** prevent every freeze. A remote row
-still starts a native drag for pane transfers, and the signed candidate froze
-on that path after the external-delivery restriction was in place. Do not
-describe the current implementation as disabling all remote-origin drags.
+Remote rows still start a native drag for transfers between panes. The signed candidate froze on that path even after external delivery was disabled. The same build could fail on the first replay and then complete a batch without reproducing the freeze.
 
-## User-visible failure
+## Observed environment
 
-A drag can stop almost immediately, after which the window ignores clicks.
-The process may remain alive with its main thread in the normal event loop;
-this is not necessarily a terminated process or a conventional busy-loop hang.
-Restarting the app restores interaction, but does not remove the cause.
-
-The defect is intermittent. A build has failed on the first replay and then
-passed a subsequent batch; the maintainer also reported being unable to
-reproduce it again after a confirmed failure. Neither a later successful drag
-nor a batch without failures invalidates the captured incident.
-
-Observed environment: macOS 27.0.1 (`26A434`), Xcode 27.1 (`27A9275`), physical
-trackpad. Three-finger dragging is **not required**: the reported gesture was
-a pressed click with one finger and movement with another. Plain generated
+The maintainer observed the freeze with a physical trackpad on macOS 27.0.1 (`26A434`) with Xcode 27.1 (`27A9275`). The gesture was a pressed click with one finger and movement with another. Plain generated
 mouse events often failed to reproduce the problem; recorded trackpad events
 include additional gesture information. A macOS 27.2 VM did not reproduce it
 in the recorded testing and therefore was not an effective freeze control.
@@ -257,7 +236,7 @@ and cleanup. Keep the copy/move plan engine and live-host safety boundaries
 outside a drag-start fix unless new evidence specifically requires changes.
 
 Existing automated tests cover payloads, native table writer callbacks,
-selection and drop decoding. The last full run passed 251 application Swift
+selection and drop decoding. At the November 17 handoff, the suite passed 251 application Swift
 Testing tests, 1194 core Swift Testing tests and 81 XCTest tests; opt-in
 ZFS/corpus checks were skipped. Coverage was 97.74% for core and 63.51% for
 application logic. None of these checks establishes native gesture reliability.

@@ -1,116 +1,16 @@
 # Changelog
 
-All notable changes to pālana. Each version is a git tag. The signed,
-notarized macOS app is sold at [palana.sageframe.net](https://palana.sageframe.net);
-the source builds free at every version.
+## 1.0.0 — 2026-11-22
 
-## v1.0 — 2026-11-15
-
-The first full release. pālana is a native Mac file manager for the machines
-you run yourself: two keyboard-driven panes, each on this Mac or an SSH host,
-using your own `ssh`. Every file and ZFS operation is composed as a plan first.
-You read the real commands, then press Enter.
-
-**Changes since v0.8-beta**
-
-- ⌘1–⌘9 open the first nine favorites in the focused pane, numbered in the
-  favorites panel's order (Global first, then each host). The panel shows each
-  row's number. When the panel holds the keyboard, a number opens the favorite
-  in the pane the panel's destination selector points to.
-- Favorites can be reordered by dragging them in the panel, or with ⌥↑ / ⌥↓ on
-  the row under the cursor. A favorite moves only within its own group (Global
-  or one host), so reordering never changes its scope or host, and the sections
-  keep their order. The ⌘ numbers follow the new order, and ⌘Z undoes a move.
-- Starring the current folder moves from ⌘8 to ⇧⌘8. The shifted 8 is `*`, the
-  favorites key. `8` still stars the highlighted entry.
-- ⌘Q while a transfer runs, or while saved edits are still going back to their
-  server, asks first: Keep Running, Quit When Finished, or Stop and Quit. Quit
-  When Finished waits for the transfer and the queued saves, then quits; if any
-  of them fails or is stopped, pālana stays open with the failure on screen,
-  and saves still waiting stay queued until you dismiss it. Choosing Quit When
-  Finished again over that failure sends the waiting saves, then quits. While a
-  quit waits, nothing new starts: a plan that has not started is set aside, and
-  Enter runs only a save going back, including a send-back retried with
-  "replace by rename".
-- An rsync copy that is stopped part-way keeps what it received in a hidden
-  `.palana-partial` folder beside the destination, never under the file's own
-  name. Running the same copy again resumes from it, sending only what is
-  missing, and removes the folder. The name is reserved: a folder called
-  `.palana-partial` inside a copied selection is not copied, and the plan says
-  so when one is selected. Custom rsync flags that would change this
-  (`--partial`, `--inplace`, `--append`, `-P`, `--whole-file`, `--remote-option`)
-  are refused.
-- **Moves keep metadata where they can.** A move asks rsync for extended
-  attributes and Finder tags (`-X`) and ACLs (`-A`, between hosts of the same OS)
-  when both ends carry them; otherwise the plan names what will not be kept.
-- **A failed move still accounts.** When a move's transfer fails or is
-  cancelled, the run still names every selected source that remains.
-- **Send-back without hard links.** On a destination that cannot make hard links
-  (exFAT, many FUSE mounts, some SMB shares) the safe replace refuses with
-  nothing changed, and the panel offers to replace by rename instead, saying
-  what that risks.
-- **Drag out.** Local files and folders, including marked groups, can be dragged
-  into Finder, a browser, or Mail. Finder drag-out copies; ⌘-drag to move is
-  deferred to [#6](https://github.com/sageframe-no-kaji/palana/issues/6).
-  Remote files and folders still drag between pālana's panes; remote drag-out
-  to other apps is on hold, so copy to a local pane first.
-- Mouse selection follows Finder: Shift-click selects a continuous range,
-  ⌘-click adds or removes individual rows, and a plain click selects only that
-  row. Dragging a selected row keeps the marked group.
-- Pane and folder drops use an AppKit receiver that leaves the native drag
-  animation untouched.
-- Known issue: an intermittent row drag can leave the window ignoring clicks.
-  Tracked in [#4](https://github.com/sageframe-no-kaji/palana/issues/4); the
-  [investigation record](docs/known-issues/drag-freeze.md) keeps the failures,
-  attempted fixes, verification limits, and next diagnostic steps.
-- The signed app is sold at palana.sageframe.net for US $29, including 1.x
-  updates. GitHub releases now carry release notes only; the launch update
-  check reads their tags and links to the site.
-
-**What 1.0 contains**
-
-- **Plans before actions.** Copy, move, delete, rename, create, and touch each
-  compose a plan: the entries and their size, the kind of operation, the source
-  and destination, destination collisions, the transport and how it
-  authenticates, and the exact commands in order. Enter runs it; Esc dismisses
-  it.
-- **Server-to-server transfers.** With rsync 3.1 or later on the source, rsync
-  on the destination, and a forwarded SSH agent, copies and moves between two
-  hosts run host to host. Otherwise copies
-  stream through the Mac with tar. A move across filesystems or hosts uses rsync
-  with `--checksum --remove-source-files`, warns that an interruption may split
-  the selection, and is refused when a required endpoint lacks a supported
-  rsync. The tar fallback is copy-only.
-- **ZFS where ZFS exists.** Dataset boundaries decide whether a move is a rename
-  or a copy with source removal. Whole-dataset copies and moves between ZFS
-  hosts use `zfs send -R | zfs receive -u`. ZFS mode (`Z`) creates, destroys,
-  and renames datasets; creates, destroys, and rolls back snapshots; sets or
-  inherits mountpoints; and mounts and unmounts. Every mutation is a plan.
-- **The field.** `f` shows each host's reachability, capabilities, pools, and
-  datasets from cached, dated facts; `F` opens the host map with mounts. Facts
-  are read only on request.
-- **The shell.** `` ⌘` `` opens an interactive terminal for the focused host in
-  the plan panel.
-- **Preview.** `v` makes the right pane preview the left pane's file: text,
-  images, and PDFs locally, and text, images, PDFs, and SVG files from remote
-  hosts.
-- **Remote editing.** Saved edits to a fetched remote file upload when the
-  remote copy is unchanged, and ask first when it has changed.
-- **And:** drag and drop between panes, from Finder, and into folders;
-  appearance (System, Light, or Dark); one zoom for the whole window
-  (`⌘+` / `⌘−` / `⌘0`); favorites; adding and hiding hosts in Settings; the
-  operations log; and a launch update check that can be turned off.
-
-**Under it**
-
-- PalanaCore, a headless library, holds the logic, at 97.5% line coverage
-  against a 90% floor. The app is a thin surface over it.
-- pālana uses your own `ssh` (your `~/.ssh/config`, keys, agent, and ProxyJump)
-  and has no embedded SSH stack. It runs while the app is open and installs no
-  background process.
-
-Signed with Developer ID, notarized, and stapled. Universal (Apple silicon and
-Intel), macOS 14 or later. Source under GPL-3.0.
+- Press ⌘1 through ⌘9 to open your first nine favorites. Reorder them within their groups by dragging or with ⌥↑ and ⌥↓. Use ⇧⌘8 to star the current folder.
+- If you interrupt an rsync copy, run the same copy again to reuse the data already received. Until it finishes, the incomplete file stays in a hidden `.palana-partial` directory at the destination. Rsync skips directories with that reserved name inside your selection. pālana refuses copy flags that change how interrupted data is kept or reused, including `--partial`, `--inplace`, `--append`, `-P`, `--whole-file`, and `--remote-option`.
+- When you quit during a transfer or upload, choose **Keep Running**, **Quit When Finished**, or **Stop and Quit**. While a quit waits, pālana sets aside unstarted file plans. Enter can still send a saved edit back, including a retry using “replace by rename.” If a transfer fails or stops, the app stays open and holds queued saves until you dismiss the failed plan or choose Quit When Finished again.
+- Before an rsync move, the plan tells you which extended attributes and access permissions the hosts can preserve. Rsync removes each source file after its destination copy matches. If the move stops, check both locations. The panel reports selected source paths that remain.
+- Moving a whole ZFS dataset unmounts its source tree before taking a snapshot. After the receive, pālana checks for writes since the snapshot before it destroys the source.
+- If a remote filesystem cannot create the hard link needed to replace an edited file, you can choose to replace it by rename. A concurrent write between the final check and the rename can be overwritten.
+- Local files and folders can be dragged into Finder, browser upload fields, and Mail. Finder receives a copy even if you hold Command. A drag from a remote pane works only within pālana. To send a remote file to another app, copy it to a local pane first. An intermittent [row-drag freeze](docs/known-issues/drag-freeze.md) remains open.
+- Shift-click selects a range, Command-click adds or removes individual rows, and dragging a selected row keeps the group. AppKit handles drops onto panes and folders.
+- The update check reads GitHub’s latest release tag and links to the product site when a newer build is available.
 
 ## v0.8-beta — progressive moves
 
@@ -120,7 +20,7 @@ Intel), macOS 14 or later. Source under GPL-3.0.
 - The plan warns before enactment that files move progressively and that neither
   location should change during the operation.
 - The release build produces a universal Apple Silicon and Intel application
-  without depending on SwiftPM's broken combined-architecture Metal path.
+  by building each architecture separately and combining the executables.
 - About, Settings, and bug reports identify the build as `0.8.0 beta` while the
   update comparator retains the numeric bundle version.
 
@@ -130,7 +30,6 @@ Signed, notarized, and stapled for macOS 14 or later.
 
 | Tag | What it marked |
 |---|---|
-| v0.8-beta | Progressive content-checked file moves and the repaired universal release build. |
 | v0.7-beta | Feature-complete beta after the whole-codebase safety review. |
 | v0.6 | The v1 polish — universal text-scale, dark mode, drag-into-folders, the preview pane. |
 | v0.5 | The Workbench (ZFS tool, pane mode, mount seam) and the interactive terminal. |
@@ -138,4 +37,4 @@ Signed, notarized, and stapled for macOS 14 or later.
 | v0.4 | Surface UX — favorites, host onboarding, settings, mounts. |
 | v0.3 | The Surface — panes, plan → enact, field view. |
 | v0.2 | PalanaCore — the headless engine complete. |
-| v0.1 | Foundation verified — the spike answered *go*. |
+| v0.1 | The initial prototype established that development could proceed. |

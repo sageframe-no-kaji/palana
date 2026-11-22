@@ -1,19 +1,14 @@
 # pālana v0.8 beta
 
-pālana is a native Mac application for tending filesystems, remote hosts, and
-ZFS infrastructure through a plan-first interface. Every operation shows its
-real commands before Enter enacts it.
+pālana manages files on your Mac and SSH hosts, including hosts that use ZFS. Before a file move begins, you can read the commands and see where the files will go. Press Enter to run the plan.
 
 ## What changed
 
 - Moves across filesystems and hosts now use content-checked rsync, removing each
-  source file only after its destination copy lands.
-- Empty source directories are removed afterward, while retained entries are
-  named instead of hidden.
-- The plan states before enactment that the move is progressive and neither
-  location should change during it.
-- The universal Apple Silicon and Intel build no longer depends on SwiftPM's
-  broken combined-architecture Metal path.
+  source file once its destination copy matches.
+- pālana then removes empty source directories and lists entries that remain.
+- Leave both locations alone during the move. The plan warns that an interruption can leave files split between them.
+- The build script compiles for Apple silicon and Intel separately and combines the executables into one app.
 - About and Settings identify this release as `0.8.0 beta`.
 
 ## Requirements
