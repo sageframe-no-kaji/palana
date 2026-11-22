@@ -58,6 +58,9 @@ release steps it named as NEXT are done.
   gone; `main` is the only worktree.
 
 **NEXT**
+- **Promotion** (owner, 2026-11-22). Nothing has been announced; the product is
+  on sale and the site is live, but no posts have gone out. The beta-era post
+  drafts in `palana-web/BETA-LAUNCH.md` need rewriting for 1.0.
 - No build work is queued. Pick the next ho from the open issues when the
   owner chooses one.
 
