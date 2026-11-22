@@ -75,7 +75,8 @@ struct QuitTouchReplacementTests {
         rig.session.applyQuitChoice(.quitWhenFinished)
         #expect(operation.phase != .ready, "the unstarted Touch was set aside")
         var looks = 0
-        while !rig.session.settleQuitWhenFinished(), looks < 100 {
+        // Stop once the session's own watch has ended (see the quit suite's `settle`).
+        while rig.session.quit.watchTask != nil, !rig.session.settleQuitWhenFinished(), looks < 100 {
             looks += 1
             try await Task.sleep(for: .milliseconds(50))
         }
