@@ -134,6 +134,9 @@ final class OperationLog {
 
     /// Appends one line to the log (trailing newline added).
     func appendLine(_ text: String) {
+        // Open first: opening reads where the file ends, which decides
+        // whether this line needs a break before it.
+        guard openedSink() != nil else { return }
         writeData(((atLineStart ? "" : "\n") + text + "\n").data(using: .utf8))
     }
 
@@ -223,10 +226,27 @@ final class OperationLog {
         }
         do {
             sink = try opener(url)
+            atLineStart = Self.endsLine(url)
         } catch {
             record(.open, error)
         }
         return sink
+    }
+
+    /// Whether the file at `url` is empty or ends with a newline.
+    ///
+    /// Read on every open: a record left by an earlier run — or an
+    /// earlier instance — can end mid-line in raw program output, and the
+    /// next line written must start on its own line (review Q07). A file
+    /// that cannot be read is assumed to end a line.
+    private static func endsLine(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return true }
+        defer { try? handle.close() }
+        guard let end = try? handle.seekToEnd(), end > 0 else { return true }
+        guard (try? handle.seek(toOffset: end - 1)) != nil, let last = try? handle.read(upToCount: 1) else {
+            return true
+        }
+        return last.first == UInt8(ascii: "\n")
     }
 
     private func record(_ stage: Stage, _ error: any Error) {
