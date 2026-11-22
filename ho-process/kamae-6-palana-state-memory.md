@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-11-21
+updated: 2026-11-22
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,65 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-11-22 — 1.0 AND 1.0.1 RELEASED; SITE LIVE WITH PAYHIP
+
+Supersedes the 2026-11-21 block below: the owner tested the build, and the
+release steps it named as NEXT are done.
+
+**COMPLETED**
+- **1.0.0 shipped.** PR #19 (`74be760`, quit-test race) merged. The signed,
+  notarized universal build of `74be760` is on Payhip
+  (`https://payhip.com/b/YZKXE`, US $29 once, all 1.x updates).
+  - `v1.0` tagged on `74be760`, published with notes and no binary.
+  - The beta disk images were removed from the v0.8-beta and v0.4-beta
+    releases. Downloads come only from Payhip; the source stays GPL-3.0.
+- **1.0.1 shipped the same day.** PR #20 (`5b71eb6`): remote panes drop the
+  "remote drag: between panes only" footer, footer hints get a left margin,
+  and the live shell honors `PALANA_SSH_CONFIG`. 297 app tests and 1,245 core
+  tests passed; CI green.
+  - Built from `5b71eb6`, both notarizations accepted, Gatekeeper accepts the
+    app and the disk image. The owner replaced the Payhip file.
+  - `v1.0.1` tagged on `5b71eb6`, GitHub's Latest release, notes in
+    `packaging/release-notes-v1.0.1.md`, no binary. There are no 1.0.0 users
+    yet.
+  - PR #21 (`2126edf`) carries the 1.0.1 changelog and release notes plus
+    another session's doc refresh, rebased onto #20.
+  - Build artifacts are in `dist/`: `palana-1.0.0` and `palana-1.0.1`, `.dmg`
+    and `.zip`.
+- **palana.sageframe.net** (`palana-web`, deployed from `main` at `5400494`):
+  - Payhip Buy button in the hero, the download section and the header. The
+    header now puts the links, theme toggle and Buy on the right, over a
+    hairline.
+  - Hero: a muted, looping demo with no controls (controls return under
+    Reduce Motion), captions as a quiet line below the video, retimed to the
+    footage. A narrated tour sits lower on the page.
+  - Finished videos and narration are in `palana-web/design/video/`.
+  - `/.git/HEAD` and `/.env` return 404 on the live site.
+- **Cleanup.** The fixture VMs are back to their pre-filming state and
+  stopped: `palana` pool re-imported on both, storage-host's SSH port back to 62202,
+  the video prompt, `media` user, sample files and granted ZFS permissions
+  removed. The filming scratch folders (the fake home and the raw takes) are
+  deleted. The `quit-followup-repair` and `palana-footer` worktrees are
+  gone; `main` is the only worktree.
+
+**NEXT**
+- No build work is queued. Pick the next ho from the open issues when the
+  owner chooses one.
+
+**ACTION ITEMS / BLOCKS**
+- Open issues: #1 folder sync, #4 row-drag freeze, #5 no-hard-link hands
+  test, #6 Command-drag moves to Finder, #7 remote drag-out, #8 send-back
+  staging cleanup, #9 move ownership as non-root, #11 rename-commit race,
+  #14 discard kept copies, #17 plan says when a copy resumes.
+- Site decisions (owner, 2026-11-22): the home-page gallery screenshots stay
+  as they are, with no refresh per release. Site copy is plain full
+  sentences.
+
+**PROJECT LIFECYCLE**
+- `production`. 1.0.1 is the current release.
 
 ---
 
