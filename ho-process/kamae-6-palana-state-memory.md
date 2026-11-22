@@ -1,6 +1,6 @@
 ---
 created: 2026-07-09
-updated: 2026-11-19
+updated: 2026-11-21
 status: living
 type: state-memory
 project: palana
@@ -13,6 +13,68 @@ kamae-chain: seed → system-design → readme → ho-overview → hos → **sta
 The fixed handoff surface. Every session and ho closes by updating the
 state-summary block below — verbatim field labels, parseable shape — so the next
 session (and any hook) knows exactly where the build stands. Newest block on top.
+
+---
+
+## State summary — 2026-11-21 — QUIT FOLLOW-UP REVIEW CLOSED AND MERGED; NO TAG UNTIL THE OWNER TESTS THE BUILD
+
+Supersedes the 2026-11-19 block below where they differ: the independent check
+of #15 and #16 it named as NEXT is done, and its repairs are on `main`.
+
+**COMPLETED**
+- **Follow-up review closed** (cycle `palana-quit-followup-2026-11-19`; records
+  in the external review directory under `2026-11-19/palana-quit-followup/`,
+  owner closure in `pass-6/owner-closure.md`).
+  - Six reviewer passes under the owner's "run the cycle until done": Return
+    ×5, then **Pass** with Q01–Q07 resolved.
+  - Owner acceptance is recorded separately: **accepted with named limits**.
+- **PR #18 merged** (`b2a917c`), CI green. The branch is rebased on `55eb13a`,
+  the `.keisaku.json` state file, which went up with it. Three commits:
+  - `ce65453` A stopped copy resumes from **`.palana-partial`** (Q04–Q06). This
+    supersedes `.rsync-partial` in the block below.
+    - Local copies use `--no-whole-file`, so a resume reuses what arrived.
+    - The name is reserved, and a selected `.palana-partial` is skipped and
+      named in the plan.
+    - Operator flags that would change interrupted-file handling are refused
+      on copies, including `--remote-option`.
+  - `712f976` The run record checks its last byte when it opens (Q07).
+  - `a3a7ebf` Quit When Finished waits only for real work (Q01–Q03).
+    - A failure or stop cancels the quit and holds queued saves. Waiting
+      again sends them, then quits once.
+    - Stale watches can't act.
+    - Only a round-trip upload runs while a quit waits. No-op commands change
+      nothing, every real replacement (Touch included) clears a displaced
+      upload's exemption, and an unstarted operator plan is set aside.
+    - The rename-commit retry of a failed send-back runs as that upload.
+- **Verification.** 83 XCTest cases, 295 app tests and 1,245 core tests pass.
+  PalanaCore line coverage is 98.13%; application logic is 70.53%. The
+  reviewers ran the SSH-fixture suites green.
+
+**NEXT**
+- **The owner tests the final build from `main` (`b2a917c`).** No tag until
+  then (owner, 2026-11-21).
+- Then the release steps from the 2026-11-18 block, unchanged, with **tag
+  v1.0 last**.
+
+**ACTION ITEMS / BLOCKS**
+- **No tag** until the owner has tested the final build. No release
+  publication without explicit instruction.
+- **Limits accepted with the follow-up review:**
+  - The no-hard-link failure behind the rename retry was simulated.
+  - GUI/AppKit termination and physical input were not driven by the
+    reviewers.
+  - The ZFS, corpus and no-hard-link opt-in suites were skipped.
+  - With no quit pending, a failure hold lasts until the failed panel is
+    dismissed.
+  - Displaced uploads are not re-queued.
+- **The repair worktree is kept** at `../palana-quit-followup-repair` (branch
+  `quit-followup-repair`, merged). Removing it was not requested.
+- Open: #14 (in-app discard of kept copies) and #17 (the plan says when a copy
+  resumes).
+
+**PROJECT LIFECYCLE**
+- `beta`. The 1.0 source and every review repair are on `main`; the release is
+  not cut.
 
 ---
 
