@@ -63,8 +63,13 @@ release steps it named as NEXT are done.
 
 **NEXT**
 - **Promotion** (owner, 2026-11-22). Nothing has been announced; the product is
-  on sale and the site is live, but no posts have gone out. The beta-era post
-  drafts in `palana-web/BETA-LAUNCH.md` need rewriting for 1.0.
+  on sale and the site is live, but no posts have gone out. Channels:
+  - **Hacker News** (Show HN).
+  - **Reddit**, in the subreddits for self-hosting, homelabs and Mac apps.
+  - **Mac app directories and distributors**: listing sites and catalogs
+    where Mac users find apps.
+  - The beta-era post drafts in `palana-web/BETA-LAUNCH.md` need rewriting
+    for 1.0.
 - No build work is queued. Pick the next ho from the open issues when the
   owner chooses one.
 
