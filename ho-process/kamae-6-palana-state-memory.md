@@ -54,7 +54,11 @@ release steps it named as NEXT are done.
   stopped: `palana` pool re-imported on both, storage-host's SSH port back to 62202,
   the video prompt, `media` user, sample files and granted ZFS permissions
   removed. The filming scratch folders (the fake home and the raw takes) are
-  deleted. The `quit-followup-repair` and `palana-footer` worktrees are
+  deleted. All three Lima VMs (`palana-zfs`, `palana-source-host`, `palana-storage-host`)
+  were then deleted to free disk (owner, 2026-11-22). `scripts/zfs-fixture.sh
+  start` rebuilds `palana-zfs` from stock Ubuntu; source-host and storage-host are clones of
+  it (see `scripts/shots-fixture.sh`), refilled by `shots-fixture.sh seed`.
+  The `quit-followup-repair` and `palana-footer` worktrees are
   gone; `main` is the only worktree.
 
 **NEXT**
