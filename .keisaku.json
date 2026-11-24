@@ -34,7 +34,7 @@
       ],
       "tech_stack": "Swift",
       "created": "2026-05-08",
-      "last_updated": "2026-11-21",
+      "last_updated": "2026-11-22",
       "conceived": "2025-08-01",
       "named": "2026-03-21",
       "short_description": "pālana is a two-pane Mac file manager for the machines you run yourself. Open local folders, mounted drives, or SSH hosts side by side. Before you copy or move a file, you can read the commands and see whether the data will travel directly between hosts or through your Mac.",
@@ -48,7 +48,7 @@
       "availability": "shipped",
       "usage": "me",
       "_keisaku": {
-        "generated_at": "2026-11-22T07:15:28",
+        "generated_at": "2026-11-24T15:19:02",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",
