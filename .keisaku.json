@@ -24,7 +24,7 @@
         "software"
       ],
       "status": "in-development",
-      "repo": "git@github-no-kaji:sageframe-no-kaji/palana.git",
+      "repo": "https://github.com/sageframe-no-kaji/palana",
       "license": "GPL-3.0",
       "deployment": [
         {
@@ -48,7 +48,7 @@
       "availability": "shipped",
       "usage": "me",
       "_keisaku": {
-        "generated_at": "2026-11-24T15:19:02",
+        "generated_at": "2026-11-24T17:07:21",
         "generator_version": "1",
         "sources": {
           "readme": "README.md",
